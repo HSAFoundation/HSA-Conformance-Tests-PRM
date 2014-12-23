@@ -381,6 +381,7 @@ public:
   HSAIL_ASM::DirectiveVariable Variable();
   PointerReg Address(bool flat = false);
 
+  size_t Count() const { return count; }
   size_t TypeSize() const { return ValueTypeSize(vtype); }
   size_t Size() const;
 
@@ -545,7 +546,9 @@ public:
   void Validation();
   void ActualCallArguments(TypedRegList inputs, TypedRegList outputs);
 
-  HSAIL_ASM::Operand Cond();
+  bool IsTrueFor(uint64_t wi);
+
+  HSAIL_ASM::Operand CondOperand();
 
   HSAIL_ASM::Operand EmitIfCond();
   void EmitIfThenStart();
@@ -688,6 +691,7 @@ public:
   virtual emitter::TypedReg Result() { assert(0); return 0; }
   virtual size_t OutputBufferSize() const;
   virtual Value ExpectedResult() const { assert(0); return Value(MV_UINT64, 0); }
+  virtual Value ExpectedResult(uint64_t id, uint64_t pos) const { return ExpectedResult(id); }
   virtual Value ExpectedResult(uint64_t id) const { return ExpectedResult(); }
   virtual Values* ExpectedResults() const;
   virtual void ExpectedResults(Values* result) const;

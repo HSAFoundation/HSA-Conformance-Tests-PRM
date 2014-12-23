@@ -780,12 +780,12 @@ void ECondition::Init()
   }
 }
 
-bool ECondition::ExpectThenPath(uint64_t i)
+bool ECondition::IsTrueFor(uint64_t wi)
 {
   assert(type == COND_BINARY);
   switch (input) {
   case COND_HOST_INPUT:
-    return InputValue(i) != 0;
+    return InputValue(wi) != 0;
   case COND_IMM_PATH0:
     return false;
   case COND_IMM_PATH1:
@@ -794,6 +794,11 @@ bool ECondition::ExpectThenPath(uint64_t i)
   default:
     assert(0); return false;
   }
+}
+
+bool ECondition::ExpectThenPath(uint64_t wi)
+{
+  return IsTrueFor(wi);
 }
 
 void ECondition::KernelArguments()
@@ -873,7 +878,7 @@ TypedReg ECondition::InputData()
   }
 }
 
-Operand ECondition::EmitIfCond()
+Operand ECondition::CondOperand()
 {
   assert(type == COND_BINARY);
   switch (input) {
@@ -891,6 +896,11 @@ Operand ECondition::EmitIfCond()
     return te->Brig()->Wavesize();
   default: assert(0); return Operand();
   }
+}
+
+Operand ECondition::EmitIfCond()
+{
+  return CondOperand();
 }
 
 void ECondition::ActualCallArguments(TypedRegList inputs, TypedRegList outputs)
@@ -1359,7 +1369,9 @@ Values* EmittedTest::ExpectedResults() const
 void EmittedTest::ExpectedResults(Values* result) const
 {
   for (size_t i = 0; i < geometry->GridSize(); ++i) {
-    result->push_back(ExpectedResult(i));
+    for (uint64_t j = 0; j < ResultDim(); ++j) {
+      result->push_back(ExpectedResult(i, j));
+    }
   }
 }
 

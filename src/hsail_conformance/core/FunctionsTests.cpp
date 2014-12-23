@@ -66,7 +66,7 @@ public:
     Test::Init();
     functionArg = function->NewVariable("in", argSpec, false);
     input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, argSpec->VType(), OutputBufferSize());
-    for (unsigned i = 0; i < input->Size(); ++i) { input->AddData(Value(argSpec->VType(), i)); }
+    for (unsigned i = 0; i < input->Count(); ++i) { input->AddData(Value(argSpec->VType(), i)); }
   }
 
   TypedReg Result() {
