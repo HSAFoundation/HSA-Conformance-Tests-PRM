@@ -292,7 +292,12 @@ ol[type=i] {
 <p>A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for <code>add_u32</code> HSAIL instruction: one kernel, two input buffers and one output buffer.</p>
 <p>Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in <a href="#test-details">Test details</a>. For example, the test for abs instruction consists of several tests for <code>f32</code> and <code>f64</code> types.</p>
 <h2 id="building-test-suite">Building test suite</h2>
-<p><em>Information to be added when build is finalized.</em></p>
+<p>HSA PRM Conformance test suite uses <a href="http://www.cmake.org/">CMake</a>. The following dependencies need to be made available before the build:</p>
+<ul>
+<li><code>HSAIL-Tools</code> can be obtained from HSA github repository. <code>HSAIL-Tools-PATH</code> needs to be set to point to it.</li>
+<li>HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. <code>HSA-Runtime-Inc-PATH</code> needs to be set to point to directory with <code>hsa.h</code>. <code>HSA-Runtime-Ext-PATH</code> needs to be set to point to directory with <code>hsa_ext_finalize.h</code>.</li>
+</ul>
+<p>cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.</p>
 <h2 id="running-test-suite">Running test suite</h2>
 <p>The test suite can be invoked as &quot;hc&quot; program that runs on the host.</p>
 <p>To run the suite you should have a dynamic HSA RT libraries with corresponding bitness in the path (e.g. <code>PATH</code> variable for Windows, <code>LD_LIBRARY_PATH</code> - for Linux).</p>

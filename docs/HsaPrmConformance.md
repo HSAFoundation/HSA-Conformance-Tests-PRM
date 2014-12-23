@@ -13,7 +13,12 @@ Note that each test actually expands into several testcases, one for each valid 
 
 ## Building test suite
 
-*Information to be added when build is finalized.*
+HSA PRM Conformance test suite uses [CMake](http://www.cmake.org/). The following dependencies need to be made available before the build:
+
+- `HSAIL-Tools` can be obtained from HSA github repository. `HSAIL-Tools-PATH` needs to be set to point to it.
+- HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. `HSA-Runtime-Inc-PATH` needs to be set to point to directory with `hsa.h`. `HSA-Runtime-Ext-PATH` needs to be set to point to directory with `hsa_ext_finalize.h`.
+
+cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.  
 
 ## Running test suite
 
