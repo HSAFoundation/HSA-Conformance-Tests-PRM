@@ -19,7 +19,7 @@ endif()
 
 if(UNIX)
   set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build_linux)
-  set(LIB-EXT .a)
+  set(LIB_EXT .a)
 else()
   set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/build)
   set(LIB_EXT .lib)
