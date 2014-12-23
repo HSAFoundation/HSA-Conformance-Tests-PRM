@@ -167,25 +167,4 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
   default: assert(false); return BRIG_TYPE_NONE;
   }
 }
-
-
-hexl::Value ValueForType(hexl::ValueType type) {
-  switch (type)
-  {
-  case MV_INT8: return hexl::Value(type, 79);
-  case MV_UINT8: return hexl::Value(type, 185);
-  case MV_INT16: return hexl::Value(type, 8835);
-  case MV_UINT16: return hexl::Value(type, 25219);
-  case MV_INT32: return hexl::Value(type, 1129996931);
-  case MV_UINT32: return hexl::Value(type, 1417437827);
-  case MV_INT64: return hexl::Value(type, 0x5356A94D2AF2AAA);
-  case MV_UINT64: return hexl::Value(type, 0x55452AA55255F643);
-  //case MV_FLOAT16:
-  case MV_FLOAT: return hexl::Value(35164.125f);
-  case MV_DOUBLE: return hexl::Value(8946354132.0625);
-  default: assert(false); return hexl::Value();
-  }
-}
-
-
 }

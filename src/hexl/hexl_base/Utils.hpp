@@ -33,7 +33,6 @@ brig_container_t CreateBrigFromContainer(HSAIL_ASM::BrigContainer* container);
 std::string ExtractTestPath(const std::string& name, unsigned level);
 hexl::ValueType Brig2ValueType(Brig::BrigTypeX type);
 Brig::BrigTypeX Value2BrigType(hexl::ValueType type);
-hexl::Value ValueForType(hexl::ValueType type);
 
 
 template <>
