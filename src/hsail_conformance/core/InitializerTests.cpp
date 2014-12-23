@@ -27,7 +27,7 @@ using namespace hexl::emitter;
 
 namespace hsail_conformance {
 
-  Endianness PlatformEndianness(void) {
+  EndiannessConfig PlatformEndianness(void) {
     union {
       uint32_t i;
       char c[4];

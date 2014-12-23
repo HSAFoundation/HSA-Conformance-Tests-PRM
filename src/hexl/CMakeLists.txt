@@ -1,0 +1,5 @@
+add_subdirectory(hexl_base)
+add_subdirectory(hexl_emitter)
+add_subdirectory(hexl_hsaruntime)
+add_subdirectory(hexl_lib)
+add_subdirectory(hexl_exe)

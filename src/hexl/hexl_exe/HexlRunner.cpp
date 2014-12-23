@@ -15,12 +15,14 @@
 */
 
 #include "BasicHexlTests.hpp"
-#include "LuaHexlTest.hpp"
 #include "Stats.hpp"
 #include "HexlTestRunner.hpp"
 #include "HexlTestList.hpp"
 #include "HexlTestFactory.hpp"
+#ifdef ENABLE_HEXL_LUA
+#include "LuaHexlTest.hpp"
 #include "LuaTestFactory.hpp"
+#endif // ENABLE_HEXL_LUA
 #include "Options.hpp"
 #include "HexlResource.hpp"
 #include "HexlLib.hpp"
@@ -54,7 +56,11 @@ HexlRunner::HexlRunner(int argc_, char **argv_)
   : argc(argc_),
     argv(argv_),
     context(new Context()),
+#ifdef ENABLE_HEXL_LUA
     testFactory(new LuaTestFactory())
+#else // ENABLE_HEXL_LUA
+    testFactory(new DefaultTestFactory())
+#endif // ENABLE_HEXL_LUA
 {
 }
 
