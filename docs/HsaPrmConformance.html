@@ -1,0 +1,904 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+  <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  <meta http-equiv="Content-Style-Type" content="text/css" />
+  <meta name="generator" content="pandoc" />
+  <title></title>
+  <style type="text/css">code{white-space: pre;}</style>
+  <style>
+@import url(http://fonts.googleapis.com/css?family=Open+Sans:400italic,700italic,400,700);
+html {
+    color:#000;
+    background:#FFF;
+}
+
+body,div,dl,dt,dd,ul,ol,li,h1,h2,h3,h4,h5,h6,pre,code,form,fieldset,legend,input,textarea,p,blockquote,th,td {
+    margin:0;
+    padding:0;
+}
+
+table {
+    border-spacing:0;
+    font-size:inherit;
+    font:100%;
+    max-width:100%;
+    background-color:transparent;
+    border:1px solid #DDD;
+    border-left:0;
+    border-collapse:collapsed;
+    -webkit-border-radius:4px;
+    -moz-border-radius:4px;
+    border-radius:4px;
+}
+
+fieldset,img {
+    border:0;
+}
+
+address,caption,cite,code,dfn,em,strong,th,var {
+    font-style:normal;
+    font-weight:400;
+}
+
+ol,ul {
+    list-style:none;
+}
+
+caption,th {
+    text-align:left;
+}
+
+h1,h2,h3,h4,h5,h6 {
+    font-size:100%;
+    font-weight:400;
+    color:#20639b;
+    margin:1em 0;
+}
+
+q:before,q:after {
+    content:'';
+}
+
+abbr,acronym {
+    border:0;
+    font-variant:normal;
+    border-bottom:1px dotted #000;
+    cursor:help;
+}
+
+sup {
+    vertical-align:text-top;
+}
+
+sub {
+    vertical-align:text-bottom;
+}
+
+input,textarea,select {
+    font-family:inherit;
+    font-weight:inherit;
+    font-size:100%;
+}
+
+legend {
+    color:#000;
+}
+
+h1,h2,h3,h4,h5,h6,strong {
+    font-weight:700;
+}
+
+em {
+    font-style:italic;
+}
+
+blockquote,ul,ol,dl {
+    margin:1em;
+}
+
+ol,ul,dl {
+    margin-left:2em;
+}
+
+ol {
+    list-style:decimal outside;
+}
+
+ul {
+    list-style:disc outside;
+}
+
+dl dd {
+    margin-left:1em;
+}
+
+th,td {
+    line-height:1.125em;
+    text-align:left;
+    vertical-align:top;
+    border-top:1px solid #DDD;
+    border-left:1px solid #DDD;
+    padding:.5em;
+}
+
+th {
+    font-weight:700;
+    text-align:center;
+    color:#20639b;
+}
+
+table thead:first-child tr:first-child th,table tbody:first-child tr:first-child th,table tbody:first-child tr:first-child td {
+    border-top:0;
+}
+
+table thead:first-child tr:first-child th:first-child,table tbody:first-child tr:first-child td:first-child {
+    -webkit-border-radius:4px 0 0 0;
+    -moz-border-radius:4px 0 0;
+    border-radius:4px 0 0 0;
+}
+
+table thead:first-child tr:first-child th:last-child,table tbody:first-child tr:first-child td:last-child {
+    -webkit-border-radius:0 4px 0 0;
+    -moz-border-radius:0 4px 0 0;
+    border-radius:0 4px 0 0;
+}
+
+table thead:last-child tr:last-child th:first-child,table tbody:last-child tr:last-child td:first-child {
+    -webkit-border-radius:0 0 0 4px;
+    -moz-border-radius:0 0 0 4px;
+    border-radius:0 0 0 4px;
+}
+
+table thead:last-child tr:last-child th:last-child,table tbody:last-child tr:last-child td:last-child {
+    -webkit-border-radius:0 0 4px 0;
+    -moz-border-radius:0 0 4px;
+    border-radius:0 0 4px 0;
+}
+
+table tbody tr:nth-child(odd) td,table tbody tr:nth-child(odd) th {
+    background-color:#f9f9f9;
+}
+
+caption {
+    margin-bottom:.5em;
+    text-align:center;
+}
+
+p,fieldset,table,pre {
+    margin-top:.5em;
+    margin-bottom:.5em;
+}
+
+body {
+    font:16px/1.4 "Helvetica Neue", Helvetica, "Open Sans", Arial, sans-serif;
+    color:#333;
+    max-width:960px;
+    margin:0 auto;
+}
+
+pre,code,kbd,samp,tt {
+    font-family:monospace;
+}
+
+h1 {
+    font-size:200%;
+    border-bottom:2px dotted #ddd;
+}
+
+a,a:visited,code {
+    color:#f06024;
+}
+
+h2 {
+    font-size:160%;
+}
+
+h3 {
+    font-size:120%;
+}
+
+h4 {
+    font-size:110%;
+}
+
+h5 {
+    font-size:95%;
+}
+
+h6 {
+    font-size:90%;
+    color:#999;
+}
+
+dl {
+    margin:0 0 1.125em;
+}
+
+dt {
+    font-weight:700;
+    line-height:1.125em;
+}
+
+dd {
+    margin-left:1em;
+    line-height:1.125em;
+}
+
+pre,blockquote {
+    border:1px solid #ddd;
+    background-color:#f1f1f1;
+    -webkit-border-radius:4px;
+    -moz-border-radius:4px;
+    border-radius:4px;
+    padding:10px;
+}
+
+blockquote {
+    margin:1em 2.5em;
+}
+
+code {
+    color:#000000;
+}
+
+img {
+    max-width:100%;
+}
+
+ol[type=1] {
+    list-style-type:decimal;
+}
+
+ol[type=a] {
+    list-style-type:lower-alpha;
+}
+
+ol[type=A] {
+    list-style-type:upper-alpha;
+}
+
+ol[type=I] {
+    list-style-type:upper-roman;
+}
+
+ol[type=i] {
+    list-style-type:lower-roman;
+}
+
+  </style>
+</head>
+<body>
+<div id="TOC">
+<ul>
+<li><a href="#hsa-prm-conformance-manual">HSA PRM Conformance Manual</a><ul>
+<li><a href="#overview">Overview</a></li>
+<li><a href="#building-test-suite">Building test suite</a></li>
+<li><a href="#running-test-suite">Running test suite</a></li>
+<li><a href="#command-line-options">Command line options</a></li>
+<li><a href="#interpreting-results">Interpreting results</a></li>
+<li><a href="#test-names">Test names</a></li>
+<li><a href="#test-parameters">Test parameters</a></li>
+<li><a href="#test-details">Test details</a></li>
+<li><a href="#test-suite-internals">Test suite internals</a></li>
+</ul></li>
+</ul>
+</div>
+<h1 id="hsa-prm-conformance-manual">HSA PRM Conformance Manual</h1>
+<p>HSA PRM Specification revision: 1.0 Provisional (2014-06-05)</p>
+<p>Test suite revision: 2014-12-12 (CL 1104888)</p>
+<h2 id="overview">Overview</h2>
+<p>HSA PRM Conformance test suite is used to validate an implementation of Heterogeneous System Architecture Intermediate Language (HSAIL) virtual machine and language as described in &quot;HSA Programmer's Reference Manual&quot;. The focus is on verification of ISA produced by HSAIL Finalizer and functionality of kernels on the agent. HSAIL Linking extension is used to finalize test programs while HSA Core Runtime is used to set up and invoke test kernels and to provide certain functionality for test code on the host (for some tests).</p>
+<p>A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for <code>add_u32</code> HSAIL instruction: one kernel, two input buffers and one output buffer.</p>
+<p>Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in <a href="#test-details">Test details</a>. For example, the test for abs instruction consists of several tests for <code>f32</code> and <code>f64</code> types.</p>
+<h2 id="building-test-suite">Building test suite</h2>
+<p><em>Information to be added when build is finalized.</em></p>
+<h2 id="running-test-suite">Running test suite</h2>
+<p>The test suite can be invoked as &quot;hc&quot; program that runs on the host.</p>
+<p>To run the suite you should have a dynamic HSA RT libraries with corresponding bitness in the path (e.g. <code>PATH</code> variable for Windows, <code>LD_LIBRARY_PATH</code> - for Linux).</p>
+<p>A simple scenario of running all the tests on Linux 64-bit may look like:</p>
+<pre><code>export LD_LIBRARY_PATH=&quot;$HSA_RT_LIB:$LD_LIBRARY_PATH&quot;
+bin/lnx64a/hc -tests prm/ 
+              -exclude amdhsa.exclude 
+              -runner hrunner 
+              -verbose 
+              -testlog results_linux64.log</code></pre>
+<p>where <code>$HSA_RT_LIB</code> points to the HSA RT libraries, e.g.<br /><code>/compiler/dist/Obsidian/dist/linux/debug.hsa_foundation/lib/x86_64</code>.</p>
+<p>For convenience the package also contains Linux and Windows batch files, which take path to the HSA Runtime binaries and run the whole suite.</p>
+<p>The following example demonstrates how to run these scripts on Linux. The results grouped by sub-suites will be displayed during the run along with overall statistics, per test results can be found in results_linux64.log:</p>
+<pre><code>$ ./run.sh /compiler/dist/Obsidian/dist/linux/debug.hsa_foundation/
+
+prm/arithmetic/intfp/abs
+  Passed:    56   Failed:    0   Error:    0   NA:    0   Total:    56
+prm/arithmetic/intfp/add
+  Passed:   255   Failed:    0   Error:    0   NA:    0   Total:   255
+...
+prm/special/misc/laneid
+  Passed:    24   Failed:    0   Error:    0   NA:    0   Total:    24
+
+Testrun
+  Passed: 13729   Failed:    0   Error:    0   NA:    0   Total: 13729</code></pre>
+<p>Using <code>-test</code> it is possible to specify a smaller set of tests, while <code>-exclude</code> allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).</p>
+<h2 id="command-line-options">Command line options</h2>
+<p>The &quot;hc&quot; supports the following command line options:</p>
+<ul>
+<li><code>-tests TestSet</code>: prefix of test to run, e.g. <code>-tests prm/</code> to run all the tests;</li>
+<li><code>-exclude File</code>: file containing a list of tests to be excluded from testing;</li>
+<li><code>-verbose</code>: enables detailed test output in a log file;</li>
+<li><code>-testlog File</code>: name for a log file, the default name is test.log;</li>
+<li><code>-runner hrunner</code>: a mode of test grouping. By default, tests are not grouped. See also option <code>-testloglevel</code> which also affects grouping.</li>
+<li><code>-testloglevel</code>: test grouping depth, the default is 4. See also <code>-runner</code> option;</li>
+<li><code>-dump</code>: dump HSAIL and BRIG test sources for each test under corresponding folder (prm/...);</li>
+<li><code>-results</code>: path to folder which will contain dumped test sources (prm/...), the default is the current folder.</li>
+</ul>
+<h2 id="interpreting-results">Interpreting results</h2>
+<p><em>TODO</em>: add example of how to interpret test output (both standard and detailed).</p>
+<h2 id="test-names">Test names</h2>
+<p>Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (<code>/</code>). An example of test name is <code>prm/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND</code>. The following scheme for the words is used (starting from the beginning of test name):</p>
+<ul>
+<li><code>prm</code>: Test suite</li>
+<li><code>special</code>: Chapter in PRM specification</li>
+<li><code>dispatchpacket</code>: Section in PRM specification</li>
+<li><code>dim</code>: Instruction or group of instructions in PRM specification</li>
+<li><code>basic</code>: Name of test/scenario</li>
+<li><code>kernel_1_200x1x1_64x1x1_ND</code>: Name/identifier of testcase within test. For <code>dim/basic</code> test, it is the testcase for dim instruction in kernel body with dispatch dimension <code>1</code>, grid sizes <code>200x1x1</code>, workgroup sizes <code>64x1x1</code> and no control directives.</li>
+</ul>
+<p>The naming scheme for testcases depends on test. For many tests, it contains text representation of parameters described in <a href="#test-details">Test details</a>, separated by underscore (_). For some tests, simple counter is used. Refer to documentation below for the list of parameters.</p>
+<p>A prefix of test names identifies a collection of tests that have names starting with this prefix. For example, <code>prm/special/dispatchpacket/</code> are the tests for dispatch packet operations.</p>
+<h2 id="test-parameters">Test parameters</h2>
+<h3 id="code-location-location-of-validated-code">Code Location: location of validated code</h3>
+<ul>
+<li>Used sets:</li>
+<li><code>All</code>: kernel, function</li>
+<li><code>Kernel</code>: just kernel</li>
+</ul>
+<h3 id="grid-geometry-geometry-of-a-dispatch">Grid Geometry: geometry of a dispatch</h3>
+<ul>
+<li>Consists of:
+<ul>
+<li>Number of dimensions</li>
+<li>Grid sizes for <code>x</code>, <code>y</code>, <code>z</code>. Unused dimensions have value <code>1</code>.</li>
+<li>Workgroup sizes for <code>x</code>, <code>y</code>, <code>z</code>. Unused dimensions have value <code>1</code>.</li>
+</ul></li>
+<li>Used sets:
+<ul>
+<li>All: various geometries, includes samples of partial workgroups/workitems, corner cases</li>
+<li><code>DimensionSet</code>: representative geometry for each dimension</li>
+<li><code>OneGroupSet</code>: one group, one dimension geometry</li>
+<li><code>DefaultPlusNGroupSet</code>: set of geometry with 1 WorkItem, OneGroupSet, and 1 dim &amp; N groups</li>
+<li><code>Boundary32Set</code>: samples of geometry with sizes <code>&gt; 2^32</code><br /></li>
+<li><code>Boundary24Set</code>: samples of geometry with sizes <code>&gt; 2^24</code></li>
+<li><code>DegenerateSet</code>: samples of degenerated geometry when a dimension is used, but has size <code>1</code></li>
+</ul></li>
+</ul>
+<h3 id="control-directives-control-directives-in-brig-modules">Control Directives: control directives in BRIG modules</h3>
+<ul>
+<li>Control directives may be controlled with the following settings:</li>
+<li>Location: location of control directives (function, kernel or module).</li>
+<li>List of enabled control directives.</li>
+<li>A test shall use all possible combinations of enabled control directives. For example, if two directives are eabled - <code>requiredgridsize</code> and <code>requiredworkgroupsize</code>, the test shall use the following combinations:
+<ul>
+<li><code>[]</code> (no control directives)</li>
+<li><code>[ requiredgridsize ]</code></li>
+<li><code>[ requiredworkgroupsize ]</code></li>
+<li><code>[ requiredgridsize, requiredworkgroupsize ]</code></li>
+</ul></li>
+<li>Used sets:
+<ul>
+<li><code>DimensionSet</code>: enabled directive is <code>requireddim</code> (directives affecting dimensions)</li>
+<li><code>GeometrySet</code>: enabled directives are <code>requireddim</code>, <code>requiredgridsize</code>, <code>requiredworkgroupsize</code> (directives affecting grid geometry)</li>
+<li><code>GridSizeSet</code>: enabled directives are <code>requireddim</code>, <code>requiredgridsize</code> (directives affecting grid size)</li>
+<li><code>DegenerateSet</code>: enabled directives are <code>requiredgridsize</code>, <code>requiredworkgroupsize</code> (directives affecting computation of operations that can be simplified for degenerate set)</li>
+</ul></li>
+</ul>
+<h3 id="segment-memory-segment">Segment: memory segment</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>Atomic</code>: flat, global, group</li>
+<li><code>HasFlatAddress</code>: global, group, private (segments which may be accessed via flat address)</li>
+<li><code>MemFence</code>: global, group</li>
+<li><code>Variable</code>: global, readonly, kernarg, group, private, spill, arg</li>
+<li><code>All</code>: all standard segments</li>
+</ul></li>
+</ul>
+<h3 id="operand-kind-kind-of-instruction-operand">Operand Kind: kind of instruction operand</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: register, immediate, WAVESIZE</li>
+</ul></li>
+</ul>
+<h3 id="dst-type-type-of-destination-operand">Dst Type: type of destination operand</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all supported types</li>
+</ul></li>
+</ul>
+<h3 id="src-type-type-of-source-operands">Src Type: type of source operands</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all supported types</li>
+</ul></li>
+</ul>
+<h3 id="ftz-flush-to-zero-modifier">Ftz: flush to zero modifier</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="rounding-rounding-modifier">Rounding: rounding modifier</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all supported values</li>
+</ul></li>
+</ul>
+<h3 id="packed-controls-controls-for-processing-packed-operands">Packed Controls: controls for processing packed operands</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all supported values</li>
+</ul></li>
+</ul>
+<h3 id="compare-operation-operation-used-by-cmp-instruction">Compare Operation: operation used by cmp instruction</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all operations</li>
+</ul></li>
+</ul>
+<h3 id="atomic-operation-operation-used-by-atomic-instructions">Atomic Operation: operation used by atomic instructions</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all operations</li>
+</ul></li>
+</ul>
+<h3 id="align-alignment">Align: alignment</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="const-constant-memory-access">Const: constant memory access</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="equiv-equivalence-class">Equiv: equivalence class</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="memory-order">Memory Order</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: rlx, screl, scacq, scar</li>
+<li><code>SignalAll</code>: rlx, screl, scacq, scar</li>
+<li><code>SignalWait</code>: rlx, screl, scacq</li>
+<li><code>MemFence</code>: screl, scacq, scar</li>
+</ul></li>
+</ul>
+<h3 id="memory-scope">Memory Scope</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: wi, wv, wg, cmp, sys</li>
+<li><code>Global</code>: wv, wg, cmp, sys</li>
+<li><code>Group</code>: wv, wg</li>
+<li><code>Image</code>: wi, wv, wg, cmp, sys</li>
+</ul></li>
+</ul>
+<h3 id="width-width-modifier">Width: width modifier</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>UpToWavesizeAndAll</code>: 1, 2, 4, 8, 16, 32, WAVESIZE, All</li>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="test-data-data-for-testing-arithmetic-and-memory-operations">Test Data: data for testing arithmetic and memory operations</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>Standard</code>:
+<ul>
+<li>Includes the following values:
+<ul>
+<li>regular values;</li>
+<li>boundary values (e.g. -128 and 127 for s8);</li>
+<li>special values (NaNs, infinities, subnormals, etc);</li>
+<li>values producing regular, boundary or special values as a result.<br /></li>
+</ul></li>
+<li>Does not include the following values:
+<ul>
+<li>values which signal exceptions;</li>
+<li>values which result in an undefined behavior.</li>
+</ul></li>
+</ul></li>
+</ul></li>
+</ul>
+<h2 id="test-details">Test details</h2>
+<h3 id="arithmetic-arithmetic-operations-chapter-5">arithmetic: Arithmetic operations [chapter 5]</h3>
+<h4 id="intfp-integerfloating-point-arithmetic-operations-chapters-5.2-and-5.11">intfp: Integer/floating point arithmetic operations [chapters 5.2 and 5.11]</h4>
+<ul>
+<li>Instructions: abs, add, borrow, carry, div, max, min, mul, mulhi, neg, rem, sub, ceil, floor, fma, fract, rint, sqrt, trunc</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Ftz: All</li>
+<li>Rounding: All</li>
+<li>Packed controls: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="intopt-integer-optimization-operations-chapter-5.3">intopt: Integer optimization operations [chapter 5.3]</h4>
+<ul>
+<li>Instructions: mad</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="int-24-bit-integer-optimization-operations-chapter-5.4">24int: 24-bit integer optimization operations [chapter 5.4]</h4>
+<ul>
+<li>Instructions: mad24, mad24hi, mul24, mul24hi</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="intshift-integer-shift-operations-chapter-5.5">intshift: Integer shift operations [chapter 5.5]</h4>
+<ul>
+<li>Instructions: shl, shr</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="indbit-individual-bit-operations-chapter-5.6">indbit: Individual bit operations [chapter 5.6]</h4>
+<ul>
+<li>Instructions: and, or, xor, not, popcount</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="bitstr-bit-string-operations-chapter-5.7">bitstr: Bit string operations [chapter 5.7]</h4>
+<ul>
+<li>Instructions: bitextract, bitinsert, bitask, bitrev, bitselect, firstbit, lastbit</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="copymove-copy-and-move-operations-chapter-5.8">copymove: Copy and move operations [chapter 5.8]</h4>
+<ul>
+<li>Instructions: combine, expand, mov</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="packed-packet-data-operations-chapter-5.9">packed: Packet data operations [chapter 5.9]</h4>
+<ul>
+<li>Instructions: shuffle, unpacklo, unpackhi, pack, unpack</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="bitcmov-bit-conditional-move-operation-chapter-5.10">bitcmov: Bit conditional move operation [chapter 5.10]</h4>
+<ul>
+<li>Instructions: cmov</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="fpbit-floating-point-bit-operations-chapter-5.12">fpbit: Floating-point bit operations [chapter 5.12]</h4>
+<ul>
+<li>Instructions: class, copysign</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Packed controls: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="nativefp-native-floating-point-operations-chapter-5.13">nativefp: Native floating-point operations [chapter 5.13]</h4>
+<ul>
+<li>Instructions: nsin, ncos, nlog2, nexp2, nsqrt, nrsqrt, nrcp, nfma</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="multimedia-multimedia-operations-chapter-5.14">multimedia: Multimedia operations [chapter 5.14]</h4>
+<ul>
+<li>Instructions: bitalign, bytealign, lerp, packcvt, unpackcvt, sad, sadhi</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="compare-compare-operation-chapter-5.17">compare: Compare operation [chapter 5.17]</h4>
+<ul>
+<li>Instructions: cmp</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Compare Operation: All</li>
+<li>Ftz: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="conversion-conversion-operation-chapter-5.18">conversion: Conversion operation [chapter 5.18]</h4>
+<ul>
+<li>Instructions: cvt</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Src Type: All</li>
+<li>Rounding: All</li>
+<li>Ftz: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="address-address-operations-chapters-5-and-11">address: Address operations [chapters 5 and 11]</h4>
+<h5 id="null-verify-result-of-address-operation-for-null-address-obtained-with-nullptr-chapter-11.4">null: Verify result of address operation for null address obtained with nullptr [chapter 11.4]</h5>
+<ul>
+<li>Instructions: stof, ftos, segmentp</li>
+<li>Segment: HasFlatAddress</li>
+</ul>
+<h5 id="identity-verify-converted-address-accesses-same-location-as-address-before-conversion-chapter-5.16">identity: Verify converted address accesses same location as address before conversion [chapter 5.16]</h5>
+<ul>
+<li>Instructions: stof, ftos</li>
+<li>Segment: HasFlatAddress</li>
+<li>segmentStore: use segment store/flat load and not vice versa</li>
+<li>nonull: use nonull in the instruction</li>
+</ul>
+<h5 id="variable-verify-result-of-segmentp-operation-for-flat-address-pointing-into-a-variable-chapter-5.15">variable: Verify result of segmentp operation for flat address pointing into a variable [chapter 5.15]</h5>
+<ul>
+<li>Instructions: segmentp</li>
+<li>Segment: HasFlatAddress</li>
+<li>nonull: use nonull in the instruction</li>
+</ul>
+<h5 id="ldaalignment-verify-result-of-lda-operation-is-divisible-by-alignment-chapter-5.8">lda/alignment: Verify result of lda operation is divisible by alignment [chapter 5.8]</h5>
+<ul>
+<li>Instructions: lda</li>
+<li>Segment: HasFlatAddress</li>
+<li>nonull: use nonull in the instruction</li>
+</ul>
+<h3 id="memory-memory-operations-chapter-6">memory: Memory operations [chapter 6]</h3>
+<h4 id="memoryordinary-ordinary-memory-operations-chapters-6.3-and-6.4">memory/ordinary: Ordinary memory operations [chapters 6.3 and 6.4]</h4>
+<ul>
+<li>Instructions: ld, st</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Segment: All</li>
+<li>Align: All</li>
+<li>Const: All</li>
+<li>Equiv: All</li>
+<li>Width: All</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="memoryatomic-atomic-and-atomicnoret-memory-operations-chapter-6.6-and-6.7">memory/atomic: Atomic and atomicnoret memory operations [chapter 6.6 and 6.7]</h4>
+<ul>
+<li>Instructions: atomic, atomicnoret</li>
+<li>Operand Kind: All</li>
+<li>Dst Type: All</li>
+<li>Atomic operation: All</li>
+<li>Segment: Atomic</li>
+<li>Memory Order: All</li>
+<li>Memory Scope: All</li>
+<li>Equiv: all</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+<li>Test Data: Standard</li>
+</ul>
+<h4 id="memorysignal-notification-operations-chapter-6.8">memory/signal: Notification operations [chapter 6.8]</h4>
+<ul>
+<li>Instructions: signal, signalnoret</li>
+<li>Memory Order: SignalAll, SignalWait</li>
+</ul>
+<h4 id="memfence-memory-fence-operation-chapter-6.9">memfence: Memory fence operation [chapter 6.9]</h4>
+<ul>
+<li>Instructions: memfence</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Segment: Memfence</li>
+<li>Memory Order: Memfence</li>
+<li>Memory Scope: Global, Group, Image</li>
+</ul>
+<h3 id="image-operations-chapter-7">Image operations [chapter 7]</h3>
+<p><em>Tests to be implemented.</em></p>
+<h3 id="branch-operations-chapter-8">Branch operations [chapter 8]</h3>
+<h5 id="basicbr-basic-unconditional-jump-verify-expected-result-by-setting-value-of-hsail-register-chapter-8">basic/br: Basic unconditional jump, verify expected result by setting value of HSAIL register [chapter 8]</h5>
+<ul>
+<li>Instructions: br</li>
+<li>Code Location: All</li>
+</ul>
+<h5 id="basic-basic-conditional-jump-switch-conditional-jump-chapter-8">basic: Basic conditional jump, switch conditional jump [chapter 8]</h5>
+<ul>
+<li>Instructions: cbr, sbr</li>
+<li>Grid Geometry: DefaultPlusNGroupSet</li>
+<li>Width: UpToWavesizeAndAll</li>
+<li>Operand Kind: All</li>
+</ul>
+<h5 id="nested-nested-control-flow-if-then-else-chapter-8">nested: Nested control flow (if-then-else) [chapter 8]</h5>
+<ul>
+<li>Instructions: cbr, br</li>
+<li>Grid Geometry: DefaultPlusNGroupSet</li>
+<li>Width: UpToWavesizeAndAll</li>
+<li>Operand Kind: All</li>
+</ul>
+<h5 id="sand-sor-short-circuit-control-flow-chapter-8">sand, sor: Short-circuit control flow [chapter 8]</h5>
+<ul>
+<li>Instructions: cbr</li>
+<li>Grid Geometry: DefaultPlusNGroupSet</li>
+<li>Width: UpToWavesizeAndAll</li>
+<li>Operand Kind: All</li>
+</ul>
+<h3 id="parallel-synchronization-and-communication-operations-chapter-9">Parallel Synchronization and communication operations [chapter 9]</h3>
+<h4 id="barrier-barrier-operations-chapter-9.1">barrier: Barrier operations [chapter 9.1]</h4>
+<p><em>More tests to be implemented.</em></p>
+<h4 id="fine-grain-barrier-operations-chapter-9.2">Fine-grain barrier operations [chapter 9.2]</h4>
+<p><em>Tests to be implemented.</em></p>
+<h4 id="crosslane-cross-lane-operations-chapter-9.4">crosslane: Cross-lane operations [chapter 9.4]</h4>
+<p><em>More tests to be implemented.</em></p>
+<h3 id="function-operations-chapter-10">Function operations [chapter 10]</h3>
+<h3 id="direct-call-operation-chapter-10.6">Direct call operation [chapter 10.6]</h3>
+<h5 id="arguments-verify-passing-argumentreturning-result-of-given-type-chapter-10.2">arguments: Verify passing argument/returning result of given type [chapter 10.2]</h5>
+<ul>
+<li>Types: all BRIG types</li>
+</ul>
+<p><em>More tests to be implemented.</em></p>
+<h3 id="special-special-operations-chapter-11">special: Special operations [chapter 11]</h3>
+<h4 id="dispatchpacket-dispatch-packet-operations-chapter-11.1">dispatchpacket: Dispatch packet operations [chapter 11.1]</h4>
+<h5 id="basic-verify-result-of-dispatch-packet-operation">basic: Verify result of dispatch packet operation</h5>
+<ul>
+<li>Instructions: currentworkgroupsize, dim, gridgroups, gridsize, workgroupid, workgroupsize, workitemabsid, workitemflatabsid, workitemflatid, workitemid</li>
+<li>Code Location: All</li>
+<li>Grid Geometry: DimensionSet for dim, All for others</li>
+<li>Control Directives: DimensionSet for dim, GeometrySet for others</li>
+<li>Type: u32/u64 for gridsize, workitemflatabsid, workitemflatid, u32 for others</li>
+</ul>
+<h5 id="boundary32-verify-result-of-dispatch-packet-operation-for-workitems-with-workitemflatabsid-around-232-boundary">boundary32: Verify result of dispatch packet operation for workitems with workitemflatabsid around 2^32 boundary</h5>
+<ul>
+<li>Instructions: gridsize, workitemflatabsid, workitemflatid</li>
+<li>Code Location: All</li>
+<li>Grid Geometry: Boundary32Set</li>
+<li>Control Directives: GridSizeSet</li>
+<li>Type: u32/u64</li>
+</ul>
+<h5 id="boundary24-verify-result-of-dispatch-packet-operation-for-possible-mul24-finalizer-optimizations-around-224-boundary">boundary24: Verify result of dispatch packet operation for possible mul24 finalizer optimizations around 2^24 boundary</h5>
+<ul>
+<li>Instructions: workitemabsid, workitemflatabsid, workitemflatid</li>
+<li>Code Location: All</li>
+<li>Grid Geometry: Boundary24Set</li>
+<li>Control Directives: Boundary24Set</li>
+<li>Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for others</li>
+</ul>
+<h5 id="degenerate-verify-result-of-dispatch-packet-operation-for-used-dimension-that-dispatched-with-size-1">degenerate: Verify result of dispatch packet operation for used dimension that dispatched with size 1</h5>
+<ul>
+<li>Instructions: currentworkgroupsize, gridgroups, gridsize, workgroupid, workgroupsize, workitemabsid, workitemflatid, workitemid</li>
+<li>Code Location: All</li>
+<li>Grid Geometry: DegenerateSet</li>
+<li>Control Directives: DegenerateSet</li>
+<li>Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for others</li>
+</ul>
+<h5 id="packetidbasic-compare-result-of-packetid-operation-with-value-on-the-host">packetid/basic: Compare result of packetid operation with value on the host</h5>
+<h5 id="packetcompletionsigbasic-compare-result-of-packetcompletionsig-operation-with-value-on-the-host">packetcompletionsig/basic: Compare result of packetcompletionsig operation with value on the host</h5>
+<h4 id="exception-operations-chapter-11.2">Exception operations [chapter 11.2]</h4>
+<p><em>Tests to be implemented.</em></p>
+<h4 id="usermodequeue-user-mode-queue-operations-chapter-11.3">usermodequeue: User mode queue operations [chapter 11.3]</h4>
+<h5 id="basic-verify-result-of-queueid-queueptr-ldk-operation-for-a-dispatch-of-a-kernel">basic: Verify result of queueid, queueptr, ldk operation for a dispatch of a kernel</h5>
+<ul>
+<li>Instructions: queueid, queueptr, ldk</li>
+<li>Code Location: All</li>
+</ul>
+<h5 id="basicindex-verify-result-of-queue-index-operation-on-a-user-mode-queue">basicindex: Verify result of queue index operation on a user mode queue</h5>
+<ul>
+<li>Instructions: ldqueuereadindex, ldqueuewriteindex, addqueuewriteindex, casqueuewriteindex, stqueuereadindex, stqueuewriteindex</li>
+<li>Code Location: All</li>
+<li>User mode queue type: separate, user-created</li>
+</ul>
+<h4 id="misc-miscellaneous-operations-chapter-11.4">misc: Miscellaneous operations [chapter 11.4]</h4>
+<h5 id="kernargbaseptridentity-verify-accessing-memory-at-kernargbaseptr-address">kernargbaseptr/identity: Verify accessing memory at kernargbaseptr address</h5>
+<ul>
+<li>Code Location: All</li>
+</ul>
+<h5 id="kernargbaseptralignment-verify-alignment-of-kernargbaseptr-depending-on-alignment-of-kernel-arguments">kernargbaseptr/alignment: Verify alignment of kernargbaseptr depending on alignment of kernel arguments</h5>
+<ul>
+<li>Code Location: All</li>
+</ul>
+<h5 id="nop-verify-kernel-with-nop-instruction">nop: Verify kernel with nop instruction</h5>
+<ul>
+<li>Code Location: All</li>
+</ul>
+<h5 id="cuidlessmax-verify-that-result-of-cuid-operation-is-always-less-than-maxcuid">cuid/lessmax: Verify that result of cuid operation is always less than maxcuid</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h5 id="cuididentity-verify-that-result-of-cuid-operation-is-same-across-workgroup">cuid/identity: Verify that result of cuid operation is same across workgroup</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h5 id="maxcuididentity-verify-that-result-of-maxcuid-operation-is-same-across-grid">maxcuid/identity: Verify that result of maxcuid operation is same across grid</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h5 id="clockmonotonic-verify-that-result-of-clock-operation-increases-monotonically">clock/monotonic: Verify that result of clock operation increases monotonically</h5>
+<h5 id="waveidlessmax-verify-that-result-of-waveid-operation-is-always-less-than-maxwaveid">waveid/lessmax: Verify that result of waveid operation is always less than maxwaveid</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h5 id="waveididentity-verify-that-result-of-waveid-operation-is-same-across-wavefront">waveid/identity: Verify that result of waveid operation is same across wavefront</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h5 id="maxwaveididentity-verify-that-result-of-maxwaveid-operation-is-same-across-grid">maxwaveid/identity: Verify that result of maxwaveid operation is same across grid</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h5 id="laneidlessmax-verify-that-result-of-laneid-operation-is-always-less-than-wavesize">laneid/lessmax: Verify that result of laneid operation is always less than wavesize</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h5 id="laneidsequence-verify-that-result-of-laneid-operation-corresponds-to-work-items-assigned-to-lanes-in-work-item-flattened-absolute-id-order">laneid/sequence: Verify that result of laneid operation corresponds to work-items assigned to lanes in work-item flattened absolute ID order</h5>
+<ul>
+<li>Code Locations: All</li>
+<li>Grid Geometry: All</li>
+</ul>
+<h3 id="exceptions-chapter-12">Exceptions: [chapter 12]</h3>
+<p><em>Tests to be implemented.</em></p>
+<h3 id="directives-chapter-13">Directives: [chapter 13]</h3>
+<p><em>Tests to be implemented.</em></p>
+<h3 id="version-chapter-14">Version: [chapter 14]</h3>
+<p><em>Tests to be implemented.</em></p>
+<h3 id="libraries-chapter-15">Libraries: [chapter 15]</h3>
+<p><em>Tests to be implemented.</em></p>
+<h3 id="profiles-chapter-16">Profiles: [chapter 16]</h3>
+<p><em>Configuration/tests to be implemented.</em></p>
+<h3 id="limits-appendix-a">Limits: [appendix A]</h3>
+<p><em>Tests to be implemented.</em></p>
+<h2 id="test-suite-internals">Test suite internals</h2>
+<p><em>Information to be added when the suite is finalized.</em></p>
+</body>
+</html>

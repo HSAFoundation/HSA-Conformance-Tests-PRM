@@ -1,0 +1,6 @@
+HSA PRM Conformance test suite
+==============================
+
+HSA PRM Conformance test suite is used to vaidate an implementation of
+Heterogeneous System Architecture Intermediate Language (HSAIL) as 
+described in "HSA Programmer's Reference Manual".

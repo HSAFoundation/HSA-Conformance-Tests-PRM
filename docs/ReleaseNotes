@@ -1,0 +1,40 @@
+Release Notes
+HSA PRM Conformance Test Suite
+
+Test suite revision: 2014-12-12 (CL 1104888)
+
+System Requirements:
+ * Ubuntu 14.04 64 bit
+ * HSA hardware
+ * HSAIL Runtime software stack (KFD, HSA Runtime and Finalizer)
+
+HSA PRM version: 1.0 Provisional. Covered chapters: 
+ * 5. "Arithmetic Operations"
+ * 6. "Memory Operations"
+ * 8. "Branch Operations"
+ * 9. "Parallel Synchronization and Communication Operations" (partially)
+ * 10. "Function Operations" (partially)
+ * 11. "Special Operations"
+
+This version of HSA PRM Conformance Test Suite was tested with
+ * AMD HSA Runtime/Finalizer 64-bit built from Stg CL1104553
+ * KFD Stg build a2e3fff
+ * Thunk Stg build 32d6cc9
+ * Kaveri APU
+ * Ubuntu 14.04 64 bit
+ * exclude list "-exclude amdhsa.exclude"
+
+Known issues:
+ * AMD HSA Runtime on Linux 32 bit asserts (EPR 409618). Tests will not run
+ * AMD HSA Runtime on Windows 32 and 64 bit uses deprecated non-AQL path. Tests 
+   will fail randomly 
+ * Tests for f16 instructions are not implemented as there's no HW support in KV
+ * Some tests will fail or hang due to AMD HSA implemenation bugs. Exclude list
+   "amdhsa.include" is provided
+ * No makefiles in the source bundle. The test suite currently can be built in
+   perforce repository only
+
+Installation: simply unpack binary package to a directory.
+
+For more information about running test suite and details for the tests
+please refer to "HSA PRM Conformance Manual" document.
