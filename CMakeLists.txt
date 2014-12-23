@@ -7,6 +7,7 @@ set (HSA-Runtime-Inc-PATH "NOT_DEFINED" CACHE PATH "docstring")
 set (HSA-Runtime-Ext-PATH "NOT_DEFINED" CACHE PATH "docstring")
 
 add_definitions( -DENABLE_HEXL_HSARUNTIME=1 )
+add_definitions( -DENABLE_HEXL_HSAILTESTGEN=1 )
 
 #set (CMAKE_BINARY_DIR "bin/")
 #set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
@@ -34,5 +35,6 @@ include_directories(${HSAIL-Tools-PATH}/libHSAIL/libHSAIL ${HSAIL-Tools-PATH}/li
 include_directories(${HSA-Runtime-Inc-PATH})
 include_directories(${HSA-Runtime-Ext-PATH})
 
+add_subdirectory(src/libTestGen)
 add_subdirectory(src/hexl)
 add_subdirectory(src/hsail_conformance)

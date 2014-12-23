@@ -7,6 +7,7 @@ BarrierTests.cpp  BranchTests.hpp   CrossLaneTests.hpp  FunctionsTests.cpp      
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_base)
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_hsaruntime)
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_emitter)
+include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_HSAILTestGen)
 include_directories(${CMAKE_SOURCE_DIR}/src/hsail_conformance/common)
 target_link_libraries(hc_core hexl_emitter)
 target_link_libraries(hc_core hc_common)
