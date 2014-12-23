@@ -32,8 +32,8 @@ namespace hexl {
   namespace emitter {
 
     enum Endianness {
-      LITTLE_ENDIAN,
-      BIG_ENDIAN
+      ENDIANNESS_LITTLE,
+      ENDIANNESS_BIG
     };
 
     class CoreConfig {
@@ -61,7 +61,7 @@ namespace hexl {
       Brig::BrigMachineModel8_t Model() const { return model; }
       Brig::BrigProfile8_t Profile() const { return profile; }
       uint32_t Wavesize() const { return wavesize; }
-      Endianness Endianness() { return LITTLE_ENDIAN; }
+      Endianness Endianness() { return ENDIANNESS_LITTLE; }
 
       bool IsLarge() const {
         switch (model) {

@@ -34,9 +34,9 @@ namespace hsail_conformance {
     } bin = {0x01020304};
 
     if (bin.c[0] == 1) { 
-      return BIG_ENDIAN;
+      return ENDIANNESS_BIG;
     } else {
-      return LITTLE_ENDIAN;
+      return ENDIANNESS_LITTLE;
     }
   }
 
