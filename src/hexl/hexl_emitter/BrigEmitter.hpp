@@ -239,10 +239,13 @@ public:
   TypedReg EmitPacketId();
   TypedReg EmitWorkgroupId(uint32_t dim);
   TypedReg EmitWorkgroupSize(uint32_t dim);
-  TypedReg EmitWorkitemAbsId(bool large);
+  TypedReg EmitWorkitemAbsId(uint32_t dim, bool large);
   TypedReg EmitWorkitemFlatAbsId(bool large);
   TypedReg EmitWorkitemFlatId();
   TypedReg EmitWorkitemId(uint32_t dim);
+
+  // Cached (once per kernel) geometry properties.
+  TypedReg WorkitemFlatAbsId(bool large);
 
   // Miscallaneous operations
   void EmitCuid(TypedReg dest);

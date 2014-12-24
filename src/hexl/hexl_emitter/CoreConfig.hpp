@@ -83,9 +83,9 @@ namespace hexl {
       class GridsConfig : public ConfigBase {
       private:
         hexl::VectorSequence<uint32_t> dimensions;
-        hexl::GridGeometry defaultGeometry;
-        hexl::Sequence<hexl::Grid>* defaultGeometrySet;
-        hexl::VectorSequence<hexl::Grid> *all, *degenerate, *dimension, *boundary24, *boundary32, *severalwaves;
+        hexl::GridGeometry defaultGeometry, trivialGeometry;
+        hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet;
+        hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32, *severalwaves;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -93,9 +93,11 @@ namespace hexl {
         hexl::Sequence<uint32_t>* Dimensions() { return &dimensions; }
 
         hexl::Grid DefaultGeometry() { return &defaultGeometry; }
+        hexl::Grid TrivialGeometry() { return &trivialGeometry; }
 
         hexl::Sequence<hexl::Grid>* DefaultGeometrySet() { return defaultGeometrySet; }
-        hexl::Sequence<hexl::Grid>* All() { return all; }
+        hexl::Sequence<hexl::Grid>* TrivialGeometrySet() { return trivialGeometrySet; }
+        hexl::Sequence<hexl::Grid>* SimpleSet() { return simple; }
         hexl::Sequence<hexl::Grid>* DegenerateSet() { return degenerate; }
         hexl::Sequence<hexl::Grid>* DimensionSet() { return dimension; }
         hexl::Sequence<hexl::Grid>* Boundary32Set() { return boundary32; }

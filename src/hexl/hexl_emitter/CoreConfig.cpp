@@ -45,9 +45,11 @@ CoreConfig::CoreConfig(
 
 CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    defaultGeometry(1, 1, 1, 1, 1, 1, 1),
+    defaultGeometry(3, 16, 4, 2, 8, 4, 2),
+    trivialGeometry(1, 1, 1, 1, 1, 1, 1),
     defaultGeometrySet(NEWA OneValueSequence<Grid>(&defaultGeometry)),
-    all(NEWA hexl::VectorSequence<hexl::Grid>()),
+    trivialGeometrySet(NEWA OneValueSequence<Grid>(&trivialGeometry)),
+    simple(NEWA hexl::VectorSequence<hexl::Grid>()),
     degenerate(NEWA hexl::VectorSequence<hexl::Grid>()),
     dimension(NEWA hexl::VectorSequence<hexl::Grid>()),
     boundary24(NEWA hexl::VectorSequence<hexl::Grid>()),
@@ -57,12 +59,19 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   dimensions.Add(0);
   dimensions.Add(1);
   dimensions.Add(2);
-  all->Add(NEWA GridGeometry(1,  256,  1,   1,  64,  1,   1));
-  all->Add(NEWA GridGeometry(1,  200,  1,   1,  64,  1,   1));
-  all->Add(NEWA GridGeometry(2,  32,   8,   1,  8,   4,   1));
-  all->Add(NEWA GridGeometry(2,  30,   7,   1,  8,   4,   1));
-  all->Add(NEWA GridGeometry(3,  4,    8,  16,  4,   2,   8));
-  all->Add(NEWA GridGeometry(3,  3,    5,  11,  4,   2,   8));
+  // Representative set of grid geometries for each dimensions:
+  // * Standard geometry when grid size and workgroup size is power of two.
+  // * Geometry with grid size not multiple of workgroup size.
+  // * Non-power-of-two workgroup sizes.
+  simple->Add(NEWA GridGeometry(1,  256,  1,   1,  64,  1,   1));
+  simple->Add(NEWA GridGeometry(1,  200,  1,   1,  32,  1,   1));
+  simple->Add(NEWA GridGeometry(1,  42,   1,   1,  11,  1,   1));
+  simple->Add(NEWA GridGeometry(2,  64,   8,   1,  16,  4,   1));
+  simple->Add(NEWA GridGeometry(2,  30,   7,   1,  8,   4,   1));
+  simple->Add(NEWA GridGeometry(2,  10,   4,   1,  4,   3,   1));
+  simple->Add(NEWA GridGeometry(3,  4,    8,  16,  4,   2,   8));
+  simple->Add(NEWA GridGeometry(3,  3,    5,  11,  4,   2,   8));
+  simple->Add(NEWA GridGeometry(3,  5,    7,  12,  3,   5,   7));
   degenerate->Add(NEWA GridGeometry(1,  1,  1,   1,  64,  1,   1));
   degenerate->Add(NEWA GridGeometry(2,  200,  1,   1,  64,  1,   1));
   degenerate->Add(NEWA GridGeometry(3,  30,  7,   1,  8,  4,   1));
@@ -70,17 +79,17 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   dimension->Add(NEWA GridGeometry(1,  200,  1,   1,  64,  1,   1));
   dimension->Add(NEWA GridGeometry(2,  30,   7,   1,  8,   4,   1));
   dimension->Add(NEWA GridGeometry(3,  3,    5,  11,  4,   2,   8));
-  boundary24->Add(NEWA GridGeometry(1,  0x1000040,          1,          1,  64,  1,   1));
-  boundary24->Add(NEWA GridGeometry(2,   0x800020,          2,          1,  64,  1,   1));
-  boundary24->Add(NEWA GridGeometry(2,          2,   0x800020,          1,  64,  1,   1));
-  boundary24->Add(NEWA GridGeometry(3,   0x400020,          2,          2,  64,  1,   1));
-  boundary24->Add(NEWA GridGeometry(3,          2,   0x400020,          2,  64,  1,   1));
-  boundary24->Add(NEWA GridGeometry(3,          2,          2,   0x400020,  64,  1,   1));
-  boundary32->Add(NEWA GridGeometry(2, 0x80000040,          2,          1,  64,  1,   1));
-  boundary32->Add(NEWA GridGeometry(2,          2, 0x80000040,          1,  64,  1,   1));
-  boundary32->Add(NEWA GridGeometry(3, 0x40000020,          2,          2,  64,  1,   1));
-  boundary32->Add(NEWA GridGeometry(3,          2, 0x40000020,          2,  64,  1,   1));
-  boundary32->Add(NEWA GridGeometry(3,          2,          2, 0x40000020,  64,  1,   1));
+  boundary24->Add(NEWA GridGeometry(1,  0x1000040,          1,          1, 256,   1,   1));
+  boundary24->Add(NEWA GridGeometry(2,   0x800020,          2,          1, 256,   1,   1));
+  boundary24->Add(NEWA GridGeometry(2,          2,   0x800020,          1,   1, 256,   1));
+  boundary24->Add(NEWA GridGeometry(3,   0x400020,          2,          2, 256,   1,   1));
+  boundary24->Add(NEWA GridGeometry(3,          2,   0x400020,          2,   1, 256,   1));
+  boundary24->Add(NEWA GridGeometry(3,          2,          2,   0x400020,   1,   1, 256));
+  boundary32->Add(NEWA GridGeometry(2, 0x80000040,          2,          1, 256,   1,   1));
+  boundary32->Add(NEWA GridGeometry(2,          2, 0x80000040,          1,   1, 256,   1));
+  boundary32->Add(NEWA GridGeometry(3, 0x40000020,          2,          2, 256,   1,   1));
+  boundary32->Add(NEWA GridGeometry(3,          2, 0x40000020,          2,   1, 256,   1));
+  boundary32->Add(NEWA GridGeometry(3,          2,          2, 0x40000020,   1,   1, 256));
   severalwaves->Add(NEWA GridGeometry(1,  256,  1,   1,  cc->Wavesize(),  1,   1));
 }
 

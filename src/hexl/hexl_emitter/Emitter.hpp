@@ -643,6 +643,7 @@ public:
 
   virtual void Test();
   virtual void Init();
+  virtual void GeometryInit();
 
   virtual void Programs();
   virtual void Program();
@@ -666,6 +667,7 @@ public:
   virtual void KernelDirectives();
   virtual void KernelVariables();
   virtual void KernelInit();
+  virtual emitter::TypedReg KernelResult();
   virtual void KernelCode();
 
   virtual void SetupDispatch(DispatchSetup* dispatch);

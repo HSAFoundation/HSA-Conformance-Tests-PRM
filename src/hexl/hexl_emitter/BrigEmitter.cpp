@@ -472,7 +472,6 @@ OperandAddress BrigEmitter::Address(DirectiveVariable v, int64_t offset)
 void BrigEmitter::EmitBufferIndex(PointerReg dst, BrigType16_t type, TypedReg index, size_t count)
 {
   count = std::max((unsigned) count, (unsigned) 1);
-  bool large = dst->TypeSizeBits() == 64;
   uint32_t factor = (uint32_t) count * (uint32_t) getBrigTypeNumBits(type) / 8;
   if (factor == 1) {
     EmitMov(dst, index);
@@ -1131,22 +1130,29 @@ void BrigEmitter::EmitActiveLaneShuffle(TypedReg dest, TypedReg src, TypedReg la
 
 TypedReg BrigEmitter::EmitWorkitemFlatAbsId(bool large)
 {
+  TypedReg dest = AddTReg(large ? BRIG_TYPE_U64 : BRIG_TYPE_U32);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_WORKITEMFLATABSID, dest->Type());
+  inst.operands() = Operands(dest->Reg());
+  return dest;
+}
+
+TypedReg BrigEmitter::WorkitemFlatAbsId(bool large)
+{
   unsigned i = large ? 1 : 0;
   if (!workitemflatabsid[i]) {
-    workitemflatabsid[i] = AddTReg(large ? BRIG_TYPE_U64 : BRIG_TYPE_U32);
-	  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_WORKITEMFLATABSID, workitemflatabsid[i]->Type());
-	  inst.operands() = Operands(workitemflatabsid[i]->Reg());
+    workitemflatabsid[i] = EmitWorkitemFlatAbsId(large);
   }
   return workitemflatabsid[i];
 }
 
-TypedReg BrigEmitter::EmitWorkitemAbsId(bool large)
+
+TypedReg BrigEmitter::EmitWorkitemAbsId(uint32_t dim, bool large)
 {
   unsigned i = large ? 1 : 0;
   if (!workitemabsid[i]) {
     workitemabsid[large] = AddTReg(large ? BRIG_TYPE_U64 : BRIG_TYPE_U32);
     InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_WORKITEMABSID, workitemabsid[i]->Type());
-    inst.operands() = Operands(workitemabsid[i]->Reg(), brigantine.createImmed((uint32_t) 0, BRIG_TYPE_U32));
+    inst.operands() = Operands(workitemabsid[i]->Reg(), brigantine.createImmed(dim, BRIG_TYPE_U32));
   }
   return workitemabsid[i];
 }
@@ -1341,7 +1347,7 @@ TypedReg BrigEmitter::EmitWorkgroupId(uint32_t dim) {
 
 TypedReg BrigEmitter::EmitWorkgroupSize(uint32_t dim) {
   TypedReg result = AddTReg(BRIG_TYPE_U32);
-  InstBasic inst = Brigantine().addInst<InstBasic>(BRIG_OPCODE_GRIDSIZE, BRIG_TYPE_U32);
+  InstBasic inst = Brigantine().addInst<InstBasic>(BRIG_OPCODE_WORKGROUPSIZE, BRIG_TYPE_U32);
   inst.operands() = Operands(result->Reg(), Immed(BRIG_TYPE_U32, dim));
   return result;
 }

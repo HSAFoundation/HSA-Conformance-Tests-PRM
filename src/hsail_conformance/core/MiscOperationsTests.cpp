@@ -408,7 +408,6 @@ public:
     be.EmitCmp(reg_c->Reg(), cnt, be.Immed(cnt->Type(), GetCycles()), BRIG_COMPARE_GE);
     //cbr c0, @until
     be.EmitCbr(reg_c, s_label_until);
-    PointerReg addrReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
     TypedReg data = input->AddDataReg();
     // Load input
     input->EmitLoadData(data, cnt);
@@ -897,20 +896,20 @@ void MiscOperationsTests::Iterate(TestSpecIterator& it)
   
   TestForEach<NopTest>(ap, it, "misc/nop", CodeLocations());
   
-  TestForEach<ClockMonotonicTest>(ap, it, "misc/clock/monotonic", CodeLocations(), cc->Grids().All());
+  TestForEach<ClockMonotonicTest>(ap, it, "misc/clock/monotonic", CodeLocations(), cc->Grids().SimpleSet());
 
-  TestForEach<CuidLessMaxTest>(ap, it, "misc/cuid/lessmax", CodeLocations(), cc->Grids().All());
-  TestForEach<CuidIdentityTest>(ap, it, "misc/cuid/identity", CodeLocations(), cc->Grids().All());
+  TestForEach<CuidLessMaxTest>(ap, it, "misc/cuid/lessmax", CodeLocations(), cc->Grids().SimpleSet());
+  TestForEach<CuidIdentityTest>(ap, it, "misc/cuid/identity", CodeLocations(), cc->Grids().SimpleSet());
   
-  TestForEach<MaxcuidIdentityTest>(ap, it, "misc/maxcuid/identity", CodeLocations(), cc->Grids().All());
+  TestForEach<MaxcuidIdentityTest>(ap, it, "misc/maxcuid/identity", CodeLocations(), cc->Grids().SimpleSet());
 
-  TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().All());  
-  TestForEach<WaveidIdentityTest>(ap, it, "misc/waveid/identity", CodeLocations(), cc->Grids().All());
+  TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().SimpleSet());  
+  TestForEach<WaveidIdentityTest>(ap, it, "misc/waveid/identity", CodeLocations(), cc->Grids().SimpleSet());
 
-  TestForEach<MaxwaveidIdentityTest>(ap, it, "misc/maxwaveid/identity", CodeLocations(), cc->Grids().All());
+  TestForEach<MaxwaveidIdentityTest>(ap, it, "misc/maxwaveid/identity", CodeLocations(), cc->Grids().SimpleSet());
 
-  TestForEach<LaneidLessWavesizeTest>(ap, it, "misc/laneid/lessmax", CodeLocations(), cc->Grids().All());
-  TestForEach<LaneidSequenceTest>(ap, it, "misc/laneid/sequence", CodeLocations(), cc->Grids().All());
+  TestForEach<LaneidLessWavesizeTest>(ap, it, "misc/laneid/lessmax", CodeLocations(), cc->Grids().SimpleSet());
+  TestForEach<LaneidSequenceTest>(ap, it, "misc/laneid/sequence", CodeLocations(), cc->Grids().SimpleSet());
 }
 
 }

@@ -1017,7 +1017,6 @@ unsigned ECondition::ExpectedSwitchPath(uint64_t i)
 uint32_t ECondition::InputValue(uint64_t wi, BrigWidth width)
 {
   if (width == BRIG_WIDTH_NONE) { width = this->width; }
-  Dim point = Geometry()->Point(wi);
   uint32_t ewidth = 0;
   switch (width) {
     case BRIG_WIDTH_1:  ewidth = 1; break;
@@ -1130,7 +1129,7 @@ void EmittedTest::Test()
 void EmittedTest::Init()
 {
   cc = hexl::emitter::CoreConfig::Get(context.get());
-  if (!geometry) { geometry = cc->Grids().DefaultGeometry(); }
+  GeometryInit();
   te->InitialContext()->Put("geometry", const_cast<GridGeometry*>(geometry));
   kernel = te->NewKernel("test_kernel");
   output = kernel->NewBuffer("output", emitter::HOST_RESULT_BUFFER, ResultValueType(), OutputBufferSize());
@@ -1138,6 +1137,11 @@ void EmittedTest::Init()
     function = te->NewFunction("test_function");
     functionResult = function->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), emitter::FUNCTION, BRIG_ALIGNMENT_NONE, ResultDim(), false, true);
   }
+}
+
+void EmittedTest::GeometryInit()
+{
+  if (!geometry) { geometry = cc->Grids().DefaultGeometry(); }
 }
 
 void EmittedTest::Programs()
@@ -1244,28 +1248,31 @@ void EmittedTest::KernelInit()
   kernel->KernelInit();
 }
 
-void EmittedTest::KernelCode()
+emitter::TypedReg EmittedTest::KernelResult()
 {
   switch (codeLocation) {
   case emitter::KERNEL:
-    {
-      emitter::TypedReg result = Result();
-      output->EmitStoreData(result);
-      break;
-    }
+      return Result();
+
   case emitter::FUNCTION:
     {
       emitter::TypedRegList kernArgInRegs = te->Brig()->AddTRegList(), kernArgOutRegs = te->Brig()->AddTRegList();
       functionResultReg = te->Brig()->AddTReg(ResultType(), ResultCount());
       ActualCallArguments(kernArgInRegs, kernArgOutRegs);
       te->Brig()->EmitCallSeq(function->Directive(), kernArgInRegs, kernArgOutRegs);
-      output->EmitStoreData(functionResultReg);
-      break;
+      return functionResultReg;
     }
   default:
     assert(0);
-    break;
+    return 0;
   }
+}
+
+void EmittedTest::KernelCode()
+{
+  emitter::TypedReg kernelResult = KernelResult();
+  assert(kernelResult);
+  output->EmitStoreData(kernelResult);
 }
 
 void EmittedTest::ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
@@ -1369,7 +1376,7 @@ Values* EmittedTest::ExpectedResults() const
 void EmittedTest::ExpectedResults(Values* result) const
 {
   for (size_t i = 0; i < geometry->GridSize(); ++i) {
-    for (uint64_t j = 0; j < ResultDim(); ++j) {
+    for (uint64_t j = 0; j < ResultCount(); ++j) {
       result->push_back(ExpectedResult(i, j));
     }
   }

@@ -55,11 +55,11 @@ uint64_t GridGeometry::WorkitemAbsId(Dim point, uint16_t dim) const
 {
   switch(dim) {
   case 0:
-    return point[X] %  gridSize[X];
+    return point.get64(0) % gridSize.get64(0);
   case 1:
-    return dim < nDim ? point[Y] % gridSize[Y] : 0;
+    return dim < nDim ? point.get64(1) % gridSize.get64(1) : 0;
   case 2:
-    return dim < nDim ? point[Z] % gridSize[Z] : 0;
+    return dim < nDim ? point.get64(2) % gridSize.get64(2) : 0;
   default:
     assert(false);
   }
@@ -152,9 +152,9 @@ uint32_t GridGeometry::CurrentWorkgroupSize(Dim point, uint16_t dim) const
 
 Dim GridGeometry::Point(uint64_t flatabsid) const
 {
-  uint64_t z = flatabsid / (gridSize.get(0) * gridSize.get(1));
-  uint64_t y = (flatabsid - z * (gridSize.get(0) * gridSize.get(1))) / gridSize.get(0);
-  uint64_t x = flatabsid - z * (gridSize.get(0) * gridSize.get(1)) - y * gridSize.get(0);
+  uint64_t z = flatabsid / (gridSize.get64(0) * gridSize.get64(1));
+  uint64_t y = (flatabsid - z * (gridSize.get64(0) * gridSize.get64(1))) / gridSize.get64(0);
+  uint64_t x = flatabsid - z * (gridSize.get64(0) * gridSize.get64(1)) - y * gridSize.get64(0);
   return Dim(x, y, z);
 }
 

@@ -195,23 +195,35 @@ public:
 };
 
 class WorkitemAbsIdTest : public DispatchPacketDimTest  {
+private:
+  bool dest64;
+
 public:
   WorkitemAbsIdTest(Location codeLocation,
     Grid geometry, unsigned testDim,
-    ControlDirectives directives)
-    : DispatchPacketDimTest(codeLocation, geometry, testDim, directives) { }
+    ControlDirectives directives, bool dest64_)
+    : DispatchPacketDimTest(codeLocation, geometry, testDim, directives),
+      dest64(dest64_) { }
+
+  void Name(std::ostream& out) const {
+    DispatchPacketDimTest::Name(out);
+    out << "_" << (dest64  ? "64" : "32");
+  }
+
+  BrigTypeX ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
 
   void ExpectedResults(Values* result) const {
+    ValueType type = ResultValueType();
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
       for(uint16_t y = 0; y < geometry->GridSize(1); y++)
         for(uint16_t x = 0; x < geometry->GridSize(0); x++) {
           Dim point(x,y,z);
-          result->push_back(Value(MV_UINT32, geometry->WorkitemAbsId(point, testDim)));
+          result->push_back(Value(type, geometry->WorkitemAbsId(point, testDim)));
         }
   }
 
   TypedReg Result() {
-    return be.EmitWorkitemAbsId(false);
+    return be.EmitWorkitemAbsId(testDim, dest64);
   }
 };
 
@@ -334,7 +346,7 @@ public:
   }
 
   void KernelCode() {
-    TypedReg result64 = be.EmitWorkitemFlatAbsId(true);
+    TypedReg result64 = be.WorkitemFlatAbsId(true);
     //Store condition
     TypedReg reg_c = be.AddTReg(BRIG_TYPE_B1);
     //cmp_ge c0, s0, n
@@ -351,18 +363,10 @@ public:
     TypedReg index = be.AddTReg(BRIG_TYPE_U64);
     //sub s1, s0, n
     be.EmitArith(BRIG_OPCODE_SUB, index, result64, boundary);  
-    //store result
-    PointerReg addrReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-     //ld_kernarg_align
-    be.EmitLoad(output->Variable().segment(), addrReg, be.Address(output->Variable()));
-    //mul_u64
-    be.EmitArith(BRIG_OPCODE_MUL, index, index, be.Immed(BRIG_TYPE_U64, dest64 ? 8 : 4));
-    //add_u64
-    be.EmitArith(BRIG_OPCODE_ADD, addrReg, addrReg, index->Reg());
     //insert workitemXXXid instruction
-    TypedReg result = Result();
-    //st_global_align
-    be.EmitStore(result, addrReg, 0, false);
+    TypedReg result = KernelResult();
+    //store result
+    output->EmitStoreData(result, index);
     //@endif:
     be.EmitLabel(endif);
   }
@@ -416,7 +420,7 @@ public:
   }
   
   TypedReg Result() {
-    return be.EmitWorkitemAbsId(ResultType() == BRIG_TYPE_U64 ? true : false);
+    return be.EmitWorkitemAbsId(testDim, ResultType() == BRIG_TYPE_U64 ? true : false);
   }
 };
 
@@ -479,42 +483,43 @@ void DispatchPacketOperationsTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<CurrentWorkgroupSizeTest>(ap, it, "dispatchpacket/currentworkgroupsize/basic", CodeLocations(), cc->Grids().All(), cc->Grids().Dimensions(), cc->Directives().GridGroupRelatedSets());
+  TestForEach<CurrentWorkgroupSizeTest>(ap, it, "dispatchpacket/currentworkgroupsize/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().GridGroupRelatedSets());
   TestForEach<CurrentWorkgroupSizeTest>(ap, it, "dispatchpacket/currentworkgroupsize/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets());
 
   TestForEach<DimensionTest>(ap, it, "dispatchpacket/dim/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Directives().DimensionRelatedSets());
 
-  TestForEach<GridGroupsTest>(ap, it, "dispatchpacket/gridgroups/basic", CodeLocations(), cc->Grids().All(), cc->Grids().Dimensions(), cc->Directives().GridGroupRelatedSets());
+  TestForEach<GridGroupsTest>(ap, it, "dispatchpacket/gridgroups/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().GridGroupRelatedSets());
   TestForEach<GridGroupsTest>(ap, it, "dispatchpacket/gridgroups/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets());
 
-  TestForEach<GridSizeTest>(ap, it, "dispatchpacket/gridsize/basic", CodeLocations(), cc->Grids().All(), cc->Grids().Dimensions(), cc->Directives().GridSizeRelatedSets());
+  TestForEach<GridSizeTest>(ap, it, "dispatchpacket/gridsize/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().GridSizeRelatedSets());
   //TestForEach<GridSizeBoundaryTest>(ap, it, "dispatchpacket/gridsize/boundary32", CodeLocations(), cc->Grids().Boundary32Set(), cc->Directives().GridSizeRelatedSets(), cc->Grids().Dimensions(), Bools::All());
 
-  TestForEach<WorkgroupIdTest>(ap, it, "dispatchpacket/workgroupid/basic", CodeLocations(), cc->Grids().All(), cc->Grids().Dimensions(), cc->Directives().DimensionRelatedSets());
+  TestForEach<WorkgroupIdTest>(ap, it, "dispatchpacket/workgroupid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().DimensionRelatedSets());
   TestForEach<WorkgroupIdTest>(ap, it, "dispatchpacket/workgroupid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets());
 
-  TestForEach<WorkgroupSizeTest>(ap, it, "dispatchpacket/workgroupsize/basic", CodeLocations(), cc->Grids().All(), cc->Grids().Dimensions(), cc->Directives().GridGroupRelatedSets());
+  TestForEach<WorkgroupSizeTest>(ap, it, "dispatchpacket/workgroupsize/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().GridGroupRelatedSets());
   TestForEach<WorkgroupSizeTest>(ap, it, "dispatchpacket/workgroupsize/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets());
 
-  TestForEach<WorkitemAbsIdTest>(ap, it, "dispatchpacket/workitemabsid/basic", CodeLocations(), cc->Grids().All(), cc->Grids().Dimensions(), cc->Directives().WorkitemAbsIdRelatedSets());
-  TestForEach<WorkitemAbsIdTest>(ap, it, "dispatchpacket/workitemabsid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets());
+  TestForEach<WorkitemAbsIdTest>(ap, it, "dispatchpacket/workitemabsid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().WorkitemAbsIdRelatedSets(), Bools::All());
+  TestForEach<WorkitemAbsIdTest>(ap, it, "dispatchpacket/workitemabsid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets(), Bools::All());
+  TestForEach<WorkitemAbsIdBoundaryTest>(ap, it, "dispatchpacket/workitemabsid/boundary32", CodeLocations(), cc->Grids().Boundary32Set(), cc->Directives().WorkitemAbsIdRelatedSets(), cc->Grids().Dimensions(), Bools::All());
   TestForEach<WorkitemAbsIdBoundaryTest>(ap, it, "dispatchpacket/workitemabsid/boundary24", CodeLocations(), cc->Grids().Boundary24Set(), cc->Directives().Boundary24WorkitemAbsIdRelatedSets(), cc->Grids().Dimensions(), Bools::All());
 
-  TestForEach<WorkitemFlatAbsIdTest>(ap, it, "dispatchpacket/workitemflatabsid/basic", CodeLocations(), cc->Grids().All(), cc->Directives().WorkitemFlatAbsIdRelatedSets(), Bools::All());
+  TestForEach<WorkitemFlatAbsIdTest>(ap, it, "dispatchpacket/workitemflatabsid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Directives().WorkitemFlatAbsIdRelatedSets(), Bools::All());
   TestForEach<WorkitemFlatAbsIdTest>(ap, it, "dispatchpacket/workitemflatabsid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Directives().DegenerateRelatedSets(), Bools::All());
   TestForEach<WorkitemFlatAbsIdBoundaryTest>(ap, it, "dispatchpacket/workitemflatabsid/boundary32", CodeLocations(), cc->Grids().Boundary32Set(), cc->Directives().WorkitemFlatAbsIdRelatedSets(), Bools::All());
   TestForEach<WorkitemFlatAbsIdBoundaryTest>(ap, it, "dispatchpacket/workitemflatabsid/boundary24", CodeLocations(), cc->Grids().Boundary24Set(), cc->Directives().Boundary24WorkitemFlatAbsIdRelatedSets(), Bools::All());
   
-  TestForEach<WorkitemFlatIdTest>(ap, it, "dispatchpacket/workitemflatid/basic", CodeLocations(), cc->Grids().All(), cc->Directives().WorkitemFlatIdRelatedSets());
+  TestForEach<WorkitemFlatIdTest>(ap, it, "dispatchpacket/workitemflatid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Directives().WorkitemFlatIdRelatedSets());
   TestForEach<WorkitemFlatIdTest>(ap, it, "dispatchpacket/workitemflatid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Directives().DegenerateRelatedSets());
   TestForEach<WorkitemFlatIdBoundaryTest>(ap, it, "dispatchpacket/workitemflatid/boundary32", CodeLocations(), cc->Grids().Boundary32Set(), cc->Directives().WorkitemFlatIdRelatedSets(), Bools::All());
   TestForEach<WorkitemFlatIdBoundaryTest>(ap, it, "dispatchpacket/workitemflatid/boundary24", CodeLocations(), cc->Grids().Boundary24Set(), cc->Directives().Boundary24WorkitemFlatIdRelatedSets(), Bools::All());
 
-  TestForEach<WorkitemIdTest>(ap, it, "dispatchpacket/workitemid/basic", CodeLocations(), cc->Grids().All(), cc->Grids().Dimensions(), cc->Directives().WorkitemIdRelatedSets());
+  TestForEach<WorkitemIdTest>(ap, it, "dispatchpacket/workitemid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().WorkitemIdRelatedSets());
   TestForEach<WorkitemIdTest>(ap, it, "dispatchpacket/workitemid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets());
 
-  TestForEach<PacketIdTest>(ap, it, "dispatchpacket/packetid/basic", CodeLocations(), cc->Grids().All(), cc->Directives().NoneSets());
-  TestForEach<PacketCompletionSigTest>(ap, it, "dispatchpacket/packetcompletionsig/basic", CodeLocations(), cc->Grids().All(), cc->Directives().NoneSets());
+  TestForEach<PacketIdTest>(ap, it, "dispatchpacket/packetid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Directives().NoneSets());
+  TestForEach<PacketCompletionSigTest>(ap, it, "dispatchpacket/packetcompletionsig/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Directives().NoneSets());
 }
 
 } // hsail_conformance

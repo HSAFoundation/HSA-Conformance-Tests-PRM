@@ -225,7 +225,7 @@ public:
     // generate code to read each byte from var
     auto result = be.AddTReg(BRIG_TYPE_U8);
     auto offset = be.AddTReg(offsetBase->Type());
-    auto wiId = be.EmitWorkitemFlatAbsId(offsetBase->IsLarge());
+    auto wiId = be.WorkitemFlatAbsId(offsetBase->IsLarge());
     
     // read each byte in loop
     auto byteCount = be.AddTReg(offset->Type());

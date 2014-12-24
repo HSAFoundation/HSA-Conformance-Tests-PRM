@@ -55,6 +55,11 @@ public:
 
   Value ExpectedResult() const { return Value(MV_UINT32, U32(1)); }
 
+  void GeometryInit() {
+    // TODO: check how signal tests work with non-trivial geometry and remove this to use default geometry.
+    geometry = cc->Grids().TrivialGeometry();
+  }
+
   void ScenarioInit() {
     Test::ScenarioInit();
     CommandSequence& commands0 = te->TestScenario()->Commands();
