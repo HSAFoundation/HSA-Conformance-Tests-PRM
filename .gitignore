@@ -6,3 +6,5 @@ cmake_install.cmake
 install_manifest.txt
 *.bak
 build/
+cmake_linux.sh
+cmake_windows.bat

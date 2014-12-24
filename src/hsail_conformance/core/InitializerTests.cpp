@@ -30,7 +30,7 @@ namespace hsail_conformance {
   EndiannessConfig PlatformEndianness(void) {
     union {
       uint32_t i;
-      char c[4];
+      uint8_t c[4];
     } bin = {0x01020304};
 
     if (bin.c[0] == 1) { 
@@ -41,8 +41,8 @@ namespace hsail_conformance {
   }
 
   void SwapEndian(void* ptr, size_t typeSize) {
-    auto chPtr = reinterpret_cast<char *>(ptr);
-    std::reverse(chPtr, chPtr + typeSize);
+    auto bytePtr = reinterpret_cast<uint8_t *>(ptr);
+    std::reverse(bytePtr, bytePtr + typeSize);
   }
 
 
@@ -51,12 +51,12 @@ private:
   static const unsigned MAX_TYPE_SIZE = 8;
   
   unsigned currentByte;
-  std::vector<char> charVector;
+  std::vector<uint8_t> byteVector;
 
   void generateVector(size_t size) {
-    charVector.clear();
+    byteVector.clear();
     for (size_t i = 0; i < size; ++i) {
-      charVector.push_back(++currentByte % 256);  
+      byteVector.push_back(++currentByte % 256);  
     }
   } 
 
@@ -66,20 +66,95 @@ private:
   ValueGenerator operator=(const ValueGenerator&&);
 
 public:
-  ValueGenerator() : currentByte(0), charVector() { 
-    charVector.reserve(MAX_TYPE_SIZE);
+  ValueGenerator() : currentByte(0), byteVector() { 
+    byteVector.reserve(MAX_TYPE_SIZE);
   };
 
-  Value S8()  { generateVector(1); return hexl::Value(MV_INT8,   *reinterpret_cast<char *>(charVector.data())); }
-  Value U8()  { generateVector(1); return hexl::Value(MV_UINT8,  *reinterpret_cast<char *>(charVector.data())); }
-  Value S16() { generateVector(2); return hexl::Value(MV_INT16,  *reinterpret_cast<int16_t *>(charVector.data())); }
-  Value U16() { generateVector(2); return hexl::Value(MV_UINT16, *reinterpret_cast<uint16_t *>(charVector.data())); }
-  Value S32() { generateVector(4); return hexl::Value(MV_INT32,  *reinterpret_cast<int32_t *>(charVector.data())); }
-  Value U32() { generateVector(4); return hexl::Value(MV_UINT32, *reinterpret_cast<uint32_t *>(charVector.data())); }
-  Value S64() { generateVector(8); return hexl::Value(MV_INT64,  *reinterpret_cast<int64_t *>(charVector.data())); }
-  Value U64() { generateVector(8); return hexl::Value(MV_UINT64, *reinterpret_cast<uint64_t *>(charVector.data())); }
-  Value F()   { generateVector(4); return hexl::Value(*reinterpret_cast<float *>(charVector.data())); }
-  Value D()   { generateVector(8); return hexl::Value(*reinterpret_cast<double *>(charVector.data())); }
+  Value S8()  { generateVector(1); return hexl::Value(MV_INT8,   *reinterpret_cast<char *>(byteVector.data())); }
+  Value U8()  { generateVector(1); return hexl::Value(MV_UINT8,  *reinterpret_cast<char *>(byteVector.data())); }
+  Value S16() { generateVector(2); return hexl::Value(MV_INT16,  *reinterpret_cast<int16_t *>(byteVector.data())); }
+  Value U16() { generateVector(2); return hexl::Value(MV_UINT16, *reinterpret_cast<uint16_t *>(byteVector.data())); }
+  Value S32() { generateVector(4); return hexl::Value(MV_INT32,  *reinterpret_cast<int32_t *>(byteVector.data())); }
+  Value U32() { generateVector(4); return hexl::Value(MV_UINT32, *reinterpret_cast<uint32_t *>(byteVector.data())); }
+  Value S64() { generateVector(8); return hexl::Value(MV_INT64,  *reinterpret_cast<int64_t *>(byteVector.data())); }
+  Value U64() { generateVector(8); return hexl::Value(MV_UINT64, *reinterpret_cast<uint64_t *>(byteVector.data())); }
+  Value F()   { generateVector(4); return hexl::Value(*reinterpret_cast<float *>(byteVector.data())); }
+  Value D()   { generateVector(8); return hexl::Value(*reinterpret_cast<double *>(byteVector.data())); }
+  Value S8X4() { 
+    generateVector(4); 
+    return hexl::Value(MV_INT8X4, hexl::S8X4(*(reinterpret_cast<int8_t *>(byteVector.data())),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 1),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 2),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 3))); 
+  }
+  Value S8X8() { 
+    generateVector(8); 
+    return hexl::Value(MV_INT8X8, hexl::S8X8(*(reinterpret_cast<int8_t *>(byteVector.data())),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 1),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 2),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 3),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 4),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 5),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 6),
+                                             *(reinterpret_cast<int8_t *>(byteVector.data()) + 7)));
+  }
+  Value U8X4() { 
+    generateVector(4); 
+    return hexl::Value(MV_UINT8X4, hexl::U8X4(*(reinterpret_cast<uint8_t *>(byteVector.data())),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 1),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 2),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 3))); 
+  }
+  Value U8X8() { 
+    generateVector(8); 
+    return hexl::Value(MV_UINT8X8, hexl::U8X8(*(reinterpret_cast<uint8_t *>(byteVector.data())),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 1),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 2),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 3),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 4),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 5),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 6),
+                                              *(reinterpret_cast<uint8_t *>(byteVector.data()) + 7)));
+  }
+  Value S16X2() { 
+    generateVector(4); 
+    return hexl::Value(MV_INT16X2, hexl::S16X2(*(reinterpret_cast<int16_t *>(byteVector.data())),
+                                               *(reinterpret_cast<int16_t *>(byteVector.data()) + 1))); 
+  }
+  Value S16X4() { 
+    generateVector(8); 
+    return hexl::Value(MV_INT16X4, hexl::S16X4(*(reinterpret_cast<int16_t *>(byteVector.data())),
+                                               *(reinterpret_cast<int16_t *>(byteVector.data()) + 1),
+                                               *(reinterpret_cast<int16_t *>(byteVector.data()) + 2),
+                                               *(reinterpret_cast<int16_t *>(byteVector.data()) + 3))); 
+  }
+  Value U16X2() { 
+    generateVector(4); 
+    return hexl::Value(MV_UINT16X2, hexl::U16X2(*(reinterpret_cast<uint16_t *>(byteVector.data())),
+                                                *(reinterpret_cast<uint16_t *>(byteVector.data()) + 1))); 
+  }
+  Value U16X4() { 
+    generateVector(8); 
+    return hexl::Value(MV_UINT16X4, hexl::U16X4(*(reinterpret_cast<uint16_t *>(byteVector.data())),
+                                                *(reinterpret_cast<uint16_t *>(byteVector.data()) + 1),
+                                                *(reinterpret_cast<uint16_t *>(byteVector.data()) + 2),
+                                                *(reinterpret_cast<uint16_t *>(byteVector.data()) + 3))); 
+  }
+  Value S32X2() { 
+    generateVector(8); 
+    return hexl::Value(MV_INT32X2, hexl::S32X2(*(reinterpret_cast<int32_t *>(byteVector.data())),
+                                               *(reinterpret_cast<int32_t *>(byteVector.data()) + 1))); 
+  }
+  Value U32X2() { 
+    generateVector(8); 
+    return hexl::Value(MV_UINT32X2, hexl::U32X2(*(reinterpret_cast<uint32_t *>(byteVector.data())),
+                                                *(reinterpret_cast<uint32_t *>(byteVector.data()) + 1))); 
+  }
+  Value FX2() { 
+    generateVector(8); 
+    return hexl::Value(MV_FLOATX2, hexl::FX2(*(reinterpret_cast<float *>(byteVector.data())),
+                                             *(reinterpret_cast<float *>(byteVector.data()) + 1))); 
+  }
 
   Value Generate(ValueType type) {
    switch (type)
@@ -94,6 +169,17 @@ public:
     case MV_UINT64: return U64();
     case MV_FLOAT:  return F();
     case MV_DOUBLE: return D();
+    case MV_UINT8X4: return  U8X4(); 
+    case MV_UINT8X8: return  U8X8(); 
+    case MV_INT8X4: return S8X4(); 
+    case MV_INT8X8: return S8X8();
+    case MV_UINT16X2: return U16X2();
+    case MV_UINT16X4: return U16X4();
+    case MV_INT16X2: return S16X2();
+    case MV_INT16X4: return S16X4();
+    case MV_UINT32X2: return U32X2();
+    case MV_INT32X2: return S32X2();
+    case MV_FLOATX2: return FX2();
     default: assert(false); return hexl::Value();
     }
   }
@@ -122,9 +208,9 @@ private:
     if (te->CoreCfg()->Endianness() != PlatformEndianness()) {
       SwapEndian(data, typeSize);
     }
-    auto chPtr = reinterpret_cast<char *>(data);
+    auto bytePtr = reinterpret_cast<uint8_t *>(data);
     for (size_t i = 0; i < typeSize; ++i) {
-      result->push_back(Value(MV_UINT8, chPtr[i]));
+      result->push_back(Value(MV_UINT8, bytePtr[i]));
     }
   }
 
@@ -148,17 +234,28 @@ public:
       auto val = generator.Generate(ValueType());
       data.push_back(val);
       switch (type) {
-      case BRIG_TYPE_S8:  var->PushBack(val.Data().s8);  break;
-      case BRIG_TYPE_U8:  var->PushBack(val.Data().u8);  break;
-      case BRIG_TYPE_S16: var->PushBack(val.Data().s16); break;
-      case BRIG_TYPE_U16: var->PushBack(val.Data().u16); break;
-      case BRIG_TYPE_S32: var->PushBack(val.Data().s32); break;
-      case BRIG_TYPE_U32: var->PushBack(val.Data().u32); break;
-      case BRIG_TYPE_S64: var->PushBack(val.Data().s64); break;
-      case BRIG_TYPE_U64: var->PushBack(val.Data().u64); break;
-      case BRIG_TYPE_F16: var->PushBack(val.Data().f);   break;
-      case BRIG_TYPE_F32: var->PushBack(val.Data().f);   break;
-      case BRIG_TYPE_F64: var->PushBack(val.Data().d);   break;
+      case BRIG_TYPE_S8:    var->PushBack(val.S8());  break;
+      case BRIG_TYPE_U8:    var->PushBack(val.U8());  break;
+      case BRIG_TYPE_S16:   var->PushBack(val.S16()); break;
+      case BRIG_TYPE_U16:   var->PushBack(val.U16()); break;
+      case BRIG_TYPE_S32:   var->PushBack(val.S32()); break;
+      case BRIG_TYPE_U32:   var->PushBack(val.U32()); break;
+      case BRIG_TYPE_S64:   var->PushBack(val.S64()); break;
+      case BRIG_TYPE_U64:   var->PushBack(val.U64()); break;
+      case BRIG_TYPE_F16:   var->PushBack(val.F());   break;
+      case BRIG_TYPE_F32:   var->PushBack(val.F());   break;
+      case BRIG_TYPE_F64:   var->PushBack(val.D());   break;
+      case BRIG_TYPE_U8X4:  var->PushBack(val.U32()); break;
+      case BRIG_TYPE_U8X8:  var->PushBack(val.U64()); break;
+      case BRIG_TYPE_S8X4:  var->PushBack(val.U32()); break;
+      case BRIG_TYPE_S8X8:  var->PushBack(val.U64()); break;
+      case BRIG_TYPE_U16X2: var->PushBack(val.U32()); break;
+      case BRIG_TYPE_U16X4: var->PushBack(val.U64()); break;
+      case BRIG_TYPE_S16X2: var->PushBack(val.U32()); break;
+      case BRIG_TYPE_S16X4: var->PushBack(val.U64()); break;
+      case BRIG_TYPE_U32X2: var->PushBack(val.U64()); break;
+      case BRIG_TYPE_S32X2: var->PushBack(val.U64()); break;
+      case BRIG_TYPE_F32X2: var->PushBack(val.U64()); break;
       default: assert(false);
       }
     }
@@ -183,17 +280,28 @@ public:
   void ExpectedResults(Values* result) const override {
     for (auto val: data) {
       switch (val.Type()) {
-      case MV_INT8:    { auto data = val.Data().s8;  PushResult(result, &data, val.Type()); break; }
-      case MV_UINT8:   { auto data = val.Data().u8;  PushResult(result, &data, val.Type()); break; }
-      case MV_INT16:   { auto data = val.Data().s16; PushResult(result, &data, val.Type()); break; }
-      case MV_UINT16:  { auto data = val.Data().u16; PushResult(result, &data, val.Type()); break; }
-      case MV_INT32:   { auto data = val.Data().s32; PushResult(result, &data, val.Type()); break; }
-      case MV_UINT32:  { auto data = val.Data().u32; PushResult(result, &data, val.Type()); break; }
-      case MV_INT64:   { auto data = val.Data().s64; PushResult(result, &data, val.Type()); break; }
-      case MV_UINT64:  { auto data = val.Data().u64; PushResult(result, &data, val.Type()); break; }
-      case MV_FLOAT16: { auto data = val.Data().f;   PushResult(result, &data, val.Type()); break; }
-      case MV_FLOAT:   { auto data = val.Data().f;   PushResult(result, &data, val.Type()); break; }
-      case MV_DOUBLE:  { auto data = val.Data().d;   PushResult(result, &data, val.Type()); break; }
+      case MV_INT8:     { auto data = val.S8();  PushResult(result, &data, val.Type()); break; }
+      case MV_UINT8:    { auto data = val.U8();  PushResult(result, &data, val.Type()); break; }
+      case MV_INT16:    { auto data = val.S16(); PushResult(result, &data, val.Type()); break; }
+      case MV_UINT16:   { auto data = val.U16(); PushResult(result, &data, val.Type()); break; }
+      case MV_INT32:    { auto data = val.S32(); PushResult(result, &data, val.Type()); break; }
+      case MV_UINT32:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }
+      case MV_INT64:    { auto data = val.S64(); PushResult(result, &data, val.Type()); break; }
+      case MV_UINT64:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }
+      case MV_FLOAT16:  { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
+      case MV_FLOAT:    { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
+      case MV_DOUBLE:   { auto data = val.D();   PushResult(result, &data, val.Type()); break; }
+      case MV_UINT8X4:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; } 
+      case MV_UINT8X8:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+      case MV_INT8X4:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
+      case MV_INT8X8:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+      case MV_UINT16X2: { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
+      case MV_UINT16X4: { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+      case MV_INT16X2:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
+      case MV_INT16X4:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+      case MV_UINT32X2: { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+      case MV_INT32X2:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+      case MV_FLOATX2:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
       default: assert(false);
       }
     }
@@ -225,7 +333,7 @@ public:
     // generate code to read each byte from var
     auto result = be.AddTReg(BRIG_TYPE_U8);
     auto offset = be.AddTReg(offsetBase->Type());
-    auto wiId = be.WorkitemFlatAbsId(offsetBase->IsLarge());
+    auto wiId = be.EmitWorkitemFlatAbsId(offsetBase->IsLarge());
     
     // read each byte in loop
     auto byteCount = be.AddTReg(offset->Type());
@@ -262,6 +370,7 @@ void InitializerTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   TestForEach<InitializerTest>(cc->Ap(), it, "initializer", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "initializer", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 }

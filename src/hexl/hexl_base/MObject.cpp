@@ -64,6 +64,19 @@ size_t ValueTypeSize(ValueType type)
   case MV_FLOAT16: assert(false); return 0;
   case MV_FLOAT: return 4;
   case MV_DOUBLE: return 8;
+  case MV_INT8X4: return 4;
+  case MV_INT8X8: return 8;
+  case MV_UINT8X4: return 4;
+  case MV_UINT8X8: return 8;
+  case MV_INT16X2: return 4;
+  case MV_INT16X4: return 8;
+  case MV_UINT16X2: return 4;
+  case MV_UINT16X4: return 8;
+  case MV_INT32X2: return 8;
+  case MV_UINT32X2: return 8;
+  case MV_FLOAT16X2: return 4;
+  case MV_FLOAT16X4: return 8;
+  case MV_FLOATX2: return 8;
   case MV_IMAGE:
     return sizeof(void *);
   case MV_REF:
@@ -78,6 +91,96 @@ size_t ValueTypeSize(ValueType type)
     assert(false); return 0;
   }
 }
+
+
+ValueData U8X4(uint8_t a, uint8_t b, uint8_t c, uint8_t d) { 
+  std::vector<uint8_t> vector(4);   
+  vector[0] = a; vector[1] = b; vector[2] = c; vector[3] = d;
+  ValueData data; 
+  data.u32 = *reinterpret_cast<uint32_t *>(vector.data());
+  return data; 
+}
+
+ValueData U8X8(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e, uint8_t f, uint8_t g, uint8_t h) { 
+  std::vector<uint8_t> vector(8);   
+  vector[0] = a; vector[1] = b; vector[2] = c; vector[3] = d; vector[4] = e; vector[5] = f; vector[6] = g; vector[7] = h;
+  ValueData data; 
+  data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
+  return data; 
+}
+
+ValueData S8X4(int8_t a, int8_t b, int8_t c, int8_t d) { 
+  std::vector<int8_t> vector(4);   
+  vector[0] = a; vector[1] = b; vector[2] = c; vector[3] = d;
+  ValueData data; 
+  data.u32 = *reinterpret_cast<uint32_t *>(vector.data());
+  return data; 
+}
+
+ValueData S8X8(int8_t a, int8_t b, int8_t c, int8_t d, int8_t e, int8_t f, int8_t g, int8_t h) { 
+  std::vector<int8_t> vector(8);   
+  vector[0] = a; vector[1] = b; vector[2] = c; vector[3] = d; vector[4] = e; vector[5] = f; vector[6] = g; vector[7] = h;
+  ValueData data; 
+  data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
+  return data; 
+}
+
+ValueData U16X2(uint16_t a, uint16_t b) { 
+  std::vector<uint16_t> vector(2);   
+  vector[0] = a; vector[1] = b;
+  ValueData data; 
+  data.u32 = *reinterpret_cast<uint32_t *>(vector.data());
+  return data;
+}
+
+ValueData U16X4(uint16_t a, uint16_t b, uint16_t c, uint16_t d) { 
+  std::vector<uint16_t> vector(4);   
+  vector[0] = a; vector[1] = b; vector[2] = c; vector[3] = d;
+  ValueData data; 
+  data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
+  return data;  
+}
+
+ValueData S16X2(int16_t a, int16_t b) { 
+  std::vector<int16_t> vector(2);   
+  vector[0] = a; vector[1] = b;
+  ValueData data; 
+  data.u32 = *reinterpret_cast<uint32_t *>(vector.data());
+  return data;
+}
+
+ValueData S16X4(int16_t a, int16_t b, int16_t c, int16_t d) { 
+  std::vector<int16_t> vector(4);   
+  vector[0] = a; vector[1] = b; vector[2] = c; vector[3] = d;
+  ValueData data; 
+  data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
+  return data; 
+}
+
+ValueData U32X2(uint32_t a, uint32_t b) { 
+  std::vector<uint32_t> vector(2);   
+  vector[0] = a; vector[1] = b;
+  ValueData data; 
+  data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
+  return data;
+}
+
+ValueData S32X2(int32_t a, int32_t b) { 
+  std::vector<int32_t> vector(2);   
+  vector[0] = a; vector[1] = b;
+  ValueData data; 
+  data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
+  return data;
+}
+
+ValueData FX2(float a, float b) { 
+  std::vector<float> vector(2);   
+  vector[0] = a; vector[1] = b;
+  ValueData data; 
+  data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
+  return data;
+}
+
 
 const char *MemString(MObjectMem mem)
 {
@@ -104,6 +207,19 @@ const char *ValueTypeString(ValueType type)
   case MV_FLOAT16: return "half";
   case MV_FLOAT: return "float";
   case MV_DOUBLE: return "double";
+  case MV_INT8X4: return "int8x4";
+  case MV_INT8X8: return "int8x8";
+  case MV_UINT8X4: return "uint8x4";
+  case MV_UINT8X8: return "uint8x8";
+  case MV_INT16X2: return "int16x2";
+  case MV_INT16X4: return "int16x4";
+  case MV_UINT16X2: return "uint16x2";
+  case MV_UINT16X4: return "uint16x4";
+  case MV_INT32X2: return "int32x2";
+  case MV_UINT32X2: return "uint32x2";
+  case MV_FLOAT16X2: return "halfx2";
+  case MV_FLOAT16X4: return "halfx4";
+  case MV_FLOATX2: return "floatx2";
   case MV_IMAGE: return "image";
   case MV_REF: return "ref";
   case MV_IMAGEREF: return "imageref";
@@ -129,6 +245,19 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_FLOAT16: assert(false); return 0;
   case MV_FLOAT: return 10;
   case MV_DOUBLE: return 18;
+  case MV_INT8X4: return 8 + 4 * ValueTypePrintWidth(MV_INT8);
+  case MV_INT8X8: return 16 + 8 * ValueTypePrintWidth(MV_INT8);
+  case MV_UINT8X4: return 8 + 4 * ValueTypePrintWidth(MV_UINT8);
+  case MV_UINT8X8: return 16 + 8 * ValueTypePrintWidth(MV_UINT8);
+  case MV_INT16X2: return 4 + 2 * ValueTypePrintWidth(MV_INT16);
+  case MV_INT16X4: return 8 + 4 * ValueTypePrintWidth(MV_INT16);
+  case MV_UINT16X2: return 4 + 2 * ValueTypePrintWidth(MV_UINT16);
+  case MV_UINT16X4: return 8 + 4 * ValueTypePrintWidth(MV_UINT16);
+  case MV_INT32X2: return 4 + 2 * ValueTypePrintWidth(MV_INT32);
+  case MV_UINT32X2: return 4 + 2 * ValueTypePrintWidth(MV_UINT32);
+  case MV_FLOAT16X2: return 4 + 2 * ValueTypePrintWidth(MV_FLOAT16);
+  case MV_FLOAT16X4: return 8 + 4 * ValueTypePrintWidth(MV_FLOAT16);
+  case MV_FLOATX2: return 4 + 2 * ValueTypePrintWidth(MV_FLOAT);
   case MV_IMAGE:
   case MV_REF:
   case MV_IMAGEREF:
@@ -140,6 +269,7 @@ size_t ValueTypePrintWidth(ValueType type)
     assert(false); return 0;
   }
 }
+
 
 size_t Value::Size() const
 {
@@ -159,6 +289,32 @@ std::ostream& operator<<(std::ostream& out, const Value& v)
 
 void Value::Print(std::ostream& out) const
 {
+  auto printFloat = [&](float f) -> std::ostream& {
+    if (isnan(f) || is_inf(f)) {
+      out << (isnan(f) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint32_t)*2) << static_cast<uint32_t>(f) << ")" << std::dec;
+      return out;
+    }
+    int precision = Comparison::F32_MAX_DECIMAL_PRECISION;
+    if (f < 0) { precision--; }
+    precision -= (1 + (int) log10(std::abs(f)));
+    if (precision < 0) { precision = 0; }
+    out << std::fixed << std::setprecision(precision) << f;
+    return out;
+  };
+
+  auto printDouble = [&](double d) -> std::ostream& {
+    if (isnan(d) || is_inf(d)) {
+      out << (isnan(d) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint64_t)*2) << static_cast<uint64_t>(d) << ")" << std::dec;
+      return out;
+    }
+    int precision = Comparison::F64_MAX_DECIMAL_PRECISION;
+    if (d < 0) { precision--; }
+    precision -= (1 + (int) log10(std::abs(d)));
+    if (precision < 0) { precision = 0; }
+    out << std::fixed << std::setprecision(precision) << d;
+    return out;
+  };
+
   switch (type) {
   case MV_INT8:
     out << (int) S8();
@@ -184,30 +340,45 @@ void Value::Print(std::ostream& out) const
   case MV_UINT64:
     out << U64();
     break;
-  case MV_FLOAT: {
-    if (isnan(F()) || is_inf(F())) {
-      out << (isnan(F()) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint32_t)*2) << U32() << ")" << std::dec;
-      break;
-    }
-    int precision = Comparison::F32_MAX_DECIMAL_PRECISION;
-    if (F() < 0) { precision--; }
-    precision -= (1 + (int) log10(std::abs(F())));
-    if (precision < 0) { precision = 0; }
-    out << std::fixed << std::setprecision(precision) << F();
+  case MV_FLOAT:
+    printFloat(F());
     break;
-  }
-  case MV_DOUBLE: {
-    if (isnan(D()) || is_inf(D())) {
-      out << (isnan(D()) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint64_t)*2) << U64() << ")" << std::dec;
-      break;
-    }
-    int precision = Comparison::F64_MAX_DECIMAL_PRECISION;
-    if (D() < 0) { precision--; }
-    precision -= (1 + (int) log10(std::abs(D())));
-    if (precision < 0) { precision = 0; }
-    out << std::fixed << std::setprecision(precision) << D();
+  case MV_DOUBLE:
+    printDouble(D());
     break;
-  }
+  case MV_INT8X4: 
+    out << "(" << S8X4(0) << ", " << S8X4(1) << ", " << S8X4(2) << ", " << S8X4(3) << ")";
+    break;
+  case MV_INT8X8: 
+    out << "(" << S8X8(0) << ", " << S8X8(1) << ", " << S8X8(2) << ", " << S8X8(3) << ", " << S8X8(1) << ", " << S8X8(2) << ", " << S8X8(3) << ", " << S8X8(4) << ")";
+    break;
+  case MV_UINT8X4:
+    out << "(" << U8X4(0) << ", " << U8X4(1) << ", " << U8X4(2) << ", " << U8X4(3) << ")";
+    break;
+  case MV_UINT8X8:
+    out << "(" << U8X8(0) << ", " << U8X8(1) << ", " << U8X8(2) << ", " << U8X8(3) << ", " << U8X8(1) << ", " << U8X8(2) << ", " << U8X8(3) << ", " << U8X8(4) << ")";
+    break;
+  case MV_INT16X2:
+    out << "(" << S16X2(0) << ", " << S16X2(1) << ")";
+    break;
+  case MV_INT16X4:
+    out << "(" << S16X4(0) << ", " << S16X4(1) << ", " << S16X4(2) << ", " << S16X4(3) << ")";
+    break;
+  case MV_UINT16X2:
+    out << "(" << U16X2(0) << ", " << U16X2(1) << ")";
+    break;
+  case MV_UINT16X4:
+    out << "(" << U16X4(0) << ", " << U16X4(1) << ", " << U16X4(2) << ", " << U16X4(3) << ")";
+    break;
+  case MV_INT32X2:
+    out << "(" << S32X2(0) << ", " << S32X2(1) << ")";
+    break;
+  case MV_UINT32X2:
+    out << "(" << U32X2(0) << ", " << U32X2(1) << ")";
+    break;
+  case MV_FLOATX2:
+    out << "(" << printFloat(FX2(0)) << ", " << printFloat(FX2(1)) << ")";
+    break;
   case MV_REF:
   case MV_IMAGEREF:
     out << "ref " << std::hex << std::uppercase << std::setfill('0') << std::setw(sizeof(void *) * 2) << U32() << std::setfill(' ') << std::dec;
@@ -261,6 +432,17 @@ void Value::WriteTo(void *dest) const
   case MV_FLOAT16: assert(false); break;
   case MV_FLOAT: *((float *) dest) = data.f; break;
   case MV_DOUBLE: *((double *) dest) = data.d; break;
+  case MV_INT8X4: ((int8_t *) dest)[0] = S8X4(0); ((int8_t *) dest)[1] = S8X4(1); ((int8_t *) dest)[2] = S8X4(2); ((int8_t *) dest)[3] = S8X4(3); break;
+  case MV_INT8X8: ((int8_t *) dest)[0] = S8X8(0); ((int8_t *) dest)[1] = S8X8(1); ((int8_t *) dest)[2] = S8X8(2); ((int8_t *) dest)[3] = S8X8(3); ((int8_t *) dest)[4] = S8X8(4); ((int8_t *) dest)[5] = S8X8(5); ((int8_t *) dest)[6] = S8X8(6); ((int8_t *) dest)[7] = S8X8(7); break;
+  case MV_UINT8X4: ((uint8_t *) dest)[0] = U8X4(0); ((uint8_t *) dest)[1] = U8X4(1); ((uint8_t *) dest)[2] = U8X4(2); ((uint8_t *) dest)[3] = U8X4(3); break;
+  case MV_UINT8X8: ((uint8_t *) dest)[0] = U8X8(0); ((uint8_t *) dest)[1] = U8X8(1); ((uint8_t *) dest)[2] = U8X8(2); ((uint8_t *) dest)[3] = U8X8(3); ((uint8_t *) dest)[4] = U8X8(4); ((uint8_t *) dest)[5] = U8X8(5); ((uint8_t *) dest)[6] = U8X8(6); ((uint8_t *) dest)[7] = U8X8(7); break;
+  case MV_INT16X2: ((int16_t *) dest)[0] = S16X2(0); ((int16_t *) dest)[1] = S16X2(1); break;
+  case MV_INT16X4: ((int16_t *) dest)[0] = S16X4(0); ((int16_t *) dest)[1] = S16X4(1); ((int16_t *) dest)[2] = S16X4(2); ((int16_t *) dest)[3] = S16X4(3); break;
+  case MV_UINT16X2: ((uint16_t *) dest)[0] = U16X2(0); ((uint16_t *) dest)[1] = U16X2(1); break;
+  case MV_UINT16X4: ((uint16_t *) dest)[0] = U16X4(0); ((uint16_t *) dest)[1] = U16X4(1); ((uint16_t *) dest)[2] = U16X4(2); ((uint16_t *) dest)[3] = U16X4(3); break;
+  case MV_INT32X2: ((int32_t *) dest)[0] = S32X2(0); ((int32_t *) dest)[1] = S32X2(1); break;
+  case MV_UINT32X2: ((uint32_t *) dest)[0] = U32X2(0); ((uint32_t *) dest)[1] = U32X2(1); break;
+  case MV_FLOATX2: ((float *) dest)[0] = FX2(0); ((float *) dest)[1] = FX2(1); break;
   case MV_REF: *((uint32_t *) dest) = data.u32; break;
   case MV_POINTER: *((void **) dest) = data.p; break;
   default:
@@ -282,6 +464,17 @@ void Value::ReadFrom(const void *src, ValueType type)
   case MV_FLOAT16: assert(false); break;
   case MV_FLOAT: data.f = *((float *) src); break;
   case MV_DOUBLE: data.d = *((double *) src); break;
+  case MV_INT8X4: data.u32 = *((uint32_t *) src); break;
+  case MV_INT8X8: data.u64 = *((uint64_t *) src); break;
+  case MV_UINT8X4: data.u32 = *((uint32_t *) src); break;
+  case MV_UINT8X8: data.u64 = *((uint64_t *) src); break;
+  case MV_INT16X2: data.u32 = *((uint32_t *) src); break;
+  case MV_INT16X4: data.u64 = *((uint64_t *) src); break;
+  case MV_UINT16X2: data.u32 = *((uint32_t *) src); break;
+  case MV_UINT16X4: data.u64 = *((uint64_t *) src); break;
+  case MV_INT32X2: data.u64 = *((uint64_t *) src); break;
+  case MV_UINT32X2: data.u64 = *((uint64_t *) src); break;
+  case MV_FLOATX2: data.u64 = *((uint64_t *) src); break;
   case MV_REF: case MV_IMAGEREF: data.u32 = *((uint32_t *) src); break;
   case MV_POINTER: data.p = *((void **) src); break;
   default: assert(false); break;
@@ -608,6 +801,17 @@ void Comparison::Reset(ValueType type)
     case MV_INT64: maxError = Value(MV_UINT64, U64(0)); break;
     case MV_FLOAT: maxError = Value(MV_DOUBLE, D((double) 0)); break;
     case MV_DOUBLE: maxError = Value(MV_DOUBLE, D((double) 0)); break;
+    case MV_INT8X4: maxError = Value(MV_INT8X4, S8X4(0, 0, 0, 0)); break;
+    case MV_INT8X8: maxError = Value(MV_INT8X8, S8X8(0, 0, 0, 0, 0, 0, 0, 0)); break;
+    case MV_UINT8X4: maxError = Value(MV_UINT8X4, U8X4(0, 0, 0, 0)); break;
+    case MV_UINT8X8: maxError = Value(MV_UINT8X8, U8X8(0, 0, 0, 0, 0, 0, 0, 0)); break;
+    case MV_INT16X2: maxError = Value(MV_INT16X2, S16X2(0, 0)); break;
+    case MV_INT16X4: maxError = Value(MV_INT16X4, S16X4(0, 0, 0, 0)); break;
+    case MV_UINT16X2: maxError = Value(MV_UINT16X2, U16X2(0, 0)); break;
+    case MV_UINT16X4: maxError = Value(MV_UINT16X4, U16X4(0, 0, 0, 0)); break;
+    case MV_INT32X2: maxError = Value(MV_INT32X2, S32X2(0, 0)); break;
+    case MV_UINT32X2: maxError = Value(MV_UINT32X2, U32X2(0, 0)); break;
+    case MV_FLOATX2: maxError = Value(MV_FLOATX2, FX2(0, 0)); break;
     default: maxError = Value(type, U64((uint64_t) 0)); break;
     }
     break;
@@ -615,6 +819,7 @@ void Comparison::Reset(ValueType type)
     switch (type) {
     case MV_FLOAT: maxError = Value(MV_UINT32, U32((uint64_t) 0)); break;
     case MV_DOUBLE: maxError = Value(MV_UINT64, U64((uint64_t) 0)); break;
+    case MV_FLOATX2: maxError = Value(MV_FLOATX2, FX2(0, 0)); break;
     default: assert(false);
     }
     break;
@@ -630,6 +835,7 @@ void Comparison::SetDefaultPrecision(ValueType type)
   case CM_DECIMAL:
     switch (type) {
     case MV_FLOAT:
+    case MV_FLOATX2:
       if (precision.U64() == 0) { precision = Value(MV_DOUBLE, D(pow((double) 10, -F32_DEFAULT_DECIMAL_PRECISION))); }
       break;
     case MV_DOUBLE:
@@ -642,6 +848,7 @@ void Comparison::SetDefaultPrecision(ValueType type)
     switch (type) {
     case MV_FLOAT:
     case MV_DOUBLE:
+    case MV_FLOATX2:
       if (precision.U64() == 0) { precision = Value(MV_UINT64, U64(F_DEFAULT_ULPS_PRECISION)); }
       break;
     default:
@@ -656,6 +863,56 @@ void Comparison::SetDefaultPrecision(ValueType type)
     default:
       break;
     }
+  }
+}
+
+bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, const Value& precision, Value& error) {
+  bool res;
+  bool compared = false;
+  if (isnan(v1.F()) || isnan(v2.F())) {
+    res = isnan(v1.F()) && isnan(v2.F());
+    compared = true;
+  } else if (is_inf(v1.F()) || is_inf(v2.F())) {
+    res = is_inf(v1.F()) == is_inf(v2.F());
+    compared = true;
+  } else if (v1.F() == 0.0f && v2.F() == 0.0f) { // ignore sign of 0
+    res = true;
+    compared = true;
+  }
+  if (compared) {
+    switch (method) {
+    case CM_ULPS:
+      error = Value(MV_UINT32, U32(res ? 0 : 1));
+      return res;
+    case CM_DECIMAL:
+    case CM_RELATIVE:
+      error = Value(MV_DOUBLE, F(res ? 0.0f : 1.0f));
+      return res;
+    default:
+      assert(!"Unsupported compare method in CompareValues"); return false;
+    }
+  }
+  switch (method) {
+  case CM_DECIMAL: {
+    error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F())));
+    return error.D() < (double) precision.D();
+  }
+  case CM_ULPS: {
+    error = Value(MV_UINT32, U32((std::max)(v1.U32(), v2.U32()) - (std::min)(v1.U32(), v2.U32())));
+    return error.U32() <= precision.D();
+  }
+  case CM_RELATIVE: {
+    double eps = precision.D();
+    if (v1.F() == 0.0f) {
+      error = Value(MV_DOUBLE, D((double) v2.F()));
+      return error.D() < eps;
+    } else {
+      error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F()) / (double) v1.F()));
+      return error.D() < eps;
+    }
+  }    
+  default:
+    assert(!"Unsupported compare method in absdifference"); return false;
   }
 }
 
@@ -697,54 +954,9 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
     return error.U64() == 0;
   }
   case MV_FLOAT: {
-    bool res;
-    bool compared = false;
-    if (isnan(v1.F()) || isnan(v2.F())) {
-      res = isnan(v1.F()) && isnan(v2.F());
-      compared = true;
-    } else if (is_inf(v1.F()) || is_inf(v2.F())) {
-      res = is_inf(v1.F()) == is_inf(v2.F());
-      compared = true;
-    } else if (v1.F() == 0.0f && v2.F() == 0.0f) { // ignore sign of 0
-      res = true;
-      compared = true;
-    }
-    if (compared) {
-      switch (method) {
-      case CM_ULPS:
-        error = Value(MV_UINT32, U32(res ? 0 : 1));
-        return res;
-      case CM_DECIMAL:
-      case CM_RELATIVE:
-        error = Value(MV_DOUBLE, F(res ? 0.0f : 1.0f));
-        return res;
-      default:
-        assert(!"Unsupported compare method in CompareValues"); return false;
-      }
-    }
-    switch (method) {
-    case CM_DECIMAL: {
-      error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F())));
-      return error.D() < (double) precision.D();
-    }
-    case CM_ULPS: {
-      error = Value(MV_UINT32, U32((std::max)(v1.U32(), v2.U32()) - (std::min)(v1.U32(), v2.U32())));
-      return error.U32() <= precision.D();
-    }
-    case CM_RELATIVE: {
-      double eps = precision.D();
-      if (v1.F() == 0.0f) {
-        error = Value(MV_DOUBLE, D((double) v2.F()));
-        return error.D() < eps;
-      } else {
-        error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F()) / (double) v1.F()));
-        return error.D() < eps;
-      }
-    }
-    default:
-      assert(!"Unsupported compare method in absdifference"); return false;
-    }
-    }
+    auto res = CompareFloat(v1, v2, method, precision, error);
+    return res;
+  }
   case MV_DOUBLE: {
     bool res;
     bool compared = false;
@@ -790,7 +1002,89 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
     default:
       assert(!"Unsupported compare method in absdifference"); return false;
     }
-    }
+  }
+  case MV_INT8X4: {
+    error = Value(MV_INT8X4, S8X4((std::max)(v1.S8X4(0), v2.S8X4(0)) - (std::min)(v1.S8X4(0), v2.S8X4(0)),
+                                  (std::max)(v1.S8X4(1), v2.S8X4(1)) - (std::min)(v1.S8X4(1), v2.S8X4(1)),
+                                  (std::max)(v1.S8X4(2), v2.S8X4(2)) - (std::min)(v1.S8X4(2), v2.S8X4(2)),
+                                  (std::max)(v1.S8X4(3), v2.S8X4(3)) - (std::min)(v1.S8X4(3), v2.S8X4(3))));
+    return error.U32() == 0;
+  }
+  case MV_INT8X8: {
+    error = Value(MV_INT8X8, S8X8((std::max)(v1.S8X8(0), v2.S8X8(0)) - (std::min)(v1.S8X8(0), v2.S8X8(0)),
+                                  (std::max)(v1.S8X8(1), v2.S8X8(1)) - (std::min)(v1.S8X8(1), v2.S8X8(1)),
+                                  (std::max)(v1.S8X8(2), v2.S8X8(2)) - (std::min)(v1.S8X8(2), v2.S8X8(2)),
+                                  (std::max)(v1.S8X8(3), v2.S8X8(3)) - (std::min)(v1.S8X8(3), v2.S8X8(3)),
+                                  (std::max)(v1.S8X8(4), v2.S8X8(4)) - (std::min)(v1.S8X8(4), v2.S8X8(4)),
+                                  (std::max)(v1.S8X8(5), v2.S8X8(5)) - (std::min)(v1.S8X8(5), v2.S8X8(5)),
+                                  (std::max)(v1.S8X8(6), v2.S8X8(6)) - (std::min)(v1.S8X8(6), v2.S8X8(6)),
+                                  (std::max)(v1.S8X8(7), v2.S8X8(7)) - (std::min)(v1.S8X8(7), v2.S8X8(7))));
+    return error.U64() == 0;
+  }
+  case MV_UINT8X4: {
+    error = Value(MV_UINT8X4, U8X4((std::max)(v1.U8X4(0), v2.U8X4(0)) - (std::min)(v1.U8X4(0), v2.U8X4(0)),
+                                    (std::max)(v1.U8X4(1), v2.U8X4(1)) - (std::min)(v1.U8X4(1), v2.U8X4(1)),
+                                    (std::max)(v1.U8X4(2), v2.U8X4(2)) - (std::min)(v1.U8X4(2), v2.U8X4(2)),
+                                    (std::max)(v1.U8X4(3), v2.U8X4(3)) - (std::min)(v1.U8X4(3), v2.U8X4(3))));
+    return error.U32() == 0;
+  }
+  case MV_UINT8X8: {
+    error = Value(MV_UINT8X8, U8X8((std::max)(v1.U8X8(0), v2.U8X8(0)) - (std::min)(v1.U8X8(0), v2.U8X8(0)),
+                                    (std::max)(v1.U8X8(1), v2.U8X8(1)) - (std::min)(v1.U8X8(1), v2.U8X8(1)),
+                                    (std::max)(v1.U8X8(2), v2.U8X8(2)) - (std::min)(v1.U8X8(2), v2.U8X8(2)),
+                                    (std::max)(v1.U8X8(3), v2.U8X8(3)) - (std::min)(v1.U8X8(3), v2.U8X8(3)),
+                                    (std::max)(v1.U8X8(4), v2.U8X8(4)) - (std::min)(v1.U8X8(4), v2.U8X8(4)),
+                                    (std::max)(v1.U8X8(5), v2.U8X8(5)) - (std::min)(v1.U8X8(5), v2.U8X8(5)),
+                                    (std::max)(v1.U8X8(6), v2.U8X8(6)) - (std::min)(v1.U8X8(6), v2.U8X8(6)),
+                                    (std::max)(v1.U8X8(7), v2.U8X8(7)) - (std::min)(v1.U8X8(7), v2.U8X8(7))));
+    return error.U64() == 0;
+  }
+  case MV_INT16X2: {
+    error = Value(MV_INT16X2, S16X2((std::max)(v1.S16X2(0), v2.S16X2(0)) - (std::min)(v1.S16X2(0), v2.S16X2(0)),
+                                    (std::max)(v1.S16X2(1), v2.S16X2(1)) - (std::min)(v1.S16X2(1), v2.S16X2(1))));
+    return error.U32() == 0;
+  }
+  case MV_INT16X4: {
+    error = Value(MV_INT16X4, S16X4((std::max)(v1.S16X4(0), v2.S16X4(0)) - (std::min)(v1.S16X4(0), v2.S16X4(0)),
+                                    (std::max)(v1.S16X4(1), v2.S16X4(1)) - (std::min)(v1.S16X4(1), v2.S16X4(1)),
+                                    (std::max)(v1.S16X4(2), v2.S16X4(2)) - (std::min)(v1.S16X4(2), v2.S16X4(2)),
+                                    (std::max)(v1.S16X4(3), v2.S16X4(3)) - (std::min)(v1.S16X4(3), v2.S16X4(3))));
+    return error.U64() == 0;
+  }
+  case MV_UINT16X2: {
+    error = Value(MV_UINT16X2, U16X2((std::max)(v1.U16X2(0), v2.U16X2(0)) - (std::min)(v1.U16X2(0), v2.U16X2(0)),
+                                      (std::max)(v1.U16X2(1), v2.U16X2(1)) - (std::min)(v1.U16X2(1), v2.U16X2(1))));
+    return error.U32() == 0;
+  }
+  case MV_UINT16X4: {
+    error = Value(MV_UINT16X4, U16X4((std::max)(v1.U16X4(0), v2.U16X4(0)) - (std::min)(v1.U16X4(0), v2.U16X4(0)),
+                                      (std::max)(v1.U16X4(1), v2.U16X4(1)) - (std::min)(v1.U16X4(1), v2.U16X4(1)),
+                                      (std::max)(v1.U16X4(2), v2.U16X4(2)) - (std::min)(v1.U16X4(2), v2.U16X4(2)),
+                                      (std::max)(v1.U16X4(3), v2.U16X4(3)) - (std::min)(v1.U16X4(3), v2.U16X4(3))));
+    return error.U64() == 0;
+  }
+  case MV_INT32X2: {
+    error = Value(MV_INT32X2, S32X2((std::max)(v1.S32X2(0), v2.S32X2(0)) - (std::min)(v1.S32X2(0), v2.S32X2(0)),
+                                    (std::max)(v1.S32X2(1), v2.S32X2(1)) - (std::min)(v1.S32X2(1), v2.S32X2(1))));
+    return error.U64() == 0;
+  }
+  case MV_UINT32X2: {
+    error = Value(MV_UINT32X2, U32X2((std::max)(v1.U32X2(0), v2.U32X2(0)) - (std::min)(v1.U32X2(0), v2.U32X2(0)),
+                                     (std::max)(v1.U32X2(1), v2.U32X2(1)) - (std::min)(v1.U32X2(1), v2.U32X2(1))));
+    return error.U64() == 0;
+  }
+  case MV_FLOATX2: {
+    Value fv1(MV_FLOAT, F(v1.FX2(0)));
+    Value fv2(MV_FLOAT, F(v2.FX2(0)));
+    Value ferror1(error);
+    auto res1 = CompareFloat(fv1, fv2, method, precision, ferror1);
+    fv1 = Value(MV_FLOAT, F(v1.FX2(1)));
+    fv2 = Value(MV_FLOAT, F(v2.FX2(1)));
+    Value ferror2(error);
+    auto res2 = CompareFloat(fv1, fv2, method, precision, ferror2);
+    error = Value(MV_FLOATX2, FX2(ferror1.F(), ferror2.F()));
+    return error.U64() == 0;
+  }
   default:
     assert(!"Unsupported type in absdifference"); return false;
   }

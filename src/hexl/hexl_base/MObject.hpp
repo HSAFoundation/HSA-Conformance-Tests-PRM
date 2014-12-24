@@ -30,7 +30,8 @@
 
 namespace hexl {
 
-enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_IMAGEREF, MV_EXPR, MV_STRING, MV_LAST, };
+enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_IMAGEREF, MV_EXPR, MV_STRING, 
+                 MV_INT8X4, MV_INT8X8, MV_UINT8X4, MV_UINT8X8, MV_INT16X2, MV_INT16X4, MV_UINT16X2, MV_UINT16X4, MV_INT32X2, MV_UINT32X2, MV_FLOAT16X2, MV_FLOAT16X4, MV_FLOATX2, MV_LAST};
 
 enum MObjectType {
   MUNDEF = 0,
@@ -110,6 +111,17 @@ inline ValueData P(void *p) { ValueData data; data.p = p; return data; }
 inline ValueData R(unsigned id) { ValueData data; data.u32 = id; return data; }
 inline ValueData S(const char *s) { ValueData data; data.s = s; return data; }
 inline ValueData Str(const std::string* str) { ValueData data; data.str = str; return data; }
+ValueData U8X4(uint8_t a, uint8_t b, uint8_t c, uint8_t d);
+ValueData U8X8(uint8_t a, uint8_t b, uint8_t c, uint8_t d, uint8_t e, uint8_t f, uint8_t g, uint8_t h);
+ValueData S8X4(int8_t a, int8_t b, int8_t c, int8_t d);
+ValueData S8X8(int8_t a, int8_t b, int8_t c, int8_t d, int8_t e, int8_t f, int8_t g, int8_t h);
+ValueData U16X2(uint16_t a, uint16_t b);
+ValueData U16X4(uint16_t a, uint16_t b, uint16_t c, uint16_t d);
+ValueData S16X2(int16_t a, int16_t b);
+ValueData S16X4(int16_t a, int16_t b, int16_t c, int16_t d);
+ValueData U32X2(uint32_t a, uint32_t b);
+ValueData S32X2(int32_t a, int32_t b);
+ValueData FX2(float a, float b);
 
 class Comparison;
 
@@ -142,7 +154,18 @@ public:
   void *P() const { return data.p; }
   const char *S() const { return data.s; }
   const std::string& Str() const { return *data.str; }
-  
+  uint8_t U8X4(size_t index) const { assert(index < 4); return reinterpret_cast<const uint8_t *>(&(data.u32))[index]; }
+  uint8_t U8X8(size_t index) const { assert(index < 8); return reinterpret_cast<const uint8_t *>(&(data.u64))[index]; }
+  int8_t S8X4(size_t index) const { assert(index < 4); return reinterpret_cast<const int8_t *>(&(data.u32))[index]; }
+  int8_t S8X8(size_t index) const { assert(index < 8); return reinterpret_cast<const int8_t *>(&(data.u64))[index]; }
+  uint16_t U16X2(size_t index) const { assert(index < 2); return reinterpret_cast<const uint16_t *>(&(data.u32))[index]; }
+  uint16_t U16X4(size_t index) const { assert(index < 4); return reinterpret_cast<const uint16_t *>(&(data.u64))[index]; }
+  int16_t S16X2(size_t index) const { assert(index < 2); return reinterpret_cast<const int16_t *>(&(data.u32))[index]; }
+  int16_t S16X4(size_t index) const { assert(index < 4); return reinterpret_cast<const int16_t *>(&(data.u64))[index]; }
+  uint32_t U32X2(size_t index) const { assert(index < 2); return reinterpret_cast<const uint32_t *>(&(data.u64))[index]; }
+  int32_t S32X2(size_t index) const { assert(index < 2); return reinterpret_cast<const int32_t *>(&(data.u64))[index]; }
+  float FX2(size_t index) const { assert(index < 2); return reinterpret_cast<const float *>(&(data.u64))[index]; }
+    
   size_t Size() const;
   size_t PrintWidth() const;
 

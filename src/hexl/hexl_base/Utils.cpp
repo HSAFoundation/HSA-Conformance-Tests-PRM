@@ -136,6 +136,17 @@ hexl::ValueType Brig2ValueType(BrigTypeX type)
   case BRIG_TYPE_F16: return MV_FLOAT16;
   case BRIG_TYPE_F32: return MV_FLOAT;
   case BRIG_TYPE_F64: return MV_DOUBLE;
+  case BRIG_TYPE_U8X4: return MV_UINT8X4;
+  case BRIG_TYPE_U8X8: return MV_UINT8X8;
+  case BRIG_TYPE_S8X4: return MV_INT8X4;
+  case BRIG_TYPE_S8X8: return MV_INT8X8;
+  case BRIG_TYPE_U16X2: return MV_UINT16X2;
+  case BRIG_TYPE_U16X4: return MV_UINT16X4;
+  case BRIG_TYPE_S16X2: return MV_INT16X2;
+  case BRIG_TYPE_S16X4: return MV_INT16X4;
+  case BRIG_TYPE_U32X2: return MV_UINT32X2;
+  case BRIG_TYPE_S32X2: return MV_INT32X2;
+  case BRIG_TYPE_F32X2: return MV_FLOATX2;
   default: assert(!"Unsupported type in Brig2ValueType"); return MV_LAST;
   }
 }
@@ -155,6 +166,17 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
   case MV_FLOAT16: return BRIG_TYPE_F16;
   case MV_FLOAT: return BRIG_TYPE_F32;
   case MV_DOUBLE: return BRIG_TYPE_F64;
+  case MV_UINT8X4: return BRIG_TYPE_U8X4; 
+  case MV_UINT8X8: return BRIG_TYPE_U8X8; 
+  case MV_INT8X4: return BRIG_TYPE_S8X4; 
+  case MV_INT8X8: return BRIG_TYPE_S8X8;
+  case MV_UINT16X2: return BRIG_TYPE_U16X2;
+  case MV_UINT16X4: return BRIG_TYPE_U16X4;
+  case MV_INT16X2: return BRIG_TYPE_S16X2;
+  case MV_INT16X4: return BRIG_TYPE_S16X4;
+  case MV_UINT32X2: return BRIG_TYPE_U32X2;
+  case MV_INT32X2: return BRIG_TYPE_S32X2;
+  case MV_FLOATX2: return BRIG_TYPE_F32X2;
   case MV_EXPR:
     assert(false); return BRIG_TYPE_NONE;
 /*
