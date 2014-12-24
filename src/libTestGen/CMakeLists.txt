@@ -6,9 +6,15 @@ HSAILTestGenBackendEml.h  HSAILTestGenContext.cpp      HSAILTestGenDump.cpp     
 HSAILTestGenBackendLua.h  HSAILTestGenContext.h        HSAILTestGenDump.h            HSAILTestGenManager.h     HSAILTestGenPropDesc.h    HSAILTestGenSample.h      HSAILTestGenUtilities.cpp
 )
 
-add_custom_target(TestGenIncludes
-  command perl ${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/HDLProcessor.pl -target=testgen < ${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/HSAILBrigInstr.hdl > ${CMAKE_SOURCE_DIR}/src/libTestGen/HSAILTestGen_gen.hpp
-)
+if(UNIX)
+  add_custom_target(TestGenIncludes
+    perl ${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/HDLProcessor.pl -target=testgen < ${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/HSAILBrigInstr.hdl > ${CMAKE_SOURCE_DIR}/src/libTestGen/HSAILTestGen_gen.hpp
+  )
+else()
+  add_custom_target(TestGenIncludes
+    $ENV{DK_ROOT}/perl/5.12.2/bin/perl ${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/HDLProcessor.pl -target=testgen < ${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/HSAILBrigInstr.hdl > ${CMAKE_SOURCE_DIR}/src/libTestGen/HSAILTestGen_gen.hpp
+  )
+endif()
 
 include_directories(${CMAKE_SOURCE_DIR}/src/libTestGen)
 add_dependencies(libTestGen TestGenIncludes)
