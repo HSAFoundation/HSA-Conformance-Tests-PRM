@@ -130,13 +130,14 @@ namespace hexl {
 
       class TypesConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigTypeX> *compound, *compoundIntegral, *compoundFloating, *packed;
+        hexl::Sequence<Brig::BrigTypeX> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128;
 
       public:
         TypesConfig(CoreConfig* cc);
 
         hexl::Sequence<Brig::BrigTypeX>* Compound() { return compound; }
         hexl::Sequence<Brig::BrigTypeX>* Packed() { return packed; }
+        hexl::Sequence<Brig::BrigTypeX>* Packed128Bit() { return packed128; }
         const hexl::Sequence<Brig::BrigTypeX>* CompoundIntegral() { return compoundIntegral; }
         const hexl::Sequence<Brig::BrigTypeX>* CompoundFloating() { return compoundFloating; }
       };
