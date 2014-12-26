@@ -287,34 +287,34 @@ std::ostream& operator<<(std::ostream& out, const Value& v)
   return out;
 }
 
+std::ostream& PrintFloat(float f, std::ostream& out){
+  if (isnan(f) || is_inf(f)) {
+    out << (isnan(f) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint32_t)*2) << static_cast<uint32_t>(f) << ")" << std::dec;
+    return out;
+  }
+  int precision = Comparison::F32_MAX_DECIMAL_PRECISION;
+  if (f < 0) { precision--; }
+  precision -= (1 + (int) log10(std::abs(f)));
+  if (precision < 0) { precision = 0; }
+  out << std::fixed << std::setprecision(precision) << f;
+  return out;
+};
+
+std::ostream& PrintDouble(double d, std::ostream& out){
+  if (isnan(d) || is_inf(d)) {
+    out << (isnan(d) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint64_t)*2) << static_cast<uint64_t>(d) << ")" << std::dec;
+    return out;
+  }
+  int precision = Comparison::F64_MAX_DECIMAL_PRECISION;
+  if (d < 0) { precision--; }
+  precision -= (1 + (int) log10(std::abs(d)));
+  if (precision < 0) { precision = 0; }
+  out << std::fixed << std::setprecision(precision) << d;
+  return out;
+};
+
 void Value::Print(std::ostream& out) const
 {
-  auto printFloat = [&](float f) -> std::ostream& {
-    if (isnan(f) || is_inf(f)) {
-      out << (isnan(f) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint32_t)*2) << static_cast<uint32_t>(f) << ")" << std::dec;
-      return out;
-    }
-    int precision = Comparison::F32_MAX_DECIMAL_PRECISION;
-    if (f < 0) { precision--; }
-    precision -= (1 + (int) log10(std::abs(f)));
-    if (precision < 0) { precision = 0; }
-    out << std::fixed << std::setprecision(precision) << f;
-    return out;
-  };
-
-  auto printDouble = [&](double d) -> std::ostream& {
-    if (isnan(d) || is_inf(d)) {
-      out << (isnan(d) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint64_t)*2) << static_cast<uint64_t>(d) << ")" << std::dec;
-      return out;
-    }
-    int precision = Comparison::F64_MAX_DECIMAL_PRECISION;
-    if (d < 0) { precision--; }
-    precision -= (1 + (int) log10(std::abs(d)));
-    if (precision < 0) { precision = 0; }
-    out << std::fixed << std::setprecision(precision) << d;
-    return out;
-  };
-
   switch (type) {
   case MV_INT8:
     out << (int) S8();
@@ -341,10 +341,10 @@ void Value::Print(std::ostream& out) const
     out << U64();
     break;
   case MV_FLOAT:
-    printFloat(F());
+    PrintFloat(F(), out);
     break;
   case MV_DOUBLE:
-    printDouble(D());
+    PrintDouble(D(), out);
     break;
   case MV_INT8X4: 
     out << "(" << S8X4(0) << ", " << S8X4(1) << ", " << S8X4(2) << ", " << S8X4(3) << ")";
@@ -377,7 +377,7 @@ void Value::Print(std::ostream& out) const
     out << "(" << U32X2(0) << ", " << U32X2(1) << ")";
     break;
   case MV_FLOATX2:
-    out << "(" << printFloat(FX2(0)) << ", " << printFloat(FX2(1)) << ")";
+    out << "(" << PrintFloat(FX2(0), out) << ", " << PrintFloat(FX2(1), out) << ")";
     break;
   case MV_REF:
   case MV_IMAGEREF:

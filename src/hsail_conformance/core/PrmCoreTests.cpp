@@ -171,6 +171,14 @@ SpecialOperationsTests::SpecialOperationsTests()
   Add(new MiscOperationsTests());
 }
 
+DECLARE_TESTSET_UNION(VariablesTests);
+
+VariablesTests::VariablesTests()
+  : TestSetUnion("variables")
+{
+  Add(new InitializerTests());
+}
+
 DECLARE_TESTSET_UNION(PrmCoreTests);
 
 PrmCoreTests::PrmCoreTests()
@@ -182,7 +190,7 @@ PrmCoreTests::PrmCoreTests()
   Add(new ParallelOperationsTests());
   Add(new FunctionsTests());
   Add(new SpecialOperationsTests());
-  Add(new InitializerTests());
+  Add(new VariablesTests());
 }
 
 hexl::TestSet* NewPrmCoreTests()

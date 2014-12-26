@@ -382,9 +382,9 @@ public:
 void InitializerTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "variables/initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "variables/initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "variables/initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 }
