@@ -214,6 +214,42 @@ private:
     }
   }
 
+  void PushInitial() {
+    auto val = generator.Generate(ValueType());
+    data.push_back(val);
+    switch (type) {
+    case BRIG_TYPE_S8:    var->PushBack(val.S8());  break;
+    case BRIG_TYPE_U8:    var->PushBack(val.U8());  break;
+    case BRIG_TYPE_S16:   var->PushBack(val.S16()); break;
+    case BRIG_TYPE_U16:   var->PushBack(val.U16()); break;
+    case BRIG_TYPE_S32:   var->PushBack(val.S32()); break;
+    case BRIG_TYPE_U32:   var->PushBack(val.U32()); break;
+    case BRIG_TYPE_S64:   var->PushBack(val.S64()); break;
+    case BRIG_TYPE_U64:   var->PushBack(val.U64()); break;
+    case BRIG_TYPE_F16:   var->PushBack(val.F());   break;
+    case BRIG_TYPE_F32:   var->PushBack(val.F());   break;
+    case BRIG_TYPE_F64:   var->PushBack(val.D());   break;
+    case BRIG_TYPE_U8X4:  var->PushBack(val.U32()); break;
+    case BRIG_TYPE_U8X8:  var->PushBack(val.U64()); break;
+    case BRIG_TYPE_S8X4:  var->PushBack(val.U32()); break;
+    case BRIG_TYPE_S8X8:  var->PushBack(val.U64()); break;
+    case BRIG_TYPE_U16X2: var->PushBack(val.U32()); break;
+    case BRIG_TYPE_U16X4: var->PushBack(val.U64()); break;
+    case BRIG_TYPE_S16X2: var->PushBack(val.U32()); break;
+    case BRIG_TYPE_S16X4: var->PushBack(val.U64()); break;
+    case BRIG_TYPE_U32X2: var->PushBack(val.U64()); break;
+    case BRIG_TYPE_S32X2: var->PushBack(val.U64()); break;
+    case BRIG_TYPE_F32X2: var->PushBack(val.U64()); break;
+    
+    case BRIG_TYPE_U8X16: case BRIG_TYPE_U16X8: case BRIG_TYPE_U32X4: case BRIG_TYPE_U64X2: 
+    case BRIG_TYPE_S8X16: case BRIG_TYPE_S16X8: case BRIG_TYPE_S32X4: case BRIG_TYPE_S64X2: 
+    case BRIG_TYPE_F32X4: case BRIG_TYPE_F64X2: 
+      var->PushBack(val.U64());  break;
+
+    default: assert(false);
+    }
+  }
+
 public:
   InitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
     : Test(Location::KERNEL, geometry), 
@@ -231,32 +267,9 @@ public:
     Test::Init();
     var = kernel->NewVariable("var", segment, type, Location::MODULE, BRIG_ALIGNMENT_NONE, dim, isConst);
     for (uint32_t i = 0; i < DataSize(); ++i) {
-      auto val = generator.Generate(ValueType());
-      data.push_back(val);
-      switch (type) {
-      case BRIG_TYPE_S8:    var->PushBack(val.S8());  break;
-      case BRIG_TYPE_U8:    var->PushBack(val.U8());  break;
-      case BRIG_TYPE_S16:   var->PushBack(val.S16()); break;
-      case BRIG_TYPE_U16:   var->PushBack(val.U16()); break;
-      case BRIG_TYPE_S32:   var->PushBack(val.S32()); break;
-      case BRIG_TYPE_U32:   var->PushBack(val.U32()); break;
-      case BRIG_TYPE_S64:   var->PushBack(val.S64()); break;
-      case BRIG_TYPE_U64:   var->PushBack(val.U64()); break;
-      case BRIG_TYPE_F16:   var->PushBack(val.F());   break;
-      case BRIG_TYPE_F32:   var->PushBack(val.F());   break;
-      case BRIG_TYPE_F64:   var->PushBack(val.D());   break;
-      case BRIG_TYPE_U8X4:  var->PushBack(val.U32()); break;
-      case BRIG_TYPE_U8X8:  var->PushBack(val.U64()); break;
-      case BRIG_TYPE_S8X4:  var->PushBack(val.U32()); break;
-      case BRIG_TYPE_S8X8:  var->PushBack(val.U64()); break;
-      case BRIG_TYPE_U16X2: var->PushBack(val.U32()); break;
-      case BRIG_TYPE_U16X4: var->PushBack(val.U64()); break;
-      case BRIG_TYPE_S16X2: var->PushBack(val.U32()); break;
-      case BRIG_TYPE_S16X4: var->PushBack(val.U64()); break;
-      case BRIG_TYPE_U32X2: var->PushBack(val.U64()); break;
-      case BRIG_TYPE_S32X2: var->PushBack(val.U64()); break;
-      case BRIG_TYPE_F32X2: var->PushBack(val.U64()); break;
-      default: assert(false);
+      int count = Is128Bit(type) ? 2 : 1;
+      for (int i = 0; i < count; ++i) {
+        PushInitial();
       }
     }
   }
@@ -369,8 +382,9 @@ public:
 void InitializerTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 }

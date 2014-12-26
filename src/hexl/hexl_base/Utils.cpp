@@ -147,6 +147,18 @@ hexl::ValueType Brig2ValueType(BrigTypeX type)
   case BRIG_TYPE_U32X2: return MV_UINT32X2;
   case BRIG_TYPE_S32X2: return MV_INT32X2;
   case BRIG_TYPE_F32X2: return MV_FLOATX2;
+
+  case BRIG_TYPE_U8X16: return MV_UINT8X8;
+  case BRIG_TYPE_U16X8: return MV_UINT16X4;
+  case BRIG_TYPE_U32X4: return MV_UINT32X2;
+  case BRIG_TYPE_U64X2: return MV_UINT64;
+  case BRIG_TYPE_S8X16: return MV_INT8X8;
+  case BRIG_TYPE_S16X8: return MV_INT16X4;
+  case BRIG_TYPE_S32X4: return MV_INT32X2;
+  case BRIG_TYPE_S64X2: return MV_INT64;
+  case BRIG_TYPE_F32X4: return MV_FLOATX2;
+  case BRIG_TYPE_F64X2: return MV_DOUBLE;
+
   default: assert(!"Unsupported type in Brig2ValueType"); return MV_LAST;
   }
 }
@@ -189,4 +201,10 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
   default: assert(false); return BRIG_TYPE_NONE;
   }
 }
+
+bool Is128Bit(BrigTypeX type) {
+  return HSAIL_ASM::getBrigTypeNumBytes(type) == 16;
+}
+
+
 }

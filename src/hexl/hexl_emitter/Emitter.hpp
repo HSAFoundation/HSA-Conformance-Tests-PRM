@@ -233,13 +233,21 @@ public:
 
   template<typename T>
   void PushBack(T val) {
-    assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type));
+    if (!Is128Bit(type)) {
+      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type));    
+    } else {
+      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type) / 2);    
+    }
     data.push_back(val);
   }
 
   template<typename T>
   void WriteData(T val, size_t pos) {
-    assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type));
+    if (!Is128Bit(type)) {
+      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type));    
+    } else {
+      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type) / 2);    
+    }
     data.write(val, pos);
   }
 
