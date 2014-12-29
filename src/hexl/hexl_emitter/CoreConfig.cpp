@@ -287,6 +287,10 @@ CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
 
 static const uint64_t smallDimensions[] = { 0, 1, 2, 3, 4, 8, };
 static const uint64_t initializerDimensions[] = {0, 1, 2, 64};
+static const Location initializerLocationsArray[] = {
+  Location::MODULE,
+  Location::KERNEL
+};
 
 CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
   : ConfigBase(cc),
@@ -294,7 +298,8 @@ CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
   dim0(NEWA OneValueSequence<uint64_t>(0)),
   dims(NEWA ArraySequence<uint64_t>(smallDimensions, NELEM(smallDimensions))),
   initializerDims(NEWA ArraySequence<uint64_t>(initializerDimensions, NELEM(initializerDimensions))),
-  autoLocation(NEWA OneValueSequence<Location>(AUTO))
+  autoLocation(NEWA OneValueSequence<Location>(AUTO)),
+  initializerLocations(NEWA ArraySequence<Location>(initializerLocationsArray, NELEM(initializerLocationsArray)))
 {
   for (unsigned a = BRIG_ALIGNMENT_1; a != BRIG_ALIGNMENT_LAST; a++) {
     allAlignment.Add((BrigAlignment) a);

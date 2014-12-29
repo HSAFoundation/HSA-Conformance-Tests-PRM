@@ -194,6 +194,7 @@ private:
   uint64_t dim;
   Values data;
   bool isConst;
+  Location varLocation;
   ValueGenerator generator;
 
   uint64_t DataSize() const { return std::max((uint32_t) dim, (uint32_t) 1); }
@@ -251,9 +252,9 @@ private:
   }
 
 public:
-  InitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+  InitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, Location varLocation_, bool isConst_)
     : Test(Location::KERNEL, geometry), 
-      type(type_), segment(segment_), dim(dim_), data(), isConst(isConst_),
+      type(type_), segment(segment_), dim(dim_), data(), varLocation(varLocation_), isConst(isConst_),
       generator()
   {
   }
@@ -265,7 +266,7 @@ public:
 
   void Init() override {
     Test::Init();
-    var = kernel->NewVariable("var", segment, type, Location::MODULE, BRIG_ALIGNMENT_NONE, dim, isConst);
+    var = kernel->NewVariable("var", segment, type, varLocation, BRIG_ALIGNMENT_NONE, dim, isConst);
     for (uint32_t i = 0; i < DataSize(); ++i) {
       int count = Is128Bit(type) ? 2 : 1;
       for (int i = 0; i < count; ++i) {
@@ -275,6 +276,7 @@ public:
   }
 
   void Name(std::ostream& out) const override {
+    out << LocationString(varLocation) << "/";
     if (isConst) {
       out << "const_";
     }
@@ -320,9 +322,7 @@ public:
     }
   }
 
-  void KernelCode() override {
-    assert(codeLocation == KERNEL);
-    
+  void InitializerCode() {
     auto forEach = "@for_each";
     auto forByte = "@for_byte";
     
@@ -372,9 +372,19 @@ public:
     be.EmitCbr(cmp, forEach);
   }
 
+  void KernelCode() override {
+    if (codeLocation == Location::KERNEL) {
+      InitializerCode();
+    } else {
+      assert(false);
+    }    
+  }
+
   void ModuleVariables() override {
     Test::ModuleVariables();
-    var->ModuleVariables();
+    if (varLocation == Location::MODULE) {
+      var->ModuleVariables();
+    }
   }
 };
 
@@ -382,9 +392,9 @@ public:
 void InitializerTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
-  TestForEach<InitializerTest>(cc->Ap(), it, "variables/initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<InitializerTest>(cc->Ap(), it, "variables/initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<InitializerTest>(cc->Ap(), it, "variables/initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), cc->Variables().InitializerLocations(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), cc->Variables().InitializerLocations(), Bools::All());
+  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), cc->Variables().InitializerLocations(), Bools::All());
 }
 
 }

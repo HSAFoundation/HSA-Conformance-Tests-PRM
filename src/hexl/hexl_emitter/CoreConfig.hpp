@@ -148,7 +148,7 @@ namespace hexl {
         hexl::Sequence<VariableSpec>* byTypeAlign[BRIG_SEGMENT_MAX];
         hexl::Sequence<VariableSpec>* byTypeDimensionAlign[BRIG_SEGMENT_MAX];
         hexl::Sequence<uint64_t> *dim0, *dims, *initializerDims;
-        hexl::Sequence<Location>* autoLocation;
+        hexl::Sequence<Location> *autoLocation, *initializerLocations;
         hexl::VectorSequence<Brig::BrigAlignment> allAlignment;
 
       public:
@@ -163,6 +163,7 @@ namespace hexl {
         hexl::Sequence<uint64_t>* InitializerDims() { return initializerDims; }
 
         hexl::Sequence<Location>* AutoLocation() { return autoLocation; }
+        hexl::Sequence<Location>* InitializerLocations() { return initializerLocations; }
 
         hexl::Sequence<Brig::BrigAlignment>* AllAlignment() { return &allAlignment; }
       };
