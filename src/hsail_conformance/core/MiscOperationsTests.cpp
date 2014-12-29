@@ -372,16 +372,23 @@ public:
   void Init() {
     Test::Init();
     input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, MV_DOUBLE, geometry->GridSize());
-    for (uint64_t i = 0; i < geometry->GridSize(); ++i) {
+    for (uint64_t i = 0; i < GetCycles(); ++i) {
       input->AddData(Value(MV_DOUBLE, D((double) i)));
     }
   }
 
-  unsigned GetCycles() const {  return 64; }
+  unsigned GetCycles() const {  return geometry->GridSize(); }
   
   void ExpectedResults(Values* result) const {
-    for(uint16_t i = 0; i < GetCycles(); i++) {
-      result->push_back(Value(MV_UINT64, 372));
+
+    for(uint16_t i = 0; i < GetCycles(); ++i) {
+      double val = 0;
+      //calculate value
+      for (uint16_t l = 0; l < GetCycles(); ++l)
+      {
+        (val += long(sqrt((double)l)))++;
+      }
+      result->push_back(Value(MV_UINT64, val));
     }
   }
 
