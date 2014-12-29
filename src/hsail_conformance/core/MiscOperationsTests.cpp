@@ -866,7 +866,7 @@ public:
           Dim point(x, y, z);
           
           auto wgId = geometry->WorkgroupFlatId(point);
-          result->push_back(Value(MV_UINT32, workgroups[wgId]));
+          result->push_back(Value(MV_UINT32, workgroups[wgId] % te->CoreCfg()->Wavesize()));
           ++ workgroups[wgId];
         }
       }
