@@ -346,7 +346,6 @@ bool HsailDispatch::Execute()
 
   // Wait for kernel completion.
   hsa_signal_value_t result;
-  bool ret = true;
   clock_t beg = clock();
   do {
     result = Runtime()->Hsa()->hsa_signal_wait_acquire(signal, HSA_EQ, 0, timeout, HSA_WAIT_EXPECTANCY_SHORT);

@@ -150,8 +150,8 @@ protected:
 
 void MemoryFenceTests::Iterate(TestSpecIterator& it)
 {
-  CoreConfig* cc = CoreConfig::Get(context);
-  std::string base = "memfence";
+//  CoreConfig* cc = CoreConfig::Get(context);
+//  std::string base = "memfence";
 //  TestForEach<MemoryFenceTest>(it, base, cc->Grids().SeveralWavesSet(), MemfenceOperations::LoadStore(), MemoryOrder::MemFence(), cc->Memory().MemfenceSegments(), MemoryScope::Global(), MemoryScope::Group(), MemoryScope::Image());
 }
 

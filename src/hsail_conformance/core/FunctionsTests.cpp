@@ -77,11 +77,6 @@ public:
     return out;
   }
 
-  void KernelCode() {
-    TypedReg kernArgInReg = functionArg->AddDataReg();
-    Test::KernelCode();
-  }
-
   void ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
   {
     TypedReg indata = functionArg->AddDataReg();

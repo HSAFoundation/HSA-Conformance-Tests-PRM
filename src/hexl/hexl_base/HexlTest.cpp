@@ -28,11 +28,6 @@
 
 namespace hexl {
 
-static void logMsg(const char *msg, size_t size)
-{
-  printf("LOG: %s\n", msg);
-}
-
 const char *TestStatusString(TestStatus status)
 {
   switch (status) {

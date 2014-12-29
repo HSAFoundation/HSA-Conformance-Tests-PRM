@@ -1077,13 +1077,13 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
     Value fv1(MV_FLOAT, F(v1.FX2(0)));
     Value fv2(MV_FLOAT, F(v2.FX2(0)));
     Value ferror1(error);
-    auto res1 = CompareFloat(fv1, fv2, method, precision, ferror1);
+    bool res1 = CompareFloat(fv1, fv2, method, precision, ferror1);
     fv1 = Value(MV_FLOAT, F(v1.FX2(1)));
     fv2 = Value(MV_FLOAT, F(v2.FX2(1)));
     Value ferror2(error);
-    auto res2 = CompareFloat(fv1, fv2, method, precision, ferror2);
+    bool res2 = CompareFloat(fv1, fv2, method, precision, ferror2);
     error = Value(MV_FLOATX2, FX2(ferror1.F(), ferror2.F()));
-    return error.U64() == 0;
+    return res1 && res2;
   }
   default:
     assert(!"Unsupported type in absdifference"); return false;
