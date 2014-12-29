@@ -71,7 +71,12 @@ uint32_t GridGeometry::WorkitemFlatId(Dim point) const
   return WorkitemId(point, 0) + WorkitemId(point, 1) * workgroupSize[X] + WorkitemId(point, 2) * workgroupSize[X] * workgroupSize[Y];
 }
   
-uint64_t GridGeometry::WorkitemFlatAbsId(Dim point) const
+uint32_t GridGeometry::WorkitemCurrentFlatId(Dim point) const
+{
+  return WorkitemId(point, 0) + WorkitemId(point, 1) * CurrentWorkgroupSize(point, 0) + WorkitemId(point, 2) * CurrentWorkgroupSize(point, 0) * CurrentWorkgroupSize(point, 1);
+}
+  
+uint64_t GridGeometry::WorkitemFlatAbsId(const Dim& point) const
 {
   return WorkitemAbsId(point, 0) + WorkitemAbsId(point, 1) * gridSize[X] + WorkitemAbsId(point, 2) * gridSize[X] * gridSize[Y];
 }
@@ -91,7 +96,7 @@ uint32_t GridGeometry::WorkgroupId(Dim point, uint16_t dim) const
   return 0;
 }
 
-uint32_t GridGeometry::WorkgroupFlatId (Dim point) const 
+uint32_t GridGeometry::WorkgroupFlatId(Dim point) const 
 {
   return WorkgroupId(point, 0) 
        + WorkgroupId(point, 1) * GridGroups(0) 
@@ -113,6 +118,11 @@ uint32_t GridGeometry::GridGroups(uint16_t dim) const
   return 0;
 }
   
+uint32_t GridGeometry::GridGroups() const
+{
+  return GridGroups(0) * GridGroups(1) * GridGroups(2);
+}
+
 uint32_t GridGeometry::CurrentWorkgroupSize(Dim point) const
 {
   return CurrentWorkgroupSize(point, 0) * 
@@ -158,9 +168,93 @@ Dim GridGeometry::Point(uint64_t flatabsid) const
   return Dim(x, y, z);
 }
 
+Dim GridGeometry::Point(uint32_t workgroupflatid, uint32_t workitemflatid) const
+{
+  return Point(workgroupflatid * WorkgroupSize() + workitemflatid);
+}
+
+uint32_t GridGeometry::LaneId(const Dim& point, uint32_t wavesize) const
+{
+  return WorkitemCurrentFlatId(point) % wavesize;
+}
+
+uint32_t GridGeometry::WaveNumInWorkgroup(const Dim& point, uint32_t wavesize) const
+{
+  return WorkitemCurrentFlatId(point) / wavesize;
+}
+
+uint32_t GridGeometry::MaxWaveNumInWorkgroup(uint32_t wavesize) const
+{
+  return (WorkgroupSize() + wavesize - 1) / wavesize;
+}
+
+uint32_t GridGeometry::WaveIndex(const Dim& point, uint32_t wavesize) const
+{
+  return WorkgroupFlatId(point) * MaxWaveNumInWorkgroup(wavesize) + WaveNumInWorkgroup(point, wavesize);
+}
+
+uint32_t GridGeometry::MaxWaveIndex(uint32_t wavesize) const
+{
+  return GridGroups() * MaxWaveNumInWorkgroup(wavesize);
+}
+
 uint64_t GridGeometry::WaveNum(Dim point, uint32_t waveSize) const
 {
-  return WorkitemFlatAbsId(point) / waveSize;
+  assert(0);
+  return 0;
 }
+
+const Dim& GridIterator::operator*()
+{
+  return point;
+}
+
+GridIterator& GridIterator::operator++()
+{
+  uint64_t x = point.get64(0), y = point.get64(1), z = point.get64(2);
+  uint64_t gsx = geometry->GridSize(0), gsy = geometry->GridSize(1);
+  x++;
+  if (x == gsx) {
+    y++; x = 0;
+    if (y == gsy) {
+      z++; y = 0;
+    }
+  }
+  point = Dim(x, y, z);
+  return *this;
+}
+
+GridIterator GridGeometry::GridBegin() const
+{
+  return GridIterator(this, 0, 0, 0);
+}
+
+GridIterator GridGeometry::GridEnd() const
+{
+  return GridIterator(this, 0, 0, GridSize(2));
+}
+
+bool GridIterator::operator!=(const GridIterator& i)
+{
+  return (geometry != i.geometry) || (point != i.point);
+}
+
+Dim WorkgroupIterator::operator*()
+{
+  return point;
+}
+
+WorkgroupIterator& WorkgroupIterator::operator++()
+{
+  point = geometry->Point(geometry->WorkgroupFlatId(point), geometry->WorkitemFlatId(point) + 1);
+  return *this;
+}
+
+bool WorkgroupIterator::operator!=(const WorkgroupIterator& i)
+{
+  return (geometry != i.geometry) || (point != i.point);
+}
+
+
 
 }

@@ -555,6 +555,7 @@ public:
   void ActualCallArguments(TypedRegList inputs, TypedRegList outputs);
 
   bool IsTrueFor(uint64_t wi);
+  bool IsTrueFor(const Dim& point) { return IsTrueFor(Geometry()->WorkitemFlatAbsId(point)); }
 
   HSAIL_ASM::Operand CondOperand();
 
@@ -562,6 +563,7 @@ public:
   void EmitIfThenStart();
   void EmitIfThenEnd();
   bool ExpectThenPath(uint64_t wi);
+  bool ExpectThenPath(const Dim& point) { return ExpectThenPath(Geometry()->WorkitemFlatAbsId(point)); }
 
   void EmitIfThenElseStart();
   void EmitIfThenElseOtherwise();

@@ -125,12 +125,16 @@ std::string ExtractTestPath(const std::string& name, unsigned level)
 hexl::ValueType Brig2ValueType(BrigTypeX type)
 {
   switch (type) {
+  case BRIG_TYPE_B8:
   case BRIG_TYPE_U8: return MV_UINT8;
   case BRIG_TYPE_S8: return MV_INT8;
+  case BRIG_TYPE_B16:
   case BRIG_TYPE_U16: return MV_UINT16;
   case BRIG_TYPE_S16: return MV_INT16;
+  case BRIG_TYPE_B32:
   case BRIG_TYPE_U32: return MV_UINT32;
   case BRIG_TYPE_S32: return MV_INT32;
+  case BRIG_TYPE_B64:
   case BRIG_TYPE_U64: return MV_UINT64;
   case BRIG_TYPE_S64: return MV_INT64;
   case BRIG_TYPE_F16: return MV_FLOAT16;

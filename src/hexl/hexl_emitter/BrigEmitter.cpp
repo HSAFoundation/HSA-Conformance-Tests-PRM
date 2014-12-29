@@ -302,7 +302,9 @@ void BrigEmitter::EmitMov(TypedReg dst, TypedReg src)
 
 void BrigEmitter::EmitMov(TypedReg dst, Operand src)
 {
-  EmitMov(dst->Reg(), src, dst->TypeSizeBits());
+  for (unsigned i = 0; i < dst->Count(); ++i) {
+    EmitMov(dst->Reg(i), src, dst->TypeSizeBits());
+  }
 }
 
 OperandAddress BrigEmitter::IncrementAddress(OperandAddress addr, int64_t offset)
@@ -329,41 +331,48 @@ InstMem BrigEmitter::EmitLoad(BrigSegment8_t segment, BrigType16_t type, Operand
 
 void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress addr, bool useVectorInstructions)
 {
+  BrigType16_t type = MemOpType(dst->Type());
   if (useVectorInstructions && dst->Count() > 1) {
     uint64_t dim = dst->Count();
     unsigned i = 0;
     uint64_t offset = 0;
     while (dim > 0) {
       uint64_t dim1 = std::min((uint64_t) 4, dim);
-      InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_LD, dst->Type());
+      InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_LD, type);
       mem.segment() = segment;
-      mem.align() = getNaturalAlignment(dst->Type());
+      mem.align() = getNaturalAlignment(type);
       mem.width() = BRIG_WIDTH_1;
       mem.equivClass() = 0;
       ItemList dsts;
       for (size_t j = i; j < i + dim1; ++j) {
         dsts.push_back(dst->Reg(j));
       }
-      OperandAddress addr1 = IncrementAddress(addr, i * getBrigTypeNumBits(dst->Type())/8);
+      OperandAddress addr1 = IncrementAddress(addr, i * getBrigTypeNumBits(type)/8);
       mem.operands() = Operands(brigantine.createOperandList(dsts), addr1) ;
       i += (unsigned) dim1;
       dim -= dim1;
-      offset += dim1 * getBrigTypeNumBytes(dst->Type());
+      offset += dim1 * getBrigTypeNumBytes(type);
     }
   } else {
     for (size_t i = 0; i < dst->Count(); ++i) {
-      EmitLoad(segment, dst->Type(), dst->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(dst->Type())/8));
+      EmitLoad(segment, type, dst->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8));
     }
   }
 }
 
-/*
-void BrigEmitter::EmitLoad(TypedReg dst, DirectiveVariable v, int64_t offset, bool useVectorInstructions)
+BrigType16_t BrigEmitter::MemOpType(BrigType16_t type)
 {
-  assert(v);
-  EmitLoad(v.segment(), dst, Address(v, offset), useVectorInstructions);
+  switch (type) {
+  case BRIG_TYPE_B16: return BRIG_TYPE_U16;
+  case BRIG_TYPE_B32: return BRIG_TYPE_U32;
+  case BRIG_TYPE_B64: return BRIG_TYPE_U64;
+  case BRIG_TYPE_B128:
+  case BRIG_TYPE_B1: assert(false);
+  default:
+    return type; 
+  }
 }
-*/
+
 
 void BrigEmitter::EmitLoad(TypedReg dst, PointerReg addr, int64_t offset, bool useVectorInstructions)
 {
@@ -394,30 +403,31 @@ InstMem BrigEmitter::EmitStore(BrigSegment8_t segment, BrigType16_t type, Operan
 
 void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress addr, bool useVectorInstructions)
 {
+  BrigType16_t type = MemOpType(src->Type());
   if (useVectorInstructions && src->Count() > 1) {
     uint64_t dim = src->Count();
     unsigned i = 0;
     uint64_t offset = 0;
     while (dim > 0) {
       uint64_t dim1 = std::min((uint64_t) 4, dim);
-      InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, src->Type());
+      InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, type);
       mem.segment() = segment;
-      mem.align() = getNaturalAlignment(src->Type());
+      mem.align() = getNaturalAlignment(type);
       mem.width() = BRIG_WIDTH_NONE;
       mem.equivClass() = 0;
       ItemList dsts;
       for (size_t j = i; j < i + dim1; ++j) {
         dsts.push_back(src->Reg(j));
       }
-      OperandAddress addr1 = IncrementAddress(addr, i * getBrigTypeNumBits(src->Type())/8);
+      OperandAddress addr1 = IncrementAddress(addr, i * getBrigTypeNumBits(type)/8);
       mem.operands() = Operands(brigantine.createOperandList(dsts), addr1) ;
       i += (unsigned) dim1;
       dim -= dim1;
-      offset += dim1 * getBrigTypeNumBytes(src->Type());
+      offset += dim1 * getBrigTypeNumBytes(type);
     }
   } else {
     for (size_t i = 0; i < src->Count(); ++i) {
-      EmitStore(segment, src->Type(), src->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(src->Type())/8));
+      EmitStore(segment, type, src->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8));
     }
   }
 }
@@ -757,7 +767,7 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
 //  assert(fArg = f.firstInArg());
   for (unsigned i = 0; i < inRegs->Count(); ++i) {
     assert(fArg);
-    //assert(fArg.type() == inRegs->Get(i)->Type());
+    //assert(fArg.type == inRegs->Get(i)->Type());
     ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
   }
