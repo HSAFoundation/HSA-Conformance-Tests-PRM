@@ -77,11 +77,6 @@ public:
     return out;
   }
 
-  void KernelCode() {
-    TypedReg kernArgInReg = functionArg->AddDataReg();
-    Test::KernelCode();
-  }
-
   void ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
   {
     TypedReg indata = functionArg->AddDataReg();
@@ -89,28 +84,6 @@ public:
     Test::ActualCallArguments(inputs, outputs);
     inputs->Add(indata);
   }
-
-  /*
-  void Executables() {
-    DirectiveFunction f = be.StartFunction();
-    specList.FunctionFormalOutputArguments(); specList.FunctionFormalInputArguments();
-    be.StartBody();
-    be.EndFunction();
-
-    DirectiveKernel k = be.StartKernel();
-    specList.KernelArguments();
-    be.StartBody();
-    TypedReg kernArgInReg = argIn->AddDataReg();
-    TypedReg kernArgOutReg = argOut->AddDataReg();
-    TypedRegList kernArgInRegs = be.AddTRegList(), kernArgOutRegs = be.AddTRegList();
-    kernArgInRegs->Add(kernArgInReg);
-    kernArgOutRegs->Add(kernArgOutReg);
-    input->EmitLoadData(kernArgInReg);
-    be.EmitCallSeq(f, kernArgInRegs, kernArgOutRegs, useVectorInstructionsForActuals);
-    output->EmitStoreData(kernArgOutReg);
-    be.EndBody();
-  }
-  */
 
   BrigTypeX ResultType() const {
     return argSpec->Type();
@@ -120,8 +93,8 @@ public:
     return argSpec->Dim();
   }
 
-  Value ExpectedResult(uint64_t i) const {
-    return Value(argSpec->VType(), i);
+  Value ExpectedResult(uint64_t wi, uint64_t pos) const {
+    return Value(argSpec->VType(), wi * ResultCount() + pos);
   }
 };
 

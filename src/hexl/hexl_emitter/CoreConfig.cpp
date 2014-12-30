@@ -45,7 +45,7 @@ CoreConfig::CoreConfig(
 
 CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    defaultGeometry(3, 16, 4, 2, 8, 4, 2),
+    defaultGeometry(3, 35, 5, 3, 9, 4, 2),
     trivialGeometry(1, 1, 1, 1, 1, 1, 1),
     defaultGeometrySet(NEWA OneValueSequence<Grid>(&defaultGeometry)),
     trivialGeometrySet(NEWA OneValueSequence<Grid>(&trivialGeometry)),

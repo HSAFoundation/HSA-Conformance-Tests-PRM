@@ -103,7 +103,6 @@ std::string LoadTextResource(ResourceManager* rm, const std::string& name)
   if (!in) { return ""; }
   std::string res;
   std::string line;
-  unsigned linen = 0;
   while (getline(*in, line)) {
     res += line;
     res += "\n";
@@ -128,7 +127,6 @@ std::string LoadFile(const std::string& name)
   if (!in) { return ""; }
   std::string res;
   std::string line;
-  unsigned linen = 0;
   while (getline(in, line)) {
     res += line;
     res += "\n";

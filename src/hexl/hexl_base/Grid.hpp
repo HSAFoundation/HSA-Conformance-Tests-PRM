@@ -38,10 +38,42 @@ namespace hexl {
     uint64_t get64(uint16_t idx) const { return data[idx]; }
     uint64_t size() const { return data[0] * data[1] * data[2]; }
     uint32_t size32() const { uint64_t s = size(); assert(s <= UINT32_MAX); return (uint32_t) s; }
+    bool operator==(const Dim& p) { return data[0] == p.data[0] && data[1] == p.data[1] && data[2] == p.data[2]; }
+    bool operator!=(const Dim& p) { return data[0] != p.data[0] || data[1] != p.data[1] || data[2] != p.data[2]; }
     void Name(std::ostream& o) const;
   };
 
   inline std::ostream& operator<<(std::ostream& o, const Dim& dim) { dim.Name(o); return o; }
+
+  class GridGeometry;
+
+  class GridIterator {
+  private:
+    const GridGeometry* geometry;
+    Dim point;
+
+  public:
+    GridIterator(const GridGeometry* geometry_, const Dim& point_)
+      : geometry(geometry_), point(point_) { }
+    GridIterator(const GridGeometry* geometry_, uint64_t x, uint64_t y, uint64_t z)
+      : geometry(geometry_), point(x, y, z) { }
+    const Dim& operator*();
+    GridIterator& operator++();
+    bool operator!=(const GridIterator& i);
+  };
+
+  class WorkgroupIterator {
+  private:
+    const GridGeometry* geometry;
+    Dim point;
+
+  public:
+    WorkgroupIterator(const GridGeometry* geometry_, const Dim& point_)
+      : geometry(geometry_), point(point_) { }
+    Dim operator*();
+    WorkgroupIterator& operator++();
+    bool operator!=(const WorkgroupIterator& i);
+  };
 
   class GridGeometry {
     ARENAORHEAPMEM
@@ -81,17 +113,29 @@ namespace hexl {
     uint32_t WorkgroupFlatId (Dim point) const;
     uint64_t WorkitemAbsId(Dim point, uint16_t dim) const;
     uint32_t WorkitemFlatId(Dim point) const;
-    uint64_t WorkitemFlatAbsId(Dim point) const;
+    uint32_t WorkitemCurrentFlatId (Dim point) const;
+    uint64_t WorkitemFlatAbsId(const Dim& point) const;
     uint32_t GridGroups(uint16_t dim) const;
+    uint32_t GridGroups() const;
     uint32_t CurrentWorkgroupSize(Dim point) const;
     uint32_t CurrentWorkgroupSize(Dim point, uint16_t dim) const;
     Dim Point(uint64_t workitemflatabsid) const;
+    Dim Point(uint32_t workgroupflatid, uint32_t workitemflatid) const;
+    GridIterator GridBegin() const;
+    GridIterator GridEnd() const;
+    WorkgroupIterator WaveBegin(uint32_t wavenum) const;
+    WorkgroupIterator WaveEnd(uint32_t wavenum) const;
     // TODO: Move WaveSize from CoreConfig to here
+    uint32_t LaneId(const Dim& point, uint32_t wavesize) const;
+    uint32_t WaveNumInWorkgroup(const Dim& point, uint32_t wavesize) const;
+    uint32_t MaxWaveNumInWorkgroup(uint32_t wavesize) const;
+    uint32_t WaveIndex(const Dim& point, uint32_t wavesize) const;
+    uint32_t MaxWaveIndex(uint32_t wavesize) const;
+    uint64_t WaveCount(uint32_t wavesize) const;
     uint64_t WaveNum(Dim point, uint32_t waveSize) const;
   };
 
   typedef const GridGeometry* Grid;
-
 }
 
 inline std::ostream& operator<<(std::ostream& out, const hexl::GridGeometry& geometry) { geometry.Name(out); return out; }

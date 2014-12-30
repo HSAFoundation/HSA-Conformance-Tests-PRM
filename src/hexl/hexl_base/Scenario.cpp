@@ -345,8 +345,7 @@ bool Scenario::Run(Context* context)
 
 void Scenario::Print(std::ostream& out)
 {
-  std::vector<std::unique_ptr<CommandSequence>>::iterator it = commandSequences.begin();
-  for (it; it != commandSequences.end(); ++it) {
+  for (auto it = commandSequences.begin(); it != commandSequences.end(); ++it) {
     (*it)->Print(out);
   }
 }

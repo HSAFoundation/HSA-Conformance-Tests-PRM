@@ -137,6 +137,7 @@ public:
   void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true);
   void EmitLoads(TypedRegList dsts, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
+  Brig::BrigType16_t MemOpType(Brig::BrigType16_t type);
   HSAIL_ASM::InstMem EmitStore(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr);
   void EmitStore(Brig::BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true);
   //void EmitStore(TypedReg src, HSAIL_ASM::DirectiveVariable v, int64_t offset = 0, bool useVectorInstructions = false);
