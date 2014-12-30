@@ -163,6 +163,7 @@ public:
   size_t Count() const { return tregs.size(); }
   TypedReg Get(size_t i) { return tregs[i]; }
   void Add(TypedReg treg) { tregs.push_back(treg); }
+  void Clear() { tregs.clear(); }
 };
 
 class EPointerReg : public ETypedReg {
@@ -302,12 +303,10 @@ private:
 public:
   EControlDirectives(const hexl::Sequence<Brig::BrigControlDirective>* spec_)
     : spec(spec_) { }
-  EControlDirectives(const hexl::Sequence<Brig::BrigControlDirective>& spec_)
-    : spec(&spec_) { }
 
   void Name(std::ostream& out) const;
 
-  const hexl::Sequence<Brig::BrigControlDirective>& Spec() const { return *spec; }
+  const hexl::Sequence<Brig::BrigControlDirective>* Spec() const { return spec; }
   bool Has(Brig::BrigControlDirective d) const { return spec->Has(d); }
   void FunctionDirectives();
   void KernelDirectives();
@@ -653,6 +652,8 @@ public:
 
   virtual void Test();
   virtual void Init();
+  virtual void KernelArgumentsInit();
+  virtual void FunctionArgumentsInit();
   virtual void GeometryInit();
 
   virtual void Programs();

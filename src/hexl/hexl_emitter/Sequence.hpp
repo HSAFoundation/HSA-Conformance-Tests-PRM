@@ -563,39 +563,41 @@ namespace hexl {
   template <typename T>
   class SubsetSequence : public Sequence<T> {
   private:
-    const Sequence<T>& sequence;
+    const Sequence<T>* sequence;
     uint32_t bits;
 
   public:
-    SubsetSequence(const Sequence<T>& sequence_, uint32_t bits_ = 0)
+    SubsetSequence(const Sequence<T>* sequence_, uint32_t bits_ = 0)
       : sequence(sequence_), bits(bits_) { }
 
     void SetBits(uint32_t bits) { this->bits = bits; }
 
     void Iterate(Action<T>& a) const {
       SubsequenceAction<T> as(bits, a);
-      sequence.Iterate(as);
+      sequence->Iterate(as);
     }
   };
 
   template <typename T>
-  class SubsetsSequence : public Sequence<Sequence<T>> {
+  class SubsetsSequence : public Sequence<Sequence<T>*> {
   private:
-    const Sequence<T>& sequence;
-    mutable std::vector<SubsetSequence<T>> subsequences;
+    Arena* ap;
+    const Sequence<T>* sequence;
+    mutable std::vector<SubsetSequence<T>*> subsequences;
     unsigned count;
 
   public:
-    explicit SubsetsSequence(const Sequence<T>& sequence_)
-      : sequence(sequence_), count(sequence.Count()) {
+    explicit SubsetsSequence(Arena* ap_, const Sequence<T>* sequence_)
+      : ap(ap_), sequence(sequence_), count(sequence->Count())
+    {
       assert(count <= 8); // Let's be reasonable.
     }
 
-    void Iterate(Action<Sequence<T>>& a) const {
+    void Iterate(Action<Sequence<T>*>& a) const {
       for (size_t i = subsequences.size(); i < (uint64_t) (1 << count); ++i) {
-        subsequences.push_back(SubsetSequence<T>(sequence, (unsigned) i));
+        subsequences.push_back(NEWA SubsetSequence<T>(sequence, (unsigned) i));
       }
-      for (const SubsetSequence<T>& subsequence : subsequences) {
+      for (SubsetSequence<T>* subsequence : subsequences) {
         a(subsequence);
       }
     }
@@ -603,7 +605,7 @@ namespace hexl {
 
   template <typename T>
   inline SubsetsSequence<T>*
-    Subsets(Arena* ap, const Sequence<T>& sequence) { return new (ap) SubsetsSequence<T>(sequence); }
+    Subsets(Arena* ap, const Sequence<T>* sequence) { return new (ap) SubsetsSequence<T>(ap, sequence); }
 
 }
 

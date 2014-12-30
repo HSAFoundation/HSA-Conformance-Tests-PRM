@@ -1132,11 +1132,21 @@ void EmittedTest::Init()
   GeometryInit();
   te->InitialContext()->Put("geometry", const_cast<GridGeometry*>(geometry));
   kernel = te->NewKernel("test_kernel");
-  output = kernel->NewBuffer("output", emitter::HOST_RESULT_BUFFER, ResultValueType(), OutputBufferSize());
+  KernelArgumentsInit();
   if (codeLocation == emitter::FUNCTION) {
     function = te->NewFunction("test_function");
-    functionResult = function->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), emitter::FUNCTION, BRIG_ALIGNMENT_NONE, ResultDim(), false, true);
+    FunctionArgumentsInit();
   }
+}
+
+void EmittedTest::KernelArgumentsInit()
+{
+  output = kernel->NewBuffer("output", emitter::HOST_RESULT_BUFFER, ResultValueType(), OutputBufferSize());
+}
+
+void EmittedTest::FunctionArgumentsInit()
+{
+  functionResult = function->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), emitter::FUNCTION, BRIG_ALIGNMENT_NONE, ResultDim(), false, true);
 }
 
 void EmittedTest::GeometryInit()

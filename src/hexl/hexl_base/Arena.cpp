@@ -20,6 +20,8 @@
 
 namespace hexl {
 
+#define OFFSETOF_FIELD(structName, field) ((size_t)&(((structName*)0)->field))
+
 const size_t Arena::chunkSize = 32 * 1024;
 
 struct Chunk {
@@ -27,6 +29,8 @@ struct Chunk {
   Chunk* next;
   char data[1];
 };
+
+const size_t Arena::chunkReserved = OFFSETOF_FIELD(Chunk, data);
 
 Arena::Arena()
   : chunk(0),
@@ -91,7 +95,7 @@ void Arena::Grow(size_t size)
 
 void Arena::EnsureSpace(size_t size)
 {
-  if (!chunk || allocPos + size > chunk->size) {
+  if (!chunk || chunkReserved + allocPos + size > chunk->size) {
     Grow(size);
   }
 }
