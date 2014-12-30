@@ -287,9 +287,9 @@ std::ostream& operator<<(std::ostream& out, const Value& v)
   return out;
 }
 
-std::ostream& PrintFloat(float f, std::ostream& out){
+std::ostream& PrintFloat(float f, uint32_t bits, std::ostream& out){
   if (isnan(f) || is_inf(f)) {
-    out << (isnan(f) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint32_t)*2) << static_cast<uint32_t>(f) << ")" << std::dec;
+    out << (isnan(f) ? "NAN" : "INF") << " (0x" << std::hex << bits << ")" << std::dec;
     return out;
   }
   int precision = Comparison::F32_MAX_DECIMAL_PRECISION;
@@ -300,9 +300,9 @@ std::ostream& PrintFloat(float f, std::ostream& out){
   return out;
 };
 
-std::ostream& PrintDouble(double d, std::ostream& out){
+std::ostream& PrintDouble(double d, uint64_t bits, std::ostream& out){
   if (isnan(d) || is_inf(d)) {
-    out << (isnan(d) ? "NAN" : "INF") << " (0x" << std::hex << std::setw(sizeof(uint64_t)*2) << static_cast<uint64_t>(d) << ")" << std::dec;
+    out << (isnan(d) ? "NAN" : "INF") << " (0x" << std::hex << bits << ")" << std::dec;
     return out;
   }
   int precision = Comparison::F64_MAX_DECIMAL_PRECISION;
@@ -341,10 +341,10 @@ void Value::Print(std::ostream& out) const
     out << U64();
     break;
   case MV_FLOAT:
-    PrintFloat(F(), out);
+    PrintFloat(F(), U32(), out);
     break;
   case MV_DOUBLE:
-    PrintDouble(D(), out);
+    PrintDouble(D(), U64(), out);
     break;
   case MV_INT8X4: 
     out << "(" << S8X4(0) << ", " << S8X4(1) << ", " << S8X4(2) << ", " << S8X4(3) << ")";
@@ -377,7 +377,7 @@ void Value::Print(std::ostream& out) const
     out << "(" << U32X2(0) << ", " << U32X2(1) << ")";
     break;
   case MV_FLOATX2:
-    out << "(" << PrintFloat(FX2(0), out) << ", " << PrintFloat(FX2(1), out) << ")";
+    out << "(" << PrintFloat(FX2(0), U32X2(0), out) << ", " << PrintFloat(FX2(1), U32X2(1), out) << ")";
     break;
   case MV_REF:
   case MV_IMAGEREF:
