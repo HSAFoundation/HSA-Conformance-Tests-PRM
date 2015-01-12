@@ -289,7 +289,8 @@ static const uint64_t smallDimensions[] = { 0, 1, 2, 3, 4, 8, };
 static const uint64_t initializerDimensions[] = {0, 1, 2, 64};
 static const Location initializerLocationsArray[] = {
   Location::MODULE,
-  Location::KERNEL
+  Location::KERNEL,
+  Location::FUNCTION
 };
 
 CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
@@ -321,6 +322,7 @@ CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
       ));
   }
 }
+
 
 static const BrigSegment queueSegments[] = { BRIG_SEGMENT_GLOBAL, BRIG_SEGMENT_FLAT };
 static const BrigOpcode ldOpcodesValues[] = { BRIG_OPCODE_LDQUEUEREADINDEX, BRIG_OPCODE_LDQUEUEWRITEINDEX };

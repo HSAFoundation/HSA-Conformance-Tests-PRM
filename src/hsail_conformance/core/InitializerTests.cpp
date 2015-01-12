@@ -188,13 +188,11 @@ public:
 
 class InitializerTest : public Test {
 private:
-  Variable var;
   BrigTypeX type;
   BrigSegment segment;
   uint64_t dim;
   Values data;
   bool isConst;
-  Location varLocation;
   ValueGenerator generator;
 
   uint64_t DataSize() const { return std::max((uint32_t) dim, (uint32_t) 1); }
@@ -219,43 +217,51 @@ private:
     auto val = generator.Generate(ValueType());
     data.push_back(val);
     switch (type) {
-    case BRIG_TYPE_S8:    var->PushBack(val.S8());  break;
-    case BRIG_TYPE_U8:    var->PushBack(val.U8());  break;
-    case BRIG_TYPE_S16:   var->PushBack(val.S16()); break;
-    case BRIG_TYPE_U16:   var->PushBack(val.U16()); break;
-    case BRIG_TYPE_S32:   var->PushBack(val.S32()); break;
-    case BRIG_TYPE_U32:   var->PushBack(val.U32()); break;
-    case BRIG_TYPE_S64:   var->PushBack(val.S64()); break;
-    case BRIG_TYPE_U64:   var->PushBack(val.U64()); break;
-    case BRIG_TYPE_F16:   var->PushBack(val.F());   break;
-    case BRIG_TYPE_F32:   var->PushBack(val.F());   break;
-    case BRIG_TYPE_F64:   var->PushBack(val.D());   break;
-    case BRIG_TYPE_U8X4:  var->PushBack(val.U32()); break;
-    case BRIG_TYPE_U8X8:  var->PushBack(val.U64()); break;
-    case BRIG_TYPE_S8X4:  var->PushBack(val.U32()); break;
-    case BRIG_TYPE_S8X8:  var->PushBack(val.U64()); break;
-    case BRIG_TYPE_U16X2: var->PushBack(val.U32()); break;
-    case BRIG_TYPE_U16X4: var->PushBack(val.U64()); break;
-    case BRIG_TYPE_S16X2: var->PushBack(val.U32()); break;
-    case BRIG_TYPE_S16X4: var->PushBack(val.U64()); break;
-    case BRIG_TYPE_U32X2: var->PushBack(val.U64()); break;
-    case BRIG_TYPE_S32X2: var->PushBack(val.U64()); break;
-    case BRIG_TYPE_F32X2: var->PushBack(val.U64()); break;
+    case BRIG_TYPE_S8:    Var()->PushBack(val.S8());  break;
+    case BRIG_TYPE_U8:    Var()->PushBack(val.U8());  break;
+    case BRIG_TYPE_S16:   Var()->PushBack(val.S16()); break;
+    case BRIG_TYPE_U16:   Var()->PushBack(val.U16()); break;
+    case BRIG_TYPE_S32:   Var()->PushBack(val.S32()); break;
+    case BRIG_TYPE_U32:   Var()->PushBack(val.U32()); break;
+    case BRIG_TYPE_S64:   Var()->PushBack(val.S64()); break;
+    case BRIG_TYPE_U64:   Var()->PushBack(val.U64()); break;
+    case BRIG_TYPE_F16:   Var()->PushBack(val.F());   break;
+    case BRIG_TYPE_F32:   Var()->PushBack(val.F());   break;
+    case BRIG_TYPE_F64:   Var()->PushBack(val.D());   break;
+    case BRIG_TYPE_U8X4:  Var()->PushBack(val.U32()); break;
+    case BRIG_TYPE_U8X8:  Var()->PushBack(val.U64()); break;
+    case BRIG_TYPE_S8X4:  Var()->PushBack(val.U32()); break;
+    case BRIG_TYPE_S8X8:  Var()->PushBack(val.U64()); break;
+    case BRIG_TYPE_U16X2: Var()->PushBack(val.U32()); break;
+    case BRIG_TYPE_U16X4: Var()->PushBack(val.U64()); break;
+    case BRIG_TYPE_S16X2: Var()->PushBack(val.U32()); break;
+    case BRIG_TYPE_S16X4: Var()->PushBack(val.U64()); break;
+    case BRIG_TYPE_U32X2: Var()->PushBack(val.U64()); break;
+    case BRIG_TYPE_S32X2: Var()->PushBack(val.U64()); break;
+    case BRIG_TYPE_F32X2: Var()->PushBack(val.U64()); break;
     
     case BRIG_TYPE_U8X16: case BRIG_TYPE_U16X8: case BRIG_TYPE_U32X4: case BRIG_TYPE_U64X2: 
     case BRIG_TYPE_S8X16: case BRIG_TYPE_S16X8: case BRIG_TYPE_S32X4: case BRIG_TYPE_S64X2: 
     case BRIG_TYPE_F32X4: case BRIG_TYPE_F64X2: 
-      var->PushBack(val.U64());  break;
+      Var()->PushBack(val.U64());  break;
 
     default: assert(false);
     }
   }
 
+protected:
+  BrigTypeX VarType() const { return type; }
+  BrigSegment VarSegment() const { return segment; }
+  uint64_t VarDim() const { return dim; }
+  bool VarIsConst() const { return isConst; }
+
+  virtual Variable Var() const = 0;
+  virtual void InitVar() = 0;
+
 public:
-  InitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, Location varLocation_, bool isConst_)
-    : Test(Location::KERNEL, geometry), 
-      type(type_), segment(segment_), dim(dim_), data(), varLocation(varLocation_), isConst(isConst_),
-      generator()
+  InitializerTest(Grid geometry, Location codeLocation, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+    : Test(codeLocation, geometry), 
+      type(type_), segment(segment_), dim(dim_), data(), isConst(isConst_), generator()
   {
   }
 
@@ -266,7 +272,7 @@ public:
 
   void Init() override {
     Test::Init();
-    var = kernel->NewVariable("var", segment, type, varLocation, BRIG_ALIGNMENT_NONE, dim, isConst);
+    InitVar();
     for (uint32_t i = 0; i < DataSize(); ++i) {
       int count = Is128Bit(type) ? 2 : 1;
       for (int i = 0; i < count; ++i) {
@@ -276,7 +282,6 @@ public:
   }
 
   void Name(std::ostream& out) const override {
-    out << LocationString(varLocation) << "/";
     if (isConst) {
       out << "const_";
     }
@@ -322,7 +327,7 @@ public:
     }
   }
 
-  void InitializerCode() {
+  void InitializerCode(PointerReg outputAddr) {
     auto forEach = "@for_each";
     auto forByte = "@for_byte";
     
@@ -355,11 +360,13 @@ public:
    
     // load one byte from element and store it in output register
     be.EmitArith(BRIG_OPCODE_ADD, offset, offsetBase, byteCount->Reg());
-    be.EmitLoad(segment, BRIG_TYPE_U8, result->Reg(), be.Address(var->Variable(), offset->Reg(), 0)); 
+    be.EmitLoad(segment, BRIG_TYPE_U8, result->Reg(), be.Address(Var()->Variable(), offset->Reg(), 0)); 
 
     // store byte in output buffer
     be.EmitArith(BRIG_OPCODE_MAD, offset, wiId, be.Immed(wiId->Type(), ResultDim()), offset);
-    output->EmitStoreData(result, offset);
+    auto storeAddr = be.AddAReg(outputAddr->Segment());
+    be.EmitArith(BRIG_OPCODE_ADD, storeAddr, outputAddr, offset->Reg());
+    be.EmitStore(result, storeAddr);
     
     auto cmp = be.AddCTReg();
     be.EmitArith(BRIG_OPCODE_ADD, byteCount, byteCount, be.Immed(byteCount->Type(), 1));
@@ -371,20 +378,111 @@ public:
     be.EmitCmp(cmp->Reg(), forEachCount, be.Immed(forEachCount->Type(), DataSize()), BRIG_COMPARE_LT);
     be.EmitCbr(cmp, forEach);
   }
+};
+
+
+class ModuleInitializerTest : public InitializerTest {
+private:
+  Variable var;
+
+protected:
+  Variable Var() const override { return var; }
+  void InitVar() override { 
+    var = kernel->NewVariable("var", VarSegment(), VarType(), Location::MODULE, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+  }
+
+public:
+  ModuleInitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+    : InitializerTest(geometry, Location::KERNEL, type_, segment_, dim_, isConst_) { }
+
+  void Name(std::ostream& out) const override {
+    out << LocationString(Location::MODULE) << "/";
+    InitializerTest::Name(out);
+  }
 
   void KernelCode() override {
-    if (codeLocation == Location::KERNEL) {
-      InitializerCode();
-    } else {
-      assert(false);
-    }    
+    InitializerCode(output->Address());
   }
 
   void ModuleVariables() override {
     Test::ModuleVariables();
-    if (varLocation == Location::MODULE) {
-      var->ModuleVariables();
-    }
+    Var()->ModuleVariables();
+  }
+};
+
+
+class KernelInitializerTest : public InitializerTest {
+private:
+  Variable var;
+
+protected:
+  Variable Var() const override { return var; }
+  void InitVar() override { 
+    var = kernel->NewVariable("var", VarSegment(), VarType(), Location::KERNEL, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+  }
+
+public:
+  KernelInitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+    : InitializerTest(geometry, Location::KERNEL, type_, segment_, dim_, isConst_) { }
+
+  void Name(std::ostream& out) const override {
+    out << LocationString(Location::KERNEL) << "/";
+    InitializerTest::Name(out);
+  }
+
+  void KernelCode() override {
+    InitializerCode(output->Address());
+  }
+};
+
+
+class FunctionInitializerTest : public InitializerTest {
+private:
+  Variable var;
+  Variable functionArg;
+
+protected:
+  Variable Var() const override { return var; }
+  void InitVar() override { 
+    var = function->NewVariable("var", VarSegment(), VarType(), Location::FUNCTION, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+  }
+
+public:
+  FunctionInitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+    : InitializerTest(geometry, Location::FUNCTION, type_, segment_, dim_, isConst_) { }
+
+  void Init() override {
+    InitializerTest::Init();
+    auto globalAddrType = EPointerReg::GetSegmentPointerType(BRIG_SEGMENT_GLOBAL, te->CoreCfg()->IsLarge());
+    functionArg = function->NewVariable("outputAddr", BRIG_SEGMENT_ARG, globalAddrType);
+  }
+
+  void Name(std::ostream& out) const override {
+    out << LocationString(Location::FUNCTION) << "/";
+    InitializerTest::Name(out);
+  }
+
+  void KernelCode() override {
+    auto inputArgs = be.AddTRegList();
+    auto outputArgs = be.AddTRegList();
+    ActualCallArguments(inputArgs, outputArgs);
+    be.EmitCallSeq(function->Directive(), inputArgs, outputArgs);
+  }
+
+  void ActualCallArguments(TypedRegList inputArgs, TypedRegList outputArgs) override {
+    inputArgs->Add(output->Address());
+  }
+
+  void FunctionFormalOutputArguments() override {}
+
+  void FunctionFormalInputArguments() override {
+    functionArg->EmitDefinition();
+  }
+
+  void FunctionCode() override {
+    auto outputAddr = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    functionArg->EmitLoadTo(outputAddr);
+    InitializerCode(outputAddr);
   }
 };
 
@@ -392,9 +490,17 @@ public:
 void InitializerTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), cc->Variables().InitializerLocations(), Bools::All());
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), cc->Variables().InitializerLocations(), Bools::All());
-  TestForEach<InitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), cc->Variables().InitializerLocations(), Bools::All());
+  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+
+  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+
+  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 }
