@@ -35,7 +35,7 @@ public:
 private:
   Arena(const Arena&);
   Arena& operator=(const Arena&);
-  static const size_t chunkSize;
+  static const size_t chunkSize, chunkReserved;
   Chunk* chunk;
   size_t allocPos;
 
