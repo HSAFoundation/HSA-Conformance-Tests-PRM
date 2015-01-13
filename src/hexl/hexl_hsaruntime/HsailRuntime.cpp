@@ -76,7 +76,7 @@ template <typename D, typename P> class IterateData {
 public:
   IterateData(HsailRuntimeContext* runtime_, D* data_, P param_ = static_cast<P>(0))
     : runtime(runtime_), data(data_), param(param_) {
-    *(this->data) = 0;
+    this->data->handle = 0;
   }
 
   IterateData(void *data) {
@@ -88,6 +88,7 @@ public:
 
   HsailRuntimeContext* Runtime() { return runtime; }
   D* Data() { return data; }
+  bool IsSet() { return data->handle != 0; }
   P Param() { return param; }
 private:
   HsailRuntimeContext* runtime;
@@ -102,12 +103,10 @@ bool RegionMatchAny(HsailRuntimeContext* runtime, hsa_region_t region) { return 
 
 bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region);
 
-hsa_status_t queueStatus;
-
-void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source)
+void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 {
-  std::cout << "Queue error " << status << std::endl;
-  queueStatus = status;
+  HsailRuntimeContext* runtime = static_cast<HsailRuntimeContext*>(data);
+  runtime->HsaError("Queue error", status);
 }
 
 class HsailModule : public Module {
@@ -260,7 +259,7 @@ public:
 HsailRuntimeContext::HsailRuntimeContext(Context* context)
   : RuntimeContext(context),
     hsaApi(context->Env(), context->Opts(), HSARUNTIMECORENAME),
-    queue(0), queueSize(0)
+    queue(0), queueSize(0), error(false)
 {
 }
 
@@ -334,7 +333,7 @@ bool HsailDispatch::Execute()
   hsa_signal_t signal;
   Runtime()->Hsa()->hsa_signal_create(1, 0, 0, &signal);
   dispatch->completion_signal = signal;
-  Runtime()->GetContext()->Put("signaldesc", Value(Runtime()->GetContext()->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) signal));
+  Runtime()->GetContext()->Put("packetcompletionsig", Value(MV_UINT64, signal.handle));
   
   // Notify.
   dispatch->header =
@@ -348,19 +347,17 @@ bool HsailDispatch::Execute()
   hsa_signal_value_t result;
   clock_t beg = clock();
   do {
-    result = Runtime()->Hsa()->hsa_signal_wait_acquire(signal, HSA_EQ, 0, timeout, HSA_WAIT_EXPECTANCY_SHORT);
+    result = Runtime()->Hsa()->hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_EQ, 0, timeout, HSA_WAIT_STATE_ACTIVE);
     clock_t clocks = clock() - beg;
     if (clocks > (clock_t) timeout && result != 0) {
       Runtime()->Env()->Error("Kernel execution timed out, elapsed time: %ld clocks (clocks per second %ld)", (long) clocks, (long) CLOCKS_PER_SEC);
+      Runtime()->Hsa()->hsa_signal_destroy(signal);
       return false;
     }
   } while (result!= 0);
   // Destroy completion signal
   Runtime()->Hsa()->hsa_signal_destroy(signal);
-  if (queueStatus != HSA_STATUS_SUCCESS) {
-    Runtime()->HsaError("Queue packet processor error on dispatch", queueStatus); return false;
-  }
-  return true;
+  return !Runtime()->IsError();
 }
 
 HBuffer::~HBuffer()
@@ -666,7 +663,7 @@ static hsa_status_t IterateAgentGetHsaDevice(hsa_agent_t agent, void *data) {
   assert(data);
   IterateData<hsa_agent_t, int> idata(data);
   hsa_status_t status;
-  if (!*(idata.Data())) {
+  if (!idata.IsSet()) {
     uint32_t features;
     hsa_device_type_t device_type;
     status = idata.Runtime()->Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &device_type);
@@ -684,7 +681,7 @@ static hsa_status_t IterateAgentGetHsaDevice(hsa_agent_t agent, void *data) {
 static hsa_status_t IterateRegionsGet(hsa_region_t region, void* data) {
   IterateData<hsa_region_t, RegionMatch> idata(data);
   RegionMatch match = idata.Param();
-  if (!*(idata.Data())) {
+  if (!idata.IsSet()) {
     if (!match || match(idata.Runtime(), region)) { 
       *(idata.Data()) = region;
     }
@@ -700,10 +697,10 @@ bool HsailRuntimeContext::Init() {
   IterateData<hsa_agent_t, int> idata(this, &agent);
   status = Hsa()->hsa_iterate_agents(IterateAgentGetHsaDevice, &idata);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_iterate_agents failed", status); return false; }
-  if (!agent) { HsaError("Failed to find agent"); return false; }
+  if (!agent.handle) { HsaError("Failed to find agent"); return false; }
   status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_QUEUE_MAX_SIZE, &queueSize);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
-  status = Hsa()->hsa_queue_create(agent, queueSize, HSA_QUEUE_TYPE_SINGLE, HsaQueueErrorCallback, NULL, &queue);
+  status = Hsa()->hsa_queue_create(agent, queueSize, HSA_QUEUE_TYPE_SINGLE, HsaQueueErrorCallback, this, UINT32_MAX, UINT32_MAX, &queue);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_queue_create failed", status); return false; }
   context->Put("queueid", Value(MV_UINT32, Queue()->id));
   context->Put("queueptr", Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) Queue()));
@@ -724,21 +721,22 @@ void HsailRuntimeContext::Dispose()
 hsa_region_t HsailRuntimeContext::GetRegion(RegionMatch match)
 {
   hsa_region_t region;
+  region.handle = 0;
   IterateData<hsa_region_t, RegionMatch> idata(this, &region, match);
   hsa_status_t status = Hsa()->hsa_agent_iterate_regions(Agent(), IterateRegionsGet, &idata);
-  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_iterate_regions failed", status); return 0; }
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_iterate_regions failed", status); return region; }
   return region;
 }
 
 bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region)
 {
   hsa_status_t status;
-  hsa_region_flag_t flags;
-  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_FLAGS, &flags);
+  bool allocAllowed;
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED, &allocAllowed);
   if (status != HSA_STATUS_SUCCESS) { return false; }
-  if (!(flags & HSA_REGION_INFO_FLAGS)) { return false; }
+  if (!allocAllowed) { return false; }
   size_t granule;
-  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_ALLOC_GRANULE, &granule);
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE, &granule);
   if (status != HSA_STATUS_SUCCESS) { return false; }
   if (granule > sizeof(size_t)) { return false; }
   size_t maxSize;
@@ -792,9 +790,9 @@ public:
     HsailRuntimeContext* hsailRTContext = HsailRuntimeFromContext(context->Runtime());
     status = hsailRTContext->Hsa()->hsa_signal_create(signalInitialValue, hsailRTContext->AgentCount(), hsailRTContext->Agents(), &signal);
     if (status != HSA_STATUS_SUCCESS) { hsailRTContext->HsaError("Failed to create signal", status); result = false; }
-    context->Put(signalId, Value(MV_UINT64, U64(signal)));
+    context->Put(signalId, Value(MV_UINT64, U64(signal.handle)));
     std::stringstream ss;
-    ss << "Signal '" << signalId << "' handle: " << std::hex << (uint64_t) signal << std::dec
+    ss << "Signal '" << signalId << "' handle: " << std::hex << signal.handle << std::dec
        << ", initial value: " << signalInitialValue << std::endl;
     context->Info() << ss.str();
     return result;
@@ -818,10 +816,10 @@ public:
 
   virtual bool Run() {
     HsailRuntimeContext* hsailRTContext = HsailRuntimeFromContext(context->Runtime());
-    signal = context->GetValue(signalId).U64();
+    signal.handle = context->GetValue(signalId).U64();
     hsailRTContext->Hsa()->hsa_signal_store_relaxed(signal, (hsa_signal_value_t) signalSendValue);
     std::stringstream ss;
-    ss << "Signal '" << signalId << "' handle: " << std::hex << (uint64_t) signal << std::dec
+    ss << "Signal '" << signalId << "' handle: " << std::hex << signal.handle << std::dec
        << ", stored value: " << signalSendValue << std::endl;
     context->Info() << ss.str();
     return true;
@@ -848,11 +846,11 @@ public:
 
   virtual bool Run() {
     const HsaApi& hsa = HsailRuntimeFromContext(context->Runtime())->Hsa();
-    signal = context->GetValue(signalId).U64();
+    signal.handle = context->GetValue(signalId).U64();
     bool result = true;
     clock_t beg = clock();
     do {
-      acquiredValue = hsa->hsa_signal_wait_acquire(signal, HSA_EQ, expectedValue, timeout, HSA_WAIT_EXPECTANCY_SHORT);
+      acquiredValue = hsa->hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_EQ, expectedValue, timeout, HSA_WAIT_STATE_ACTIVE);
       clock_t clocks = clock() - beg;
       if (clocks > (clock_t) timeout && acquiredValue != expectedValue) {
         context->Info() << "Signal '" << signalId << "' wait timed out, elapsed time: " << (uint64_t) clocks << " clocks (clocks per second " << (uint64_t) CLOCKS_PER_SEC << ")" << std::endl;
@@ -860,7 +858,7 @@ public:
         break;
       }
     } while (expectedValue != acquiredValue);
-    context->Info() << "Signal '" << signalId << "' handle: " << std::hex << (uint64_t) signal << std::dec
+    context->Info() << "Signal '" << signalId << "' handle: " << std::hex << signal.handle << std::dec
                     << ", expected value: " << expectedValue << ", acquired value: " << acquiredValue << std::endl;
     return result;
   }
@@ -874,12 +872,11 @@ class CreateQueueCommand : public Command {
 private:
   std::string queueId;
   uint32_t size;
-  std::string serviceQueueId;
   hsa_queue_t* queue;
 
 public:
-  CreateQueueCommand(const std::string& queueId_, uint32_t size_, const std::string& serviceQueueId_ = "")
-    : queueId(queueId_), size(size_), serviceQueueId(serviceQueueId_), queue(0)  { }
+  CreateQueueCommand(const std::string& queueId_, uint32_t size_)
+    : queueId(queueId_), size(size_), queue(0)  { }
 
   bool Finish() {
     if (queue) {
@@ -897,10 +894,6 @@ public:
   virtual bool Run() {
     HsailRuntimeContext* runtime = HsailRuntimeFromContext(context->Runtime());
     const HsaApi& hsa = runtime->Hsa();
-    hsa_queue_t* serviceQueue = 0;
-    if (!serviceQueueId.empty()) {
-      serviceQueue = context->Get<hsa_queue_t*>(serviceQueueId);
-    }
     hsa_status_t status;
     if (size == 0) {
       status = hsa->hsa_agent_get_info(runtime->Agent(), HSA_AGENT_INFO_QUEUE_MAX_SIZE, &size);
@@ -909,7 +902,7 @@ public:
         return false;
       }
     }
-    status = hsa->hsa_queue_create(runtime->Agent(), size, HSA_QUEUE_TYPE_MULTI, HsaQueueErrorCallback, serviceQueue, &queue);
+    status = hsa->hsa_queue_create(runtime->Agent(), size, HSA_QUEUE_TYPE_MULTI, HsaQueueErrorCallback, runtime, UINT32_MAX, UINT32_MAX, &queue);
     if (status != HSA_STATUS_SUCCESS) {
       runtime->HsaError("hsa_queue_create failed", status);
       return false;
@@ -920,7 +913,7 @@ public:
   }
 
   void Print(std::ostream& out) const {
-    out << "create_queue " << queueId << " " << size << " " << serviceQueueId;
+    out << "create_queue " << queueId << " " << size;
   }
 };
 
@@ -939,9 +932,9 @@ void CommandSequence::WaitSignal(const std::string& signalId, uint64_t signalExp
   Add(new WaitSignalCommand(signalId, signalExpectedValue));
 }
 
-void CommandSequence::CreateQueue(const std::string& queueId, uint32_t size, const std::string& serviceQueueId)
+void CommandSequence::CreateQueue(const std::string& queueId, uint32_t size)
 {
-  Add(new CreateQueueCommand(queueId, size, serviceQueueId));
+  Add(new CreateQueueCommand(queueId, size));
 }
 
 }

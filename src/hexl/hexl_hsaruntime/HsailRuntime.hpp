@@ -38,7 +38,7 @@ struct HsaApiTable {
   hsa_status_t (*hsa_agent_iterate_regions)(hsa_agent_t agent, hsa_status_t(*callback)(hsa_region_t region, void *data), void *data);
   hsa_status_t (*hsa_region_get_info)(hsa_region_t region, hsa_region_info_t attribute, void *value);
   hsa_status_t (*hsa_agent_get_info)(hsa_agent_t agent, hsa_agent_info_t attribute, void *value);
-  hsa_status_t (*hsa_queue_create)(hsa_agent_t component, size_t size, hsa_queue_type_t type, void (*callback)(hsa_status_t status, hsa_queue_t *queue), hsa_queue_t* service_queue, hsa_queue_t **queue);
+  hsa_status_t (*hsa_queue_create)(hsa_agent_t agent, size_t size, hsa_queue_type_t type, void (*callback)(hsa_status_t status, hsa_queue_t *queue, void *data), void *data, uint32_t private_segment_size, uint32_t group_segment_size, hsa_queue_t **queue);
   hsa_status_t (*hsa_queue_destroy)(hsa_queue_t *queue);
   uint64_t (*hsa_queue_load_write_index_relaxed)(hsa_queue_t *queue);
   void (*hsa_queue_store_write_index_relaxed)(hsa_queue_t *queue, uint64_t value);
@@ -51,7 +51,7 @@ struct HsaApiTable {
   hsa_status_t (*hsa_signal_destroy)(hsa_signal_t signal_handle);
   void (*hsa_signal_store_relaxed)(hsa_signal_t signal_handle, hsa_signal_value_t signal_value);
   void (*hsa_signal_store_release)(hsa_signal_t signal, hsa_signal_value_t value);
-  hsa_signal_value_t (*hsa_signal_wait_acquire)(hsa_signal_t signal, hsa_signal_condition_t condition, hsa_signal_value_t compare_value, uint64_t timeout_hint, hsa_wait_expectancy_t wait_expectancy_hint);
+  hsa_signal_value_t (*hsa_signal_wait_acquire)(hsa_signal_t signal, hsa_signal_condition_t condition, hsa_signal_value_t compare_value, uint64_t timeout_hint, hsa_wait_state_t wait_expectancy_hint);
   hsa_status_t (*hsa_ext_program_create)(
     hsa_agent_t *agents,
     uint32_t agent_count,
@@ -99,6 +99,7 @@ private:
   hsa_agent_t agent;
   hsa_queue_t* queue;
   uint32_t queueSize;
+  bool error;
 
 public:
   HsailRuntimeContext(Context* context);
@@ -117,15 +118,20 @@ public:
   const Options* Opts() const { return context->Opts(); }
   virtual RuntimeContextState* NewState(Context* context);
 
+  bool IsError() const { return error; }
+
   void HsaError(const char *msg, hsa_status_t err) {
+    error = true;
     context->Error() << msg << ": error " << err << std::endl;
   }
 
   void HsaError(const char *msg) {
+    error = true;
     context->Error() << msg << std::endl;
   }
 
   void hsailcError(const char *msg, brig_container_t brig, int status) {
+    error = true;
     context->Error() << msg << ": error " << status << ": " << brig_container_get_error_text(brig) << std::endl;
   }
 

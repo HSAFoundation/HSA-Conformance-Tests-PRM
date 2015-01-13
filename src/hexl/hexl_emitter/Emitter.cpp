@@ -592,6 +592,7 @@ TypedReg EUserModeQueue::EmitLoadSize()
   return result;
 }
 
+/*
 PointerReg EUserModeQueue::ServiceQueue()
 {
   if (!serviceQueue) { serviceQueue = EmitLoadServiceQueue(); }
@@ -604,6 +605,7 @@ PointerReg EUserModeQueue::EmitLoadServiceQueue()
   EmitStructLoad(result, Address(), hsa_queue_t, service_queue);
   return result;
 }
+*/
 
 PointerReg EUserModeQueue::BaseAddress()
 {
