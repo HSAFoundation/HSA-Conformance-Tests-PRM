@@ -298,31 +298,33 @@ public:
   BrigTypeX ResultType() const override { return BRIG_TYPE_U8; }
 
   void ExpectedResults(Values* result) const override {
-    for (auto val: data) {
-      switch (val.Type()) {
-      case MV_INT8:     { auto data = val.S8();  PushResult(result, &data, val.Type()); break; }
-      case MV_UINT8:    { auto data = val.U8();  PushResult(result, &data, val.Type()); break; }
-      case MV_INT16:    { auto data = val.S16(); PushResult(result, &data, val.Type()); break; }
-      case MV_UINT16:   { auto data = val.U16(); PushResult(result, &data, val.Type()); break; }
-      case MV_INT32:    { auto data = val.S32(); PushResult(result, &data, val.Type()); break; }
-      case MV_UINT32:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }
-      case MV_INT64:    { auto data = val.S64(); PushResult(result, &data, val.Type()); break; }
-      case MV_UINT64:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }
-      case MV_FLOAT16:  { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
-      case MV_FLOAT:    { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
-      case MV_DOUBLE:   { auto data = val.D();   PushResult(result, &data, val.Type()); break; }
-      case MV_UINT8X4:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; } 
-      case MV_UINT8X8:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
-      case MV_INT8X4:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
-      case MV_INT8X8:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
-      case MV_UINT16X2: { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
-      case MV_UINT16X4: { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
-      case MV_INT16X2:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
-      case MV_INT16X4:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
-      case MV_UINT32X2: { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
-      case MV_INT32X2:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
-      case MV_FLOATX2:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
-      default: assert(false);
+    for (uint64_t i = 0; i < geometry->GridSize(); ++i) {
+      for (auto val: data) {
+        switch (val.Type()) {
+        case MV_INT8:     { auto data = val.S8();  PushResult(result, &data, val.Type()); break; }
+        case MV_UINT8:    { auto data = val.U8();  PushResult(result, &data, val.Type()); break; }
+        case MV_INT16:    { auto data = val.S16(); PushResult(result, &data, val.Type()); break; }
+        case MV_UINT16:   { auto data = val.U16(); PushResult(result, &data, val.Type()); break; }
+        case MV_INT32:    { auto data = val.S32(); PushResult(result, &data, val.Type()); break; }
+        case MV_UINT32:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }
+        case MV_INT64:    { auto data = val.S64(); PushResult(result, &data, val.Type()); break; }
+        case MV_UINT64:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }
+        case MV_FLOAT16:  { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
+        case MV_FLOAT:    { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
+        case MV_DOUBLE:   { auto data = val.D();   PushResult(result, &data, val.Type()); break; }
+        case MV_UINT8X4:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; } 
+        case MV_UINT8X8:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+        case MV_INT8X4:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
+        case MV_INT8X8:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+        case MV_UINT16X2: { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
+        case MV_UINT16X4: { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+        case MV_INT16X2:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }  
+        case MV_INT16X4:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+        case MV_UINT32X2: { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+        case MV_INT32X2:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+        case MV_FLOATX2:  { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }  
+        default: assert(false);
+        }
       }
     }
   }
@@ -331,22 +333,17 @@ public:
     auto forEach = "@for_each";
     auto forByte = "@for_byte";
     
+    auto offsetBase = be.AddAReg(segment);
+
     // for-each loop counter
-    auto forEachCount = be.AddTReg(BRIG_TYPE_U32);
+    auto forEachCount = be.AddTReg(offsetBase->Type());
     be.EmitMov(forEachCount, be.Immed(forEachCount->Type(), 0));
 
     // for-each loop inside var
     be.EmitLabel(forEach);
 
     // calculate offset inside var
-    auto offsetBase = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    auto cvt = be.AddTReg(offsetBase->Type());
-    if (cvt->Type() != forEachCount->Type()) {
-      be.EmitCvt(cvt, forEachCount);
-    } else {
-      be.EmitMov(cvt, forEachCount);
-    }
-    be.EmitArith(BRIG_OPCODE_MUL, offsetBase, cvt, be.Immed(offsetBase->Type(), TypeSize()));  
+    be.EmitArith(BRIG_OPCODE_MUL, offsetBase, forEachCount, be.Immed(offsetBase->Type(), TypeSize()));  
     
     // generate code to read each byte from var
     auto result = be.AddTReg(BRIG_TYPE_U8);
@@ -487,20 +484,231 @@ public:
 };
 
 
+class NullSignalInitializerTest : public Test {
+private:
+  BrigTypeX signalType;
+  BrigSegment segment;
+  uint64_t dim;
+  bool isConst;
+
+  uint64_t DataSize() const { return std::max(dim, (uint64_t) 1); }
+  
+protected:
+  BrigTypeX VarType() const { return signalType; }
+  BrigSegment VarSegment() const { return segment; }
+  uint64_t VarDim() const { return dim; }
+  bool VarIsConst() const { return isConst; }
+
+  virtual Variable Var() const = 0;
+  virtual void InitVar() = 0;
+
+public:
+  NullSignalInitializerTest(Grid geometry, Location codeLocation, BrigSegment segment_, uint64_t dim_, bool isConst_) 
+    : Test(codeLocation, geometry), segment(segment_), dim(dim_), isConst(isConst_), 
+    signalType(sizeof(void *) == 8 ? BRIG_TYPE_SIG64 : BRIG_TYPE_SIG32) 
+    //signalType(BRIG_TYPE_SIG64) 
+  {
+    //signalType = te->CoreCfg()->IsLarge() ? BRIG_TYPE_SIG64 : BRIG_TYPE_SIG32;
+  }
+
+  bool IsValid() const override {
+    return Test::IsValid();
+  }
+
+  void Init() override {
+    Test::Init();
+    InitVar();
+    for (uint32_t i = 0; i < DataSize(); ++i) {
+      if (signalType == BRIG_TYPE_SIG64) {
+        Var()->PushBack(static_cast<uint64_t>(0));
+      } else {
+        Var()->PushBack(static_cast<uint32_t>(0));
+      }
+    }
+  }
+
+  void Name(std::ostream& out) const override {
+    if (isConst) {
+      out << "const_";
+    }
+    out << segment2str(segment) << "_" << typeX2str(signalType);
+    if (dim != 0) { 
+      out << "[" << dim << "]"; 
+    }
+  }
+
+  BrigTypeX ResultType() const override { return signalType; }
+
+  uint64_t ResultDim() const override {
+    return DataSize();
+  }
+
+  void ExpectedResults(Values* result) const override {
+    for (uint64_t i = 0; i < ResultDim() * geometry->GridSize(); ++i) {
+      result->push_back(Value(Brig2ValueType(signalType), 0));
+    }
+  }
+
+  void InitializerCode(PointerReg outputAddr) {
+    auto forEach = "@for_each";
+    
+    auto offset = be.AddAReg(segment);
+
+    // for-each loop counter
+    auto forEachCount = be.AddTReg(offset->Type());
+    be.EmitMov(forEachCount, be.Immed(forEachCount->Type(), 0));
+
+    // for-each loop inside var
+    be.EmitLabel(forEach);
+
+    // load signal from var
+    be.EmitArith(BRIG_OPCODE_MUL, offset, forEachCount, be.Immed(offset->Type(), getBrigTypeNumBytes(signalType)));  
+    auto signal = be.AddTReg(signalType);
+    be.EmitLoad(segment, signal, be.Address(Var()->Variable(), offset->Reg(), 0)); 
+
+    // store signal value in output
+    auto wiId = be.EmitWorkitemFlatAbsId(offset->IsLarge());
+    auto chunkSize = ResultDim() * getBrigTypeNumBytes(ResultType());
+    auto storeAddr = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    be.EmitArith(BRIG_OPCODE_MAD, storeAddr, wiId, be.Immed(wiId->Type(), chunkSize), offset);
+    be.EmitArith(BRIG_OPCODE_ADD, storeAddr, storeAddr, outputAddr->Reg());
+    be.EmitStore(signal, storeAddr);
+    
+    // iterate until the end of var
+    auto cmp = be.AddCTReg();
+    be.EmitArith(BRIG_OPCODE_ADD, forEachCount, forEachCount, be.Immed(forEachCount->Type(), 1));
+    be.EmitCmp(cmp->Reg(), forEachCount, be.Immed(forEachCount->Type(), DataSize()), BRIG_COMPARE_LT);
+    be.EmitCbr(cmp, forEach);
+  }
+
+};
+
+
+class ModuleNullSignalInitializerTest : public NullSignalInitializerTest {
+private:
+  Variable var;
+
+protected:
+  Variable Var() const override { return var; }
+  void InitVar() override { 
+    var = kernel->NewVariable("var", VarSegment(), VarType(), Location::MODULE, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+  }
+
+public:
+  ModuleNullSignalInitializerTest(Grid geometry, BrigSegment segment_, uint64_t dim_, bool isConst_)
+    : NullSignalInitializerTest(geometry, Location::KERNEL, segment_, dim_, isConst_) { }
+
+  void Name(std::ostream& out) const override {
+    out << LocationString(Location::MODULE) << "/";
+    NullSignalInitializerTest::Name(out);
+  }
+
+  void KernelCode() override {
+    InitializerCode(output->Address());
+  }
+
+  void ModuleVariables() override {
+    Test::ModuleVariables();
+    Var()->ModuleVariables();
+  }
+};
+
+
+class KernelNullSignalInitializerTest : public NullSignalInitializerTest {
+private:
+  Variable var;
+
+protected:
+  Variable Var() const override { return var; }
+  void InitVar() override { 
+    var = kernel->NewVariable("var", VarSegment(), VarType(), Location::KERNEL, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+  }
+
+public:
+  KernelNullSignalInitializerTest(Grid geometry, BrigSegment segment_, uint64_t dim_, bool isConst_)
+    : NullSignalInitializerTest(geometry, Location::KERNEL, segment_, dim_, isConst_) { }
+
+  void Name(std::ostream& out) const override {
+    out << LocationString(Location::KERNEL) << "/";
+    NullSignalInitializerTest::Name(out);
+  }
+
+  void KernelCode() override {
+    InitializerCode(output->Address());
+  }
+};
+
+
+class FunctionNullSignalInitializerTest : public NullSignalInitializerTest {
+private:
+  Variable var;
+  Variable functionArg;
+
+protected:
+  Variable Var() const override { return var; }
+  void InitVar() override { 
+    var = function->NewVariable("var", VarSegment(), VarType(), Location::FUNCTION, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+  }
+
+public:
+  FunctionNullSignalInitializerTest(Grid geometry, BrigSegment segment_, uint64_t dim_, bool isConst_)
+    : NullSignalInitializerTest(geometry, Location::FUNCTION, segment_, dim_, isConst_) { }
+
+  void Init() override {
+    NullSignalInitializerTest::Init();
+    auto globalAddrType = EPointerReg::GetSegmentPointerType(BRIG_SEGMENT_GLOBAL, te->CoreCfg()->IsLarge());
+    functionArg = function->NewVariable("outputAddr", BRIG_SEGMENT_ARG, globalAddrType);
+  }
+
+  void Name(std::ostream& out) const override {
+    out << LocationString(Location::FUNCTION) << "/";
+    NullSignalInitializerTest::Name(out);
+  }
+
+  void KernelCode() override {
+    auto inputArgs = be.AddTRegList();
+    auto outputArgs = be.AddTRegList();
+    ActualCallArguments(inputArgs, outputArgs);
+    be.EmitCallSeq(function->Directive(), inputArgs, outputArgs);
+  }
+
+  void ActualCallArguments(TypedRegList inputArgs, TypedRegList outputArgs) override {
+    inputArgs->Add(output->Address());
+  }
+
+  void FunctionFormalOutputArguments() override {}
+
+  void FunctionFormalInputArguments() override {
+    functionArg->EmitDefinition();
+  }
+
+  void FunctionCode() override {
+    auto outputAddr = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    functionArg->EmitLoadTo(outputAddr);
+    InitializerCode(outputAddr);
+  }
+};
+
+
+
 void InitializerTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
-  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().TrivialGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().TrivialGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().TrivialGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
 
-  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().TrivialGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().TrivialGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().TrivialGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
 
-  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/compound", cc->Grids().DefaultGeometrySet(), cc->Types().Compound(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/packed", cc->Grids().DefaultGeometrySet(), cc->Types().Packed(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
-  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().DefaultGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<ModuleInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().TrivialGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<KernelInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().TrivialGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<FunctionInitializerTest>(cc->Ap(), it, "initializer/packed128", cc->Grids().TrivialGeometrySet(), cc->Types().Packed128Bit(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+
+  TestForEach<ModuleNullSignalInitializerTest>(cc->Ap(), it, "initializer/signal/null", cc->Grids().TrivialGeometrySet(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<KernelNullSignalInitializerTest>(cc->Ap(), it, "initializer/signal/null", cc->Grids().TrivialGeometrySet(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<FunctionNullSignalInitializerTest>(cc->Ap(), it, "initializer/signal/null", cc->Grids().TrivialGeometrySet(), cc->Segments().InitializableSegments(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 }

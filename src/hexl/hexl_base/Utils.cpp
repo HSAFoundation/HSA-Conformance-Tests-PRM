@@ -163,6 +163,9 @@ hexl::ValueType Brig2ValueType(BrigTypeX type)
   case BRIG_TYPE_F32X4: return MV_FLOATX2;
   case BRIG_TYPE_F64X2: return MV_DOUBLE;
 
+  case BRIG_TYPE_SIG32: return MV_UINT32;
+  case BRIG_TYPE_SIG64: return MV_UINT64;
+
   default: assert(!"Unsupported type in Brig2ValueType"); return MV_LAST;
   }
 }
