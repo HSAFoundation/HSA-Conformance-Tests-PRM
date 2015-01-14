@@ -69,7 +69,7 @@ public:
   void CreateSignal(const std::string& signalId, uint64_t signalInitialValue = 1);
   void SendSignal(const std::string& signalId, uint64_t signalSendValue = 1);
   void WaitSignal(const std::string& signalId, uint64_t signalExpectedValue = 1);
-  void CreateQueue(const std::string& queueId, uint32_t size = 0, const std::string& serviceQueueId = "");
+  void CreateQueue(const std::string& queueId, uint32_t size = 0);
 };
 
 class Command {

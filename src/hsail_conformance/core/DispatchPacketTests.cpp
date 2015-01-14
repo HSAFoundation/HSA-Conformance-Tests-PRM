@@ -301,10 +301,10 @@ public:
     ControlDirectives directives)
     : DispatchPacketBaseTest(codeLocation, geometry, directives) { }
     
-  BrigTypeX ResultType() const { return be.PointerType(); }
+  BrigTypeX ResultType() const { return BRIG_TYPE_U64; }
   
   Value ExpectedResult() const {
-    return Value(MV_EXPR, S("signaldesc"));
+    return Value(MV_EXPR, S("packetcompletionsig"));
   }
 
   TypedReg Result() {
