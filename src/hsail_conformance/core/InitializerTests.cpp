@@ -506,10 +506,7 @@ public:
   NullSignalInitializerTest(Grid geometry, Location codeLocation, BrigSegment segment_, uint64_t dim_, bool isConst_) 
     : Test(codeLocation, geometry), segment(segment_), dim(dim_), isConst(isConst_), 
     signalType(sizeof(void *) == 8 ? BRIG_TYPE_SIG64 : BRIG_TYPE_SIG32) 
-    //signalType(BRIG_TYPE_SIG64) 
-  {
-    //signalType = te->CoreCfg()->IsLarge() ? BRIG_TYPE_SIG64 : BRIG_TYPE_SIG32;
-  }
+  {}
 
   bool IsValid() const override {
     return Test::IsValid();
