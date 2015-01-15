@@ -181,7 +181,7 @@ public:
   TypedReg Result() {
     TypedReg result = be.AddTReg(ResultType());
     BrigTypeX vtype = be.AtomicValueType(atomicOp, isSigned);
-    TypedReg dest = NULL, src0 = be.AddTReg(vtype), src1 = NULL, wiID = NULL, idInWF = NULL, cReg = NULL;
+    TypedReg dest = NULL, src0 = be.AddTReg(vtype), src1 = NULL, wiID = NULL, idInWF = NULL, cReg = NULL, addrReg = NULL;
     if (!noret) dest = be.AddTReg(vtype);
     if (BRIG_ATOMIC_MIN != atomicOp && BRIG_ATOMIC_MAX != atomicOp && BRIG_ATOMIC_EXCH != atomicOp)
       be.EmitMov(src0->Reg(), be.Immed(vtype, immSrc0), src0->TypeSizeBits());
@@ -233,7 +233,16 @@ public:
       case BRIG_SEGMENT_GROUP: {
         TypedReg initValueReg = be.AddTReg(be.PointerType());
         be.EmitMov(initValueReg->Reg(), be.Immed(initValueReg->Type(), initialValue), initValueReg->TypeSizeBits());
-        be.EmitStore(segment, initValueReg, addr);
+        if (!wiID) wiID = be.EmitWorkitemId(0);
+        // atomic store for global group_var should occur only for the first workitem
+        cReg = be.AddTReg(BRIG_TYPE_B1);
+        SRef s_label_skip_store = "@skip_store";
+        be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_NE);
+        be.EmitCbr(cReg, s_label_skip_store);
+        be.EmitAtomic(NULL, addr, initValueReg, NULL, BRIG_ATOMIC_ST, memoryOrder, memoryScope, segment, false, equivClass);
+        // be.EmitStore(segment, initValueReg, addr);
+        be.EmitLabel(s_label_skip_store);
+        be.EmitBarrier();
         break;
       }
       default: break;
@@ -249,7 +258,7 @@ public:
       TypedReg r0 = be.AddTReg(wiID->Type());
       // TODO: add EmitCmp with operands (for immed) besides registers in order not to emit additional move
       be.EmitMov(r0->Reg(), be.Immed(wiID->Type(), 0), wiID->TypeSizeBits());
-      cReg = be.AddTReg(BRIG_TYPE_B1);
+      if (!cReg) cReg = be.AddTReg(BRIG_TYPE_B1);
       // Only workitems with "id" in wavefront grater than 0 will perform atomic XOR,
       // i.e. first workitem in every wavefront will be skipped for XOR
       be.EmitCmp(cReg->Reg(), idInWF, r0, BRIG_COMPARE_GT);
@@ -271,7 +280,7 @@ public:
 ///    TypedReg destOutReg = be.AddTReg(BRIG_TYPE_U32);
 ///    be.EmitCvt(destOutReg->Reg(), destOutReg->Type(), dest->Reg(), BRIG_TYPE_U64);
 ///    outDest->EmitStoreData(destOutReg);
-    TypedReg addrReg = be.AddTReg(globalVar.type());
+    if (!addrReg) addrReg = be.AddTReg(globalVar.type());
     be.EmitAtomic(addrReg, addr, NULL, NULL, BRIG_ATOMIC_LD, memoryOrder, memoryScope, segment, false, equivClass);
     // TODO: remove cvt after fixing ResultType() for return value based on Model (large|small)
     be.EmitCvt(result, addrReg);
