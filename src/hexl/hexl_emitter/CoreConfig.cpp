@@ -54,7 +54,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     dimension(NEWA hexl::VectorSequence<hexl::Grid>()),
     boundary24(NEWA hexl::VectorSequence<hexl::Grid>()),
     boundary32(NEWA hexl::VectorSequence<hexl::Grid>()),
-    severalwaves(NEWA hexl::VectorSequence<hexl::Grid>())
+    severalwaves(NEWA hexl::VectorSequence<hexl::Grid>()),
+    severalwavesingroup(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -91,6 +92,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   boundary32->Add(NEWA GridGeometry(3,          2, 0x40000020,          2,   1, 256,   1));
   boundary32->Add(NEWA GridGeometry(3,          2,          2, 0x40000020,   1,   1, 256));
   severalwaves->Add(NEWA GridGeometry(1,  256,  1,   1,  cc->Wavesize(),  1,   1));
+  severalwavesingroup->Add(NEWA GridGeometry(1,  1024,  1,   1,  cc->Wavesize()*4,  1,   1));
 }
 
 static const BrigSegment allSegments[] = {
@@ -322,7 +324,6 @@ CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
       ));
   }
 }
-
 
 static const BrigSegment queueSegments[] = { BRIG_SEGMENT_GLOBAL, BRIG_SEGMENT_FLAT };
 static const BrigOpcode ldOpcodesValues[] = { BRIG_OPCODE_LDQUEUEREADINDEX, BRIG_OPCODE_LDQUEUEWRITEINDEX };

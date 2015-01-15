@@ -587,7 +587,13 @@ InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, Ope
 InstCmp BrigEmitter::EmitCmp(OperandReg b, const TypedReg& src0, Operand src1, BrigCompareOperation8_t cmp)
 {
   InstCmp inst = brigantine.addInst<InstCmp>(BRIG_OPCODE_CMP, BRIG_TYPE_B1);
-  inst.sourceType() = src0->Type();
+  BrigType16_t sourceType = src0->Type();
+  switch (sourceType) {
+    case BRIG_TYPE_B32: sourceType = BRIG_TYPE_U32; break;
+    case BRIG_TYPE_B64: sourceType = BRIG_TYPE_U64; break;
+    default: break;
+  }
+  inst.sourceType() = sourceType;
   inst.compare() = cmp;
   inst.operands() = Operands(b, src0->Reg(), src1);
   return inst;
@@ -596,11 +602,7 @@ InstCmp BrigEmitter::EmitCmp(OperandReg b, const TypedReg& src0, Operand src1, B
 InstCmp BrigEmitter::EmitCmp(OperandReg b, const TypedReg& src0, const TypedReg& src1, BrigCompareOperation8_t cmp)
 {
   assert(src0->Type() == src1->Type());
-  InstCmp inst = brigantine.addInst<InstCmp>(BRIG_OPCODE_CMP, BRIG_TYPE_B1);
-  inst.sourceType() = src0->Type();
-  inst.compare() = cmp;
-  inst.operands() = Operands(b, src0->Reg(), src1->Reg());
-  return inst;
+  return EmitCmp(b, src0, src1->Reg(), cmp);
 }
 
 void BrigEmitter::EmitCmpTo(TypedReg result, TypedReg src0, Operand src1, BrigCompareOperation8_t cmp)
@@ -878,7 +880,7 @@ BrigTypeX BrigEmitter::AtomicValueType(BrigAtomicOperation op, bool isSigned) co
   case BRIG_ATOMIC_EXCH:
   case BRIG_ATOMIC_CAS:
     // 6.6.1., 6.7.1. Explanation of Modifiers. Type
-    return SignalValueBitType();
+    return AtomicValueBitType();
   case BRIG_ATOMIC_ADD:
   case BRIG_ATOMIC_SUB:
   case BRIG_ATOMIC_MAX:
