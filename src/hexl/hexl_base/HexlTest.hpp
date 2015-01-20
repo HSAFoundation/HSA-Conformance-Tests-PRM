@@ -28,6 +28,7 @@
 #include <cassert>
 #include <memory>
 #include <vector>
+#include <ctime>
 
 namespace hexl {
 
@@ -46,6 +47,8 @@ class TestResult {
 private:
   TestStatus status;
   std::string output;
+  clock_t t_begin;
+  clock_t t_end;
 
 public:
   TestResult()
@@ -65,6 +68,8 @@ public:
   void SetOutput(const std::string& output) { this->output = output; }
   void Serialize(std::ostream& out) const;
   void Deserialize(std::istream& in);
+  void SetTime(clock_t begin, clock_t end) { t_begin = begin; t_end = end; }
+  float ExecutionTime() const { return ((float)(t_end - t_begin))/CLOCKS_PER_SEC; }
 };
 
 ENUM_SERIALIZER(TestStatus);
