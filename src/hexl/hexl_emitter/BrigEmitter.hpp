@@ -180,9 +180,11 @@ public:
   HSAIL_ASM::DirectiveVariable EmitPointerDefinition(const std::string& name, Brig::BrigSegment8_t segment, Brig::BrigSegment8_t asegment = Brig::BRIG_SEGMENT_GLOBAL);
   void EmitVariableInitializer(HSAIL_ASM::DirectiveVariable var, HSAIL_ASM::SRef data);
 
+  HSAIL_ASM::InstBr EmitCall(HSAIL_ASM::DirectiveFunction f, HSAIL_ASM::ItemList ins, HSAIL_ASM::ItemList outs);
   void EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
   void EmitControlDirectiveGeometry(Brig::BrigControlDirective d, hexl::Grid grid);
   void EmitDynamicMemoryDirective(size_t size);
+  HSAIL_ASM::DirectiveLoc EmitLocDirective(uint32_t line, uint32_t column = 1, const std::string& fileName = "");
 //  void EmitControlDirectivesGeometry(const ControlDirectives::Set& directives, const GridGeometry& g);
 
   void EmitMemfence(Brig::BrigMemoryOrder memoryOrder, Brig::BrigMemoryScope globalScope, Brig::BrigMemoryScope groupScope, Brig::BrigMemoryScope imageScope);

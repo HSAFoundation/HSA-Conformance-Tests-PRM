@@ -755,6 +755,17 @@ InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound
    return inst;
 }
 
+InstBr BrigEmitter::EmitCall(HSAIL_ASM::DirectiveFunction f, ItemList ins, ItemList outs) {
+    InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_CALL, BRIG_TYPE_NONE);
+    inst.width() = BRIG_WIDTH_ALL;
+    std::string name = f.name().str();
+    inst.operands() = Operands(
+      brigantine.createCodeList(outs),
+      brigantine.createExecutableRef(name),
+      brigantine.createCodeList(ins));
+    return inst;
+}
+
 void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
 {
   ItemList ins;
@@ -774,13 +785,7 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
     fArg = fArg.next();
   }
   EmitStores(inRegs, ins, useVectorInstructions);
-  InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_CALL, BRIG_TYPE_NONE);
-  inst.width() = BRIG_WIDTH_ALL;
-  std::string name = f.name().str();
-  inst.operands() = Operands(
-    brigantine.createCodeList(outs),
-    brigantine.createExecutableRef(name),
-    brigantine.createCodeList(ins));
+  EmitCall(f, ins, outs);
   EmitLoads(outRegs, outs, useVectorInstructions);
   EndArgScope();
 }
@@ -1252,6 +1257,15 @@ void BrigEmitter::EmitDynamicMemoryDirective(size_t size) {
   DirectiveControl dc = Brigantine().append<DirectiveControl>();
   dc.control() = BRIG_CONTROL_MAXDYNAMICGROUPSIZE;
   dc.operands() = Operands(Immed(BRIG_TYPE_U32, size));
+}
+
+DirectiveLoc BrigEmitter::EmitLocDirective(uint32_t line, uint32_t column, const std::string& fileName) {
+  assert(line != 0 && column != 0);
+  DirectiveLoc loc = Brigantine().append<DirectiveLoc>();
+  loc.line() = line;
+  loc.column() = column;
+  loc.filename() = fileName;
+  return loc;
 }
 
 /*
