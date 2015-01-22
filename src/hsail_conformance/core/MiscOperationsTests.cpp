@@ -580,7 +580,7 @@ public:
     // a value to store in buffer and to compare
     auto compareVal = EmitCompareValue();
     assert(compareVal->Type() == CompareType());
-    
+
     //work-item id
     auto wiId = EmitWorkItemId();
 
@@ -628,71 +628,21 @@ public:
 class GroupBufferIdentityTest: public BufferIdentityTest {
 protected:
   virtual TypedReg EmitWorkItemId() override {
-    return be.EmitWorkitemFlatId();
-  }
-  
-  virtual void EmitBufferInitialization(PointerReg bufAddr, uint32_t numBytes) override {
-    // initialize buffer with max value
-    // initialization is executed only in first work-item in loop;
-    SRef skipLabel = "@skip_initialize";
-    SRef doLabel = "@do_initialize";
-
-    auto wiId = EmitWorkItemId();
-    auto cmp = be.AddCReg();
-    be.EmitCmp(cmp, wiId, be.Immed(BRIG_TYPE_U32, 0), BRIG_COMPARE_NE);
-    be.EmitCbr(cmp, skipLabel);
-
-    auto count = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(count, be.Immed(BRIG_TYPE_U32, 0));
+    auto xSize = be.EmitCurrentWorkgroupSize(0);
+    auto ySize = be.EmitCurrentWorkgroupSize(1);
     
-    // loop
-    be.EmitLabel(doLabel);
+    auto xId = be.EmitWorkitemId(0);
+    auto yId = be.EmitWorkitemId(1);
+    auto zId = be.EmitWorkitemId(2);
+
+    auto size = be.AddTReg(BRIG_TYPE_U32);
+
+    // workitemid(1) + workitemid(2) * currentworkgroupsize(1)
+    be.EmitArith(BRIG_OPCODE_MAD, size, zId, ySize->Reg(), yId);
     
-    // store max value in buffer
-    auto storeAddr = be.AddAReg(buffer->Segment());
-    if (wiId->Type() != storeAddr->Type()) {
-      be.EmitCvt(storeAddr, count);
-    } else {
-      be.EmitMov(storeAddr, count);
-    }
-    be.EmitArith(BRIG_OPCODE_MUL, storeAddr, storeAddr, be.Immed(storeAddr->Type(), numBytes));
-    be.EmitArith(BRIG_OPCODE_ADD, storeAddr, storeAddr, bufAddr->Reg());
-    auto maxReg = be.AddTReg(CompareType());
-    be.EmitMov(maxReg, be.Immed(CompareType(), UINT64_MAX));
-    be.EmitStore(maxReg, storeAddr);
-
-    // check for end of loop
-    be.EmitArith(BRIG_OPCODE_ADD, count, count, be.Immed(count->Type(), 1));
-    be.EmitCmp(cmp, count, be.Immed(count->Type(), buffer->Dim()), BRIG_COMPARE_LT);
-    be.EmitCbr(cmp, doLabel);
-
-    be.EmitLabel(skipLabel);
-    be.EmitBarrier();
-  }
-
-  virtual TypedReg EmitPrev(PointerReg bufAddr, PointerReg storeAddr, uint32_t numBytes) override {
-    SRef doLabel = "@do_prev";
-
-    // load compare value for previous work-item
-    auto prevVal = be.AddTReg(CompareType());
-    auto loadAddr = be.AddAReg(buffer->Segment());
-    be.EmitMov(loadAddr, storeAddr);
-    
-    // loop
-    be.EmitLabel(doLabel);
-
-    be.EmitArith(BRIG_OPCODE_SUB, loadAddr, loadAddr, be.Immed(loadAddr->Type(), numBytes));
-    be.EmitLoad(prevVal, loadAddr);
-
-    auto cmp1 = be.AddCTReg();
-    be.EmitCmpTo(cmp1, prevVal, be.Immed(CompareType(), UINT32_MAX), BRIG_COMPARE_EQ);
-
-    auto cmp2 = be.AddCTReg();
-    be.EmitCmpTo(cmp2, loadAddr, bufAddr->Reg(), BRIG_COMPARE_GT);
-    be.EmitArith(BRIG_OPCODE_AND, cmp1, cmp1, cmp2->Reg());
-
-    be.EmitCbr(cmp1, doLabel);
-    return prevVal;
+    // workitemid(0) + workitemid(1) * currentworkgroupsize(0) + workitemid(2) * currentworkgroupsize(1) * currentworkgroupsize(0)
+    be.EmitArith(BRIG_OPCODE_MAD, size, size, xSize->Reg(), xId);
+    return size;
   }
 
 public:
@@ -788,24 +738,6 @@ protected:
     auto waveid = be.AddTReg(BRIG_TYPE_U32);
     be.EmitWaveid(waveid);
     return waveid;
-  }
-
-  virtual TypedReg EmitWorkItemId() override {
-    auto xSize = be.EmitCurrentWorkgroupSize(0);
-    auto ySize = be.EmitCurrentWorkgroupSize(1);
-    
-    auto xId = be.EmitWorkitemId(0);
-    auto yId = be.EmitWorkitemId(1);
-    auto zId = be.EmitWorkitemId(2);
-
-    auto size = be.AddTReg(BRIG_TYPE_U32);
-
-    // workitemid(1) + workitemid(2) * currentworkgroupsize(1)
-    be.EmitArith(BRIG_OPCODE_MAD, size, zId, ySize->Reg(), yId);
-    
-    // workitemid(0) + workitemid(1) * currentworkgroupsize(0) + workitemid(2) * currentworkgroupsize(1) * currentworkgroupsize(0)
-    be.EmitArith(BRIG_OPCODE_MAD, size, size, xSize->Reg(), xId);
-    return size;
   }
 
   virtual TypedReg EmitIsFirst(TypedReg wiId) {

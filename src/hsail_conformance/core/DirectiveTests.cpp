@@ -173,11 +173,6 @@ public:
     out << AnnotationLocationString(annotationLocation);
   }
 
-  bool IsValid() const override {
-    return SkipTest::IsValid() && 
-           annotationLocation != AnnotationLocation::BEFORE_VERSION; // BEFORE_VERSION does not work for now
-  }
-
   TypedReg Result() override {
     auto result = SkipTest::Result();
     if (NeedsArgBlock(annotationLocation)) {

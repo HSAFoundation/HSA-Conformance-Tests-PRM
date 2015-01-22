@@ -16,6 +16,8 @@ prm/arithmetic/nativefp/nrcp/nrcp_00002
 prm/arithmetic/nativefp/nrcp/nrcp_00003
 prm/arithmetic/nativefp/nfma/nfma_00003
 prm/arithmetic/nativefp/nfma/nfma_00007
+prm/directive/loc/before_version
+prm/directive/pragma/before_version
 prm/special/misc/cuid/lessmax
 prm/special/misc/waveid/lessmax
 prm/special/misc/groupbaseptr
