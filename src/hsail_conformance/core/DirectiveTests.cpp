@@ -100,34 +100,9 @@ public:
 };
 
 
-class LocDirectiveTest : public SkipTest {
+class AnnotationLocationTest : public SkipTest {
 private:
-  class LocGenerator {
-  private:
-    uint32_t lineCounter;
-    uint32_t columnCounter;
-    char charName;
-
-    static const int NAME_LENGTH = 5;
-    
-  public:
-    LocGenerator(): lineCounter(1), columnCounter(1), charName('a') {}
-
-    uint32_t GenerateLineNum() { return lineCounter++; }
-    uint32_t GenerateColumn() { return columnCounter++; }
-    std::string GenerateFileName() { 
-      std::string fileName(NAME_LENGTH, charName);
-      ++charName;
-      if (charName > 'z') {
-        charName = 'a';
-      }
-      return fileName;
-    }
-  };
-
-
-  LocGenerator generator;
-  AnnotationLocation locLocation;
+  AnnotationLocation annotationLocation;
   Variable var1;
   Variable var2;
   EFunction* empty_function;
@@ -154,14 +129,10 @@ private:
     }
   }
 
-  void EmitLoc() {
-    be.EmitLocDirective(generator.GenerateLineNum(), generator.GenerateColumn(), generator.GenerateFileName());
-  }
-
   void EmitArgBlock(TypedReg result) {
     be.StartArgScope();
-    if (locLocation == AnnotationLocation::START_ARG_BLOCK) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::START_ARG_BLOCK) {
+      EmitAnnotation();
     }
 
     // emit some dumb code that do nothing (in case we know that result contain 0)
@@ -169,23 +140,27 @@ private:
     be.EmitArith(BRIG_OPCODE_MUL, tmp, result, be.Immed(result->Type(), 123456789));
     be.EmitNop();
 
-    if (locLocation == AnnotationLocation::MIDDLE_ARG_BLOCK) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::MIDDLE_ARG_BLOCK) {
+      EmitAnnotation();
     }
 
     be.EmitArith(BRIG_OPCODE_ADD, tmp, tmp, result->Reg());
     be.EmitMov(result, tmp);
     be.EmitCall(empty_function->Directive(), ItemList(), ItemList());
 
-    if (locLocation == AnnotationLocation::END_ARG_BLOCK) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::END_ARG_BLOCK) {
+      EmitAnnotation();
     }
     be.EndArgScope();
   }
 
+protected:
+  virtual void EmitAnnotation() = 0;
+  AnnotationLocation GetAnnotationLocation() { return annotationLocation; }
+
 public:
-  LocDirectiveTest(AnnotationLocation locLocation_)
-    : SkipTest(CodeLocation(locLocation_)), generator(), locLocation(locLocation_) { }
+  AnnotationLocationTest(AnnotationLocation annotationLocation_)
+    : SkipTest(CodeLocation(annotationLocation_)), annotationLocation(annotationLocation_) { }
 
   void Init() override {
     SkipTest::Init();
@@ -195,45 +170,45 @@ public:
   }
 
   void Name(std::ostream& out) const override {
-    out << AnnotationLocationString(locLocation);
+    out << AnnotationLocationString(annotationLocation);
   }
 
   bool IsValid() const override {
     return SkipTest::IsValid() && 
-           locLocation != AnnotationLocation::BEFORE_VERSION; // BEFORE_VERSION does not work for now
+           annotationLocation != AnnotationLocation::BEFORE_VERSION; // BEFORE_VERSION does not work for now
   }
 
   TypedReg Result() override {
     auto result = SkipTest::Result();
-    if (NeedsArgBlock(locLocation)) {
+    if (NeedsArgBlock(annotationLocation)) {
       EmitArgBlock(result);
     }
-    if (locLocation == AnnotationLocation::MIDDLE_KERNEL || locLocation == AnnotationLocation::MIDDLE_FUNCTION) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::MIDDLE_KERNEL || annotationLocation == AnnotationLocation::MIDDLE_FUNCTION) {
+      EmitAnnotation();
     }
     return result;
   }
 
   void StartModule() override {
-    if (locLocation == AnnotationLocation::BEFORE_VERSION) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::BEFORE_VERSION) {
+      EmitAnnotation();
     }
     SkipTest::StartModule();
-    if (locLocation == AnnotationLocation::AFTER_VERSION) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::AFTER_VERSION) {
+      EmitAnnotation();
     }
   }
 
   void EndModule() override {
     SkipTest::EndModule();
-    if (locLocation == AnnotationLocation::END_MODULE) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::END_MODULE) {
+      EmitAnnotation();
     }
   }
 
   void StartKernel() override {
     // emit empty function if needed
-    if (NeedsArgBlock(locLocation)) {
+    if (NeedsArgBlock(annotationLocation)) {
       empty_function->StartFunction();
       empty_function->StartFunctionBody();
       empty_function->EndFunction();
@@ -242,46 +217,123 @@ public:
   }
 
   void EndKernel() override {
-    if (locLocation == AnnotationLocation::END_KERNEL) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::END_KERNEL) {
+      EmitAnnotation();
     }
     SkipTest::EndKernel();
   }
 
   void StartKernelBody() override {
     SkipTest::StartKernelBody();
-    if (locLocation == AnnotationLocation::START_KERNEL) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::START_KERNEL) {
+      EmitAnnotation();
     }
   }
 
   void StartFunctionBody() override {
     SkipTest::StartFunctionBody();
-    if (locLocation == AnnotationLocation::START_FUNCTION) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::START_FUNCTION) {
+      EmitAnnotation();
     }
   }
 
   void EndFunction() override {
-    if (locLocation == AnnotationLocation::END_FUNCTION) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::END_FUNCTION) {
+      EmitAnnotation();
     }
     SkipTest::EndFunction();
   }
 
   void ModuleVariables() override {
-    if (locLocation == AnnotationLocation::BEFORE_MODULE_VARIABLE) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::BEFORE_MODULE_VARIABLE) {
+      EmitAnnotation();
     }
 
     var1->EmitDefinition();
     
-    if (locLocation == AnnotationLocation::AFTER_MODULE_VARIABLE) {
-      EmitLoc();
+    if (annotationLocation == AnnotationLocation::AFTER_MODULE_VARIABLE) {
+      EmitAnnotation();
     }
 
     var2->EmitDefinition();
   }
+};
+
+
+
+class LocDirectiveLocationTest : public AnnotationLocationTest {
+private:
+  class LocGenerator {
+  private:
+    uint32_t lineCounter;
+    uint32_t columnCounter;
+    char charName;
+
+    static const int NAME_LENGTH = 5;
+    
+  public:
+    LocGenerator(): lineCounter(1), columnCounter(1), charName('a') {}
+
+    uint32_t GenerateLineNum() { return lineCounter++; }
+    uint32_t GenerateColumn() { return columnCounter++; }
+    std::string GenerateFileName() { 
+      std::string fileName(NAME_LENGTH, charName);
+      ++charName;
+      if (charName > 'z') {
+        charName = 'a';
+      }
+      return fileName;
+    }
+  };
+
+  LocGenerator generator;
+
+protected:
+  void EmitAnnotation() override {
+    be.EmitLocDirective(generator.GenerateLineNum(), 
+                        generator.GenerateColumn(), 
+                        generator.GenerateFileName());
+  }
+
+public:
+  LocDirectiveLocationTest(AnnotationLocation locLocation_)
+    : AnnotationLocationTest(locLocation_) { }
+};
+
+
+class PragmaDirectiveLocationTest : public AnnotationLocationTest {
+private:
+  class PragmaGenerator {
+  private:
+    uint64_t numberPragma;
+    char charStr;
+
+    static const int STR_LENGTH = 5;
+  public:
+    PragmaGenerator(): numberPragma(1), charStr('a') {}
+
+    uint32_t GenerateNumber() { return numberPragma++; }
+    std::string GenerateString() { 
+      std::string str(STR_LENGTH, charStr);
+      ++charStr;
+      if (charStr > 'z') {
+        charStr = 'a';
+      }
+      return str;
+    }
+  };
+
+  PragmaGenerator generator;
+
+protected:
+  void EmitAnnotation() override {
+    be.EmitPragmaDirective(be.Operands(be.Immed(BRIG_TYPE_U64, generator.GenerateNumber()), 
+                                       be.ImmedString(generator.GenerateString())));
+  }
+
+public:
+  PragmaDirectiveLocationTest(AnnotationLocation pragmaLocation_)
+    : AnnotationLocationTest(pragmaLocation_), generator() { }
 };
 
 
@@ -291,7 +343,8 @@ void DirectiveTests::Iterate(TestSpecIterator& it)
   std::string path;
   Arena* ap = cc->Ap();
 
-  TestForEach<LocDirectiveTest>(ap, it, "loc", AnnotationLocations());
+  TestForEach<LocDirectiveLocationTest>(ap, it, "loc", AnnotationLocations());
+  TestForEach<PragmaDirectiveLocationTest>(ap, it, "pragma", AnnotationLocations());
 }
 
 }

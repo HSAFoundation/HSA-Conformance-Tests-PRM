@@ -269,6 +269,11 @@ Operand BrigEmitter::Immed(BrigType16_t type, uint64_t imm)
   return brigantine.createImmed(imm, type);
 }
 
+Operand BrigEmitter::ImmedString(const std::string& str) 
+{
+  return brigantine.createOperandString(str);
+}
+
 Operand BrigEmitter::Wavesize()
 {
   return brigantine.createWaveSz();
@@ -1266,6 +1271,12 @@ DirectiveLoc BrigEmitter::EmitLocDirective(uint32_t line, uint32_t column, const
   loc.column() = column;
   loc.filename() = fileName;
   return loc;
+}
+
+DirectivePragma BrigEmitter::EmitPragmaDirective(ItemList operands) {
+  DirectivePragma pragma = Brigantine().append<DirectivePragma>();
+  pragma.operands() = operands;
+  return pragma;
 }
 
 /*

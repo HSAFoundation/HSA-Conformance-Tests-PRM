@@ -120,6 +120,7 @@ public:
 
   // Immediates
   HSAIL_ASM::Operand Immed(Brig::BrigType16_t type, uint64_t imm);
+  HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
 
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
@@ -185,6 +186,7 @@ public:
   void EmitControlDirectiveGeometry(Brig::BrigControlDirective d, hexl::Grid grid);
   void EmitDynamicMemoryDirective(size_t size);
   HSAIL_ASM::DirectiveLoc EmitLocDirective(uint32_t line, uint32_t column = 1, const std::string& fileName = "");
+  HSAIL_ASM::DirectivePragma EmitPragmaDirective(HSAIL_ASM::ItemList operands);
 //  void EmitControlDirectivesGeometry(const ControlDirectives::Set& directives, const GridGeometry& g);
 
   void EmitMemfence(Brig::BrigMemoryOrder memoryOrder, Brig::BrigMemoryScope globalScope, Brig::BrigMemoryScope groupScope, Brig::BrigMemoryScope imageScope);
