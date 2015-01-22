@@ -1,8 +1,7 @@
-prm/arithmetic/address/stof/identity/private
-prm/arithmetic/address/ftos/identity/private
-prm/special/dispatchpacket/packetcompletionsig
 prm/special/dispatchpacket/workitemflatabsid/boundary32
 prm/special/dispatchpacket/workitemflatid/boundary32
+prm/special/dispatchpacket/workitemabsid/boundary32
+prm/special/dispatchpacket/packetid
 prm/arithmetic/intfp/div/div_00027
 prm/arithmetic/intfp/div/div_00038
 prm/arithmetic/intfp/div/div_00045
@@ -20,16 +19,13 @@ prm/arithmetic/nativefp/nrcp/nrcp_00002
 prm/arithmetic/nativefp/nrcp/nrcp_00003
 prm/arithmetic/nativefp/nfma/nfma_00003
 prm/arithmetic/nativefp/nfma/nfma_00007
-prm/branch/cbr_basic_kernel_imm
-prm/branch/cbr_basic_kernel_wsz
-prm/branch/cbr_basic_function_imm
-prm/branch/cbr_basic_function_wsz
-prm/branch/cbr_nested_kernel_imm_else
-prm/branch/cbr_nested_kernel_imm_then
-prm/branch/cbr_nested_kernel_wsz_then
-prm/branch/cbr_nested_function_imm_else
-prm/branch/cbr_nested_function_imm_then
-prm/branch/cbr_nested_function_wsz_then
-prm/special/misc/cuid/lessMaxcuid/
-prm/special/misc/nop/
+prm/special/misc/cuid/lessmax
+prm/special/misc/waveid/lessmax
+prm/special/misc/groupbaseptr
+prm/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_global_rlx
+prm/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_global_scacq
+prm/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_global_screl
+prm/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_global_scar
+prm/special/misc/kernargbaseptr/identity/kernel
+prm/special/misc/kernargbaseptr/identity/function
 

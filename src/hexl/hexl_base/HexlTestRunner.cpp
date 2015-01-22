@@ -43,7 +43,11 @@ void TestRunnerBase::RunTest(const std::string& path, Test* test)
   Init();
   BeforeTest(path, test);
   if (testContext->Opts()->GetString("rt") != "none") {
+    clock_t t_begin, t_end;
+    t_begin = clock();
     TestResult result = ExecuteTest(test);
+    t_end = clock();
+    result.SetTime(t_begin, t_end);
     AfterTest(path, test, result);
   }
 }
@@ -187,7 +191,8 @@ void HTestRunner::AfterTest(const std::string& path, Test* test, const TestResul
   std::string fullTestName = path + "/" + test->TestName();
   testLog <<
     result.StatusString() << ": " <<
-    fullTestName << std::endl;
+    fullTestName << " " << std::setprecision(2) <<
+    result.ExecutionTime() << "s" << std::endl;
   testLog << std::endl;
   result.IncStats(pathStats);
   testOut.str(std::string());
