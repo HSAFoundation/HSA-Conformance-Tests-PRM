@@ -296,28 +296,37 @@ public:
 };
 
 
+class PragmaGenerator {
+private:
+  uint64_t numberPragma;
+  char charStr;
+  char charName;
+
+  static const int STR_LENGTH = 5;
+public:
+  PragmaGenerator(): numberPragma(1), charStr('a'), charName('a') {}
+
+  uint32_t GenerateNumber() { return numberPragma++; }
+  std::string GenerateString() { 
+    std::string str(STR_LENGTH, charStr);
+    ++charStr;
+    if (charStr > 'z') {
+      charStr = 'a';
+    }
+    return str;
+  }
+  std::string GenerateIdentified() { 
+    std::string name(STR_LENGTH, charName);
+    ++charName;
+    if (charName > 'z') {
+      charName = 'a';
+    }
+    return name;
+  }
+};
+
 class PragmaDirectiveLocationTest : public AnnotationLocationTest {
 private:
-  class PragmaGenerator {
-  private:
-    uint64_t numberPragma;
-    char charStr;
-
-    static const int STR_LENGTH = 5;
-  public:
-    PragmaGenerator(): numberPragma(1), charStr('a') {}
-
-    uint32_t GenerateNumber() { return numberPragma++; }
-    std::string GenerateString() { 
-      std::string str(STR_LENGTH, charStr);
-      ++charStr;
-      if (charStr > 'z') {
-        charStr = 'a';
-      }
-      return str;
-    }
-  };
-
   PragmaGenerator generator;
 
 protected:
@@ -332,14 +341,85 @@ public:
 };
 
 
+class PragmaOperandTypesTest : public SkipTest {
+private:
+  PragmaGenerator generator;
+  BrigKinds type1, type2, type3;
+  HSAIL_ASM::Operand op1, op2, op3;
+  Variable var1, var2, var3;
+
+  HSAIL_ASM::Operand InitializeOperand(BrigKinds type) {
+    switch (type) {
+    case BRIG_KIND_OPERAND_CODE_REF: return HSAIL_ASM::Operand();
+    case BRIG_KIND_OPERAND_DATA: return be.Immed(BRIG_TYPE_U64, generator.GenerateNumber());
+    case BRIG_KIND_OPERAND_STRING: return be.ImmedString(generator.GenerateString());
+    default:
+      assert(false); return HSAIL_ASM::Operand();
+    }
+  }
+
+  static std::string OperandType2String(BrigKinds type) {
+    switch (type) {
+    case BRIG_KIND_OPERAND_CODE_REF: return "identifier";
+    case BRIG_KIND_OPERAND_DATA: return "integer";
+    case BRIG_KIND_OPERAND_STRING: return "string";
+    default:
+      assert(false); return "";
+    }
+  }
+
+public:
+  PragmaOperandTypesTest(BrigKinds type1_, BrigKinds type2_, BrigKinds type3_)
+    : SkipTest(Location::KERNEL), type1(type1_), type2(type2_), type3(type3_) { }
+
+  bool IsValid() const override {
+    return SkipTest::IsValid() &&
+           (type1 == BRIG_KIND_OPERAND_DATA || type1 == BRIG_KIND_OPERAND_STRING || type1 == BRIG_KIND_OPERAND_CODE_REF) &&
+           (type2 == BRIG_KIND_OPERAND_DATA || type2 == BRIG_KIND_OPERAND_STRING || type2 == BRIG_KIND_OPERAND_CODE_REF) &&
+           (type3 == BRIG_KIND_OPERAND_DATA || type3 == BRIG_KIND_OPERAND_STRING || type3 == BRIG_KIND_OPERAND_CODE_REF);
+  }
+
+  void Init() override {
+    SkipTest::Init();
+    var1 = kernel->NewVariable(generator.GenerateIdentified(), BRIG_SEGMENT_GROUP, BRIG_TYPE_U64);
+    var2 = kernel->NewVariable(generator.GenerateIdentified(), BRIG_SEGMENT_GROUP, BRIG_TYPE_U64);
+    var3 = kernel->NewVariable(generator.GenerateIdentified(), BRIG_SEGMENT_GROUP, BRIG_TYPE_U64);
+    op1 = InitializeOperand(type1);
+    op2 = InitializeOperand(type2);
+    op3 = InitializeOperand(type3);
+  }
+
+  void Name(std::ostream& out) const override {
+    out << OperandType2String(type1) << "_" << 
+           OperandType2String(type2) << "_" << 
+           OperandType2String(type3);
+  }
+
+  TypedReg Result() override{
+    if (type1 == BRIG_KIND_OPERAND_CODE_REF) {
+      op1 = be.Brigantine().createCodeRef(var1->Variable());
+    }
+    if (type2 == BRIG_KIND_OPERAND_CODE_REF) {
+      op2 = be.Brigantine().createCodeRef(var2->Variable());
+    }
+    if (type3 == BRIG_KIND_OPERAND_CODE_REF) {
+      op3 = be.Brigantine().createCodeRef(var3->Variable());
+    }
+    be.EmitPragmaDirective(be.Operands(op1, op2, op3));
+    return SkipTest::Result();
+  }
+};
+
+
 void DirectiveTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   std::string path;
   Arena* ap = cc->Ap();
 
-  TestForEach<LocDirectiveLocationTest>(ap, it, "loc", AnnotationLocations());
-  TestForEach<PragmaDirectiveLocationTest>(ap, it, "pragma", AnnotationLocations());
+  TestForEach<LocDirectiveLocationTest>(ap, it, "loc/locations", AnnotationLocations());
+  TestForEach<PragmaDirectiveLocationTest>(ap, it, "pragma/locations", AnnotationLocations());
+  TestForEach<PragmaOperandTypesTest>(ap, it, "pragma/optypes", cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes());
 }
 
 }

@@ -466,6 +466,12 @@ static const BrigControlDirective boundary24WorkitemFlatIdRelatedValues[] = {
   BRIG_CONTROL_MAXFLATWORKGROUPSIZE,
 };
 
+static const BrigKinds pragmaOperandTypesValues[] = {
+  BRIG_KIND_OPERAND_DATA,
+  BRIG_KIND_OPERAND_STRING,
+  BRIG_KIND_OPERAND_CODE_REF
+};
+
 CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
   : ConfigBase(cc),
     none(NEWA EControlDirectives(NEWA EmptySequence<Brig::BrigControlDirective>())),
@@ -491,7 +497,8 @@ CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
     degenerateRelatedSets(DSubsets(ap, degenerateRelated)),
     boundary24WorkitemAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemAbsIdRelated)),
     boundary24WorkitemFlatAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatAbsIdRelated)),
-    boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated))
+    boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated)),
+    pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues)))
 {
 }
 
