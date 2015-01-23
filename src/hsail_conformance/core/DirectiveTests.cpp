@@ -411,6 +411,42 @@ public:
 };
 
 
+class EnableExceptionArgumentTest : public SkipTest {
+private:
+  bool isBreak;
+  uint32_t exceptionNumber;
+
+public:
+  EnableExceptionArgumentTest(bool isBreak_, uint32_t exceptionNumber_)
+    : SkipTest(Location::KERNEL), isBreak(isBreak_), exceptionNumber(exceptionNumber_) { }
+
+  bool IsValid() const override {
+    return SkipTest::IsValid() &&
+           exceptionNumber <= 0x1F; // 0b11111
+  }
+
+  void Name(std::ostream& out) const override {
+    if (isBreak) { 
+      out << "break_";
+    } else { 
+      out << "detect_";
+    }
+    // 'v' - INVALID_OPERATION, 'd' - DIVIDE_BY_ZERO, 'o' - OVERFLOW, 'u' - underflow, 'e' - INEXACT
+    if ((exceptionNumber & 0x10) != 0) { out << 'e'; }
+    if ((exceptionNumber & 0x08) != 0) { out << 'u'; }
+    if ((exceptionNumber & 0x04) != 0) { out << 'o'; }
+    if ((exceptionNumber & 0x02) != 0) { out << 'd'; }
+    if ((exceptionNumber & 0x01) != 0) { out << 'v'; }
+    if (exceptionNumber == 0) { out << '0'; }
+  }
+
+  TypedReg Result() override{
+    be.EmitEnableExceptionDirective(isBreak, exceptionNumber);
+    return SkipTest::Result();
+  }
+};
+
+
 void DirectiveTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -420,6 +456,8 @@ void DirectiveTests::Iterate(TestSpecIterator& it)
   TestForEach<LocDirectiveLocationTest>(ap, it, "loc/locations", AnnotationLocations());
   TestForEach<PragmaDirectiveLocationTest>(ap, it, "pragma/locations", AnnotationLocations());
   TestForEach<PragmaOperandTypesTest>(ap, it, "pragma/optypes", cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes());
+
+  TestForEach<EnableExceptionArgumentTest>(ap, it, "control/exception", Bools::All(), cc->Directives().ValidExceptionNumbers());
 }
 
 }

@@ -223,6 +223,7 @@ namespace hexl {
           *workitemIdRelatedSets, *workitemAbsIdRelatedSets, *workitemFlatIdRelatedSets, *workitemFlatAbsIdRelatedSets,
           *degenerateRelatedSets, *boundary24WorkitemAbsIdRelatedSets, *boundary24WorkitemFlatAbsIdRelatedSets, *boundary24WorkitemFlatIdRelatedSets;
         hexl::Sequence<Brig::BrigKinds>* pragmaOperandTypes;
+        hexl::Sequence<uint32_t>* validExceptionNumbers;
 
         static ControlDirectives Array(Arena* ap, const Brig::BrigControlDirective *values, size_t count);
         static hexl::Sequence<ControlDirectives>* DSubsets(Arena* ap, const ControlDirectives& set);
@@ -259,6 +260,8 @@ namespace hexl {
         hexl::Sequence<ControlDirectives>* Boundary24WorkitemFlatIdRelatedSets()  { return boundary24WorkitemFlatIdRelatedSets; }
 
         hexl::Sequence<Brig::BrigKinds>* PragmaOperandTypes() { return pragmaOperandTypes; }
+        
+        hexl::Sequence<uint32_t>* ValidExceptionNumbers() { return validExceptionNumbers; }
       };
 
       class ControlFlowConfig : public ConfigBase {

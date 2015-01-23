@@ -1279,6 +1279,14 @@ DirectivePragma BrigEmitter::EmitPragmaDirective(ItemList operands) {
   return pragma;
 }
 
+DirectiveControl BrigEmitter::EmitEnableExceptionDirective(bool isBreak, uint32_t exceptionNumber) {
+  assert(exceptionNumber <= 0x1F); // 0b11111
+  DirectiveControl dc = Brigantine().append<DirectiveControl>();
+  dc.control() = isBreak ? BRIG_CONTROL_ENABLEBREAKEXCEPTIONS : BRIG_CONTROL_ENABLEDETECTEXCEPTIONS;
+  dc.operands() = Operands(Immed(BRIG_TYPE_U32, exceptionNumber));
+  return dc;
+}
+
 /*
 void BrigEmitter::EmitControlDirectivesGeometry(const ControlDirectives::Set& directives, const GridGeometry::Spec& geometry)
 {

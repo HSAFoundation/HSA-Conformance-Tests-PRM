@@ -472,6 +472,11 @@ static const BrigKinds pragmaOperandTypesValues[] = {
   BRIG_KIND_OPERAND_CODE_REF
 };
 
+static const uint32_t validExceptionNumbersValues[] = {
+  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+  0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+};
+
 CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
   : ConfigBase(cc),
     none(NEWA EControlDirectives(NEWA EmptySequence<Brig::BrigControlDirective>())),
@@ -498,7 +503,8 @@ CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
     boundary24WorkitemAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemAbsIdRelated)),
     boundary24WorkitemFlatAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatAbsIdRelated)),
     boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated)),
-    pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues)))
+    pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
+    validExceptionNumbers(NEWA ArraySequence<uint32_t>(validExceptionNumbersValues, NELEM(validExceptionNumbersValues)))
 {
 }
 

@@ -187,6 +187,7 @@ public:
   void EmitDynamicMemoryDirective(size_t size);
   HSAIL_ASM::DirectiveLoc EmitLocDirective(uint32_t line, uint32_t column = 1, const std::string& fileName = "");
   HSAIL_ASM::DirectivePragma EmitPragmaDirective(HSAIL_ASM::ItemList operands);
+  HSAIL_ASM::DirectiveControl EmitEnableExceptionDirective(bool isBreak, uint32_t exceptionNumber);
 //  void EmitControlDirectivesGeometry(const ControlDirectives::Set& directives, const GridGeometry& g);
 
   void EmitMemfence(Brig::BrigMemoryOrder memoryOrder, Brig::BrigMemoryScope globalScope, Brig::BrigMemoryScope groupScope, Brig::BrigMemoryScope imageScope);
