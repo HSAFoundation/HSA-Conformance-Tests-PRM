@@ -477,6 +477,20 @@ static const uint32_t validExceptionNumbersValues[] = {
   0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
 };
 
+static const BrigControlDirective exceptionDirectivesValues[] = {
+  BRIG_CONTROL_ENABLEBREAKEXCEPTIONS,
+  BRIG_CONTROL_ENABLEDETECTEXCEPTIONS
+};
+
+static const BrigControlDirective geometryDirectivesValues[] = {
+  BRIG_CONTROL_MAXFLATGRIDSIZE,
+  BRIG_CONTROL_MAXFLATWORKGROUPSIZE,
+  BRIG_CONTROL_REQUIREDDIM,
+  BRIG_CONTROL_REQUIREDGRIDSIZE,
+  BRIG_CONTROL_REQUIREDWORKGROUPSIZE,
+  BRIG_CONTROL_REQUIRENOPARTIALWORKGROUPS
+};
+
 CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
   : ConfigBase(cc),
     none(NEWA EControlDirectives(NEWA EmptySequence<Brig::BrigControlDirective>())),
@@ -504,7 +518,9 @@ CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
     boundary24WorkitemFlatAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatAbsIdRelated)),
     boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated)),
     pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
-    validExceptionNumbers(NEWA ArraySequence<uint32_t>(validExceptionNumbersValues, NELEM(validExceptionNumbersValues)))
+    validExceptionNumbers(NEWA ArraySequence<uint32_t>(validExceptionNumbersValues, NELEM(validExceptionNumbersValues))),
+    exceptionDirectives(NEWA ArraySequence<BrigControlDirective>(exceptionDirectivesValues, NELEM(exceptionDirectivesValues))),
+    geometryDirectives(NEWA ArraySequence<BrigControlDirective>(geometryDirectivesValues, NELEM(geometryDirectivesValues)))
 {
 }
 

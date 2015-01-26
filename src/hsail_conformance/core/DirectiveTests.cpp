@@ -306,7 +306,7 @@ private:
 public:
   PragmaGenerator(): numberPragma(1), charStr('a'), charName('a') {}
 
-  uint32_t GenerateNumber() { return numberPragma++; }
+  uint64_t GenerateNumber() { return numberPragma++; }
   std::string GenerateString() { 
     std::string str(STR_LENGTH, charStr);
     ++charStr;
@@ -411,13 +411,72 @@ public:
 };
 
 
-class EnableExceptionArgumentTest : public SkipTest {
+class ControlDirectivesLocationTest: public SkipTest {
+private:
+  BrigControlDirective directive;
+
+protected:
+  virtual void EmitControlDirective() = 0;
+  BrigControlDirective Directive() const { return directive; }
+
+public:
+  ControlDirectivesLocationTest(Location codeLocation_, BrigControlDirective directive_): 
+    SkipTest(codeLocation_), directive(directive_) {}
+
+  void Name(std::ostream& out) const override {
+    out << Dir2Str(directive) << "_" << CodeLocationString();    
+  }
+
+  void KernelDirectives() override {
+    if (codeLocation == Location::KERNEL) {
+      EmitControlDirective();
+    }
+  }
+
+  void FunctionDirectives() override {
+    if (codeLocation == Location::FUNCTION) {
+      EmitControlDirective();
+    }
+  }
+};
+
+
+class ExceptionDirectivesLocationTest: public ControlDirectivesLocationTest {
+private:
+  static const uint32_t EXCEPTION_NUMBER = 0x1F;
+
+protected:
+  void EmitControlDirective() override {
+    be.EmitEnableExceptionDirective(Directive() == BRIG_CONTROL_ENABLEBREAKEXCEPTIONS, EXCEPTION_NUMBER);
+  }
+
+public:
+  ExceptionDirectivesLocationTest(Location codeLocation_, BrigControlDirective directive_): 
+    ControlDirectivesLocationTest(codeLocation_, directive_) {}
+
+  void Name(std::ostream& out) const override {
+    if (Directive() == BRIG_CONTROL_ENABLEBREAKEXCEPTIONS) { 
+      out << "break_";
+    } else { 
+      out << "detect_";
+    }
+    out << CodeLocationString();    
+  }
+
+  bool IsValid() const override {
+    return ControlDirectivesLocationTest::IsValid() &&
+           (Directive() == BRIG_CONTROL_ENABLEBREAKEXCEPTIONS || Directive() == BRIG_CONTROL_ENABLEDETECTEXCEPTIONS);
+  }
+};
+
+
+class ExceptionDirectivesArgumentTest : public SkipTest {
 private:
   bool isBreak;
   uint32_t exceptionNumber;
 
 public:
-  EnableExceptionArgumentTest(bool isBreak_, uint32_t exceptionNumber_)
+  ExceptionDirectivesArgumentTest(bool isBreak_, uint32_t exceptionNumber_)
     : SkipTest(Location::KERNEL), isBreak(isBreak_), exceptionNumber(exceptionNumber_) { }
 
   bool IsValid() const override {
@@ -441,9 +500,46 @@ public:
   }
 
   TypedReg Result() override{
-    be.EmitEnableExceptionDirective(isBreak, exceptionNumber);
+    
     return SkipTest::Result();
   }
+
+  void KernelDirectives() override {
+    be.EmitEnableExceptionDirective(isBreak, exceptionNumber);
+  }
+};
+
+
+class GeometryDirectivesLocationTest: public ControlDirectivesLocationTest {
+protected:
+  void EmitControlDirective() override {
+    be.EmitControlDirectiveGeometry(Directive(), geometry);
+  }
+
+public:
+  GeometryDirectivesLocationTest(Location codeLocation_, BrigControlDirective directive_): 
+    ControlDirectivesLocationTest(codeLocation_, directive_) {}
+
+  bool IsValid() const override {
+    return ControlDirectivesLocationTest::IsValid() &&
+           (Directive() == BRIG_CONTROL_MAXFLATGRIDSIZE || 
+            Directive() == BRIG_CONTROL_MAXFLATWORKGROUPSIZE ||
+            Directive() == BRIG_CONTROL_REQUIREDDIM ||
+            Directive() == BRIG_CONTROL_REQUIREDGRIDSIZE ||
+            Directive() == BRIG_CONTROL_REQUIREDWORKGROUPSIZE ||
+            Directive() == BRIG_CONTROL_REQUIRENOPARTIALWORKGROUPS);
+  }
+};
+
+class MaxDynamicGroupSizeLocationTest: public ControlDirectivesLocationTest {
+protected:
+  void EmitControlDirective() override {
+    be.EmitDynamicMemoryDirective(0);
+  }
+
+public:
+  MaxDynamicGroupSizeLocationTest(Location codeLocation_): 
+    ControlDirectivesLocationTest(codeLocation_, BRIG_CONTROL_MAXDYNAMICGROUPSIZE) {}
 };
 
 
@@ -457,7 +553,11 @@ void DirectiveTests::Iterate(TestSpecIterator& it)
   TestForEach<PragmaDirectiveLocationTest>(ap, it, "pragma/locations", AnnotationLocations());
   TestForEach<PragmaOperandTypesTest>(ap, it, "pragma/optypes", cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes());
 
-  TestForEach<EnableExceptionArgumentTest>(ap, it, "control/exception", Bools::All(), cc->Directives().ValidExceptionNumbers());
+  TestForEach<GeometryDirectivesLocationTest>(ap, it, "control/geometry/location", CodeLocations(), cc->Directives().GeometryDirectives());
+  TestForEach<ExceptionDirectivesLocationTest>(ap, it, "control/exception/location", CodeLocations(), cc->Directives().ExceptionDirectives());
+  TestForEach<MaxDynamicGroupSizeLocationTest>(ap, it, "control/maxdynamic/location", CodeLocations());
+
+  TestForEach<ExceptionDirectivesArgumentTest>(ap, it, "control/exception/argument", Bools::All(), cc->Directives().ValidExceptionNumbers());
 }
 
 }
