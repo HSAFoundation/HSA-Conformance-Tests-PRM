@@ -543,6 +543,68 @@ public:
 };
 
 
+class ExtensionDirectiveTest: public SkipTest {
+private:
+  std::string extensionName;
+
+public:
+  ExtensionDirectiveTest(std::string extensionName_): 
+    SkipTest(Location::KERNEL), extensionName(extensionName_) {}
+
+  bool IsValid() const override {
+    return SkipTest::IsValid() &&
+           (extensionName == "CORE" || extensionName == "IMAGE" || extensionName == "");
+  }
+
+  void Name(std::ostream& out) const override {
+    if (extensionName.empty()) {
+      out << "empty";
+    } else {
+      out << extensionName;
+    }
+  }
+
+  void ModuleDirectives() override {
+    be.EmitExtensionDirective(extensionName);
+  }
+};
+
+
+class ExtensionDirectivePairTest: public SkipTest {
+private:
+  std::string extensionName1;
+  std::string extensionName2;
+
+public:
+  ExtensionDirectivePairTest(std::string extensionName1_, std::string extensionName2_): 
+    SkipTest(Location::KERNEL), extensionName1(extensionName1_), extensionName2(extensionName2_) {}
+
+  bool IsValid() const override {
+    return SkipTest::IsValid() &&
+           (extensionName1 == "IMAGE" || extensionName1 == "") &&
+           (extensionName2 == "IMAGE" || extensionName2 == "");
+  }
+
+  void Name(std::ostream& out) const override {
+    if (extensionName1.empty()) {
+      out << "empty_";
+    } else {
+      out << extensionName1 << "_";
+    }
+    if (extensionName2.empty()) {
+      out << "empty";
+    } else {
+      out << extensionName2;
+    }
+  }
+
+  void ModuleDirectives() override {
+    be.EmitExtensionDirective(extensionName1);
+    be.EmitExtensionDirective(extensionName2);
+  }
+};
+
+
 void DirectiveTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -558,6 +620,9 @@ void DirectiveTests::Iterate(TestSpecIterator& it)
   TestForEach<MaxDynamicGroupSizeLocationTest>(ap, it, "control/maxdynamic/location", CodeLocations());
 
   TestForEach<ExceptionDirectivesArgumentTest>(ap, it, "control/exception/argument", Bools::All(), cc->Directives().ValidExceptionNumbers());
+
+  TestForEach<ExtensionDirectiveTest>(ap, it, "extension/names", cc->Directives().ValidExtensions());
+  TestForEach<ExtensionDirectivePairTest>(ap, it, "extension/pair", cc->Directives().ValidExtensions(), cc->Directives().ValidExtensions());
 }
 
 }

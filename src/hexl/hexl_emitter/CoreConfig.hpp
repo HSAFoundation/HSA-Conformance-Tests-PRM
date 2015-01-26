@@ -225,6 +225,7 @@ namespace hexl {
         hexl::Sequence<Brig::BrigKinds>* pragmaOperandTypes;
         hexl::Sequence<uint32_t>* validExceptionNumbers;
         hexl::Sequence<Brig::BrigControlDirective> *exceptionDirectives, *geometryDirectives;
+        hexl::Sequence<std::string> *validExtensions;
 
         static ControlDirectives Array(Arena* ap, const Brig::BrigControlDirective *values, size_t count);
         static hexl::Sequence<ControlDirectives>* DSubsets(Arena* ap, const ControlDirectives& set);
@@ -265,6 +266,8 @@ namespace hexl {
         hexl::Sequence<uint32_t>* ValidExceptionNumbers() { return validExceptionNumbers; }
         hexl::Sequence<Brig::BrigControlDirective>* ExceptionDirectives() { return exceptionDirectives; }
         hexl::Sequence<Brig::BrigControlDirective>* GeometryDirectives() { return geometryDirectives; }
+
+        hexl::Sequence<std::string>* ValidExtensions() { return validExtensions; }
       };
 
       class ControlFlowConfig : public ConfigBase {

@@ -1287,6 +1287,13 @@ DirectiveControl BrigEmitter::EmitEnableExceptionDirective(bool isBreak, uint32_
   return dc;
 }
 
+DirectiveExtension BrigEmitter::EmitExtensionDirective(const std::string& name) {
+  assert(name == "CORE" || name == "IMAGE" || name == "");
+  DirectiveExtension de = Brigantine().append<DirectiveExtension>();
+  de.name() = name;
+  return de;
+}
+
 /*
 void BrigEmitter::EmitControlDirectivesGeometry(const ControlDirectives::Set& directives, const GridGeometry::Spec& geometry)
 {

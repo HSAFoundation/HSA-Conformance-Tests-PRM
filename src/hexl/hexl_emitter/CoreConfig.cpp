@@ -491,6 +491,12 @@ static const BrigControlDirective geometryDirectivesValues[] = {
   BRIG_CONTROL_REQUIRENOPARTIALWORKGROUPS
 };
 
+static const std::string validExtensionsNames[] = {
+  "IMAGE",
+  "CORE",
+  ""
+};
+
 CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
   : ConfigBase(cc),
     none(NEWA EControlDirectives(NEWA EmptySequence<Brig::BrigControlDirective>())),
@@ -520,7 +526,8 @@ CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
     pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
     validExceptionNumbers(NEWA ArraySequence<uint32_t>(validExceptionNumbersValues, NELEM(validExceptionNumbersValues))),
     exceptionDirectives(NEWA ArraySequence<BrigControlDirective>(exceptionDirectivesValues, NELEM(exceptionDirectivesValues))),
-    geometryDirectives(NEWA ArraySequence<BrigControlDirective>(geometryDirectivesValues, NELEM(geometryDirectivesValues)))
+    geometryDirectives(NEWA ArraySequence<BrigControlDirective>(geometryDirectivesValues, NELEM(geometryDirectivesValues))),
+    validExtensions(NEWA ArraySequence<std::string>(validExtensionsNames, NELEM(validExtensionsNames)))
 {
 }
 
