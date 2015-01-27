@@ -269,6 +269,11 @@ Operand BrigEmitter::Immed(BrigType16_t type, uint64_t imm)
   return brigantine.createImmed(imm, type);
 }
 
+Operand BrigEmitter::ImmedString(const std::string& str) 
+{
+  return brigantine.createOperandString(str);
+}
+
 Operand BrigEmitter::Wavesize()
 {
   return brigantine.createWaveSz();
@@ -318,18 +323,18 @@ OperandAddress BrigEmitter::IncrementAddress(OperandAddress addr, int64_t offset
   }
 }
 
-InstMem BrigEmitter::EmitLoad(BrigSegment8_t segment, BrigType16_t type, Operand dst, OperandAddress addr)
+InstMem BrigEmitter::EmitLoad(BrigSegment8_t segment, BrigType16_t type, Operand dst, OperandAddress addr, uint8_t equiv)
 {
   InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_LD, type);
   mem.segment() = segment;
   mem.align() = getNaturalAlignment(type);
   mem.width() = BRIG_WIDTH_1;
-  mem.equivClass() = 0;
+  mem.equivClass() = equiv;
   mem.operands() = Operands(dst, addr) ;
   return mem;
 }
 
-void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress addr, bool useVectorInstructions)
+void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress addr, bool useVectorInstructions, uint8_t equiv)
 {
   BrigType16_t type = MemOpType(dst->Type());
   if (useVectorInstructions && dst->Count() > 1) {
@@ -342,7 +347,7 @@ void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress 
       mem.segment() = segment;
       mem.align() = getNaturalAlignment(type);
       mem.width() = BRIG_WIDTH_1;
-      mem.equivClass() = 0;
+      mem.equivClass() = equiv;
       ItemList dsts;
       for (size_t j = i; j < i + dim1; ++j) {
         dsts.push_back(dst->Reg(j));
@@ -355,7 +360,7 @@ void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress 
     }
   } else {
     for (size_t i = 0; i < dst->Count(); ++i) {
-      EmitLoad(segment, type, dst->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8));
+      EmitLoad(segment, type, dst->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8), equiv);
     }
   }
 }
@@ -374,9 +379,9 @@ BrigType16_t BrigEmitter::MemOpType(BrigType16_t type)
 }
 
 
-void BrigEmitter::EmitLoad(TypedReg dst, PointerReg addr, int64_t offset, bool useVectorInstructions)
+void BrigEmitter::EmitLoad(TypedReg dst, PointerReg addr, int64_t offset, bool useVectorInstructions, uint8_t equiv)
 {
-  EmitLoad(addr->Segment(), dst, Address(addr, offset), useVectorInstructions);
+  EmitLoad(addr->Segment(), dst, Address(addr, offset), useVectorInstructions, equiv);
 }
 
 
@@ -390,18 +395,18 @@ void BrigEmitter::EmitLoads(TypedRegList dsts, ItemList vars, bool useVectorInst
 }
 
 
-InstMem BrigEmitter::EmitStore(BrigSegment8_t segment, BrigType16_t type, Operand src, OperandAddress addr)
+InstMem BrigEmitter::EmitStore(BrigSegment8_t segment, BrigType16_t type, Operand src, OperandAddress addr, uint8_t equiv)
 {
   InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, type);
   mem.segment() = segment;
   mem.align() = getNaturalAlignment(type);
   mem.width() = BRIG_WIDTH_NONE;
-  mem.equivClass() = 0;
+  mem.equivClass() = equiv;
   mem.operands() = Operands(src, addr);
   return mem;
 }
 
-void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress addr, bool useVectorInstructions)
+void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress addr, bool useVectorInstructions, uint8_t equiv)
 {
   BrigType16_t type = MemOpType(src->Type());
   if (useVectorInstructions && src->Count() > 1) {
@@ -414,7 +419,7 @@ void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress
       mem.segment() = segment;
       mem.align() = getNaturalAlignment(type);
       mem.width() = BRIG_WIDTH_NONE;
-      mem.equivClass() = 0;
+      mem.equivClass() = equiv;
       ItemList dsts;
       for (size_t j = i; j < i + dim1; ++j) {
         dsts.push_back(src->Reg(j));
@@ -427,7 +432,7 @@ void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress
     }
   } else {
     for (size_t i = 0; i < src->Count(); ++i) {
-      EmitStore(segment, type, src->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8));
+      EmitStore(segment, type, src->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8), equiv);
     }
   }
 }
@@ -439,18 +444,18 @@ void BrigEmitter::EmitStore(TypedReg src, DirectiveVariable v, int64_t offset, b
 }
 */
 
-void BrigEmitter::EmitStore(TypedReg src, PointerReg addr, int64_t offset, bool useVectorInstructions)
+void BrigEmitter::EmitStore(TypedReg src, PointerReg addr, int64_t offset, bool useVectorInstructions, uint8_t equiv)
 {
-  EmitStore(addr->Segment(), src, Address(addr, offset), useVectorInstructions);
+  EmitStore(addr->Segment(), src, Address(addr, offset), useVectorInstructions, equiv);
 }
 
-void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigTypeX type, Operand src, OperandAddress addr)
+void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigTypeX type, Operand src, OperandAddress addr, uint8_t equiv)
 {
   InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, type);
   mem.segment() = segment;
   mem.align() = getNaturalAlignment(type);
   mem.width() = BRIG_WIDTH_NONE;
-  mem.equivClass() = 0;
+  mem.equivClass() = equiv;
   mem.operands() = Operands(src, addr) ;
 }
 
@@ -755,6 +760,17 @@ InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound
    return inst;
 }
 
+InstBr BrigEmitter::EmitCall(HSAIL_ASM::DirectiveFunction f, ItemList ins, ItemList outs) {
+    InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_CALL, BRIG_TYPE_NONE);
+    inst.width() = BRIG_WIDTH_ALL;
+    std::string name = f.name().str();
+    inst.operands() = Operands(
+      brigantine.createCodeList(outs),
+      brigantine.createExecutableRef(name),
+      brigantine.createCodeList(ins));
+    return inst;
+}
+
 void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
 {
   ItemList ins;
@@ -774,13 +790,7 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
     fArg = fArg.next();
   }
   EmitStores(inRegs, ins, useVectorInstructions);
-  InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_CALL, BRIG_TYPE_NONE);
-  inst.width() = BRIG_WIDTH_ALL;
-  std::string name = f.name().str();
-  inst.operands() = Operands(
-    brigantine.createCodeList(outs),
-    brigantine.createExecutableRef(name),
-    brigantine.createCodeList(ins));
+  EmitCall(f, ins, outs);
   EmitLoads(outRegs, outs, useVectorInstructions);
   EndArgScope();
 }
@@ -1252,6 +1262,36 @@ void BrigEmitter::EmitDynamicMemoryDirective(size_t size) {
   DirectiveControl dc = Brigantine().append<DirectiveControl>();
   dc.control() = BRIG_CONTROL_MAXDYNAMICGROUPSIZE;
   dc.operands() = Operands(Immed(BRIG_TYPE_U32, size));
+}
+
+DirectiveLoc BrigEmitter::EmitLocDirective(uint32_t line, uint32_t column, const std::string& fileName) {
+  assert(line != 0 && column != 0);
+  DirectiveLoc loc = Brigantine().append<DirectiveLoc>();
+  loc.line() = line;
+  loc.column() = column;
+  loc.filename() = fileName;
+  return loc;
+}
+
+DirectivePragma BrigEmitter::EmitPragmaDirective(ItemList operands) {
+  DirectivePragma pragma = Brigantine().append<DirectivePragma>();
+  pragma.operands() = operands;
+  return pragma;
+}
+
+DirectiveControl BrigEmitter::EmitEnableExceptionDirective(bool isBreak, uint32_t exceptionNumber) {
+  assert(exceptionNumber <= 0x1F); // 0b11111
+  DirectiveControl dc = Brigantine().append<DirectiveControl>();
+  dc.control() = isBreak ? BRIG_CONTROL_ENABLEBREAKEXCEPTIONS : BRIG_CONTROL_ENABLEDETECTEXCEPTIONS;
+  dc.operands() = Operands(Immed(BRIG_TYPE_U32, exceptionNumber));
+  return dc;
+}
+
+DirectiveExtension BrigEmitter::EmitExtensionDirective(const std::string& name) {
+  assert(name == "CORE" || name == "IMAGE" || name == "");
+  DirectiveExtension de = Brigantine().append<DirectiveExtension>();
+  de.name() = name;
+  return de;
 }
 
 /*

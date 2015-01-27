@@ -363,6 +363,7 @@ static const BrigAtomicOperation allAtomicsValues[] = {
   BRIG_ATOMIC_XOR
 };
 
+
 static const BrigAtomicOperation signalSendAtomicsValues[] = {
   BRIG_ATOMIC_ST,
   BRIG_ATOMIC_ADD,
@@ -391,6 +392,32 @@ static const BrigSegment memfenceSegmentsValues[] = {
   BRIG_SEGMENT_GROUP,
 };
 
+static const BrigOpcode ldStOpcodesValues[] = {
+  BRIG_OPCODE_LD,
+  BRIG_OPCODE_ST
+};
+
+static const BrigOpcode atomicOpcodesValues[] = {
+  BRIG_OPCODE_ATOMIC,
+  BRIG_OPCODE_ATOMICNORET
+};
+
+static const BrigAtomicOperation atomicOperationsValues[] = {
+  BRIG_ATOMIC_ADD,
+  BRIG_ATOMIC_AND,
+  BRIG_ATOMIC_CAS,
+  BRIG_ATOMIC_EXCH,
+  BRIG_ATOMIC_LD,
+  BRIG_ATOMIC_MAX,
+  BRIG_ATOMIC_MIN,
+  BRIG_ATOMIC_OR,
+  BRIG_ATOMIC_ST,
+  BRIG_ATOMIC_SUB,
+  BRIG_ATOMIC_WRAPDEC,
+  BRIG_ATOMIC_WRAPINC,
+  BRIG_ATOMIC_XOR
+};
+
 CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
   : ConfigBase(cc),
     allMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_LAST)),
@@ -400,7 +427,10 @@ CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
     allAtomics(NEWA ArraySequence<BrigAtomicOperation>(allAtomicsValues, NELEM(allAtomicsValues))),
     signalSendAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalSendAtomicsValues, NELEM(signalSendAtomicsValues))),
     signalWaitAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalWaitAtomicsValues, NELEM(signalWaitAtomicsValues))),
-    memfenceSegments(new (ap) hexl::ArraySequence<BrigSegment>(memfenceSegmentsValues, NELEM(memfenceSegmentsValues)))
+    memfenceSegments(new (ap) hexl::ArraySequence<BrigSegment>(memfenceSegmentsValues, NELEM(memfenceSegmentsValues))),
+    ldStOpcodes(NEWA ArraySequence<BrigOpcode>(ldStOpcodesValues, NELEM(ldStOpcodesValues))),
+    atomicOpcodes(NEWA ArraySequence<BrigOpcode>(atomicOpcodesValues, NELEM(atomicOpcodesValues))),
+    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues)))
 {    
 }
 
@@ -466,6 +496,37 @@ static const BrigControlDirective boundary24WorkitemFlatIdRelatedValues[] = {
   BRIG_CONTROL_MAXFLATWORKGROUPSIZE,
 };
 
+static const BrigKinds pragmaOperandTypesValues[] = {
+  BRIG_KIND_OPERAND_DATA,
+  BRIG_KIND_OPERAND_STRING,
+  BRIG_KIND_OPERAND_CODE_REF
+};
+
+static const uint32_t validExceptionNumbersValues[] = {
+  0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F,
+  0x10, 0x11, 0x12, 0x13, 0x14, 0x15, 0x16, 0x17, 0x18, 0x19, 0x1A, 0x1B, 0x1C, 0x1D, 0x1E, 0x1F
+};
+
+static const BrigControlDirective exceptionDirectivesValues[] = {
+  BRIG_CONTROL_ENABLEBREAKEXCEPTIONS,
+  BRIG_CONTROL_ENABLEDETECTEXCEPTIONS
+};
+
+static const BrigControlDirective geometryDirectivesValues[] = {
+  BRIG_CONTROL_MAXFLATGRIDSIZE,
+  BRIG_CONTROL_MAXFLATWORKGROUPSIZE,
+  BRIG_CONTROL_REQUIREDDIM,
+  BRIG_CONTROL_REQUIREDGRIDSIZE,
+  BRIG_CONTROL_REQUIREDWORKGROUPSIZE,
+  BRIG_CONTROL_REQUIRENOPARTIALWORKGROUPS
+};
+
+static const std::string validExtensionsNames[] = {
+  "IMAGE",
+  "CORE",
+  ""
+};
+
 CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
   : ConfigBase(cc),
     none(NEWA EControlDirectives(NEWA EmptySequence<Brig::BrigControlDirective>())),
@@ -491,7 +552,12 @@ CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
     degenerateRelatedSets(DSubsets(ap, degenerateRelated)),
     boundary24WorkitemAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemAbsIdRelated)),
     boundary24WorkitemFlatAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatAbsIdRelated)),
-    boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated))
+    boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated)),
+    pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
+    validExceptionNumbers(NEWA ArraySequence<uint32_t>(validExceptionNumbersValues, NELEM(validExceptionNumbersValues))),
+    exceptionDirectives(NEWA ArraySequence<BrigControlDirective>(exceptionDirectivesValues, NELEM(exceptionDirectivesValues))),
+    geometryDirectives(NEWA ArraySequence<BrigControlDirective>(geometryDirectivesValues, NELEM(geometryDirectivesValues))),
+    validExtensions(NEWA ArraySequence<std::string>(validExtensionsNames, NELEM(validExtensionsNames)))
 {
 }
 

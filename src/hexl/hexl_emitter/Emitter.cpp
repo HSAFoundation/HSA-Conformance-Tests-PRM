@@ -44,6 +44,16 @@ namespace Bools {
 std::string Dir2Str(BrigControlDirective d)
 {
   switch(d) {
+  case BRIG_CONTROL_ENABLEBREAKEXCEPTIONS:
+    return "EBEX";
+  case BRIG_CONTROL_ENABLEDETECTEXCEPTIONS:
+    return "EDEX";
+  case BRIG_CONTROL_MAXDYNAMICGROUPSIZE:
+    return "MDGS";
+  case BRIG_CONTROL_MAXFLATGRIDSIZE:
+    return "MFGS";
+  case BRIG_CONTROL_MAXFLATWORKGROUPSIZE:
+    return "MFWS";
   case BRIG_CONTROL_REQUIREDDIM:
     return "RD";
   case BRIG_CONTROL_REQUIREDGRIDSIZE:
@@ -52,10 +62,6 @@ std::string Dir2Str(BrigControlDirective d)
     return "RWS";
   case BRIG_CONTROL_REQUIRENOPARTIALWORKGROUPS:
     return "RNPW";
-  case BRIG_CONTROL_MAXFLATGRIDSIZE:
-    return "MFGS";
-  case BRIG_CONTROL_MAXFLATWORKGROUPSIZE:
-    return "MFWS";
   default:
     assert(false); return "UNKND";
   }

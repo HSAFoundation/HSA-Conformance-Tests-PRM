@@ -114,9 +114,9 @@ TestRunner* HCRunner::CreateTestRunner()
     return remoteTestRunner;
   } else
 #endif // ENABLE_HEXL_AGENT
-  if (runner == "hrunner") {
+  if (runner == "hrunner" || runner.empty()) {
     return new HTestRunner(context.get());
-  } else if (runner == "simple" || runner.empty()) {
+  } else if (runner == "simple") {
     return new SimpleTestRunner(context.get());
   } else {
     std::cout << "Unsupported runner: " << runner << std::endl;

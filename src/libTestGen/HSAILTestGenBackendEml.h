@@ -205,7 +205,7 @@ public:
         factory.reset();
         testSample = readOnlyInst;
 
-        if (testableInst(readOnlyInst) && testableOperands(readOnlyInst))
+        if (testableInst(readOnlyInst) && testableOperands(readOnlyInst) && testableTypes(readOnlyInst))
         {
             // Create a provider of test data for the current instruction.
             // Providers are selected based on data type of each operand.
@@ -1055,10 +1055,17 @@ private:
                 if (dataElemSize < 32)
                 {
                     assert(testLdSt());
-                    assert(getMemDataElemType() != Brig::BRIG_TYPE_F16); // f16 needs special handling
-
-                    unsigned slotType = isSignedType(atomType) ? BRIG_TYPE_S32 : BRIG_TYPE_U32;
-                    context->emitShr(slotType, reg, reg, 8); // copy sign bits from uppermost loaded byte
+                    
+                    if (getMemDataElemType() == BRIG_TYPE_F16) // For F16 upper bits should be 0
+                    {
+                        assert(getRegSize(reg) == 32);
+                        context->emitMov(BRIG_TYPE_B32, reg, context->emitImm(getRegSize(reg), 0, 0));
+                    }
+                    else
+                    {
+                        unsigned slotType = isSignedType(atomType) ? BRIG_TYPE_S32 : BRIG_TYPE_U32;
+                        context->emitShr(slotType, reg, reg, 8); // copy sign bits from uppermost loaded byte
+                    }
 
                     for (unsigned m = memDim; m < 4; ++m)
                     {
@@ -1472,6 +1479,29 @@ private:
         }
 
         return true;
+    }
+
+    static bool testableTypes(Inst inst)
+    {
+        assert(inst);
+        return TestDataProvider::testF16() || 
+               (!isF16(getType(inst)) && !isF16(getSrcType(inst)));
+    }
+
+    static bool isF16(unsigned type)
+    {
+        using namespace Brig;
+
+        switch(type)
+        {
+        case BRIG_TYPE_F16:
+        case BRIG_TYPE_F16X2:
+        case BRIG_TYPE_F16X4:
+        case BRIG_TYPE_F16X8:
+            return true;
+        default:
+            return false;
+        }
     }
 
 }; // class EmlBackend

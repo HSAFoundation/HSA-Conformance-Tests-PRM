@@ -120,6 +120,7 @@ public:
 
   // Immediates
   HSAIL_ASM::Operand Immed(Brig::BrigType16_t type, uint64_t imm);
+  HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
 
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
@@ -131,18 +132,18 @@ public:
   HSAIL_ASM::OperandAddress Address(PointerReg ptr, int64_t offset = 0);
   HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, int64_t offset = 0);
 
-  HSAIL_ASM::InstMem EmitLoad(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr);
-  void EmitLoad(Brig::BrigSegment8_t segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true);
+  HSAIL_ASM::InstMem EmitLoad(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
+  void EmitLoad(Brig::BrigSegment8_t segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
   //void EmitLoad(TypedReg dst, HSAIL_ASM::DirectiveVariable v, int64_t offset = 0, bool useVectorInstructions = true);
-  void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true);
+  void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0);
   void EmitLoads(TypedRegList dsts, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   Brig::BrigType16_t MemOpType(Brig::BrigType16_t type);
-  HSAIL_ASM::InstMem EmitStore(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr);
-  void EmitStore(Brig::BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true);
+  HSAIL_ASM::InstMem EmitStore(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
+  void EmitStore(Brig::BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
   //void EmitStore(TypedReg src, HSAIL_ASM::DirectiveVariable v, int64_t offset = 0, bool useVectorInstructions = false);
-  void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false);
-  void EmitStore(Brig::BrigSegment8_t segment, Brig::BrigTypeX type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr);
+  void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false, uint8_t equiv = 0);
+  void EmitStore(Brig::BrigSegment8_t segment, Brig::BrigTypeX type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
   void EmitStores(TypedRegList src, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   // Buffer memory operations.
@@ -180,9 +181,14 @@ public:
   HSAIL_ASM::DirectiveVariable EmitPointerDefinition(const std::string& name, Brig::BrigSegment8_t segment, Brig::BrigSegment8_t asegment = Brig::BRIG_SEGMENT_GLOBAL);
   void EmitVariableInitializer(HSAIL_ASM::DirectiveVariable var, HSAIL_ASM::SRef data);
 
+  HSAIL_ASM::InstBr EmitCall(HSAIL_ASM::DirectiveFunction f, HSAIL_ASM::ItemList ins, HSAIL_ASM::ItemList outs);
   void EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
   void EmitControlDirectiveGeometry(Brig::BrigControlDirective d, hexl::Grid grid);
   void EmitDynamicMemoryDirective(size_t size);
+  HSAIL_ASM::DirectiveLoc EmitLocDirective(uint32_t line, uint32_t column = 1, const std::string& fileName = "");
+  HSAIL_ASM::DirectivePragma EmitPragmaDirective(HSAIL_ASM::ItemList operands);
+  HSAIL_ASM::DirectiveControl EmitEnableExceptionDirective(bool isBreak, uint32_t exceptionNumber);
+  HSAIL_ASM::DirectiveExtension EmitExtensionDirective(const std::string& name);
 //  void EmitControlDirectivesGeometry(const ControlDirectives::Set& directives, const GridGeometry& g);
 
   void EmitMemfence(Brig::BrigMemoryOrder memoryOrder, Brig::BrigMemoryScope globalScope, Brig::BrigMemoryScope groupScope, Brig::BrigMemoryScope imageScope);

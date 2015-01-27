@@ -199,6 +199,8 @@ namespace hexl {
         hexl::Sequence<Brig::BrigMemoryScope> *allMemoryScopes; 
         hexl::Sequence<Brig::BrigAtomicOperation> *allAtomics, *signalSendAtomics, *signalWaitAtomics;
         hexl::Sequence<Brig::BrigSegment> *memfenceSegments;
+        hexl::Sequence<Brig::BrigOpcode> *ldStOpcodes, *atomicOpcodes;
+        hexl::Sequence<Brig::BrigAtomicOperation>* atomicOperations;
 
       public:
         MemoryConfig(CoreConfig* cc);
@@ -210,6 +212,9 @@ namespace hexl {
         hexl::Sequence<Brig::BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
         hexl::Sequence<Brig::BrigAtomicOperation>* SignalWaitAtomics() { return signalWaitAtomics; }
         hexl::Sequence<Brig::BrigSegment>* MemfenceSegments() { return memfenceSegments; }
+        hexl::Sequence<Brig::BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
+        hexl::Sequence<Brig::BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
+        hexl::Sequence<Brig::BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
       };
 
       class ControlDirectivesConfig : public ConfigBase {
@@ -222,6 +227,10 @@ namespace hexl {
           *gridSizeRelatedSets,
           *workitemIdRelatedSets, *workitemAbsIdRelatedSets, *workitemFlatIdRelatedSets, *workitemFlatAbsIdRelatedSets,
           *degenerateRelatedSets, *boundary24WorkitemAbsIdRelatedSets, *boundary24WorkitemFlatAbsIdRelatedSets, *boundary24WorkitemFlatIdRelatedSets;
+        hexl::Sequence<Brig::BrigKinds>* pragmaOperandTypes;
+        hexl::Sequence<uint32_t>* validExceptionNumbers;
+        hexl::Sequence<Brig::BrigControlDirective> *exceptionDirectives, *geometryDirectives;
+        hexl::Sequence<std::string> *validExtensions;
 
         static ControlDirectives Array(Arena* ap, const Brig::BrigControlDirective *values, size_t count);
         static hexl::Sequence<ControlDirectives>* DSubsets(Arena* ap, const ControlDirectives& set);
@@ -256,6 +265,14 @@ namespace hexl {
         hexl::Sequence<ControlDirectives>* Boundary24WorkitemFlatAbsIdRelatedSets() { return boundary24WorkitemFlatAbsIdRelatedSets; }
         const ControlDirectives& Boundary24WorkitemFlatIdRelated()  { return boundary24WorkitemFlatIdRelated; }
         hexl::Sequence<ControlDirectives>* Boundary24WorkitemFlatIdRelatedSets()  { return boundary24WorkitemFlatIdRelatedSets; }
+
+        hexl::Sequence<Brig::BrigKinds>* PragmaOperandTypes() { return pragmaOperandTypes; }
+        
+        hexl::Sequence<uint32_t>* ValidExceptionNumbers() { return validExceptionNumbers; }
+        hexl::Sequence<Brig::BrigControlDirective>* ExceptionDirectives() { return exceptionDirectives; }
+        hexl::Sequence<Brig::BrigControlDirective>* GeometryDirectives() { return geometryDirectives; }
+
+        hexl::Sequence<std::string>* ValidExtensions() { return validExtensions; }
       };
 
       class ControlFlowConfig : public ConfigBase {

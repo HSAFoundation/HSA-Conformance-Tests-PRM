@@ -19,165 +19,6 @@ namespace TESTGEN {
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Decoder of IEEE 754 float properties
-
-// IEEE 754 (32-bit)
-//
-//         S   (E-127)       23
-// F = (-1) * 2        (1+M/2  )
-//
-// S - sign
-// E - exponent
-// M - mantissa
-//
-// Special cases:
-//  ----------------------------------------------
-//  | S EXP MANTISSA  | MEANING         | NOTES  |
-//  ----------------------------------------------
-//  | 0 000 00.....0  | +0              |        |
-//  | 1 000 00.....0  | -0              |        |
-//  | 0 111 00.....0  | +INF            |        |
-//  | 1 111 00.....0  | -INF            |        |
-//  | X 111 1?.....?  | NAN (quiet)     |        |
-//  | X 111 0?.....?  | NAN (signaling) | M != 0 |
-//  | X 000 ??.....?  | SUBNORMAL       | M != 0 |
-//  ----------------------------------------------
-//
-
-template<typename T, T sign_mask, T exponent_mask, T mantissa_mask, T nanType_mask, unsigned exponentBias, unsigned mantissaWidth>
-class IEEE754
-{
-private:
-    static const T SIGN_MASK     = sign_mask;
-    static const T EXPONENT_MASK = exponent_mask;
-    static const T MANTISSA_MASK = mantissa_mask;
-    static const T NAN_TYPE_MASK = nanType_mask;
-
-    static const unsigned EXPONENT_BIAS  = exponentBias;
-    static const unsigned MANTISSA_WIDTH = mantissaWidth;
-
-private:
-    const T bits;
-
-public:
-    IEEE754(T val) : bits(val) {}
-
-private:
-    T getSign()      const { return bits & SIGN_MASK; }
-    T getMantissa()  const { return bits & MANTISSA_MASK; }
-    T getExponent()  const { return bits & EXPONENT_MASK; }
-    T getNanType()   const { return bits & NAN_TYPE_MASK; }
-
-public:
-    bool isPositive()          const { return getSign() == 0; }
-    bool isNegative()          const { return getSign() != 0; }
-
-    bool isZero()              const { return getExponent() == 0 && getMantissa() == 0; }
-    bool isPositiveZero()      const { return isZero() && isPositive();  }
-    bool isNegativeZero()      const { return isZero() && !isPositive(); }
-
-    bool isInf()               const { return getExponent() == EXPONENT_MASK && getMantissa() == 0; }
-    bool isPositiveInf()       const { return isInf() && isPositive();  }
-    bool isNegativeInf()       const { return isInf() && !isPositive(); }
-
-    bool isNan()               const { return getExponent() == EXPONENT_MASK && getMantissa() != 0; }
-    bool isQuietNan()          const { return isNan() && getNanType() != 0; }
-    bool isSignalingNan()      const { return isNan() && getNanType() == 0; }
-
-    bool isSubnormal()         const { return getExponent() == 0 && getMantissa() != 0; }
-    bool isPositiveSubnormal() const { return isSubnormal() && isPositive(); }
-    bool isNegativeSubnormal() const { return isSubnormal() && !isPositive(); }
-
-    bool isRegularPositive()   const { return isPositive() && !isZero() && !isNan() && !isInf(); }
-    bool isRegularNegative()   const { return isNegative() && !isZero() && !isNan() && !isInf(); }
-
-                                                // Natural = (fraction == 0)
-                                                // getNormalizedFract() return 0 for small numbers so there is exponent check for this case
-    bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANTISSA_WIDTH) >= EXPONENT_BIAS); }
-
-public:
-    static T getQuietNan()     { return EXPONENT_MASK | NAN_TYPE_MASK; }
-    static T getNegativeZero() { return SIGN_MASK; }
-    static T getPositiveZero() { return 0; }
-    static T getNegativeInf()  { return SIGN_MASK | EXPONENT_MASK; }
-    static T getPositiveInf()  { return             EXPONENT_MASK; }
-
-public:
-    // Return fractional part of fp number
-    // normalized so that x-th digit is at (63-x)-th bit of u64_t
-    u64_t getNormalizedFract(int x = 0) const
-    {
-        if (isZero() || isInf() || isNan()) return 0;
-
-        u64_t mantissa = getMantissa() | (MANTISSA_MASK + 1); // Highest bit of mantissa is not encoded but assumed
-        int exponent = static_cast<int>(getExponent() >> MANTISSA_WIDTH);
-
-        // Compute shift required to place 1st fract bit at 63d bit of u64_t
-        int width = static_cast<int>(sizeof(u64_t) * 8);
-        int shift = (exponent - EXPONENT_BIAS) + (width - MANTISSA_WIDTH) + x;
-        if (shift <= -width || width <= shift) return 0;
-        return (shift >= 0)? mantissa << shift : mantissa >> (-shift);
-    }
-
-    T copySign(T v) const { return (v & SIGN_MASK) | getExponent() | getMantissa(); }
-
-    T normalize(bool discardNanSign) const // Clear NaN payload and sign
-    {
-        if (isQuietNan())
-        {
-            if (!discardNanSign) return getSign() | getExponent() | getNanType();
-            else                 return             getExponent() | getNanType();
-        }
-        return bits;
-    }
-
-    // Add or substract 1 ULP
-    // NB: This is not a generic code; it does not handle INF
-    u64_t ulp(int64_t delta) const
-    {
-        assert(delta == -1 || delta == 1);
-
-        if (isInf() || isNan()) return 0;
-
-        // Handling of special values
-        if (isZero() && delta == -1) return SIGN_MASK | 1;     // 0 -> -MIN_DENORM
-        if (isZero() && delta ==  1) return             1;     // 0 -> +MIN_DENORM
-        if (bits == (SIGN_MASK | 1) && delta == 1) return 0;   // -MIN_DENORM -> 0
-
-        return getSign()? (bits - delta) : (bits + delta);
-    }
-};
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
-// Decoders for IEEE 754 float and double numbers
-
-typedef IEEE754
-    <
-        u32_t,
-        0x80000000,  // Sign
-        0x7f800000,  // Exponent
-        0x007fffff,  // Mantissa
-        0x00400000,  // NAN type
-        127,         // Exponent bias
-        23           // Mantissa width
-    > FloatProp32;
-
-typedef IEEE754
-    <
-        u64_t,
-        0x8000000000000000ULL,  // Sign
-        0x7ff0000000000000ULL,  // Exponent
-        0x000fffffffffffffULL,  // Mantissa
-        0x0008000000000000ULL,  // NAN type
-        1023,                   // Exponent bias
-        52                      // Mantissa width
-    > FloatProp64;
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
 // ValVector - a container for values stored in vector operands
 
 class ValVector
@@ -364,12 +205,12 @@ void Val::setPackedElement(unsigned elementIdx, Val dst)
 //=============================================================================
 // Operations on scalar floating-point values
 
-#define GET_FLOAT_PROP(x) \
-    bool Val::x() const   \
-    {                     \
-        assert(!isF16()); \
-        return isFloat() && (isF64()? FloatProp64(num.get<u64_t>()).x()   \
-                                    : FloatProp32(num.get<u32_t>()).x()); \
+#define GET_FLOAT_PROP(prop) \
+    bool Val::prop() const   \
+    {                        \
+        return isFloat() && (isF16()? FloatProp16(num.get<u16_t>()).prop() : \
+                             isF32()? FloatProp32(num.get<u32_t>()).prop() : \
+                                      FloatProp64(num.get<u64_t>()).prop()); \
     }
 
 GET_FLOAT_PROP(isPositive)
@@ -390,13 +231,13 @@ GET_FLOAT_PROP(isRegularPositive)
 GET_FLOAT_PROP(isRegularNegative)
 GET_FLOAT_PROP(isNatural)
 
-#define GET_FLOAT_NUMBER(x) \
-    Val Val::x() const      \
-    {                       \
-        assert(isFloat());  \
-        assert(!isF16());   \
-        return isF64()? Val(getType(), FloatProp64::x())  \
-                      : Val(getType(), FloatProp32::x()); \
+#define GET_FLOAT_NUMBER(prop) \
+    Val Val::prop() const      \
+    {                          \
+        assert(isFloat());     \
+        return isF16()? Val(getType(), FloatProp16::prop()) : \
+               isF32()? Val(getType(), FloatProp32::prop()) : \
+                        Val(getType(), FloatProp64::prop());  \
     }
 
 GET_FLOAT_NUMBER(getQuietNan)
@@ -408,28 +249,29 @@ GET_FLOAT_NUMBER(getPositiveInf)
 u64_t Val::getNormalizedFract(int delta /*=0*/) const
 {
     assert(isFloat());
-    assert(!isF16());
-    return isF64()? FloatProp64(num.get<u64_t>()).getNormalizedFract(delta)
-                  : FloatProp32(num.get<u32_t>()).getNormalizedFract(delta);
+
+    return isF16()? FloatProp16(num.get<u16_t>()).getNormalizedFract(delta) :
+           isF32()? FloatProp32(num.get<u32_t>()).getNormalizedFract(delta) :
+                    FloatProp64(num.get<u64_t>()).getNormalizedFract(delta);
 }
 
 Val Val::copySign(Val v) const
 {
     assert(isFloat());
-    assert(!isF16());
     assert(getType() == v.getType());
 
-    return isF64()? Val(getType(), FloatProp64(num.get<u64_t>()).copySign(v.num.get<u64_t>()))
-                  : Val(getType(), FloatProp32(num.get<u32_t>()).copySign(v.num.get<u32_t>()));
+    return isF16()? Val(getType(), FloatProp16(num.get<u16_t>()).copySign(v.num.get<u16_t>())) :
+           isF32()? Val(getType(), FloatProp32(num.get<u32_t>()).copySign(v.num.get<u32_t>())) :
+                    Val(getType(), FloatProp64(num.get<u64_t>()).copySign(v.num.get<u64_t>()));
 }
 
 Val Val::ulp(int64_t delta) const
 {
     assert(isFloat());
-    assert(!isF16());
 
-    return isF64()? Val(getType(), FloatProp64(num.get<u64_t>()).ulp(delta))
-                  : Val(getType(), FloatProp32(num.get<u32_t>()).ulp(delta));
+    return isF16()? Val(getType(), FloatProp16(num.get<u16_t>()).ulp(delta)) :
+           isF32()? Val(getType(), FloatProp32(num.get<u32_t>()).ulp(delta)) :
+                    Val(getType(), FloatProp64(num.get<u64_t>()).ulp(delta));
 }
 
 //=============================================================================
@@ -447,10 +289,11 @@ public:
 
     Val operator()(Val v)
     {
-        assert(!v.isF16());
         if (!v.isFloat()) return v;
-        return Val(v.getType(), v.isF64()? FloatProp64(v.getAsB64()).normalize(discardNanSign)
-                                         : FloatProp32(v.getAsB32()).normalize(discardNanSign));
+        if (v.isF16()) return Val(v.getType(), FloatProp16(v.getAsB16()).normalize(discardNanSign));
+        if (v.isF32()) return Val(v.getType(), FloatProp32(v.getAsB32()).normalize(discardNanSign));
+        if (v.isF64()) return Val(v.getType(), FloatProp64(v.getAsB64()).normalize(discardNanSign));
+        assert(false); return Val();
     }
 };
 
@@ -458,7 +301,6 @@ struct op_ftz   // Force subnormals to 0
 {
     Val operator()(Val v)
     {
-        assert(!v.isF16());
         if (v.isNegativeSubnormal()) return v.getNegativeZero();
         if (v.isPositiveSubnormal()) return v.getPositiveZero();
         return v;
@@ -482,7 +324,6 @@ struct op_s2q  // Replace Signaling NaNs with Quiet ones
 {
     Val operator()(Val v)
     {
-        assert(!v.isF16());
         if (v.isSignalingNan()) return v.getQuietNan();
         return v;
     }
@@ -529,6 +370,7 @@ bool Val::eq(Val v) const
 
 static unsigned getTextWidth(unsigned type)
 {
+    if (type == Brig::BRIG_TYPE_F16) return 10;
     if (type == Brig::BRIG_TYPE_F32) return 16;
     if (type == Brig::BRIG_TYPE_F64) return 24;
 
@@ -549,7 +391,6 @@ string Val::luaStr(unsigned idx /*=0*/) const
     assert(!isPackedFloat());
     assert(0 <= idx && idx <= 3);
     assert(!empty() && !isVector());
-    assert(!isF16());
 
     ostringstream s;
 
@@ -566,7 +407,9 @@ string Val::luaStr(unsigned idx /*=0*/) const
         char buffer[32];
 
         switch (getType())
-        {
+        {        
+        case BRIG_TYPE_F16: s << "0x" << setbase(16) << setfill('0') << setw(4) << getAsB16(); break;
+
         case BRIG_TYPE_F32: sprintf(buffer,  "\"%.6A\"", f32()); s << string(buffer); break;
         case BRIG_TYPE_F64: sprintf(buffer, "\"%.13A\"", f64()); s << string(buffer); break;
 
@@ -587,7 +430,6 @@ string Val::decDump() const
     assert(!empty() && !isVector());
     assert(getSize() != 128);
     assert(!isPacked());
-    assert(!isF16());
 
     ostringstream s;
 
@@ -605,6 +447,7 @@ string Val::decDump() const
     {
         switch (getType())
         {
+        case BRIG_TYPE_F16: s << setprecision(9)  << f16().f64(); break;
         case BRIG_TYPE_F32: s << setprecision(9)  << f32(); break;
         case BRIG_TYPE_F64: s << setprecision(17) << f64(); break;
 
@@ -626,7 +469,6 @@ string Val::hexDump() const
     assert(!empty() && !isVector());
     assert(getSize() != 128);
     assert(!isPacked());
-    assert(!isF16());
 
     ostringstream s;
     s << "0x" << setbase(16) << setfill('0') << setw(getSize() / 4);
