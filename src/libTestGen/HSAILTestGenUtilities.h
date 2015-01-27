@@ -9,7 +9,9 @@
 #ifndef INCLUDED_HSAIL_TESTGEN_UTILITIES_H
 #define INCLUDED_HSAIL_TESTGEN_UTILITIES_H
 
+#include "HSAILTestGenBrigContext.h"
 #include "HSAILBrigContainer.h"
+#include "HSAILUtilities.h"
 #include "HSAILItems.h"
 #include "HSAILSRef.h"
 #include "Brig.h"
@@ -28,10 +30,12 @@ using HSAIL_ASM::DirectiveExecutable;
 using HSAIL_ASM::DirectiveVariable;
 using HSAIL_ASM::DirectiveFbarrier;
 using HSAIL_ASM::Inst;
+using HSAIL_ASM::InstBasic;
 using HSAIL_ASM::Operand;
 using HSAIL_ASM::OperandReg;
 using HSAIL_ASM::SRef;
 
+using HSAIL_ASM::getDefRounding;
 using HSAIL_ASM::getNaturalAlignment;
 
 namespace TESTGEN {
@@ -61,6 +65,50 @@ public:
 
     const char *what()   const { return msg.c_str(); };
 };
+
+//=============================================================================
+//=============================================================================
+//=============================================================================
+
+inline bool isSatRounding(unsigned rounding)
+{
+    using namespace Brig;
+
+    switch(rounding)
+    {
+    case BRIG_ROUND_INTEGER_NEAR_EVEN_SAT:
+    case BRIG_ROUND_INTEGER_ZERO_SAT:
+    case BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALLING_ZERO_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY_SAT:
+        return true;
+    default:
+        return false;
+    }
+}
+
+inline bool isSignalingRounding(unsigned rounding)
+{
+    using namespace Brig;
+
+    switch(rounding)
+    {
+    case BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN:
+    case BRIG_ROUND_INTEGER_SIGNALLING_ZERO:
+    case BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY:
+    case BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY:
+    case BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALLING_ZERO_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY_SAT:
+        return true;
+    default:
+        return false;
+    }
+}
 
 //=============================================================================
 //=============================================================================
@@ -101,35 +149,24 @@ public:
     static const unsigned ROUNDING_SDOWNI_SAT = Brig::BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY_SAT;
 
 public:
-    AluMod(unsigned val = ROUNDING_NONE) : bits(val) {}
+    AluMod(unsigned val = ROUNDING_NONE) : bits(val) 
+    {
+        //F For 1.0 final, translate default rounding modes to a specific value
+    }
+    
+    AluMod(InstBasic inst)
+    {
+        assert(inst);
+        bits = getDefRounding(inst, BrigSettings::getModel(), BrigSettings::getProfile());
+        //F For 1.0 final, translate default rounding modes to a specific value
+    }
 
 public:
     bool isFtz()           { return (bits & FTZ) != 0; }
     unsigned getRounding() { return bits & ROUNDING; }
 
-    bool isSat()
-    {
-        return getRounding() == ROUNDING_NEARI_SAT  ||
-               getRounding() == ROUNDING_ZEROI_SAT  ||
-               getRounding() == ROUNDING_UPI_SAT    ||
-               getRounding() == ROUNDING_DOWNI_SAT  ||
-               getRounding() == ROUNDING_SNEARI_SAT ||
-               getRounding() == ROUNDING_SZEROI_SAT ||
-               getRounding() == ROUNDING_SUPI_SAT   ||
-               getRounding() == ROUNDING_SDOWNI_SAT;
-    }
-
-    bool isSignaling()
-    {
-        return getRounding() == ROUNDING_SNEARI     ||
-               getRounding() == ROUNDING_SZEROI     ||
-               getRounding() == ROUNDING_SUPI       ||
-               getRounding() == ROUNDING_SDOWNI     ||
-               getRounding() == ROUNDING_SNEARI_SAT ||
-               getRounding() == ROUNDING_SZEROI_SAT ||
-               getRounding() == ROUNDING_SUPI_SAT   ||
-               getRounding() == ROUNDING_SDOWNI_SAT;
-    }
+    bool isSat()        { return isSatRounding(getRounding()); }
+    bool isSignaling()  { return isSignalingRounding(getRounding()); }
 };
 
 //=============================================================================

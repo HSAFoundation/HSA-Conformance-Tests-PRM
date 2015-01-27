@@ -161,6 +161,7 @@ private:
     case BRIG_TYPE_B64: values.push_back(Value(MV_UINT64, val.b64())); return;
     case BRIG_TYPE_U64: values.push_back(Value(MV_UINT64, val.u64())); return;
     case BRIG_TYPE_S64: values.push_back(Value(MV_INT64, val.s64())); return;
+    case BRIG_TYPE_F16: values.push_back(Value(MV_FLOAT16, val.getAsB16())); return;
     case BRIG_TYPE_F64: values.push_back(Value(val.f64())); return;
     case BRIG_TYPE_F32: values.push_back(Value(val.f32())); return;
     case BRIG_TYPE_B128: {
@@ -244,7 +245,8 @@ private:
 
 void TestGenTestSet::Iterate(TestSpecIterator& it)
 {
-  TestDataProvider::init(true, true, 0, 64);
+  bool testF16 = false; //FIXME f16
+  TestDataProvider::init(true, true, 0, 64, 0, testF16);
   TestGenConfig* testGenConfig = context->Get<TestGenConfig*>(TestGenConfig::ID);
   assert(testGenConfig);
   BrigSettings::init(testGenConfig->Model(), testGenConfig->Profile(), true, false, false, context->IsDumpEnabled("hsail"));

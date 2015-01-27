@@ -47,33 +47,51 @@ static const s32_t MIN_S32 = 0x80000000;
 static const s64_t MAX_S64 = 0x7fffffffffffffffLL;
 static const s64_t MIN_S64 = 0x8000000000000000LL;
 
-static const f32_t FLOAT_PI  = (f32_t) 3.14159265358979323846;
-static const f64_t DOUBLE_PI = (f64_t) 3.14159265358979323846;
+static const f16_t F16_PI     = f16_t(3.14159265358979323846);
+static const f16_t F16_NEG_PI = f16_t(-3.14159265358979323846);
+static const f32_t F32_PI     = (f32_t) 3.14159265358979323846;
+static const f64_t F64_PI     = (f64_t) 3.14159265358979323846;
 
-static const f32_t FLOAT_NAN  = numeric_limits<float>::quiet_NaN();
-static const f64_t DOUBLE_NAN = numeric_limits<double>::quiet_NaN();
+static const f16_t F16_NAN    = f16_t(numeric_limits<double>::quiet_NaN());
+static const f32_t F32_NAN    = numeric_limits<float>::quiet_NaN();
+static const f64_t F64_NAN    = numeric_limits<double>::quiet_NaN();
 
-static const f32_t FLOAT_INF  = numeric_limits<float>::infinity();
-static const f64_t DOUBLE_INF = numeric_limits<double>::infinity();
+static const f16_t F16_INF     = f16_t(numeric_limits<double>::infinity());
+static const f16_t F16_NEG_INF = f16_t(-numeric_limits<double>::infinity());
+static const f32_t F32_INF     = numeric_limits<float>::infinity();
+static const f64_t F64_INF     = numeric_limits<double>::infinity();
 
-static const f32_t FLOAT_DENORM  = numeric_limits<float>::denorm_min();
-static const f64_t DOUBLE_DENORM = numeric_limits<double>::denorm_min();
+static const f16_t F16_DENORM         = f16_t::make(0x0001); // minimum positive subnormal
+static const f16_t F16_NEG_DENORM     = f16_t::make(0x8001); // minimum negative subnormal
+static const f16_t F16_DENORM_64      = f16_t::make(0x0040); // minimum positive subnormal * 64
+static const f16_t F16_NEG_DENORM_64  = f16_t::make(0x8040); // minimum negative subnormal * 64
+static const f16_t F16_DENORM_128     = f16_t::make(0x0080); // minimum positive subnormal * 128
+static const f16_t F16_NEG_DENORM_128 = f16_t::make(0x8080); // minimum negative subnormal * 128
+static const f16_t F16_DENORM_256     = f16_t::make(0x0100); // minimum positive subnormal * 256
+static const f16_t F16_NEG_DENORM_256 = f16_t::make(0x8100); // minimum negative subnormal * 256
+static const f32_t F32_DENORM         = numeric_limits<float>::denorm_min();
+static const f64_t F64_DENORM         = numeric_limits<double>::denorm_min();
 
-static const f32_t FLOAT_MIN  = numeric_limits<float>::min();
-static const f64_t DOUBLE_MIN = numeric_limits<double>::min();
+static const f64_t F16_MIN    = f16_t::make(0x0400).f64(); // minimum positive normal
+static const f32_t F32_MIN    = numeric_limits<float>::min();
+static const f64_t F64_MIN    = numeric_limits<double>::min();
 
-static const f32_t extraTestsF32[] = {-10.00f, -10.25f, -10.50f, -10.75f, 10.00f,  10.25f,  10.50f,  10.75f};
-static const f64_t extraTestsF64[] = {-10.00,  -10.25,  -10.50,  -10.75,  10.00,   10.25,   10.50,   10.75};
+static const f16_t extraTestsF16[] = {f16_t(-10.00), f16_t(-10.25), f16_t(-10.50), f16_t(-10.75), f16_t(10.00), f16_t(10.25), f16_t(10.50), f16_t(10.75)};
+static const f32_t extraTestsF32[] = {      -10.00f,       -10.25f,       -10.50f,       -10.75f,       10.00f,       10.25f,       10.50f,       10.75f};
+static const f64_t extraTestsF64[] = {      -10.00,        -10.25,        -10.50,        -10.75,        10.00,        10.25,        10.50,        10.75};
 
-static const f32_t roundTestsF32[] = {-2.50f, -1.50f, -0.75f, -0.50000005f,        -0.50f, -0.25f, 0.25f, 0.50f, 0.50000005f,        0.75f, 1.50f, 1.5000001f,         2.5f };
-static const f64_t roundTestsF64[] = {-2.50,  -1.50,  -0.75,  -0.5000000000000001, -0.50,  -0.25,  0.25,  0.50,  0.5000000000000001, 0.75,  1.50,  1.5000000000000002, 2.5 };
+static const f16_t roundTestsF16[] = {f16_t(-2.50), f16_t(-1.50), f16_t(-0.75), f16_t(-0.5005), f16_t(-0.50), f16_t(-0.25), f16_t(0.25), f16_t(0.50), f16_t(0.5005), f16_t(0.75), f16_t(1.50), f16_t(1.501), f16_t(2.5) };
+static const f32_t roundTestsF32[] = {     -2.50f,        -1.50f,       -0.75f, -0.50000005f,         -0.50f,       -0.25f,       0.25f,       0.50f, 0.50000005f,         0.75f,       1.50f, 1.5000001f,         2.5f };
+static const f64_t roundTestsF64[] = {     -2.50,         -1.50,        -0.75,  -0.5000000000000001,  -0.50,        -0.25,        0.25,        0.50,  0.5000000000000001,  0.75,        1.50,  1.5000000000000002, 2.5 };
 
-static const f32_t extraSubnormF32[] = {-FLOAT_DENORM  * 512, FLOAT_DENORM};
-static const f64_t extraSubnormF64[] = {-DOUBLE_DENORM * 512, DOUBLE_DENORM};
+static const f16_t extraSubnormF16[] = {F16_NEG_DENORM_128, F16_DENORM};
+static const f32_t extraSubnormF32[] = {-F32_DENORM  * 512, F32_DENORM};
+static const f64_t extraSubnormF64[] = {-F64_DENORM * 512,  F64_DENORM};
 
 // Test values for Native Floating-Point Operations (should not include subnormals)
-static const f32_t nfpF32[] = {-FLOAT_INF,  -FLOAT_PI,  -1, -0.0, +0.0, 1, FLOAT_PI,  FLOAT_INF,  FLOAT_NAN};
-static const f64_t nfpF64[] = {-DOUBLE_INF, -DOUBLE_PI, -1, -0.0, +0.0, 1, DOUBLE_PI, DOUBLE_INF, DOUBLE_NAN};
+static const f16_t nfpF16[] = {F16_NEG_INF, F16_NEG_PI, f16_t(-1.0), f16_t(-0.0), f16_t(+0.0), f16_t(1.0), F16_PI, F16_INF, F16_NAN};
+static const f32_t nfpF32[] = {   -F32_INF,    -F32_PI,       -1,          -0.0,        +0.0,        1,    F32_PI, F32_INF, F32_NAN};
+static const f64_t nfpF64[] = {   -F64_INF,    -F64_PI,       -1,          -0.0,        +0.0,        1,    F64_PI, F64_INF, F64_NAN};
 
 static const u32_t classFlags[] = {0, 0xFFFFFFFF, 0x001, 0x002, 0x004, 0x008, 0x010, 0x020, 0x040, 0x080, 0x100, 0x200};
 
@@ -81,11 +99,14 @@ static const s32_t s24Tests[] = {-0x400000, -0x3FFFFF, 0xABCDE, 0x3FFFFF};
 static const u32_t u24Tests[] = {0xABCDE, 0x7FFFFF};
 
 // Values to test ftz with dst (applies to add, sub, mul, div, fma, cvt)
-static const f32_t dstFtzF32[] = {FLOAT_MIN  * 1.001f, FLOAT_MIN  * 1.002f, -FLOAT_MIN  * 1.003f, -FLOAT_MIN  * FLOAT_PI,  2.0f, 5.0f, 0.5f, 0.2f};
-static const f64_t dstFtzF64[] = {DOUBLE_MIN * 1.001,  DOUBLE_MIN * 1.002,  -DOUBLE_MIN * 1.003,  -DOUBLE_MIN * DOUBLE_PI, 2.0,  5.0,  0.5,  0.2};
+static const f16_t dstFtzF16[] = {f16_t(F16_MIN * 1.001), f16_t(F16_MIN * 1.002), f16_t(-F16_MIN * 1.003), f16_t(-F16_MIN * F16_PI.f64()), f16_t(2.0), f16_t(5.0), f16_t(0.5), f16_t(0.2)};
+static const f32_t dstFtzF32[] = {      F32_MIN * 1.001f,       F32_MIN * 1.002f,       -F32_MIN * 1.003f,       -F32_MIN * F32_PI,              2.0f,       5.0f,       0.5f,       0.2f};
+static const f64_t dstFtzF64[] = {      F64_MIN * 1.001,        F64_MIN * 1.002,        -F64_MIN * 1.003,        -F64_MIN * F64_PI,              2.0,        5.0,        0.5,        0.2 };
 
-// Normalized value that gets subnormal after conversion form f64 to f32
-static const f64_t ftzCvt64to32 = DOUBLE_MIN * 1.0e+265; // 2.22507e-43 (min_float is 1.17549e-038)
+// Normalized fX value which is converted to an fY subnormal (fX is wider than fY)
+static const f32_t ftzCvt32to16 = 4.5e-6f; // (min_f16 = 6.10352e-5; min_subnormal_f16 = 5.96e-8)
+static const f64_t ftzCvt64to16 = 4.5e-7;  // (min_f16 = 6.10352e-5; min_subnormal_f16 = 5.96e-8)
+static const f64_t ftzCvt64to32 = F64_MIN * 1.0e+265; // 2.22507e-43 (min_float = 1.17549e-038)
 
 //=================================================================================================
 //=================================================================================================
@@ -100,6 +121,7 @@ static const f64_t ftzCvt64to32 = DOUBLE_MIN * 1.0e+265; // 2.22507e-43 (min_flo
 //
 #define ITESTBITS1(type, sign) NEW(fill_##type(1 * sign))
 #define FTESTBITS1(type, sign) NEW(fill_##type(1.111f * sign))
+#define F16TBITS1(type, sign)  NEW(fill_##type(f16_t(1.111 * sign)))
 
 // Create a pair of test values that look like this:
 //
@@ -107,6 +129,7 @@ static const f64_t ftzCvt64to32 = DOUBLE_MIN * 1.0e+265; // 2.22507e-43 (min_flo
 //
 #define ITESTBITS2(type) NEW(fill_##type(-1),      fill_##type(1)     )
 #define FTESTBITS2(type) NEW(fill_##type(-1.111f), fill_##type(0.111f))
+#define F16TBITS2(type)  NEW(fill_##type(f16_t(-1.111)), fill_##type(f16_t(0.111)))
 
 // Create 16 test values for selecting elements. These values will look like this:
 //
@@ -130,19 +153,32 @@ static const f64_t ftzCvt64to32 = DOUBLE_MIN * 1.0e+265; // 2.22507e-43 (min_flo
 
 // Values to test ftz with dst (applies to add, sub, mul, div)
 //
-#define dstFtzF32x2 f32x2(FLOAT_MIN * 1.001f, -FLOAT_MIN * FLOAT_PI * 1.001f), \
-                    f32x2(FLOAT_MIN * 1.002f,  FLOAT_MIN * FLOAT_PI * 1.002f), \
-                    f32x2(              2.0f,                           5.0f), \
-                    f32x2(              0.5f,                           0.2f)
+#define dstFtzF16x2 f16x2(f16_t(F16_MIN * 1.001), f16_t(-F16_MIN * F64_PI * 1.001)), \
+                    f16x2(f16_t(F16_MIN * 1.002), f16_t( F16_MIN * F64_PI * 1.002)), \
+                    f16x2(f16_t(            2.0), f16_t(                      5.0)), \
+                    f16x2(f16_t(            0.5), f16_t(                      0.2))
 
-#define dstFtzF32x4 f32x4(FLOAT_MIN * 1.001f, -FLOAT_MIN * FLOAT_PI * 1.001f, FLOAT_MIN * 1.001f, -FLOAT_MIN * FLOAT_PI * 1.001f), \
-                    f32x4(FLOAT_MIN * 1.002f,  FLOAT_MIN * FLOAT_PI * 1.002f, FLOAT_MIN * 1.003f,  FLOAT_MIN * FLOAT_PI * 1.003f), \
-                    f32x4(              2.0f,                           5.0f,               0.5f,                           0.2f)
+#define dstFtzF16x4 f16x4(f16_t(F16_MIN * 1.001), f16_t(-F16_MIN * F64_PI * 1.001), f16_t(F16_MIN * 1.001), f16_t(-F16_MIN * F64_PI * 1.001)), \
+                    f16x4(f16_t(F16_MIN * 1.002), f16_t( F16_MIN * F64_PI * 1.002), f16_t(F16_MIN * 1.003), f16_t( F16_MIN * F64_PI * 1.003)), \
+                    f16x4(f16_t(            2.0), f16_t(                      5.0), f16_t(            0.5), f16_t(                      0.2))
 
-#define dstFtzF64x2 f64x2(DOUBLE_MIN * 1.001, -DOUBLE_MIN * DOUBLE_PI * 1.001), \
-                    f64x2(DOUBLE_MIN * 1.002,  DOUBLE_MIN * DOUBLE_PI * 1.002), \
-                    f64x2(               2.0,                             5.0), \
-                    f64x2(               0.5,                             0.2)
+#define dstFtzF16x8 f16x8(f16_t(F16_MIN * 1.001), f16_t(-F16_MIN * F64_PI * 1.001), f16_t(F16_MIN * 1.001), f16_t(-F16_MIN * F64_PI * 1.001), f16_t(F16_MIN * 1.005), f16_t(-F16_MIN * F64_PI * 1.001), f16_t(F16_MIN * 1.001), f16_t(-F16_MIN * F64_PI * 1.001)), \
+                    f16x8(f16_t(F16_MIN * 1.002), f16_t( F16_MIN * F64_PI * 1.002), f16_t(F16_MIN * 1.003), f16_t( F16_MIN * F64_PI * 1.003), f16_t(            0.5), f16_t(                      0.2), f16_t(F16_MIN * 1.003), f16_t( F16_MIN * F64_PI * 1.003)), \
+                    f16x8(f16_t(            2.0), f16_t(                      5.0), f16_t(            0.5), f16_t(                      0.2), f16_t(            2.0), f16_t(                      5.0), f16_t(            0.5), f16_t(                      0.2))
+
+#define dstFtzF32x2 f32x2(F32_MIN * 1.001f, -F32_MIN * F32_PI * 1.001f), \
+                    f32x2(F32_MIN * 1.002f,  F32_MIN * F32_PI * 1.002f), \
+                    f32x2(            2.0f,                       5.0f), \
+                    f32x2(            0.5f,                       0.2f)
+
+#define dstFtzF32x4 f32x4(F32_MIN * 1.001f, -F32_MIN * F32_PI * 1.001f, F32_MIN * 1.001f, -F32_MIN * F32_PI * 1.001f), \
+                    f32x4(F32_MIN * 1.002f,  F32_MIN * F32_PI * 1.002f, F32_MIN * 1.003f,  F32_MIN * F32_PI * 1.003f), \
+                    f32x4(            2.0f,                       5.0f,             0.5f,                       0.2f)
+
+#define dstFtzF64x2 f64x2(F64_MIN * 1.001, -F64_MIN * F64_PI * 1.001), \
+                    f64x2(F64_MIN * 1.002,  F64_MIN * F64_PI * 1.002), \
+                    f64x2(            2.0,                       5.0), \
+                    f64x2(            0.5,                       0.2)
 
 //=================================================================================================
 //=================================================================================================
@@ -169,8 +205,9 @@ static const f64_t ftzCvt64to32 = DOUBLE_MIN * 1.0e+265; // 2.22507e-43 (min_flo
 #define TEST_DATA_s32_t  {MIN_S32, -64, -1, 0, 1, 64, MAX_S32, (s32_t)WAVESIZE};
 #define TEST_DATA_s64_t  {MIN_S64, -64, -1, 0, 1, 64, MAX_S64, (s64_t)WAVESIZE};
 
-#define TEST_DATA_f32_t  {-FLOAT_INF,  -FLOAT_PI,  -1.0f, -0.0f, +0.0f, 1.0f, FLOAT_PI,  FLOAT_INF,  FLOAT_NAN,  -FLOAT_DENORM  * 256, FLOAT_DENORM  * 256};
-#define TEST_DATA_f64_t  {-DOUBLE_INF, -DOUBLE_PI, -1.0,  -0.0,  +0.0,  1.0,  DOUBLE_PI, DOUBLE_INF, DOUBLE_NAN, -DOUBLE_DENORM * 256, DOUBLE_DENORM * 256};
+#define TEST_DATA_f16_t  {F16_NEG_INF, F16_NEG_PI, f16_t(-1.0), f16_t(-0.0), f16_t(+0.0), f16_t(1.0), F16_PI, F16_INF, F16_NAN, F16_NEG_DENORM_256, F16_DENORM_256};
+#define TEST_DATA_f32_t  {   -F32_INF,    -F32_PI,       -1.0f,       -0.0f,       +0.0f,       1.0f, F32_PI, F32_INF, F32_NAN, -F32_DENORM * 256,  F32_DENORM * 256};
+#define TEST_DATA_f64_t  {   -F64_INF,    -F64_PI,       -1.0,        -0.0,        +0.0,        1.0,  F64_PI, F64_INF, F64_NAN, -F64_DENORM * 256,  F64_DENORM * 256};
 
 //=================================================================================================
 //=================================================================================================
@@ -328,49 +365,78 @@ static const f64_t ftzCvt64to32 = DOUBLE_MIN * 1.0e+265; // 2.22507e-43 (min_flo
                             u64x2( 0xF1F2F3F4F5F6F7F8ULL, 0x5000000000000000ULL), \
                             u64x2(                   255, 0xC000000000000000ULL)  };
 
-//#define TEST_DATA_f16x2_t  {0}; ///F
-//#define TEST_DATA_f16x4_t  {0}; ///F
-//#define TEST_DATA_f16x8_t  {0}; ///F
+#define TEST_DATA_f16x2_t { f16x2(f16_t(-2.50),   F16_NEG_INF       ), \
+                            f16x2(f16_t(-1.50),   F16_NEG_PI        ), \
+                            f16x2(f16_t(-0.75),   f16_t(-1.0)       ), \
+                            f16x2(f16_t(-0.5005), f16_t(-0.0)       ), \
+                            f16x2(f16_t(-0.50),   f16_t(500.0)      ), \
+                            f16x2(f16_t(-0.25),   f16_t(1.0)        ), \
+                            f16x2(f16_t(0.25),    F16_PI            ), \
+                            f16x2(f16_t(0.50),    F16_INF           ), \
+                            f16x2(f16_t(0.5005),  F16_NAN           ), \
+                            f16x2(f16_t(0.75),    F16_NEG_DENORM_64 ), \
+                            f16x2(f16_t(1.50),    F16_DENORM_64     ), \
+                            f16x2(f16_t(1.501),   F16_NEG_DENORM_256), \
+                            f16x2(f16_t(2.5),     F16_DENORM        )  };
 
-#define TEST_DATA_f32x2_t { f32x2(-2.50f,       -FLOAT_INF         ), \
-                            f32x2(-1.50f,       -FLOAT_PI          ), \
-                            f32x2(-0.75f,       -1.0f              ), \
-                            f32x2(-0.50000005f, -0.0f              ), \
-                            f32x2(-0.50f,       +0.0f              ), \
-                            f32x2(-0.25f,       1.0f               ), \
-                            f32x2(0.25f,        FLOAT_PI           ), \
-                            f32x2(0.50f,        FLOAT_INF          ), \
-                            f32x2(0.50000005f,  FLOAT_NAN          ), \
-                            f32x2(0.75f,        -FLOAT_DENORM * 64 ), \
-                            f32x2(1.50f,        FLOAT_DENORM  * 64 ), \
-                            f32x2(1.5000001f,   -FLOAT_DENORM * 512), \
-                            f32x2(2.5f,         FLOAT_DENORM       )  };
+#define TEST_DATA_f16x4_t { f16x4(f16_t(-10.00),   f16_t(1103  / 13.0),   f16_t(-2.50),    F16_NEG_INF       ), \
+                            f16x4(f16_t(-10.25),   f16_t(2053  / 17.0),   f16_t(-1.50),    F16_NEG_PI        ), \
+                            f16x4(f16_t(-10.50),   f16_t(3571  /  3.0),   f16_t(-0.75),    f16_t(-1.0)       ), \
+                            f16x4(f16_t(-10.75),   f16_t(-1163 / 23.0),   f16_t(-0.5005),  f16_t(-0.0)       ), \
+                            f16x4(f16_t( 10.00),   f16_t(-2213 / 29.0),   f16_t(-0.50),    f16_t(+0.0)       ), \
+                            f16x4(f16_t( 10.25),   f16_t(-2549 / 31.0),   f16_t(-0.25),    f16_t(1.0 )       ), \
+                            f16x4(f16_t( 10.50),   F16_PI,                f16_t(0.25),     F16_PI            ), \
+                            f16x4(f16_t( 10.75),   F16_INF,               f16_t(0.50),     F16_INF           ), \
+                            f16x4(f16_t(0.5005),   F16_NAN,               f16_t(0.5005),   F16_NAN           ), \
+                            f16x4(f16_t(1.50),     F16_DENORM_64,         f16_t(0.75),     F16_NEG_DENORM_64 ), \
+                            f16x4(f16_t(1.501),    F16_NEG_DENORM_256,    f16_t(2.5),      F16_DENORM        )  };
 
-#define TEST_DATA_f32x4_t { f32x4(-10.00f,     (float)(1103  / 13.0), -2.50f,       -FLOAT_INF         ), \
-                            f32x4(-10.25f,     (float)(2053  / 17.0), -1.50f,       -FLOAT_PI          ), \
-                            f32x4(-10.50f,     (float)(3571  / 19.0), -0.75f,       -1.0f              ), \
-                            f32x4(-10.75f,     (float)(-1163 / 23.0), -0.50000005f, -0.0f              ), \
-                            f32x4( 10.00f,     (float)(-2213 / 29.0), -0.50f,       +0.0f              ), \
-                            f32x4( 10.25f,     (float)(-2549 / 31.0), -0.25f,       1.0f               ), \
-                            f32x4( 10.50f,     FLOAT_PI,              0.25f,        FLOAT_PI           ), \
-                            f32x4( 10.75f,     FLOAT_INF,             0.50f,        FLOAT_INF          ), \
-                            f32x4(0.50000005f, FLOAT_NAN,             0.50000005f,  FLOAT_NAN          ), \
-                            f32x4(1.50f,       FLOAT_DENORM * 64,     0.75f,        -FLOAT_DENORM * 64 ), \
-                            f32x4(1.5000001f,  -FLOAT_DENORM  * 512,  2.5f,         FLOAT_DENORM       )  };
+#define TEST_DATA_f16x8_t { f16x8(f16_t(-10.25),   f16_t(2053  / 17.0),   f16_t(-1.50),    F16_NEG_PI,        f16_t(-10.50),   F16_INF,               F16_DENORM_256,  f16_t(-1.0)    ), \
+                            f16x8(f16_t( 10.50),   F16_PI,                f16_t(0.25),     F16_PI,            f16_t(-10.75),   f16_t(-1163 / 23.0),   f16_t(-0.5005),  f16_t(-0.0)    ), \
+                            f16x8(F16_INF,         F16_INF,               F16_NEG_DENORM,  F16_INF,           F16_INF,         f16_t(-2213 / 29.0),   f16_t(-0.50),    f16_t(+0.0)    ), \
+                            f16x8(f16_t(0.5005),   F16_NAN,               f16_t(0.5005),   F16_NAN,           f16_t( 10.25),   f16_t(-2549 / 31.0),   f16_t(-0.25),    f16_t(1.0 )    ), \
+                            f16x8(f16_t(1.50),     F16_DENORM_64,         f16_t(0.75),     F16_NEG_DENORM_64, f16_t(-10.00),   f16_t(1103  / 13.0),   F16_INF,         F16_NEG_INF    ), \
+                            f16x8(f16_t(1.501),    F16_NEG_DENORM_256,    f16_t(2.5),      F16_DENORM,        f16_t(0.5005),   F16_NAN,               f16_t(0.5005),   F16_NAN        )  };
+ 
+#define TEST_DATA_f32x2_t { f32x2(-2.50f,       -F32_INF         ), \
+                            f32x2(-1.50f,       -F32_PI          ), \
+                            f32x2(-0.75f,       -1.0f            ), \
+                            f32x2(-0.50000005f, -0.0f            ), \
+                            f32x2(-0.50f,       +0.0f            ), \
+                            f32x2(-0.25f,       1.0f             ), \
+                            f32x2(0.25f,        F32_PI           ), \
+                            f32x2(0.50f,        F32_INF          ), \
+                            f32x2(0.50000005f,  F32_NAN          ), \
+                            f32x2(0.75f,        -F32_DENORM * 64 ), \
+                            f32x2(1.50f,        F32_DENORM  * 64 ), \
+                            f32x2(1.5000001f,   -F32_DENORM * 512), \
+                            f32x2(2.5f,         F32_DENORM       )  };
 
-#define TEST_DATA_f64x2_t { f64x2(-2.50,               -DOUBLE_INF         ), \
-                            f64x2(-1.50,               -DOUBLE_PI          ), \
-                            f64x2(-0.75,               -1.0f               ), \
-                            f64x2(-0.5000000000000001, -0.0f               ), \
-                            f64x2(-0.50,               +0.0f               ), \
-                            f64x2(-0.25,               1.0f                ), \
-                            f64x2(0.25,                DOUBLE_PI           ), \
-                            f64x2(0.50,                DOUBLE_INF          ), \
-                            f64x2(0.5000000000000001,  DOUBLE_NAN          ), \
-                            f64x2(0.75,                -DOUBLE_DENORM * 64 ), \
-                            f64x2(1.50,                DOUBLE_DENORM  * 64 ), \
-                            f64x2(1.5000000000000002,  -DOUBLE_DENORM * 512), \
-                            f64x2(2.5,                 DOUBLE_DENORM       )  };
+#define TEST_DATA_f32x4_t { f32x4(-10.00f,     (float)(1103  / 13.0), -2.50f,       -F32_INF          ), \
+                            f32x4(-10.25f,     (float)(2053  / 17.0), -1.50f,       -F32_PI           ), \
+                            f32x4(-10.50f,     (float)(3571  / 19.0), -0.75f,       -1.0f             ), \
+                            f32x4(-10.75f,     (float)(-1163 / 23.0), -0.50000005f, -0.0f             ), \
+                            f32x4( 10.00f,     (float)(-2213 / 29.0), -0.50f,       +0.0f             ), \
+                            f32x4( 10.25f,     (float)(-2549 / 31.0), -0.25f,       1.0f              ), \
+                            f32x4( 10.50f,     F32_PI,                 0.25f,        F32_PI           ), \
+                            f32x4( 10.75f,     F32_INF,                0.50f,        F32_INF          ), \
+                            f32x4(0.50000005f, F32_NAN,                0.50000005f,  F32_NAN          ), \
+                            f32x4(1.50f,       F32_DENORM * 64,        0.75f,        -F32_DENORM * 64 ), \
+                            f32x4(1.5000001f,  -F32_DENORM  * 512,     2.5f,         F32_DENORM       )  };
+
+#define TEST_DATA_f64x2_t { f64x2(-2.50,               -F64_INF         ), \
+                            f64x2(-1.50,               -F64_PI          ), \
+                            f64x2(-0.75,               -1.0f            ), \
+                            f64x2(-0.5000000000000001, -0.0f            ), \
+                            f64x2(-0.50,               +0.0f            ), \
+                            f64x2(-0.25,               1.0f             ), \
+                            f64x2(0.25,                F64_PI           ), \
+                            f64x2(0.50,                F64_INF          ), \
+                            f64x2(0.5000000000000001,  F64_NAN          ), \
+                            f64x2(0.75,                -F64_DENORM * 64 ), \
+                            f64x2(1.50,                F64_DENORM  * 64 ), \
+                            f64x2(1.5000000000000002,  -F64_DENORM * 512), \
+                            f64x2(2.5,                 F64_DENORM       )  };
 
 //=================================================================================================
 //=================================================================================================
@@ -466,10 +532,14 @@ BEGIN_TEST_DATA
                       TYPE(S64)
                       TYPE(U32)
                       TYPE(U64)   SRCN(2);
+                      TYPE(F16)   SRCT( F16T.ADDL(dstFtzF16), F16T.ADDL(dstFtzF16) );
                       TYPE(F32)   SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32) );
                       TYPE(F64)   SRCT( F64T.ADDL(dstFtzF64), F64T.ADDL(dstFtzF64) );
                       SXTYPES     SRCN(2);
                       UXTYPES     SRCN(2);
+                      TYPE(F16X2) SRCT( F16X2T.ADD(dstFtzF16x2), F16X2T.ADD(dstFtzF16x2) );
+                      TYPE(F16X4) SRCT( F16X4T.ADD(dstFtzF16x4), F16X4T.ADD(dstFtzF16x4) );
+                      TYPE(F16X8) SRCT( F16X8T.ADD(dstFtzF16x8), F16X8T.ADD(dstFtzF16x8) );
                       TYPE(F32X2) SRCT( F32X2T.ADD(dstFtzF32x2), F32X2T.ADD(dstFtzF32x2) );
                       TYPE(F32X4) SRCT( F32X4T.ADD(dstFtzF32x4), F32X4T.ADD(dstFtzF32x4) );
                       TYPE(F64X2) SRCT( F64X2T.ADD(dstFtzF64x2), F64X2T.ADD(dstFtzF64x2) );
@@ -478,10 +548,14 @@ BEGIN_TEST_DATA
                       TYPE(S64)
                       TYPE(U32)
                       TYPE(U64)   SRCN(2);
+                      TYPE(F16)   SRCT( F16T.ADDL(dstFtzF16), F16T.ADDL(dstFtzF16) );
                       TYPE(F32)   SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32) );
                       TYPE(F64)   SRCT( F64T.ADDL(dstFtzF64), F64T.ADDL(dstFtzF64) );
                       SXTYPES     SRCN(2);
                       UXTYPES     SRCN(2);
+                      TYPE(F16X2) SRCT( F16X2T.ADD(dstFtzF16x2), F16X2T.ADD(dstFtzF16x2) );
+                      TYPE(F16X4) SRCT( F16X4T.ADD(dstFtzF16x4), F16X4T.ADD(dstFtzF16x4) );
+                      TYPE(F16X8) SRCT( F16X8T.ADD(dstFtzF16x8), F16X8T.ADD(dstFtzF16x8) );
                       TYPE(F32X2) SRCT( F32X2T.ADD(dstFtzF32x2), F32X2T.ADD(dstFtzF32x2) );
                       TYPE(F32X4) SRCT( F32X4T.ADD(dstFtzF32x4), F32X4T.ADD(dstFtzF32x4) );
                       TYPE(F64X2) SRCT( F64X2T.ADD(dstFtzF64x2), F64X2T.ADD(dstFtzF64x2) );
@@ -490,6 +564,7 @@ BEGIN_TEST_DATA
                       TYPE(S64)
                       TYPE(U32)
                       TYPE(U64)
+                      TYPE(F16)
                       TYPE(F32)
                       TYPE(F64)
                       XTYPES    SRCN(2);
@@ -498,6 +573,7 @@ BEGIN_TEST_DATA
                       TYPE(S64)
                       TYPE(U32)
                       TYPE(U64)
+                      TYPE(F16)
                       TYPE(F32)
                       TYPE(F64)
                       XTYPES    SRCN(2);
@@ -506,10 +582,14 @@ BEGIN_TEST_DATA
                       TYPE(S64)
                       TYPE(U32)
                       TYPE(U64)   SRCN(2);
+                      TYPE(F16)   SRCT( F16T.ADDL(dstFtzF16), F16T.ADDL(dstFtzF16) );
                       TYPE(F32)   SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32) );
                       TYPE(F64)   SRCT( F64T.ADDL(dstFtzF64), F64T.ADDL(dstFtzF64) );
                       SXTYPES     SRCN(2);
                       UXTYPES     SRCN(2);
+                      TYPE(F16X2) SRCT( F16X2T.ADD(dstFtzF16x2), F16X2T.ADD(dstFtzF16x2) );
+                      TYPE(F16X4) SRCT( F16X4T.ADD(dstFtzF16x4), F16X4T.ADD(dstFtzF16x4) );
+                      TYPE(F16X8) SRCT( F16X8T.ADD(dstFtzF16x8), F16X8T.ADD(dstFtzF16x8) );
                       TYPE(F32X2) SRCT( F32X2T.ADD(dstFtzF32x2), F32X2T.ADD(dstFtzF32x2) );
                       TYPE(F32X4) SRCT( F32X4T.ADD(dstFtzF32x4), F32X4T.ADD(dstFtzF32x4) );
                       TYPE(F64X2) SRCT( F64X2T.ADD(dstFtzF64x2), F64X2T.ADD(dstFtzF64x2) );
@@ -525,8 +605,12 @@ BEGIN_TEST_DATA
                       TYPE(S64)   SRCT( S64T.ADD(-63, 127), S64T.ADD(-15, 30) );
                       TYPE(U32)   SRCT( U32T.ADD(     127), U32T.ADD(     30) );
                       TYPE(U64)   SRCT( U64T.ADD(     127), U64T.ADD(     30) );
+                      TYPE(F16)   SRCT( F16T.ADDL(dstFtzF16), F16T.ADDL(dstFtzF16) );
                       TYPE(F32)   SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32) );
                       TYPE(F64)   SRCT( F64T.ADDL(dstFtzF64), F64T.ADDL(dstFtzF64) );
+                      TYPE(F16X2) SRCT( F16X2T.ADD(dstFtzF16x2), F16X2T.ADD(dstFtzF16x2) );
+                      TYPE(F16X4) SRCT( F16X4T.ADD(dstFtzF16x4), F16X4T.ADD(dstFtzF16x4) );
+                      TYPE(F16X8) SRCT( F16X8T.ADD(dstFtzF16x8), F16X8T.ADD(dstFtzF16x8) );
                       TYPE(F32X2) SRCT( F32X2T.ADD(dstFtzF32x2), F32X2T.ADD(dstFtzF32x2) );
                       TYPE(F32X4) SRCT( F32X4T.ADD(dstFtzF32x4), F32X4T.ADD(dstFtzF32x4) );
                       TYPE(F64X2) SRCT( F64X2T.ADD(dstFtzF64x2), F64X2T.ADD(dstFtzF64x2) );
@@ -548,6 +632,7 @@ BEGIN_TEST_DATA
 
     INST(NEG)         TYPE(S32)
                       TYPE(S64)
+                      TYPE(F16)
                       TYPE(F32)
                       TYPE(F64)
                       SXTYPES
@@ -555,36 +640,44 @@ BEGIN_TEST_DATA
 
     INST(ABS)         TYPE(S32)
                       TYPE(S64)
+                      TYPE(F16)
                       TYPE(F32)
                       TYPE(F64)
                       SXTYPES
                       FXTYPES   SRCN(1);
 
-    INST(COPYSIGN)    TYPE(F32)
+    INST(COPYSIGN)    TYPE(F16)
+                      TYPE(F32)
                       TYPE(F64)
                       FXTYPES   SRCN(2);
 
-    INST(FRACT)       TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
+    INST(FRACT)       TYPE(F16) SRCT( F16T.ADDL(extraTestsF16).ADDL(roundTestsF16) );
+                      TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
                       TYPE(F64) SRCT( F64T.ADDL(extraTestsF64).ADDL(roundTestsF64) );
                       FXTYPES   SRCN(1);
 
-    INST(SQRT)        TYPE(F32) SRCT( F32T.ADDL(extraTestsF32) );
+    INST(SQRT)        TYPE(F16) SRCT( F16T.ADDL(extraTestsF16) );
+                      TYPE(F32) SRCT( F32T.ADDL(extraTestsF32) );
                       TYPE(F64) SRCT( F64T.ADDL(extraTestsF64) );
                       FXTYPES   SRCN(1);
 
-    INST(CEIL)        TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
+    INST(CEIL)        TYPE(F16) SRCT( F16T.ADDL(extraTestsF16).ADDL(roundTestsF16) );
+                      TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
                       TYPE(F64) SRCT( F64T.ADDL(extraTestsF64).ADDL(roundTestsF64) );
                       FXTYPES   SRCN(1);
 
-    INST(FLOOR)       TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
+    INST(FLOOR)       TYPE(F16) SRCT( F16T.ADDL(extraTestsF16).ADDL(roundTestsF16) );
+                      TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
                       TYPE(F64) SRCT( F64T.ADDL(extraTestsF64).ADDL(roundTestsF64) );
                       FXTYPES   SRCN(1);
 
-    INST(RINT)        TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
+    INST(RINT)        TYPE(F16) SRCT( F16T.ADDL(extraTestsF16).ADDL(roundTestsF16) );
+                      TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
                       TYPE(F64) SRCT( F64T.ADDL(extraTestsF64).ADDL(roundTestsF64) );
                       FXTYPES   SRCN(1);
 
-    INST(TRUNC)       TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
+    INST(TRUNC)       TYPE(F16) SRCT( F16T.ADDL(extraTestsF16).ADDL(roundTestsF16) );
+                      TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(roundTestsF32) );
                       TYPE(F64) SRCT( F64T.ADDL(extraTestsF64).ADDL(roundTestsF64) );
                       FXTYPES   SRCN(1);
 
@@ -603,11 +696,10 @@ BEGIN_TEST_DATA
     INST(MAD)         TYPE(S32)
                       TYPE(S64)
                       TYPE(U32)
-                      TYPE(U64)
-                      TYPE(F32)
-                      TYPE(F64) SRCN(3);
+                      TYPE(U64) SRCN(3);
 
-    INST(FMA)         TYPE(F32) SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32), F32T );
+    INST(FMA)         TYPE(F16) SRCT( F16T.ADDL(dstFtzF16), F16T.ADDL(dstFtzF16), F16T );
+                      TYPE(F32) SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32), F32T );
                       TYPE(F64) SRCT( F64T.ADDL(dstFtzF64), F64T.ADDL(dstFtzF64), F64T );
 
     INST(SHL)         TYPE(S32)   SRCT( S32T,   U32T.ADD(2, 31, 32, 33) ); // NB: src2 is always u32
@@ -747,6 +839,7 @@ BEGIN_TEST_DATA
                       TYPE(S64)
                       TYPE(U32)
                       TYPE(U64)
+                      TYPE(F16)
                       TYPE(F32)
                       TYPE(F64)  SRCN(1);
 
@@ -755,6 +848,7 @@ BEGIN_TEST_DATA
 
   INST(SHUFFLE)       TYPE(S16X2) SRCT( S16X2T.ITESTBITS2(s16x2), S16X2T.ITESTBITS2(s16x2), B32T.NEW(      0x0,      0x1,      0x2,      0x3).ADD(-1) );
                       TYPE(U16X2) SRCT( U16X2T.ITESTBITS2(u16x2), U16X2T.ITESTBITS2(u16x2), B32T.NEW(      0x0,      0x1,      0x2,      0x3).ADD(-1) );
+                      TYPE(F16X2) SRCT( F16X2T.F16TBITS2(f16x2),  F16X2T.F16TBITS2(f16x2),  B32T.NEW(      0x0,      0x1,      0x2,      0x3).ADD(-1) );
                       TYPE(S32X2) SRCT( S32X2T.ITESTBITS2(s32x2), S32X2T.ITESTBITS2(s32x2), B32T.NEW(      0x0,      0x1,      0x2,      0x3).ADD(-1) );
                       TYPE(U32X2) SRCT( U32X2T.ITESTBITS2(u32x2), U32X2T.ITESTBITS2(u32x2), B32T.NEW(      0x0,      0x1,      0x2,      0x3).ADD(-1) );
                       TYPE(F32X2) SRCT( F32X2T.FTESTBITS2(f32x2), F32X2T.FTESTBITS2(f32x2), B32T.NEW(      0x0,      0x1,      0x2,      0x3).ADD(-1) );
@@ -762,6 +856,7 @@ BEGIN_TEST_DATA
                       TYPE(U8X4)  SRCT( U8X4T .ITESTBITS2(u8x4),  U8X4T .ITESTBITS2(u8x4),  B32T.NEW(     0x00,     0x46,     0x93,     0x5A).ADD(-1) );
                       TYPE(S16X4) SRCT( S16X4T.ITESTBITS2(s16x4), S16X4T.ITESTBITS2(s16x4), B32T.NEW(     0x00,     0x46,     0x93,     0x5A).ADD(-1) );
                       TYPE(U16X4) SRCT( U16X4T.ITESTBITS2(u16x4), U16X4T.ITESTBITS2(u16x4), B32T.NEW(     0x00,     0x46,     0x93,     0x5A).ADD(-1) );
+                      TYPE(F16X4) SRCT( F16X4T.F16TBITS2(f16x4),  F16X4T.F16TBITS2(f16x4),  B32T.NEW(     0x00,     0x46,     0x93,     0x5A).ADD(-1) );
                       TYPE(S8X8)  SRCT( S8X8T .ITESTBITS2(s8x8),  S8X8T .ITESTBITS2(s8x8),  B32T.NEW( 0x000000, 0x2C7593, 0xD46E08, 0x13FA1B).ADD(-1) );
                       TYPE(U8X8)  SRCT( U8X8T .ITESTBITS2(u8x8),  U8X8T .ITESTBITS2(u8x8),  B32T.NEW( 0xFFFFFF, 0x3D86A4, 0xF35075, 0x5738F4).ADD(-1) );
 
@@ -805,6 +900,13 @@ BEGIN_TEST_DATA
                                 DST_TYPE(U64X2) SRCT( U64X2T.ITESTBITS2(u64x2), U64T.NEW(-1, 1).ADD(WAVESIZE), U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
                             END_DST
 
+                      SRC_TYPE(F16)
+                            BEGIN_DST
+                                DST_TYPE(F16X2) SRCT( F16X2T.F16TBITS2(f16x2), F16T.NEW(f16_t(0.0), f16_t(1.127)), U32T.NEW( 0, 1 )          .ADD(-1).ADD(WAVESIZE) );
+                                DST_TYPE(F16X4) SRCT( F16X4T.F16TBITS2(f16x4), F16T.NEW(f16_t(0.0), f16_t(1.127)), U32T.NEW( 0, 1, 2, 3 )    .ADD(-1).ADD(WAVESIZE) );
+                                DST_TYPE(F16X8) SRCT( F16X8T.F16TBITS2(f16x8), F16T.NEW(f16_t(0.0), f16_t(1.127)), U32T.NEW( 0, 3, 4, 5, 7 ) .ADD(-1).ADD(WAVESIZE) );
+                            END_DST
+
                       SRC_TYPE(F32)
                             BEGIN_DST
                                 DST_TYPE(F32X2) SRCT( F32X2T.FTESTBITS2(f32x2), F32T.NEW(0, 1.127f), U32T.NEW( 0, 1 )       .ADD(-1).ADD(WAVESIZE) );
@@ -826,6 +928,7 @@ BEGIN_TEST_DATA
                       SRC_TYPE(S32X2) SRCT(S32X2T.ITESTBITS2(s32x2), U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(S32X4) SRCT(S32X4T.ITESTBITS2(s32x4), U32T.NEW( 0, 1, 2, 3 )     .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(S64X2) SRCT(S64X2T.ITESTBITS2(s64x2), U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
+
                       SRC_TYPE(U8X4)  SRCT(U8X4T .ITESTBITS2(u8x4),  U32T.NEW( 0, 1, 2, 3 )     .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(U8X8)  SRCT(U8X8T .ITESTBITS2(u8x8),  U32T.NEW( 0, 3, 4, 5, 7 )  .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(U8X16) SRCT(U8X16T.ITESTBITS2(u8x16), U32T.NEW( 0, 3, 4, 7, 15 ) .ADD(-1).ADD(WAVESIZE) );
@@ -835,6 +938,10 @@ BEGIN_TEST_DATA
                       SRC_TYPE(U32X2) SRCT(U32X2T.ITESTBITS2(u32x2), U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(U32X4) SRCT(U32X4T.ITESTBITS2(u32x4), U32T.NEW( 0, 1, 2, 3 )     .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(U64X2) SRCT(U64X2T.ITESTBITS2(u64x2), U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
+
+                      SRC_TYPE(F16X2) SRCT(F16X2T.F16TBITS2(f16x2),  U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
+                      SRC_TYPE(F16X4) SRCT(F16X4T.F16TBITS2(f16x4),  U32T.NEW( 0, 1, 2, 3 )     .ADD(-1).ADD(WAVESIZE) );
+                      SRC_TYPE(F16X8) SRCT(F16X8T.F16TBITS2(f16x8),  U32T.NEW( 0, 3, 4, 5, 7 )  .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(F32X2) SRCT(F32X2T.FTESTBITS2(f32x2), U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(F32X4) SRCT(F32X4T.FTESTBITS2(f32x4), U32T.NEW( 0, 1, 2, 3 )     .ADD(-1).ADD(WAVESIZE) );
                       SRC_TYPE(F64X2) SRCT(F64X2T.FTESTBITS2(f64x2), U32T.NEW( 0, 1 )           .ADD(-1).ADD(WAVESIZE) );
@@ -842,6 +949,7 @@ BEGIN_TEST_DATA
     INST(CMOV)        TYPE(B1)    SRCT(B1T, B1T,  B1T);
                       TYPE(B32)   SRCT(B1T, B32T, B32T);
                       TYPE(B64)   SRCT(B1T, B64T, B64T);
+
                       TYPE(S8X4)  SRCT( U8X4T .ICTLBITS(u8x4),  S8X4T .ITESTBITS1(s8x4,  1),  S8X4T.ITESTBITS1(s8x4,  -1) );
                       TYPE(S8X8)  SRCT( U8X8T .ICTLBITS(u8x8),  S8X8T .ITESTBITS1(s8x8,  1),  S8X8T.ITESTBITS1(s8x8,  -1) );
                       TYPE(S8X16) SRCT( U8X16T.ICTLBITS(u8x16), S8X16T.ITESTBITS1(s8x16, 1), S8X16T.ITESTBITS1(s8x16, -1) );
@@ -851,43 +959,53 @@ BEGIN_TEST_DATA
                       TYPE(S32X2) SRCT( U32X2T.ICTLBITS(u32x2), S32X2T.ITESTBITS1(s32x2, 1), S32X2T.ITESTBITS1(s32x2, -1) );
                       TYPE(S32X4) SRCT( U32X4T.ICTLBITS(u32x4), S32X4T.ITESTBITS1(s32x4, 1), S32X4T.ITESTBITS1(s32x4, -1) );
                       TYPE(S64X2) SRCT( U64X2T.ICTLBITS(u64x2), S64X2T.ITESTBITS1(s64x2, 1), S64X2T.ITESTBITS1(s64x2, -1) );
+                      
                       TYPE(U8X4)  SRCT( U8X4T .ICTLBITS(u8x4),  U8X4T .ITESTBITS1(u8x4,  1),  U8X4T.ITESTBITS1(u8x4,  -1) );
                       TYPE(U8X8)  SRCT( U8X8T .ICTLBITS(u8x8),  U8X8T .ITESTBITS1(u8x8,  1),  U8X8T.ITESTBITS1(u8x8,  -1) );
-                      TYPE(U8X16) SRCT( U8X16T.ICTLBITS(u8x16), U8X16T.ITESTBITS1(u8x16, 1), U8X16T.ITESTBITS1(u8x16, -1) );
+                      TYPE(U8X16) SRCT( U8X16T.ICTLBITS(u8x16), U8X16T.ITESTBITS1(u8x16, 1), U8X16T.ITESTBITS1(u8x16, -1) );                      
                       TYPE(U16X2) SRCT( U16X2T.ICTLBITS(u16x2), U16X2T.ITESTBITS1(u16x2, 1), U16X2T.ITESTBITS1(u16x2, -1) );
                       TYPE(U16X4) SRCT( U16X4T.ICTLBITS(u16x4), U16X4T.ITESTBITS1(u16x4, 1), U16X4T.ITESTBITS1(u16x4, -1) );
                       TYPE(U16X8) SRCT( U16X8T.ICTLBITS(u16x8), U16X8T.ITESTBITS1(u16x8, 1), U16X8T.ITESTBITS1(u16x8, -1) );
                       TYPE(U32X2) SRCT( U32X2T.ICTLBITS(u32x2), U32X2T.ITESTBITS1(u32x2, 1), U32X2T.ITESTBITS1(u32x2, -1) );
                       TYPE(U32X4) SRCT( U32X4T.ICTLBITS(u32x4), U32X4T.ITESTBITS1(u32x4, 1), U32X4T.ITESTBITS1(u32x4, -1) );
                       TYPE(U64X2) SRCT( U64X2T.ICTLBITS(u64x2), U64X2T.ITESTBITS1(u64x2, 1), U64X2T.ITESTBITS1(u64x2, -1) );
+                      
+                      TYPE(F16X2) SRCT( U16X2T.ICTLBITS(u16x2), F16X2T.F16TBITS1(f16x2, 1), F16X2T.F16TBITS1(f16x2, -1) );
+                      TYPE(F16X4) SRCT( U16X4T.ICTLBITS(u16x4), F16X4T.F16TBITS1(f16x4, 1), F16X4T.F16TBITS1(f16x4, -1) );
+                      TYPE(F16X8) SRCT( U16X8T.ICTLBITS(u16x8), F16X8T.F16TBITS1(f16x8, 1), F16X8T.F16TBITS1(f16x8, -1) );
                       TYPE(F32X2) SRCT( U32X2T.ICTLBITS(u32x2), F32X2T.FTESTBITS1(f32x2, 1), F32X2T.FTESTBITS1(f32x2, -1) );
                       TYPE(F32X4) SRCT( U32X4T.ICTLBITS(u32x4), F32X4T.FTESTBITS1(f32x4, 1), F32X4T.FTESTBITS1(f32x4, -1) );
                       TYPE(F64X2) SRCT( U64X2T.ICTLBITS(u64x2), F64X2T.FTESTBITS1(f64x2, 1), F64X2T.FTESTBITS1(f64x2, -1) );
 
-    INST(CLASS)       SRC_TYPE(F32) SRCT(F32T, U32T.ADDL(classFlags));
+    INST(CLASS)       SRC_TYPE(F16) SRCT(F16T, U32T.ADDL(classFlags));
+                      SRC_TYPE(F32) SRCT(F32T, U32T.ADDL(classFlags));
                       SRC_TYPE(F64) SRCT(F64T, U32T.ADDL(classFlags));
 
     // --------------------------------------------------------------------------------------------------------
     // NB: Test values for Native Floating-Point Operations should not include subnormal values!
 
-    INST(NSIN)        TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADD(-FLOAT_PI  / 2, FLOAT_PI  / 4, (f32_t)(512 * 3.14)) );
+    INST(NSIN)        TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADD(-F32_PI / 2, F32_PI / 4, (f32_t)(512 * 3.14)) );
 
-    INST(NCOS)        TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADD(-FLOAT_PI  / 2, FLOAT_PI  / 4, (f32_t)(512 * 3.14)) );
+    INST(NCOS)        TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADD(-F32_PI / 2, F32_PI / 4, (f32_t)(512 * 3.14)) );
 
     INST(NLOG2)       TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
 
     INST(NEXP2)       TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
 
-    INST(NSQRT)       TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
+    INST(NSQRT)       TYPE(F16) SRCT( F16T.NEWL(nfpF16).ADDL(extraTestsF16) );
+                      TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
                       TYPE(F64) SRCT( F64T.NEWL(nfpF64).ADDL(extraTestsF64) );
 
-    INST(NRSQRT)      TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
+    INST(NRSQRT)      TYPE(F16) SRCT( F16T.NEWL(nfpF16).ADDL(extraTestsF16) );
+                      TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
                       TYPE(F64) SRCT( F64T.NEWL(nfpF64).ADDL(extraTestsF64) );
 
-    INST(NRCP)        TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
+    INST(NRCP)        TYPE(F16) SRCT( F16T.NEWL(nfpF16).ADDL(extraTestsF16) );
+                      TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
                       TYPE(F64) SRCT( F64T.NEWL(nfpF64).ADDL(extraTestsF64) );
 
-    INST(NFMA)        TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32), F32T.NEWL(nfpF32).ADDL(extraTestsF32), F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
+    INST(NFMA)        TYPE(F16) SRCT( F16T.NEWL(nfpF16).ADDL(extraTestsF16), F16T.NEWL(nfpF16).ADDL(extraTestsF16), F16T.NEWL(nfpF16).ADDL(extraTestsF16) );
+                      TYPE(F32) SRCT( F32T.NEWL(nfpF32).ADDL(extraTestsF32), F32T.NEWL(nfpF32).ADDL(extraTestsF32), F32T.NEWL(nfpF32).ADDL(extraTestsF32) );
                       TYPE(F64) SRCT( F64T.NEWL(nfpF64).ADDL(extraTestsF64), F64T.NEWL(nfpF64).ADDL(extraTestsF64), F64T.NEWL(nfpF64).ADDL(extraTestsF64) );
 
     // --------------------------------------------------------------------------------------------------------
@@ -911,10 +1029,10 @@ BEGIN_TEST_DATA
 
     INST(SADHI)       TYPE(U8X4)   SRCT(  U8X4T,  U8X4T,  U16X2T );
 
-    INST(PACKCVT)     TYPE(F32)    SRCT( F32T.NEW(-FLOAT_INF,  -FLOAT_PI,   1.0f,      254.0f, FLOAT_INF),
-                                         F32T.NEW(-FLOAT_INF,      -1.0f,   FLOAT_PI,  255.0f, FLOAT_NAN),
-                                         F32T.NEW(-FLOAT_INF,      -0.0f,   1.0f,      255.5f, FLOAT_DENORM * 16),
-                                         F32T.NEW(-FLOAT_INF,      +0.0f,   FLOAT_PI,  300.0f, FLOAT_NAN) );
+    INST(PACKCVT)     TYPE(F32)    SRCT( F32T.NEW(-F32_INF,  -F32_PI,  1.0f,    254.0f, F32_INF),
+                                         F32T.NEW(-F32_INF,  -1.0f,    F32_PI,  255.0f, F32_NAN),
+                                         F32T.NEW(-F32_INF,  -0.0f,    1.0f,    255.5f, F32_DENORM * 16),
+                                         F32T.NEW(-F32_INF,  +0.0f,    F32_PI,  300.0f, F32_NAN) );
 
     INST(UNPACKCVT)   TYPE(U8X4)   SRCT( U8X4T, U32T.NEW(0, 1, 2, 3) );
 
@@ -929,6 +1047,7 @@ BEGIN_TEST_DATA
                       SRC_TYPE(S64)
                       SRC_TYPE(U32)
                       SRC_TYPE(U64)    SRCN(2);
+                      SRC_TYPE(F16)    SRCT( F16T.ADDL(extraSubnormF16), F16T.ADDL(extraSubnormF16) );
                       SRC_TYPE(F32)    SRCT( F32T.ADDL(extraSubnormF32), F32T.ADDL(extraSubnormF32) );
                       SRC_TYPE(F64)    SRCT( F64T.ADDL(extraSubnormF64), F64T.ADDL(extraSubnormF64) );
                       XTYPES           SRCN(2);
@@ -942,8 +1061,9 @@ BEGIN_TEST_DATA
                       SRC_TYPE(U16)
                       SRC_TYPE(U32)
                       SRC_TYPE(U64) SRCN(1);
-                      SRC_TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(extraSubnormF32).ADD_RF32()                   );
-                      SRC_TYPE(F64) SRCT( F64T.ADDL(extraTestsF64).ADDL(extraSubnormF64).ADD_RF64().ADD(ftzCvt64to32) );
+                      SRC_TYPE(F16) SRCT( F16T.ADDL(extraTestsF16).ADDL(extraSubnormF16).ADD_RF16()                                     );
+                      SRC_TYPE(F32) SRCT( F32T.ADDL(extraTestsF32).ADDL(extraSubnormF32).ADD_RF32().ADD(ftzCvt32to16)                   );
+                      SRC_TYPE(F64) SRCT( F64T.ADDL(extraTestsF64).ADDL(extraSubnormF64).ADD_RF64().ADD(ftzCvt64to16).ADD(ftzCvt64to32) );
 
     INST(LD)          TYPE(S8)   SRCT(  S8T.NEW (0, MAX_S8,  -1, MIN_S8 )   );
                       TYPE(S16)  SRCT(  S16T.NEW(0, MAX_S16, -1, MIN_S16)   );
@@ -953,8 +1073,9 @@ BEGIN_TEST_DATA
                       TYPE(U16)  SRCT(  U16T.NEW(0, MAX_U16)   );
                       TYPE(U32)  SRCT(  U32T.NEW(0, MAX_U32)   );
                       TYPE(U64)  SRCT(  U64T.NEW(0, MAX_U64)   );
-                      TYPE(F32)  SRCT(  F32T.NEW(0, FLOAT_PI)  );
-                      TYPE(F64)  SRCT(  F64T.NEW(0, DOUBLE_PI) );
+                      TYPE(F16)  SRCT(  F16T.NEW(f16_t(0.0), f16_t(F64_PI)) );
+                      TYPE(F32)  SRCT(  F32T.NEW(0, F32_PI)  );
+                      TYPE(F64)  SRCT(  F64T.NEW(0, F64_PI) );
                       TYPE(B128) SRCT(  B128T.NEW(b128(0xAA000000BBBB0000ULL, 0xCCCCCCCCFFFFFFFFULL)) );
 
     INST(ST)          TYPE(S8)   SRCT(0, S8T.NEW (0,       WAVESIZE),  S8T.NEW(1, MIN_S8)      );
@@ -965,8 +1086,9 @@ BEGIN_TEST_DATA
                       TYPE(U16)  SRCT(0, U16T.NEW(0,       WAVESIZE),  U16T.NEW(1, MID_U16)    );
                       TYPE(U32)  SRCT(0, U32T.NEW(MAX_U32, WAVESIZE),  U32T.NEW(0, MID_U32)    );
                       TYPE(U64)  SRCT(0, U64T.NEW(0,       WAVESIZE),  U64T.NEW(1, MID_U64)    );
-                      TYPE(F32)  SRCT(0, F32T.NEW(0,       FLOAT_PI),  F32T.NEW(1, FLOAT_NAN)  );
-                      TYPE(F64)  SRCT(0, F64T.NEW(0,       DOUBLE_PI), F64T.NEW(1, DOUBLE_NAN) );
+                      TYPE(F16)  SRCT(0, F16T.NEW(f16_t(0.0), f16_t(F64_PI)),  F32T.NEW(f16_t(1.0), F16_NAN)  );
+                      TYPE(F32)  SRCT(0, F32T.NEW(0,       F32_PI), F32T.NEW(1, F32_NAN)  );
+                      TYPE(F64)  SRCT(0, F64T.NEW(0,       F64_PI), F64T.NEW(1, F64_NAN) );
                       TYPE(B128) SRCT(0, B128T.NEW(b128(0xAA000000BBBB0000ULL, 0xCCCCCCCCFFFFFFFFULL), b128(WAVESIZE, 0)), B128T.NEW(b128(0x12345678DDDDDDDDULL, 0x01020304050607080ULL)) );
 
     INST(ATOMIC)      TYPE(B32)
