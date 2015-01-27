@@ -43,7 +43,7 @@ class TestGenTestSet : public TestSet {
 private:
   std::string path;
   std::string prefix;
-  Brig::BrigOpcode opcode;
+  const Brig::BrigOpcode opcode;
   Context* context;
 
 public:
