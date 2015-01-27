@@ -323,18 +323,18 @@ OperandAddress BrigEmitter::IncrementAddress(OperandAddress addr, int64_t offset
   }
 }
 
-InstMem BrigEmitter::EmitLoad(BrigSegment8_t segment, BrigType16_t type, Operand dst, OperandAddress addr)
+InstMem BrigEmitter::EmitLoad(BrigSegment8_t segment, BrigType16_t type, Operand dst, OperandAddress addr, uint8_t equiv)
 {
   InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_LD, type);
   mem.segment() = segment;
   mem.align() = getNaturalAlignment(type);
   mem.width() = BRIG_WIDTH_1;
-  mem.equivClass() = 0;
+  mem.equivClass() = equiv;
   mem.operands() = Operands(dst, addr) ;
   return mem;
 }
 
-void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress addr, bool useVectorInstructions)
+void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress addr, bool useVectorInstructions, uint8_t equiv)
 {
   BrigType16_t type = MemOpType(dst->Type());
   if (useVectorInstructions && dst->Count() > 1) {
@@ -347,7 +347,7 @@ void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress 
       mem.segment() = segment;
       mem.align() = getNaturalAlignment(type);
       mem.width() = BRIG_WIDTH_1;
-      mem.equivClass() = 0;
+      mem.equivClass() = equiv;
       ItemList dsts;
       for (size_t j = i; j < i + dim1; ++j) {
         dsts.push_back(dst->Reg(j));
@@ -360,7 +360,7 @@ void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress 
     }
   } else {
     for (size_t i = 0; i < dst->Count(); ++i) {
-      EmitLoad(segment, type, dst->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8));
+      EmitLoad(segment, type, dst->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8), equiv);
     }
   }
 }
@@ -379,9 +379,9 @@ BrigType16_t BrigEmitter::MemOpType(BrigType16_t type)
 }
 
 
-void BrigEmitter::EmitLoad(TypedReg dst, PointerReg addr, int64_t offset, bool useVectorInstructions)
+void BrigEmitter::EmitLoad(TypedReg dst, PointerReg addr, int64_t offset, bool useVectorInstructions, uint8_t equiv)
 {
-  EmitLoad(addr->Segment(), dst, Address(addr, offset), useVectorInstructions);
+  EmitLoad(addr->Segment(), dst, Address(addr, offset), useVectorInstructions, equiv);
 }
 
 
@@ -395,18 +395,18 @@ void BrigEmitter::EmitLoads(TypedRegList dsts, ItemList vars, bool useVectorInst
 }
 
 
-InstMem BrigEmitter::EmitStore(BrigSegment8_t segment, BrigType16_t type, Operand src, OperandAddress addr)
+InstMem BrigEmitter::EmitStore(BrigSegment8_t segment, BrigType16_t type, Operand src, OperandAddress addr, uint8_t equiv)
 {
   InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, type);
   mem.segment() = segment;
   mem.align() = getNaturalAlignment(type);
   mem.width() = BRIG_WIDTH_NONE;
-  mem.equivClass() = 0;
+  mem.equivClass() = equiv;
   mem.operands() = Operands(src, addr);
   return mem;
 }
 
-void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress addr, bool useVectorInstructions)
+void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress addr, bool useVectorInstructions, uint8_t equiv)
 {
   BrigType16_t type = MemOpType(src->Type());
   if (useVectorInstructions && src->Count() > 1) {
@@ -419,7 +419,7 @@ void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress
       mem.segment() = segment;
       mem.align() = getNaturalAlignment(type);
       mem.width() = BRIG_WIDTH_NONE;
-      mem.equivClass() = 0;
+      mem.equivClass() = equiv;
       ItemList dsts;
       for (size_t j = i; j < i + dim1; ++j) {
         dsts.push_back(src->Reg(j));
@@ -432,7 +432,7 @@ void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress
     }
   } else {
     for (size_t i = 0; i < src->Count(); ++i) {
-      EmitStore(segment, type, src->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8));
+      EmitStore(segment, type, src->Reg(i), IncrementAddress(addr, i * getBrigTypeNumBits(type)/8), equiv);
     }
   }
 }
@@ -444,18 +444,18 @@ void BrigEmitter::EmitStore(TypedReg src, DirectiveVariable v, int64_t offset, b
 }
 */
 
-void BrigEmitter::EmitStore(TypedReg src, PointerReg addr, int64_t offset, bool useVectorInstructions)
+void BrigEmitter::EmitStore(TypedReg src, PointerReg addr, int64_t offset, bool useVectorInstructions, uint8_t equiv)
 {
-  EmitStore(addr->Segment(), src, Address(addr, offset), useVectorInstructions);
+  EmitStore(addr->Segment(), src, Address(addr, offset), useVectorInstructions, equiv);
 }
 
-void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigTypeX type, Operand src, OperandAddress addr)
+void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigTypeX type, Operand src, OperandAddress addr, uint8_t equiv)
 {
   InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, type);
   mem.segment() = segment;
   mem.align() = getNaturalAlignment(type);
   mem.width() = BRIG_WIDTH_NONE;
-  mem.equivClass() = 0;
+  mem.equivClass() = equiv;
   mem.operands() = Operands(src, addr) ;
 }
 

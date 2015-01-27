@@ -363,6 +363,7 @@ static const BrigAtomicOperation allAtomicsValues[] = {
   BRIG_ATOMIC_XOR
 };
 
+
 static const BrigAtomicOperation signalSendAtomicsValues[] = {
   BRIG_ATOMIC_ST,
   BRIG_ATOMIC_ADD,
@@ -391,6 +392,32 @@ static const BrigSegment memfenceSegmentsValues[] = {
   BRIG_SEGMENT_GROUP,
 };
 
+static const BrigOpcode ldStOpcodesValues[] = {
+  BRIG_OPCODE_LD,
+  BRIG_OPCODE_ST
+};
+
+static const BrigOpcode atomicOpcodesValues[] = {
+  BRIG_OPCODE_ATOMIC,
+  BRIG_OPCODE_ATOMICNORET
+};
+
+static const BrigAtomicOperation atomicOperationsValues[] = {
+  BRIG_ATOMIC_ADD,
+  BRIG_ATOMIC_AND,
+  BRIG_ATOMIC_CAS,
+  BRIG_ATOMIC_EXCH,
+  BRIG_ATOMIC_LD,
+  BRIG_ATOMIC_MAX,
+  BRIG_ATOMIC_MIN,
+  BRIG_ATOMIC_OR,
+  BRIG_ATOMIC_ST,
+  BRIG_ATOMIC_SUB,
+  BRIG_ATOMIC_WRAPDEC,
+  BRIG_ATOMIC_WRAPINC,
+  BRIG_ATOMIC_XOR
+};
+
 CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
   : ConfigBase(cc),
     allMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_LAST)),
@@ -400,7 +427,10 @@ CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
     allAtomics(NEWA ArraySequence<BrigAtomicOperation>(allAtomicsValues, NELEM(allAtomicsValues))),
     signalSendAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalSendAtomicsValues, NELEM(signalSendAtomicsValues))),
     signalWaitAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalWaitAtomicsValues, NELEM(signalWaitAtomicsValues))),
-    memfenceSegments(new (ap) hexl::ArraySequence<BrigSegment>(memfenceSegmentsValues, NELEM(memfenceSegmentsValues)))
+    memfenceSegments(new (ap) hexl::ArraySequence<BrigSegment>(memfenceSegmentsValues, NELEM(memfenceSegmentsValues))),
+    ldStOpcodes(NEWA ArraySequence<BrigOpcode>(ldStOpcodesValues, NELEM(ldStOpcodesValues))),
+    atomicOpcodes(NEWA ArraySequence<BrigOpcode>(atomicOpcodesValues, NELEM(atomicOpcodesValues))),
+    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues)))
 {    
 }
 

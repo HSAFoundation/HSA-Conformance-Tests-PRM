@@ -132,18 +132,18 @@ public:
   HSAIL_ASM::OperandAddress Address(PointerReg ptr, int64_t offset = 0);
   HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, int64_t offset = 0);
 
-  HSAIL_ASM::InstMem EmitLoad(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr);
-  void EmitLoad(Brig::BrigSegment8_t segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true);
+  HSAIL_ASM::InstMem EmitLoad(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
+  void EmitLoad(Brig::BrigSegment8_t segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
   //void EmitLoad(TypedReg dst, HSAIL_ASM::DirectiveVariable v, int64_t offset = 0, bool useVectorInstructions = true);
-  void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true);
+  void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0);
   void EmitLoads(TypedRegList dsts, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   Brig::BrigType16_t MemOpType(Brig::BrigType16_t type);
-  HSAIL_ASM::InstMem EmitStore(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr);
-  void EmitStore(Brig::BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true);
+  HSAIL_ASM::InstMem EmitStore(Brig::BrigSegment8_t segment, Brig::BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
+  void EmitStore(Brig::BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
   //void EmitStore(TypedReg src, HSAIL_ASM::DirectiveVariable v, int64_t offset = 0, bool useVectorInstructions = false);
-  void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false);
-  void EmitStore(Brig::BrigSegment8_t segment, Brig::BrigTypeX type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr);
+  void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false, uint8_t equiv = 0);
+  void EmitStore(Brig::BrigSegment8_t segment, Brig::BrigTypeX type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
   void EmitStores(TypedRegList src, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   // Buffer memory operations.

@@ -199,6 +199,8 @@ namespace hexl {
         hexl::Sequence<Brig::BrigMemoryScope> *allMemoryScopes; 
         hexl::Sequence<Brig::BrigAtomicOperation> *allAtomics, *signalSendAtomics, *signalWaitAtomics;
         hexl::Sequence<Brig::BrigSegment> *memfenceSegments;
+        hexl::Sequence<Brig::BrigOpcode> *ldStOpcodes, *atomicOpcodes;
+        hexl::Sequence<Brig::BrigAtomicOperation>* atomicOperations;
 
       public:
         MemoryConfig(CoreConfig* cc);
@@ -210,6 +212,9 @@ namespace hexl {
         hexl::Sequence<Brig::BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
         hexl::Sequence<Brig::BrigAtomicOperation>* SignalWaitAtomics() { return signalWaitAtomics; }
         hexl::Sequence<Brig::BrigSegment>* MemfenceSegments() { return memfenceSegments; }
+        hexl::Sequence<Brig::BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
+        hexl::Sequence<Brig::BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
+        hexl::Sequence<Brig::BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
       };
 
       class ControlDirectivesConfig : public ConfigBase {

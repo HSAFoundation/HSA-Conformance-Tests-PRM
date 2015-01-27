@@ -86,7 +86,7 @@ Sequence<AnnotationLocation>* AnnotationLocations() {
 
 class SkipTest : public Test {
 public:
-  SkipTest(Location codeLocation, Grid geometry = 0)
+  explicit SkipTest(Location codeLocation, Grid geometry = 0)
     : Test(codeLocation, geometry) { }
 
   BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
@@ -159,7 +159,7 @@ protected:
   AnnotationLocation GetAnnotationLocation() { return annotationLocation; }
 
 public:
-  AnnotationLocationTest(AnnotationLocation annotationLocation_)
+  explicit AnnotationLocationTest(AnnotationLocation annotationLocation_)
     : SkipTest(CodeLocation(annotationLocation_)), annotationLocation(annotationLocation_) { }
 
   void Init() override {
@@ -291,7 +291,7 @@ protected:
   }
 
 public:
-  LocDirectiveLocationTest(AnnotationLocation locLocation_)
+  explicit LocDirectiveLocationTest(AnnotationLocation locLocation_)
     : AnnotationLocationTest(locLocation_) { }
 };
 
@@ -548,7 +548,7 @@ private:
   std::string extensionName;
 
 public:
-  ExtensionDirectiveTest(std::string extensionName_): 
+  explicit ExtensionDirectiveTest(std::string extensionName_): 
     SkipTest(Location::KERNEL), extensionName(extensionName_) {}
 
   bool IsValid() const override {
