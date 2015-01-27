@@ -4,6 +4,7 @@ HSAILTestGenBackend.cpp   HSAILTestGenBrigContext.cpp  HSAILTestGenDataProvider.
 HSAILTestGenBackend.h     HSAILTestGenBrigContext.h    HSAILTestGenDataProvider.h    HSAILTestGenEmulator.h    HSAILTestGenProp.h        HSAILTestGenProvider.h    HSAILTestGenTestDesc.cpp   HSAILTestGenVal.cpp
 HSAILTestGenBackendEml.h  HSAILTestGenContext.cpp      HSAILTestGenDump.cpp          HSAILTestGenInstDesc.h    HSAILTestGenPropDesc.cpp  HSAILTestGenSample.cpp    HSAILTestGenTestDesc.h     HSAILTestGenVal.h
 HSAILTestGenBackendLua.h  HSAILTestGenContext.h        HSAILTestGenDump.h            HSAILTestGenManager.h     HSAILTestGenPropDesc.h    HSAILTestGenSample.h      HSAILTestGenUtilities.cpp
+HSAILTestGenFpEmulator.h  HSAILTestGenFpEmulator.cpp   HSAILTestGenEmulatorTypes.cpp HSAILTestGenEmulatorTypes.h 
 )
 
 if(UNIX)

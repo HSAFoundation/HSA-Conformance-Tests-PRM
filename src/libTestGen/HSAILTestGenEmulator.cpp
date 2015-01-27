@@ -48,6 +48,7 @@ using HSAIL_ASM::isFloatType;
 using HSAIL_ASM::isPackedType;
 using HSAIL_ASM::isSignedType;
 using HSAIL_ASM::isUnsignedType;
+using HSAIL_ASM::isFloatPackedType;
 using HSAIL_ASM::isIntType;
 using HSAIL_ASM::getBrigTypeNumBits;
 using HSAIL_ASM::getPacking;
@@ -65,27 +66,24 @@ using HSAIL_ASM::packedType2baseType;
 //
 // Take a look at emulator interface defined in HSAILTestGenEmulator.h
 // Each of these interface functions should be extended accordingly.
-// The following notes describe how to implement emulation code.
+// The following notes describe how to implement emulation of a new instruction X.
 //
-// 1. Define a functor with appropriate semantics. ALL FUNCTORS MUST TAKE VALUES OF THE SAME TYPE.
-//    This rule is enforced to minimize the number of functor selectors (they are described below).
-//    If the instruction being emulated has different types of its arguments, some additional code
-//    is required (see discussion of special cases below). The type of returned value MUST match
-//    the type of result expected by instruction.
+// 1. Define an emulator function template with semantics appropriate for X. ALL EMULATOR FUNCTIONS 
+//    MUST TAKE VALUES OF THE SAME TYPE. This rule is enforced to minimize the number of function 
+//    selectors (they are described below). If the instruction being emulated has different types 
+//    of its arguments, some additional code is required (see discussion of special cases below). 
+//    The type of returned value MUST match the type of result expected by instruction.
 //
 //    An example:
 //
 //          struct op_add {
-//              template<typename T> T operator()(T val1, T val2) { return val1 + val2; }
+//              template<typename T> T ix(T val1, T val2) { return val1 + val2; }
 //          };
 //
-// 2. Choose an appropriate functor selector. Functor selectors convert abstract source values
-//    to specific type and invoke corresponding instantiation of functor. There are many kinds
+// 2. Choose an appropriate function selector. Function selectors convert abstract source values
+//    to specific type and invoke corresponding instantiation of function template. There are many kinds
 //    of selectors which differ in number of arguments and types.
 //    For example:
-//
-//          emulateUnrOpF       - for f 32/64 unary instructions
-//          emulateBinOpF       - for f 32/64 binary instructions
 //
 //          emulateUnrOpB       - for b 1/32/64 unary instructions
 //          emulateBinOpB       - for b 1/32/64 binary instructions
@@ -98,8 +96,8 @@ using HSAIL_ASM::packedType2baseType;
 //    For example, emulateBinOpBSUF is a suitable selector for instruction "add", though this
 //    instruction does not work with 'b' types.
 //
-// 3. Invoke functor selector passing it the type of source values together with source values
-//    and the functor. For example:
+// 3. Invoke function selector passing it the type of source values together with source values
+//    and the function. For example:
 //
 //          static Val emulate_add(unsigned opcode, unsigned type, Val arg1, Val arg2)
 //          {
@@ -110,24 +108,24 @@ using HSAIL_ASM::packedType2baseType;
 //
 // SPECIAL CASES
 //
-// 1. Functors must take care of special values such as NaN if these values are not handled
-//    by the runtime. For example:
+// 1. Emulator function templates must take care of special values such as NaN if these values are 
+//    not handled by the runtime. For example:
 //
 //          struct op_max {
 //              template<typename T>
-//              T operator()(T val1, T val2) {
+//              T fx(T val1, T val2) {
 //                  return Val(val1).isNan()? val1 : Val(val2).isNan()? val2 : std::max(val1, val2);
 //              }
 //          };
 //
 // 2. Some instructions have unspecified behaviour for special values.
 //    For example, ncos(x) has unspecified precision for values out of the range
-//    [NSIN_NCOS_ARG_MIN, NSIN_NCOS_ARG_MAX]. In this case functor should have return
-//    type Val and return undefValue. An example:
+//    [NSIN_NCOS_ARG_MIN, NSIN_NCOS_ARG_MAX]. In this case emulation function 
+//    should have return type Val and return undefValue. An example:
 //
 //          struct op_cos {
 //              template<typename T>
-//              Val operator()(T val) {
+//              Val fx(T val) {
 //                  return Val(val).isNan()?
 //                              Val(val) :
 //                              (val < NSIN_NCOS_ARG_MIN || NSIN_NCOS_ARG_MAX < val)? undefValue() : Val(cos(val));
@@ -139,10 +137,10 @@ using HSAIL_ASM::packedType2baseType;
 //
 //      a) Convert all arguments to some generic type before passing values to selector.
 //
-//      b) Implement emulation of this instruction w/o functors and selectors.
+//      b) Implement emulation of this instruction w/o emulation function templates and selectors.
 //         Appropriate for very irregular instructions.
 //
-//      c) Define a non-standard functor selector. Appropriate for very irregular instructions.
+//      c) Define a non-standard function template selector. Appropriate for very irregular instructions.
 //
 //=================================================================================================
 
@@ -151,305 +149,25 @@ namespace TESTGEN {
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Properties of integer types
 
-template<typename T>
-struct NumProps
-{
-    static unsigned width()     { return sizeof(T) * 8; }
-    static unsigned shiftMask() { return width() - 1; }
-};
+#define FX_RND_UNR(impl) template<typename T> Val fx(T val,                  unsigned rounding) { return Val(emulate_##impl(val,              rounding)); }
+#define FX_RND_BIN(impl) template<typename T> Val fx(T val1, T val2,         unsigned rounding) { return Val(emulate_##impl(val1, val2,       rounding)); }
+#define FX_RND_TRN(impl) template<typename T> Val fx(T val1, T val2, T val3, unsigned rounding) { return Val(emulate_##impl(val1, val2, val3, rounding)); }
 
-template<typename T> static bool isSigned(T val)   { return ((T)-1 < (T)0); }
+#define FX_UNR(impl)     template<typename T> Val fx(T val,                  unsigned rounding) { return Val(emulate_##impl(val             )); }
+#define FX_BIN(impl)     template<typename T> Val fx(T val1, T val2,         unsigned rounding) { return Val(emulate_##impl(val1, val2      )); }
+#define FX_TRN(impl)     template<typename T> Val fx(T val1, T val2, T val3, unsigned rounding) { return Val(emulate_##impl(val1, val2, val3)); }
 
-// Compute number of bits required to represent 'range' values
-u32_t range2width(unsigned range) // log2
-{
-    switch(range)
-    {
-    case 2:     return 1;
-    case 4:     return 2;
-    case 8:     return 3;
-    case 16:    return 4;
-    case 32:    return 5;
-    case 64:    return 6;
-    default:
-        assert(false);
-        return 0;
-    }
-}
+#define FX_CHK_UNR(impl) template<typename T> Val fx(T val,                  unsigned rounding) { bool ok; T res = emulate_##impl(val, ok); return ok? Val(res) : undefValue(); }
 
-u64_t getSignMask(unsigned width)  { return 1ULL << (width - 1); }
-u64_t getWidthMask(unsigned width) { return ((width == 64)? 0 : (1ULL << width)) - 1ULL; }
-u64_t getRangeMask(unsigned range) { return getWidthMask(range2width(range)); }
+#define IX_UNR           template<typename T> T   ix(T val)
+#define IX_BIN           template<typename T> T   ix(T val1, T val2)
+#define IX_TNR           template<typename T> T   ix(T val1, T val2, T val3)
 
-//=============================================================================
-//=============================================================================
-//=============================================================================
-// Min and max values for integer types (used for saturating rounding)
+#define IX_BIN_VAL       template<typename T> Val ix(T val1, T val2)
+#define IX_BIN_INT       template<typename T> int ix(T val1, T val2)
 
-static const s64_t S8IB  = 0x7f;
-static const s64_t S16IB = 0x7fff;
-static const s64_t S32IB = 0x7fffffff;
-static const s64_t S64IB = 0x7fffffffffffffffLL;
-static const u64_t U8IB  = 0xff;
-static const u64_t U16IB = 0xffff;
-static const u64_t U32IB = 0xffffffff;
-static const u64_t U64IB = 0xffffffffffffffffLL;
-
-static u64_t getIntBoundary(unsigned type, bool low)
-{
-    switch (type)
-    {
-    case BRIG_TYPE_S8:  return low? -S8IB  - 1 : S8IB;
-    case BRIG_TYPE_S16: return low? -S16IB - 1 : S16IB;
-    case BRIG_TYPE_S32: return low? -S32IB - 1 : S32IB;
-    case BRIG_TYPE_S64: return low? -S64IB - 1 : S64IB;
-    case BRIG_TYPE_U8:  return low? 0          : U8IB;
-    case BRIG_TYPE_U16: return low? 0          : U16IB;
-    case BRIG_TYPE_U32: return low? 0          : U32IB;
-    case BRIG_TYPE_U64: return low? 0          : U64IB;
-
-    default:
-        assert(false);
-        return 0;
-    }
-}
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
-//
-
-static const u32_t MAX_U32_F32H = 0x4f7fffff; // max float value (4294967040.0f) which does not exceed U32IB = 4294967295
-static const u32_t MAX_U64_F32H = 0x5f7fffff; // max float value (18446742974197923840.0f) which does not exceed U64IB = 18446744073709551615
-
-static const u32_t MAX_S32_F32H = 0x4effffff; // max float value (2147483520.0f) which does not exceed S32IB = 2147483647
-static const u32_t MAX_S64_F32H = 0x5effffff; // max float value (18446742974197923840.0f) which does not exceed S64IB = 9223372036854775807
-
-static const u32_t MIN_S32_F32H = 0xcf000000; // min float value (2147483520.0f) which is greater than or equal to -(S32IB+1) = -2147483648
-static const u32_t MIN_S64_F32H = 0xdf000000; // min float value (18446742974197923840.0f) which is greater than or equal to -(S64IB+1) = -9223372036854775808
-
-static const u64_t MAX_U64_F64H = 0x43efffffffffffff; // max float value which does not exceed U64IB = 18446744073709551615
-static const u64_t MAX_S64_F64H = 0x43dfffffffffffff; // max float value which does not exceed S64IB = 9223372036854775807
-static const u64_t MIN_S64_F64H = 0xc3e0000000000000; // min float value which is greater than or equal to -(S64IB+1) = -9223372036854775808
-
-#define HEX2F32(x) (*reinterpret_cast<const float*>(&x))
-#define HEX2F64(x) (*reinterpret_cast<const double*>(&x))
-
-static const float MIN_S8_F32  = -128.0f;
-static const float MAX_S8_F32  =  127.0f;
-
-static const float MIN_S16_F32 = -32768.0f;
-static const float MAX_S16_F32 =  32767.0f;
-
-static const float MIN_S32_F32 = HEX2F32(MIN_S32_F32H);
-static const float MAX_S32_F32 = HEX2F32(MAX_S32_F32H);
-
-static const float MIN_S64_F32 = HEX2F32(MIN_S64_F32H);
-static const float MAX_S64_F32 = HEX2F32(MAX_S64_F32H);
-
-static const float MAX_U8_F32  = 255.0f;
-static const float MAX_U16_F32 = 65535.0f;
-static const float MAX_U32_F32 = HEX2F32(MAX_U32_F32H);
-static const float MAX_U64_F32 = HEX2F32(MAX_U64_F32H);
-
-static const float MIN_U8_F32  = 0.0f;
-static const float MIN_U16_F32 = 0.0f;
-static const float MIN_U32_F32 = 0.0f;
-static const float MIN_U64_F32 = 0.0f;
-
-static const double MIN_S8_F64  = -128.0;
-static const double MAX_S8_F64  =  127.0;
-
-static const double MIN_S16_F64 = -32768.0;
-static const double MAX_S16_F64 =  32767.0;
-
-static const double MIN_S32_F64 = -2147483648.0;
-static const double MAX_S32_F64 =  2147483647.0;
-
-static const double MIN_S64_F64 = HEX2F64(MIN_S64_F64H);
-static const double MAX_S64_F64 = HEX2F64(MAX_S64_F64H);
-
-static const double MAX_U8_F64  = 255.0;
-static const double MAX_U16_F64 = 65535.0;
-static const double MAX_U32_F64 = 4294967295.0;
-static const double MAX_U64_F64 = HEX2F64(MAX_U64_F64H);
-
-static const double MIN_U8_F64  = 0.0;
-static const double MIN_U16_F64 = 0.0;
-static const double MIN_U32_F64 = 0.0;
-static const double MIN_U64_F64 = 0.0;
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
-//
-
-static float getTypeBoundary_f32(unsigned type, bool isLo)
-{
-    switch (type)
-    {
-    case BRIG_TYPE_S8:   return isLo? MIN_S8_F32  : MAX_S8_F32;
-    case BRIG_TYPE_S16:  return isLo? MIN_S16_F32 : MAX_S16_F32;
-    case BRIG_TYPE_S32:  return isLo? MIN_S32_F32 : MAX_S32_F32;
-    case BRIG_TYPE_S64:  return isLo? MIN_S64_F32 : MAX_S64_F32;
-    case BRIG_TYPE_U8:   return isLo? MIN_U8_F32  : MAX_U8_F32;
-    case BRIG_TYPE_U16:  return isLo? MIN_U16_F32 : MAX_U16_F32;
-    case BRIG_TYPE_U32:  return isLo? MIN_U32_F32 : MAX_U32_F32;
-    case BRIG_TYPE_U64:  return isLo? MIN_U64_F32 : MAX_U64_F32;
-
-    default:
-        assert(false);
-        return false;
-    }
-}
-
-static double getTypeBoundary_f64(unsigned type, bool isLo)
-{
-    switch (type)
-    {
-    case BRIG_TYPE_S8:   return isLo? MIN_S8_F64  : MAX_S8_F64;
-    case BRIG_TYPE_S16:  return isLo? MIN_S16_F64 : MAX_S16_F64;
-    case BRIG_TYPE_S32:  return isLo? MIN_S32_F64 : MAX_S32_F64;
-    case BRIG_TYPE_S64:  return isLo? MIN_S64_F64 : MAX_S64_F64;
-    case BRIG_TYPE_U8:   return isLo? MIN_U8_F64  : MAX_U8_F64;
-    case BRIG_TYPE_U16:  return isLo? MIN_U16_F64 : MAX_U16_F64;
-    case BRIG_TYPE_U32:  return isLo? MIN_U32_F64 : MAX_U32_F64;
-    case BRIG_TYPE_U64:  return isLo? MIN_U64_F64 : MAX_U64_F64;
-
-    default:
-        assert(false);
-        return false;
-    }
-}
-
-template<typename T>
-static T getTypeBoundary(unsigned type, bool isLo)
-{
-    if (sizeof(T) == 4) return (T)getTypeBoundary_f32(type, isLo);
-    if (sizeof(T) == 8) return (T)getTypeBoundary_f64(type, isLo);
-
-    assert(false);
-    return (T)0.0f;
-}
-
-// Return true if integer part of val (i.e. val w/o fractional part)
-// is within boundaries of the specified type.
-// For example, -0,999 is within bounds of u8 [0..255]
-template<typename T>
-static bool checkTypeBoundaries(unsigned type, T val)
-{
-    return ((getTypeBoundary<T>(type, true)     <= val)  || // case a: boundary is too large for mantissa
-            (getTypeBoundary<T>(type, true) - 1 <  val)) && // case b: boundary is less than max mantissa, so take care of fractional part of val
-           ((val <= getTypeBoundary<T>(type, false)    ) ||
-            (val <  getTypeBoundary<T>(type, false) + 1));
-}
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
-
-static const unsigned ROUNDING_TESTS_NUM = 12;
-
-unsigned getRoundingTestsNum(unsigned dstType)
-{
-    return (isSignedType(dstType) || isUnsignedType(dstType))? ROUNDING_TESTS_NUM : 1;
-}
-
-template<typename T>
-const void makeRoundingTestsData(unsigned dstType, AluMod aluMod, T* dst)
-{
-    if (getRoundingTestsNum(dstType) == 1)
-    {
-        dst[0] = (T)0.0f; // dummy test data (cannot return empty list)
-        return;
-    }
-
-    T lo = getTypeBoundary<T>(dstType, true);
-    T hi = getTypeBoundary<T>(dstType, false);
-
-    switch(aluMod.getRounding())
-    {
-    case AluMod::ROUNDING_NEARI:
-    case AluMod::ROUNDING_NEARI_SAT:
-    case AluMod::ROUNDING_SNEARI:
-    case AluMod::ROUNDING_SNEARI_SAT:
-                                        lo += 0.5f;
-                                        hi += 0.5f;
-                                        break;
-
-    case AluMod::ROUNDING_ZEROI:
-    case AluMod::ROUNDING_ZEROI_SAT:
-    case AluMod::ROUNDING_SZEROI:
-    case AluMod::ROUNDING_SZEROI_SAT:
-                                        if (lo > 0) lo += 1.0f;
-                                        if (hi > 0) hi += 1.0f;
-                                        break;
-
-    case AluMod::ROUNDING_DOWNI:
-    case AluMod::ROUNDING_DOWNI_SAT:
-    case AluMod::ROUNDING_SDOWNI:
-    case AluMod::ROUNDING_SDOWNI_SAT:
-                                        lo += 1.0f;
-                                        hi += 1.0f;
-                                        break;
-
-    case AluMod::ROUNDING_UPI:
-    case AluMod::ROUNDING_UPI_SAT:
-    case AluMod::ROUNDING_SUPI:
-    case AluMod::ROUNDING_SUPI_SAT:
-                                        break;
-
-    default:
-        assert(false);
-        break;
-    }
-
-    dst[0] = lo - 1;
-    dst[1] = Val(lo - 1).ulp(1);
-    dst[2] = Val(lo).ulp(-1);
-    dst[3] = lo;
-    dst[4] = Val(lo).ulp(1);
-    dst[5] = lo + 1;
-    dst[6] = hi - 1;
-    dst[7] = Val(hi).ulp(-1);
-    dst[8] = hi;
-    dst[9] = Val(hi).ulp(1);
-    dst[10] = Val(hi + 1).ulp(-1);
-    dst[11] = hi + 1;
-
-}
-
-static float  f_rounding_tests[ROUNDING_TESTS_NUM];
-static double d_rounding_tests[ROUNDING_TESTS_NUM];
-
-const float* getF32RoundingTestsData(unsigned dstType, AluMod aluMod)
-{
-    makeRoundingTestsData(dstType, aluMod, f_rounding_tests);
-    return f_rounding_tests;
-}
-
-const double* getF64RoundingTestsData(unsigned dstType, AluMod aluMod)
-{
-    makeRoundingTestsData(dstType, aluMod, d_rounding_tests);
-    return d_rounding_tests;
-}
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
-
-static const f64_t PI       = 3.1415926535897932384626433832795;
-static const f64_t LN2      = 0.693147180559945309417;        // ln(2)
-
-// Limits of normalized floats.
-// Values between (FLT_MAX_NEG_NORM, 0) and (0,FLT_MIN_POS_NORM) are denormals.
-static const unsigned FLT_MAX_NEG_NORM_BITS_ = 0x80800000;
-static const unsigned FLT_MIN_POS_NORM_BITS_ = 0x00800000;
-#define FLT_MAX_NEG_NORM (*reinterpret_cast<const float*>(&FLT_MAX_NEG_NORM_BITS_))
-#define FLT_MIN_POS_NORM (*reinterpret_cast<const float*>(&FLT_MIN_POS_NORM_BITS_))
-#define IS_FLT_DENORM(x) (FLT_MAX_NEG_NORM < (x) && (x) < FLT_MIN_POS_NORM && (x) != 0.0F)
+#define IU_BIN           template<typename T> T   ix(T val1, unsigned val2)
 
 //=============================================================================
 //=============================================================================
@@ -469,53 +187,56 @@ static Val emptyMemValue() { return Val(); }    // Value returned when instructi
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Functor Selectors for Unary Ops
+// Template Selectors for Unary Ops
 
 template<class T>
-static Val emulateUnrOpUS(unsigned type, Val arg, T op)
+static Val emulateUnrOpUS_Rnd(unsigned type, unsigned rounding, Val arg, T op)
 {
     assert(arg.getType() == type);
 
     switch (type)
     {
-    case BRIG_TYPE_U8:  return op(arg.u8());
-    case BRIG_TYPE_S8:  return op(arg.s8());
-    case BRIG_TYPE_U16: return op(arg.u16());
-    case BRIG_TYPE_S16: return op(arg.s16());
-    case BRIG_TYPE_U32: return op(arg.u32());
-    case BRIG_TYPE_S32: return op(arg.s32());
-    case BRIG_TYPE_U64: return op(arg.u64());
-    case BRIG_TYPE_S64: return op(arg.s64());
+    case BRIG_TYPE_U8:  return op.fx(arg.u8(),  rounding);
+    case BRIG_TYPE_S8:  return op.fx(arg.s8(),  rounding);
+    case BRIG_TYPE_U16: return op.fx(arg.u16(), rounding);
+    case BRIG_TYPE_S16: return op.fx(arg.s16(), rounding);
+    case BRIG_TYPE_U32: return op.fx(arg.u32(), rounding);
+    case BRIG_TYPE_S32: return op.fx(arg.s32(), rounding);
+    case BRIG_TYPE_U64: return op.fx(arg.u64(), rounding);
+    case BRIG_TYPE_S64: return op.fx(arg.s64(), rounding);
 
     default: return emulationFailed();
     }
 }
 
 template<class T>
-static Val emulateUnrOpSF(unsigned type, Val arg, T op)
+static Val emulateUnrOpSF(unsigned type, unsigned rounding, Val arg, T op)
 {
     assert(arg.getType() == type);
 
     switch (type)
     {
-    case BRIG_TYPE_S32: return op(arg.s32());
-    case BRIG_TYPE_S64: return op(arg.s64());
-    case BRIG_TYPE_F32: return op(arg.f32());
-    case BRIG_TYPE_F64: return op(arg.f64());
+    case BRIG_TYPE_S32: return op.ix(arg.s32());
+    case BRIG_TYPE_S64: return op.ix(arg.s64());
+
+    case BRIG_TYPE_F16: return op.fx(arg.f16(), rounding);
+    case BRIG_TYPE_F32: return op.fx(arg.f32(), rounding);
+    case BRIG_TYPE_F64: return op.fx(arg.f64(), rounding);
 
     default: return emulationFailed();
     }
 }
 
 template<class T>
-static Val emulateUnrOpF(unsigned type, Val arg, T op)
+static Val emulateUnrOpF(unsigned type, unsigned rounding, Val arg, T op)
 {
     assert(arg.getType() == type);
 
     switch (type)
     {
-    case BRIG_TYPE_F32: return op(arg.f32());
-    case BRIG_TYPE_F64: return op(arg.f64());
+    case BRIG_TYPE_F16: return op.fx(arg.f16(), rounding);
+    case BRIG_TYPE_F32: return op.fx(arg.f32(), rounding);
+    case BRIG_TYPE_F64: return op.fx(arg.f64(), rounding);
 
     default: return emulationFailed();
     }
@@ -528,9 +249,9 @@ static Val emulateUnrOpB(unsigned type, Val arg, T op)
 
     switch (type)
     {
-    case BRIG_TYPE_B1:  return op(arg.b1());
-    case BRIG_TYPE_B32: return op(arg.b32());
-    case BRIG_TYPE_B64: return op(arg.b64());
+    case BRIG_TYPE_B1:  return op.ix(arg.b1());
+    case BRIG_TYPE_B32: return op.ix(arg.b32());
+    case BRIG_TYPE_B64: return op.ix(arg.b64());
 
     default: return emulationFailed();
     }
@@ -539,43 +260,45 @@ static Val emulateUnrOpB(unsigned type, Val arg, T op)
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Functor Selectors for Binary Ops
+// Template Selectors for Binary Ops
 
 template<class T>
-static Val emulateBinOpBSUF(unsigned type, Val arg1, Val arg2, T op)
+static Val emulateBinOpBSUF(unsigned type, unsigned rounding, Val arg1, Val arg2, T op)
 {
     assert(arg1.getType() == type);
     assert(arg2.getType() == type);
 
     switch (type)
     {
-    case BRIG_TYPE_B1:  return op(arg1.b1(),  arg2.b1());
-    case BRIG_TYPE_B32: return op(arg1.b32(), arg2.b32());
-    case BRIG_TYPE_B64: return op(arg1.b64(), arg2.b64());
+    case BRIG_TYPE_B1:  return op.ix(arg1.b1(),  arg2.b1());
+    case BRIG_TYPE_B32: return op.ix(arg1.b32(), arg2.b32());
+    case BRIG_TYPE_B64: return op.ix(arg1.b64(), arg2.b64());
 
-    case BRIG_TYPE_S32: return op(arg1.s32(), arg2.s32());
-    case BRIG_TYPE_S64: return op(arg1.s64(), arg2.s64());
+    case BRIG_TYPE_S32: return op.ix(arg1.s32(), arg2.s32());
+    case BRIG_TYPE_S64: return op.ix(arg1.s64(), arg2.s64());
 
-    case BRIG_TYPE_U32: return op(arg1.u32(), arg2.u32());
-    case BRIG_TYPE_U64: return op(arg1.u64(), arg2.u64());
+    case BRIG_TYPE_U32: return op.ix(arg1.u32(), arg2.u32());
+    case BRIG_TYPE_U64: return op.ix(arg1.u64(), arg2.u64());
 
-    case BRIG_TYPE_F32: return op(arg1.f32(), arg2.f32());
-    case BRIG_TYPE_F64: return op(arg1.f64(), arg2.f64());
+    case BRIG_TYPE_F16: return op.fx(arg1.f16(), arg2.f16(), rounding);
+    case BRIG_TYPE_F32: return op.fx(arg1.f32(), arg2.f32(), rounding);
+    case BRIG_TYPE_F64: return op.fx(arg1.f64(), arg2.f64(), rounding);
 
     default: return emulationFailed();
     }
 }
 
 template<class T>
-static Val emulateBinOpF(unsigned type, Val arg1, Val arg2, T op)
+static Val emulateBinOpF(unsigned type, unsigned rounding, Val arg1, Val arg2, T op)
 {
     assert(arg1.getType() == type);
     assert(arg2.getType() == type);
 
     switch (type)
     {
-    case BRIG_TYPE_F32: return op(arg1.f32(), arg2.f32());
-    case BRIG_TYPE_F64: return op(arg1.f64(), arg2.f64());
+    case BRIG_TYPE_F16: return op.fx(arg1.f16(), arg2.f16(), rounding);
+    case BRIG_TYPE_F32: return op.fx(arg1.f32(), arg2.f32(), rounding);
+    case BRIG_TYPE_F64: return op.fx(arg1.f64(), arg2.f64(), rounding);
 
     default: return emulationFailed();
     }
@@ -589,9 +312,9 @@ static Val emulateBinOpB(unsigned type, Val arg1, Val arg2, T op)
 
     switch (type)
     {
-    case BRIG_TYPE_B1:  return op(arg1.b1(),  arg2.b1());
-    case BRIG_TYPE_B32: return op(arg1.b32(), arg2.b32());
-    case BRIG_TYPE_B64: return op(arg1.b64(), arg2.b64());
+    case BRIG_TYPE_B1:  return op.ix(arg1.b1(),  arg2.b1());
+    case BRIG_TYPE_B32: return op.ix(arg1.b32(), arg2.b32());
+    case BRIG_TYPE_B64: return op.ix(arg1.b64(), arg2.b64());
 
     default: return emulationFailed();
     }
@@ -605,11 +328,11 @@ static Val emulateBinOpSU(unsigned type, Val arg1, Val arg2, T op)
 
     switch (type)
     {
-    case BRIG_TYPE_S32: return op(arg1.s32(), arg2.s32());
-    case BRIG_TYPE_U32: return op(arg1.u32(), arg2.u32());
+    case BRIG_TYPE_S32: return op.ix(arg1.s32(), arg2.s32());
+    case BRIG_TYPE_U32: return op.ix(arg1.u32(), arg2.u32());
 
-    case BRIG_TYPE_S64: return op(arg1.s64(), arg2.s64());
-    case BRIG_TYPE_U64: return op(arg1.u64(), arg2.u64());
+    case BRIG_TYPE_S64: return op.ix(arg1.s64(), arg2.s64());
+    case BRIG_TYPE_U64: return op.ix(arg1.u64(), arg2.u64());
 
     default: return emulationFailed();
     }
@@ -623,11 +346,11 @@ static Val emulateBinOpSU_U32(unsigned type, Val arg1, Val arg2, T op)
 
     switch (type)
     {
-    case BRIG_TYPE_S32: return op(arg1.s32(), arg2.u32());
-    case BRIG_TYPE_U32: return op(arg1.u32(), arg2.u32());
+    case BRIG_TYPE_S32: return op.ix(arg1.s32(), arg2.u32());
+    case BRIG_TYPE_U32: return op.ix(arg1.u32(), arg2.u32());
 
-    case BRIG_TYPE_S64: return op(arg1.s64(), arg2.u32());
-    case BRIG_TYPE_U64: return op(arg1.u64(), arg2.u32());
+    case BRIG_TYPE_S64: return op.ix(arg1.s64(), arg2.u32());
+    case BRIG_TYPE_U64: return op.ix(arg1.u64(), arg2.u32());
 
     default: return emulationFailed();
     }
@@ -641,17 +364,17 @@ static Val emulateBinOpSat(unsigned elementType, Val arg1, Val arg2, T op)
 
     switch (elementType)
     {
-    case BRIG_TYPE_S8:  return op(elementType, arg1.s8(), arg2.s8());
-    case BRIG_TYPE_U8:  return op(elementType, arg1.u8(), arg2.u8());
+    case BRIG_TYPE_S8:  return op.ix(elementType, arg1.s8(), arg2.s8());
+    case BRIG_TYPE_U8:  return op.ix(elementType, arg1.u8(), arg2.u8());
 
-    case BRIG_TYPE_S16: return op(elementType, arg1.s16(), arg2.s16());
-    case BRIG_TYPE_U16: return op(elementType, arg1.u16(), arg2.u16());
+    case BRIG_TYPE_S16: return op.ix(elementType, arg1.s16(), arg2.s16());
+    case BRIG_TYPE_U16: return op.ix(elementType, arg1.u16(), arg2.u16());
 
-    case BRIG_TYPE_S32: return op(elementType, arg1.s32(), arg2.s32());
-    case BRIG_TYPE_U32: return op(elementType, arg1.u32(), arg2.u32());
+    case BRIG_TYPE_S32: return op.ix(elementType, arg1.s32(), arg2.s32());
+    case BRIG_TYPE_U32: return op.ix(elementType, arg1.u32(), arg2.u32());
 
-    case BRIG_TYPE_S64: return op(elementType, arg1.s64(), arg2.s64());
-    case BRIG_TYPE_U64: return op(elementType, arg1.u64(), arg2.u64());
+    case BRIG_TYPE_S64: return op.ix(elementType, arg1.s64(), arg2.s64());
+    case BRIG_TYPE_U64: return op.ix(elementType, arg1.u64(), arg2.u64());
 
     default: return emulationFailed();
     }
@@ -660,10 +383,10 @@ static Val emulateBinOpSat(unsigned elementType, Val arg1, Val arg2, T op)
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Functor Selectors for Ternary Ops
+// Template Selectors for Ternary Ops
 
 template<class T>
-static Val emulateTrnOpSUF(unsigned type, Val arg1, Val arg2, Val arg3, T op)
+static Val emulateTrnOpF(unsigned type, unsigned rounding, Val arg1, Val arg2, Val arg3, T op)
 {
     assert(arg1.getType() == type);
     assert(arg2.getType() == type);
@@ -671,14 +394,9 @@ static Val emulateTrnOpSUF(unsigned type, Val arg1, Val arg2, Val arg3, T op)
 
     switch (type)
     {
-    case BRIG_TYPE_S32: return op(arg1.s32(), arg2.s32(), arg3.s32());
-    case BRIG_TYPE_S64: return op(arg1.s64(), arg2.s64(), arg3.s64());
-
-    case BRIG_TYPE_U32: return op(arg1.u32(), arg2.u32(), arg3.u32());
-    case BRIG_TYPE_U64: return op(arg1.u64(), arg2.u64(), arg3.u64());
-
-    case BRIG_TYPE_F32: return op(arg1.f32(), arg2.f32(), arg3.f32());
-    case BRIG_TYPE_F64: return op(arg1.f64(), arg2.f64(), arg3.f64());
+    case BRIG_TYPE_F16: return op.fx(arg1.f16(), arg2.f16(), arg3.f16(), rounding);
+    case BRIG_TYPE_F32: return op.fx(arg1.f32(), arg2.f32(), arg3.f32(), rounding);
+    case BRIG_TYPE_F64: return op.fx(arg1.f64(), arg2.f64(), arg3.f64(), rounding);
 
     default: return emulationFailed();
     }
@@ -693,11 +411,11 @@ static Val emulateTrnOpSU(unsigned type, Val arg1, Val arg2, Val arg3, T op)
 
     switch (type)
     {
-    case BRIG_TYPE_S32: return op(arg1.s32(), arg2.s32(), arg3.s32());
-    case BRIG_TYPE_S64: return op(arg1.s64(), arg2.s64(), arg3.s64());
+    case BRIG_TYPE_S32: return op.ix(arg1.s32(), arg2.s32(), arg3.s32());
+    case BRIG_TYPE_S64: return op.ix(arg1.s64(), arg2.s64(), arg3.s64());
 
-    case BRIG_TYPE_U32: return op(arg1.u32(), arg2.u32(), arg3.u32());
-    case BRIG_TYPE_U64: return op(arg1.u64(), arg2.u64(), arg3.u64());
+    case BRIG_TYPE_U32: return op.ix(arg1.u32(), arg2.u32(), arg3.u32());
+    case BRIG_TYPE_U64: return op.ix(arg1.u64(), arg2.u64(), arg3.u64());
 
     default: return emulationFailed();
     }
@@ -712,9 +430,9 @@ static Val emulateTrnOpB(unsigned type, Val arg1, Val arg2, Val arg3, T op)
 
     switch (type)
     {
-    case BRIG_TYPE_B1:  return op(arg1.b1(),  arg2.b1(),  arg3.b1());
-    case BRIG_TYPE_B32: return op(arg1.b32(), arg2.b32(), arg3.b32());
-    case BRIG_TYPE_B64: return op(arg1.b64(), arg2.b64(), arg3.b64());
+    case BRIG_TYPE_B1:  return op.ix(arg1.b1(),  arg2.b1(),  arg3.b1());
+    case BRIG_TYPE_B32: return op.ix(arg1.b32(), arg2.b32(), arg3.b32());
+    case BRIG_TYPE_B64: return op.ix(arg1.b64(), arg2.b64(), arg3.b64());
 
     default: return emulationFailed();
     }
@@ -729,11 +447,11 @@ static Val emulateTrnOpSU_U32_U32(unsigned type, Val arg1, Val arg2, Val arg3, T
 
     switch (type)
     {
-    case BRIG_TYPE_S32: return op(arg1.s32(), arg2.u32(), arg3.u32());
-    case BRIG_TYPE_S64: return op(arg1.s64(), arg2.u32(), arg3.u32());
+    case BRIG_TYPE_S32: return op.ix(arg1.s32(), arg2.u32(), arg3.u32());
+    case BRIG_TYPE_S64: return op.ix(arg1.s64(), arg2.u32(), arg3.u32());
 
-    case BRIG_TYPE_U32: return op(arg1.u32(), arg2.u32(), arg3.u32());
-    case BRIG_TYPE_U64: return op(arg1.u64(), arg2.u32(), arg3.u32());
+    case BRIG_TYPE_U32: return op.ix(arg1.u32(), arg2.u32(), arg3.u32());
+    case BRIG_TYPE_U64: return op.ix(arg1.u64(), arg2.u32(), arg3.u32());
 
     default: return emulationFailed();
     }
@@ -742,7 +460,7 @@ static Val emulateTrnOpSU_U32_U32(unsigned type, Val arg1, Val arg2, Val arg3, T
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Functor Selectors for Quaternary Ops
+// Template Selectors for Quaternary Ops
 
 template<class T>
 static Val emulateQrnOpSU_U32_U32(unsigned type, Val arg1, Val arg2, Val arg3, Val arg4, T op)
@@ -754,11 +472,11 @@ static Val emulateQrnOpSU_U32_U32(unsigned type, Val arg1, Val arg2, Val arg3, V
 
     switch (type)
     {
-    case BRIG_TYPE_S32: return op(arg1.s32(), arg2.s32(), arg3.u32(), arg4.u32());
-    case BRIG_TYPE_S64: return op(arg1.s64(), arg2.s64(), arg3.u32(), arg4.u32());
+    case BRIG_TYPE_S32: return op.ix(arg1.s32(), arg2.s32(), arg3.u32(), arg4.u32());
+    case BRIG_TYPE_S64: return op.ix(arg1.s64(), arg2.s64(), arg3.u32(), arg4.u32());
 
-    case BRIG_TYPE_U32: return op(arg1.u32(), arg2.u32(), arg3.u32(), arg4.u32());
-    case BRIG_TYPE_U64: return op(arg1.u64(), arg2.u64(), arg3.u32(), arg4.u32());
+    case BRIG_TYPE_U32: return op.ix(arg1.u32(), arg2.u32(), arg3.u32(), arg4.u32());
+    case BRIG_TYPE_U64: return op.ix(arg1.u64(), arg2.u64(), arg3.u32(), arg4.u32());
 
     default: return emulationFailed();
     }
@@ -767,175 +485,78 @@ static Val emulateQrnOpSU_U32_U32(unsigned type, Val arg1, Val arg2, Val arg3, V
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Functors Emulating HSAIL Instructions
+// Emulation of Simple HSAIL Instructions
 
-template<typename T> T undef_div_rem(T val1, T val2) // Identify special cases for integer div/rem
+template<typename T> bool undef_div_rem(T val1, T val2) // Identify special cases for integer div/rem
 {
-    if (!Val(val1).isInt()) return false;
+    assert(Val(val1).isInt());
     if (val2 == (T)0) return true;
     return Val(val1).isSignedInt() && val1 == numeric_limits<T>::min() && val2 == (T)-1;
 }
 
-struct op_abs    { template<typename T> T operator()(T val)                  { return std::abs(val); }};
-struct op_neg    { template<typename T> T operator()(T val)                  { return -val; }};
+struct op_abs    { FX_UNR(abs)          IX_UNR      { return std::abs(val); }};
+struct op_neg    { FX_UNR(neg)          IX_UNR      { return -val; }};
 
-struct op_not    { template<typename T> T operator()(T val)                  { return static_cast<T>(val ^ 0xffffffffffffffffULL); }};
+struct op_not    {                      IX_UNR      { return static_cast<T>(val ^ 0xffffffffffffffffULL); }};
 
-struct op_add    { template<typename T> T   operator()(T val1, T val2)       { return val1 + val2; }};
-struct op_sub    { template<typename T> T   operator()(T val1, T val2)       { return val1 - val2; }};
-struct op_mul    { template<typename T> T   operator()(T val1, T val2)       { return val1 * val2; }};
-struct op_div    { template<typename T> Val operator()(T val1, T val2)       { return undef_div_rem(val1, val2)? undefValue() : Val(val1 / val2); }};
-struct op_rem    { template<typename T> Val operator()(T val1, T val2)       { return undef_div_rem(val1, val2)? ((val2 == (T)0)? undefValue() : Val((T)0)) : Val(val1 % val2); }};
-struct op_max    { template<typename T> T   operator()(T val1, T val2)       { return Val(val1).isNan()? val2 : Val(val2).isNan()? val1 : std::max(val1, val2); }};
-struct op_min    { template<typename T> T   operator()(T val1, T val2)       { return Val(val1).isNan()? val2 : Val(val2).isNan()? val1 : std::min(val1, val2); }};
-struct op_arg1   { template<typename T> T   operator()(T val1, T val2)       { return val1; }};
-struct op_arg2   { template<typename T> T   operator()(T val1, T val2)       { return val2; }};
+struct op_add    { FX_RND_BIN(add)      IX_BIN      { return val1 + val2; }};
+struct op_sub    { FX_RND_BIN(sub)      IX_BIN      { return val1 - val2; }};
+struct op_mul    { FX_RND_BIN(mul)      IX_BIN      { return val1 * val2; }};
+struct op_div    { FX_RND_BIN(div)      IX_BIN_VAL  { return undef_div_rem(val1, val2)? undefValue() : Val(val1 / val2); }};
+struct op_rem    {                      IX_BIN_VAL  { return undef_div_rem(val1, val2)? ((val2 == (T)0)? undefValue() : Val((T)0)) : Val(val1 % val2); }};
+struct op_max    { FX_BIN(max)          IX_BIN      { return std::max(val1, val2); }};
+struct op_min    { FX_BIN(min)          IX_BIN      { return std::min(val1, val2); }};
+struct op_arg1   {                      IX_BIN      { return val1; }};
+struct op_arg2   {                      IX_BIN      { return val2; }};
 
-struct op_and    { template<typename T> T operator()(T val1, T val2)         { return val1 & val2; }};
-struct op_or     { template<typename T> T operator()(T val1, T val2)         { return val1 | val2; }};
-struct op_xor    { template<typename T> T operator()(T val1, T val2)         { return val1 ^ val2; }};
+struct op_and    {                      IX_BIN      { return val1 & val2; }};
+struct op_or     {                      IX_BIN      { return val1 | val2; }};
+struct op_xor    {                      IX_BIN      { return val1 ^ val2; }};
 
-struct op_inc    { template<typename T> T operator()(T mem, T max)           { return (mem >= max)? 0 : mem + 1; }};
-struct op_dec    { template<typename T> T operator()(T mem, T max)           { return (mem == 0 || mem > max)? max : mem - 1; }};
+struct op_inc    {                      IX_BIN      { return (val1 >= val2)? 0 : val1 + 1; }};
+struct op_dec    {                      IX_BIN      { return (val1 == 0 || val1 > val2)? val2 : val1 - 1; }};
 
-struct op_cas    { template<typename T> T operator()(T mem, T val1, T val2)  { return (mem == val1)? val2 : mem; }};
+struct op_cas    {                      IX_TNR      { return (val1 == val2)? val3 : val1; }};
 
-struct op_cmov   { template<typename T> T operator()(T val1, T val2, T val3) { return val1? val2 : val3; }};
+struct op_cmov   {                      IX_TNR      { return val1? val2 : val3; }};
 
-struct op_cmp    { template<typename T> int operator()(T val1, T val2)       { return val1 < val2 ? -1 : val1 > val2 ? 1 : 0; }}; // NB: NaNs are handled separately
+struct op_cmp    { FX_BIN(cmp)          IX_BIN_INT  { return val1 < val2 ? -1 : val1 > val2 ? 1 : 0; }};
 
-struct op_copysign { template<typename T> T operator()(T val1, T val2)       { return Val(val1).copySign(Val(val2)); }};
+struct op_carry  {                      IX_BIN      { assert(!isSigned(val1)); T res = val1 + val2; return res < val1; }};
+struct op_borrow {                      IX_BIN      { assert(!isSigned(val1)); return val1 < val2; }};
 
-struct op_carry  { template<typename T> T operator()(T val1, T val2)         { assert(!isSigned(val1)); T res = val1 + val2; return res < val1; }};
-struct op_borrow { template<typename T> T operator()(T val1, T val2)         { assert(!isSigned(val1)); return val1 < val2; }};
+struct op_shl    {                      IU_BIN      { return val1 << (val2 & NumProps<T>::shiftMask()); }};
+struct op_shr    {                      IU_BIN      { return val1 >> (val2 & NumProps<T>::shiftMask()); }};
+                                                     
+struct op_mad    {                      IX_TNR      { return val1 * val2 + val3; }};
 
-struct op_shl    { template<typename T> T operator()(T val, unsigned shift){ return val << (shift & NumProps<T>::shiftMask()); }};
-struct op_shr    { template<typename T> T operator()(T val, unsigned shift){ return val >> (shift & NumProps<T>::shiftMask()); }};
+struct op_cpsgn  { FX_BIN(cpsgn)      };
 
-struct op_mad    { template<typename T> T operator()(T val1, T val2, T val3) { return val1 * val2 + val3; }};
+struct op_fract  { FX_UNR(fract)      }; 
+struct op_ceil   { FX_UNR(ceil)       }; 
+struct op_floor  { FX_UNR(floor)      }; 
+struct op_trunc  { FX_UNR(trunc)      }; 
+struct op_rint   { FX_UNR(rint)       }; 
 
-struct op_sqrt   { template<typename T> T   operator()(T val)                { return sqrt(val); }};
-struct op_log2   { template<typename T> T   operator()(T val)                { return log(val) / static_cast<T>(LN2); }};
-struct op_exp2   { template<typename T> T   operator()(T val)                { return exp(val * static_cast<T>(LN2)); }};
-struct op_rsqrt  { template<typename T> T   operator()(T val)                { return static_cast<T>(1.0) / sqrt(val); }};
-struct op_rcp    { template<typename T> T   operator()(T val)                { return static_cast<T>(1.0) / val; }};
+struct op_sqrt   { FX_RND_UNR(sqrt)   }; 
+struct op_nsqrt  { FX_UNR(nsqrt)      }; 
+struct op_nlog2  { FX_UNR(nlog2)      }; 
+struct op_nexp2  { FX_UNR(nexp2)      }; 
+struct op_nrsqrt { FX_UNR(nrsqrt)     }; 
+struct op_nrcp   { FX_UNR(nrcp)       }; 
+struct op_nsin   { FX_CHK_UNR(nsin)   }; 
+struct op_ncos   { FX_CHK_UNR(ncos)   }; 
 
-struct op_i2f32  { template<typename T> f32_t operator()(T val)              { return 0.0f + val; }};
-struct op_i2f64  { template<typename T> f64_t operator()(T val)              { return 0.0  + val; }};
+struct op_fma    { FX_RND_TRN(fma)    };
+struct op_nfma   { FX_TRN(nfma)       };
 
-//=============================================================================
-//=============================================================================
-//=============================================================================
-// Functors Emulating Native Sin and Cos
+struct op_i2f16  { FX_RND_UNR(i2f16)  };
+struct op_i2f32  { FX_RND_UNR(i2f32)  };
+struct op_i2f64  { FX_RND_UNR(i2f64)  };
 
-/// HSAIL spec set no requirements for nsin/ncos WRT range of arguments and precision.
-/// Actual traits of nsin/ncos depend on HSA JIT implementation.
-/// The following values describe existing implementation and set boundaries for testing:
-static const unsigned NSIN_NCOS_RESULT_PRECISION_ULPS = 8192 + 1;
-
-/// Precision is guaranteed only for inputs within:
-static const f64_t NSIN_NCOS_ARG_MAX =  PI;
-static const f64_t NSIN_NCOS_ARG_MIN = -PI;
-
-/// Precision is unspecified when argument or result is very close to the zero.
-/// \note HSA JIT implementation details: These values ensure that denorms would
-/// not appear at V_SIN/COS_F32 inputs and outputs.
-
-#define IS_NSIN_NCOS_ARG_TOO_CLOSE_TO_ZERO(x) \
-  ((FLT_MAX_NEG_NORM*2*(float)PI) < (x) && (x) < (FLT_MIN_POS_NORM*2*(float)PI) && (x) != 0.0F)
-
-#define IS_NSIN_NCOS_RESULT_TOO_CLOSE_TO_ZERO(x) \
-  (IS_FLT_DENORM(x))
-
-class op_cos
-{
-    /// [atamazov 24 Mar 2014] C/C++ cos(~(N+0.5)*PI) is too rough. For example,
-    /// HSAIL ncos(0.5*PI) returns 0, while C/C++ cos() returns something like 8e-08.
-    /// The deviation is hundreds thousands ULPs which is obviously too much.
-    /// The same problem occus with nsin(~N*PI). cos_precise_near_zero() and
-    /// sin_precise_near_zero() are attempts to fix the problem, which seem
-    /// acceptable for now.
-    float cos_precise_near_zero(const float x)
-    {
-        const float pi      = (float)PI;
-        const float half_pi = (float)(0.5*PI);
-
-        // find integer N for which N*PI < x <= (N+1)*PI
-
-        const float x_offset = (x >=0) ? 0 : -pi;
-        const int n = (int)((x + x_offset) / pi);
-
-        // find error of regular cos() in the middle, at (N+0.5)*PI
-
-        const float middle = n*pi + half_pi;
-        const float errN = 0 - cos(middle);
-
-        // linear error correction in the [N*PI, (N+1)*PI] range.
-        // compensation should be 0.0 at the ends and errN in the middle.
-
-        const float distance_from_the_middle = (x >= middle) ? (x - middle) : (middle - x);
-        const float compensation = errN * (1 - distance_from_the_middle / (half_pi));
-
-        return cos(x) + compensation;
-    }
-
-public:
-    template<typename T> Val operator()(T x)
-    {
-        const float val = (float)x;
-
-        if (Val(val).isNan()) return Val(val);
-        if (val < NSIN_NCOS_ARG_MIN || NSIN_NCOS_ARG_MAX < val) return undefValue();
-        if (IS_NSIN_NCOS_ARG_TOO_CLOSE_TO_ZERO(val)) return undefValue();
-
-        const float cosine = cos_precise_near_zero(val);
-        if (IS_NSIN_NCOS_RESULT_TOO_CLOSE_TO_ZERO(cosine)) return undefValue();
-
-        return Val(cosine);
-    }
-};
-
-class op_sin
-{
-    float sin_precise_near_zero(const float x)
-    {
-        const float pi      = (float)PI;
-        const float half_pi = (float)(0.5*PI);
-
-        // find integer N for which (N-0.5)*PI < x <= (N+0.5)*PI
-
-        const float x_offset = (x >=0) ? half_pi : -half_pi;
-        const int n = (int)((x + x_offset) / pi); // rounded to nearest, e.g. (int)1.2*PI/PI == 1
-
-        // find error of regular sin() in the middle, at N*PI
-
-        const float middle = n*pi;
-        const float errN = 0 - sin(middle);
-
-        // linear error correction in the [(N-0.5)*PI, (N+0.5)*PI] range.
-        // compensation should be 0.0 at the ends and errN in the middle.
-
-        const float distance_from_the_middle = (x >= middle) ? (x - middle) : (middle - x);
-        const float compensation = errN * (1 - distance_from_the_middle / (half_pi));
-
-        return sin(x) + compensation;
-    }
-
-public:
-    template<typename T> Val operator()(T x)
-    {
-        const float val = (float)x;
-
-        if (Val(val).isNan()) return Val(val);
-        if (val < NSIN_NCOS_ARG_MIN || NSIN_NCOS_ARG_MAX < val) return undefValue();
-        if (IS_NSIN_NCOS_ARG_TOO_CLOSE_TO_ZERO(val)) return undefValue();
-
-        const float sine = (float)sin_precise_near_zero(val);
-        if (IS_NSIN_NCOS_RESULT_TOO_CLOSE_TO_ZERO(sine)) return undefValue();
-
-        return Val(sine);
-    }
-};
+struct op_f2f16  { FX_RND_UNR(f2f16)  };
+struct op_f2f32  { FX_RND_UNR(f2f32)  };
+struct op_f2f64  { FX_RND_UNR(f2f64)  };
 
 //=============================================================================
 //=============================================================================
@@ -945,7 +566,7 @@ public:
 struct op_add_sat
 {
     template<typename T>
-    T operator()(unsigned type, T val1, T val2)
+    T ix(unsigned type, T val1, T val2)
     {
         assert(getBrigTypeNumBits(type) == sizeof(T) * 8);
 
@@ -966,7 +587,7 @@ struct op_add_sat
 struct op_sub_sat
 {
     template<typename T>
-    T operator()(unsigned type, T val1, T val2)
+    T ix(unsigned type, T val1, T val2)
     {
         assert(getBrigTypeNumBits(type) == sizeof(T) * 8);
 
@@ -987,7 +608,7 @@ struct op_sub_sat
 struct op_mul_sat
 {
     template<typename T>
-    T operator()(unsigned type, T val1, T val2)
+    T ix(unsigned type, T val1, T val2)
     {
         assert(getBrigTypeNumBits(type) == sizeof(T) * 8);
 
@@ -1024,7 +645,7 @@ template<typename DT>
 struct op_bitmask
 {
     template<typename T>
-    Val operator()(T val1, T val2)
+    Val ix(T val1, T val2)
     {
         u64_t offset = val1 & NumProps<DT>::shiftMask();
         u64_t width  = val2 & NumProps<DT>::shiftMask();
@@ -1037,12 +658,12 @@ struct op_bitmask
     }
 };
 
-struct op_bitsel { template<typename T> T operator()(T val1, T val2, T val3) { return (val2 & val1) | (val3 & (~val1)); }};
+struct op_bitsel { template<typename T> T ix(T val1, T val2, T val3) { return (val2 & val1) | (val3 & (~val1)); } };
 
 struct op_bitextract
 {
     template<typename T>
-    Val operator()(T val1, unsigned val2, unsigned val3)
+    Val ix(T val1, unsigned val2, unsigned val3)
     {
         u64_t offset    = val2 & NumProps<T>::shiftMask();
         u64_t width     = val3 & NumProps<T>::shiftMask();
@@ -1058,7 +679,7 @@ struct op_bitextract
 struct op_bitinsert
 {
     template<typename T>
-    Val operator()(T val1, T val2, unsigned val3, unsigned val4)
+    Val ix(T val1, T val2, unsigned val3, unsigned val4)
     {
         u64_t offset    = val3 & NumProps<T>::shiftMask();
         u64_t width     = val4 & NumProps<T>::shiftMask();
@@ -1074,7 +695,7 @@ struct op_bitinsert
 struct op_bitrev
 {
     template<typename T>
-    T operator()(T val)
+    T ix(T val)
     {
         T res = 0;
         for (unsigned i = 0; i < sizeof(T) * 8; i++, val = val >> 1) res = (res << 1) | (val & 0x1);
@@ -1090,7 +711,7 @@ struct op_bitalign
     op_bitalign(unsigned mask, unsigned width = 1) : shift_mask(mask), element_width(width) {}
 
     template<typename T>
-    T operator()(T val0, T val1, T val2)
+    T ix(T val0, T val1, T val2)
     {
         assert(sizeof(T) == 4);
 
@@ -1121,7 +742,7 @@ struct op_mad24
     op_mad24(unsigned shift) : res_shift(shift) {}
 
     template<typename T>
-    Val operator()(T val1, T val2, T val3)
+    Val ix(T val1, T val2, T val3)
     {
         assert(sizeof(T) == 4);
 
@@ -1193,7 +814,7 @@ static void neg64(uint64_t *val)
 struct op_mulhi
 {
     template<typename T>
-    T operator()(T val1, T val2)
+    T ix(T val1, T val2)
     {
         uint64_t res;
         bool sgn = isSigned(val1);
@@ -1219,106 +840,6 @@ struct op_mulhi
         }
 
         return *(const T*)&res;
-    }
-};
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
-
-
-//F must return POS_ZERO when src is POS_INF
-//F must return NEG_ZERO when src is NEG_INF
-struct op_fract
-{
-    template<typename T>
-    Val operator()(T val)
-    {
-        if (Val(val).isNan()) return Val(val); // preserve NaN payload
-
-        // Handling of infinity is not specified by HSAIL but required by OpenCL 2.0.
-        // See bug 10282
-        if (Val(val).isPositiveInf()) return Val(val).getPositiveZero();
-        if (Val(val).isNegativeInf()) return Val(val).getNegativeZero();
-
-        T unused;
-        T res = std::modf(val, &unused);
-        T one = 1; // NB: avoid casting to double
-
-        if (val > 0)       return Val(res);
-        if (res == (T)0)   return Val((T)0); // NB: res may be -0!
-
-        T x = one + res;
-        if (x < one) return Val(x);
-
-        // Fractional part is so small that (1 + res) have to be rounded to 1.
-        // Return the largest representable number which is less than 1.0
-        if (sizeof(T) == 4) return Val(BRIG_TYPE_F32, 0x3F7FFFFFULL);
-        if (sizeof(T) == 8) return Val(BRIG_TYPE_F64, 0x3FEFFFFFFFFFFFFFULL);
-
-        assert(false);
-        return emulationFailed();
-    }
-};
-
-struct op_ceil
-{
-    template<typename T>
-    Val operator()(T val)
-    {
-        if (Val(val).isNan() || Val(val).isInf()) return Val(val);
-
-        T res;
-        T fract = std::modf(val, &res);
-
-        if (fract != 0 && val >= 0) return Val(res + 1);
-        return Val(res);
-    }
-};
-
-struct op_floor
-{
-    template<typename T>
-    Val operator()(T val)
-    {
-        if (Val(val).isNan() || Val(val).isInf()) return Val(val);
-
-        T res;
-        T fract = std::modf(val, &res);
-
-        if (fract != 0 && val < 0) return Val(res - 1);
-        return Val(res);
-    }
-};
-
-struct op_trunc
-{
-    template<typename T>
-    Val operator()(T val)
-    {
-        if (Val(val).isNan() || Val(val).isInf()) return Val(val);
-
-        T res;
-        std::modf(val, &res);
-        return Val(res);
-    }
-};
-
-struct op_rint
-{
-    template<typename T>
-    Val operator()(T val)
-    {
-        if (Val(val).isNan() || Val(val).isInf()) return Val(val);
-
-        T res;
-        T fract = std::abs(std::modf(val, &res));
-        bool isEven = (static_cast<uint64_t>(res) & 1) == 0;
-
-        if (fract < 0.5 || (fract == 0.5 && isEven)) fract = 0;
-        else fract = static_cast<T>((val < 0)? -1 : 1);
-
-        return Val(res + fract);
     }
 };
 
@@ -1496,10 +1017,8 @@ static Val emulateCmp(unsigned type, unsigned stype, AluMod aluMod, unsigned op,
     assert(arg1.getType() == stype);
     assert(arg2.getType() == stype);
 
-    if (type == BRIG_TYPE_F16) return unimplemented();
-
     bool isNan = arg1.isNan() || arg2.isNan();
-    int cmp = emulateBinOpBSUF(stype, arg1, arg2, op_cmp());
+    int cmp = emulateBinOpBSUF(stype, AluMod::ROUNDING_NONE, arg1, arg2, op_cmp());
 
     bool res;
     bool signaling = false;
@@ -1564,6 +1083,7 @@ static Val emulateCmp(unsigned type, unsigned stype, AluMod aluMod, unsigned op,
     case BRIG_TYPE_U32:
     case BRIG_TYPE_U64: return Val(type, res? -1 : 0);
 
+    case BRIG_TYPE_F16: return Val(res? f16_t(1.0) : f16_t(0.0));
     case BRIG_TYPE_F32: return Val(res? 1.0f : 0.0f);
     case BRIG_TYPE_F64: return Val(res? 1.0  : 0.0 );
 
@@ -1577,145 +1097,100 @@ static Val emulateCmp(unsigned type, unsigned stype, AluMod aluMod, unsigned op,
 //=============================================================================
 // Emulation of cvt Instruction
 
-// Compute delta d for rounding of val so that (val+d)
-// will be rounded to proper value when converted to integer
-static int f2i_round(Val val, unsigned rounding)
-{
-    assert(val.isFloat());
-    assert(!val.isNan());
-
-    int round = 0;
-
-    switch (rounding)
-    {
-    case AluMod::ROUNDING_NEARI:
-    case AluMod::ROUNDING_NEARI_SAT:
-    case AluMod::ROUNDING_SNEARI:
-    case AluMod::ROUNDING_SNEARI_SAT:
-        if (val.getNormalizedFract() > Val(0.5f).getNormalizedFract())          // Rounds to the nearest representable value
-        {
-            round = val.isNegative() ? -1 : 1;
-        }
-        else if (val.getNormalizedFract()  == Val(0.5f).getNormalizedFract() &&  // If there is a tie, round to an even least significant digit
-                 val.getNormalizedFract(-1) > Val(0.5f).getNormalizedFract())
-        {
-            round = val.isNegative() ? -1 : 1;
-        }
-        break;
-    case AluMod::ROUNDING_ZEROI:
-    case AluMod::ROUNDING_ZEROI_SAT:
-    case AluMod::ROUNDING_SZEROI:
-    case AluMod::ROUNDING_SZEROI_SAT:
-        break;
-    case AluMod::ROUNDING_UPI:
-    case AluMod::ROUNDING_UPI_SAT:
-    case AluMod::ROUNDING_SUPI:
-    case AluMod::ROUNDING_SUPI_SAT:
-        if (val.isRegularPositive() && !val.isNatural()) round = 1;
-        break;
-    case AluMod::ROUNDING_DOWNI:
-    case AluMod::ROUNDING_DOWNI_SAT:
-    case AluMod::ROUNDING_SDOWNI:
-    case AluMod::ROUNDING_SDOWNI_SAT:
-        if (val.isRegularNegative() && !val.isNatural()) round = -1;
-        break;
-
-    default:
-        assert(false);
-        return 0;
-    }
-
-    return round;
-}
-
-static Val f2i_saturate(unsigned type, bool lowBound)
-{
-    return Val(type, getIntBoundary(type, lowBound));
-}
-
 static bool isIntegral(Val val)
 {
     //F Should check if exception policy is enabled for the inexact exception
 
-    Val fract = emulateUnrOpF(val.getType(), val, op_fract());
+    Val fract = emulateUnrOpF(val.getType(), AluMod::ROUNDING_NONE, val, op_fract());
     return fract.isZero();
 }
 
-template<typename T>
-static Val cvt_f2i(unsigned type, AluMod aluMod, Val val)
+static Val cvt_f2i(unsigned type, unsigned rounding, Val val)
 {
     assert(isIntType(type));
 
-    if (val.isNan()) return aluMod.isSat()? Val(type, 0) : undefValue();
+    bool isValid;
+    uint64_t res;
 
-    int round = f2i_round(val, aluMod.getRounding());
-    T v = static_cast<T>(val) + round;
+    switch(val.getType())
+    {
+    case BRIG_TYPE_F16: res = emulate_f2i(val.f16(), type, rounding, isValid); break;
+    case BRIG_TYPE_F32: res = emulate_f2i(val.f32(), type, rounding, isValid); break;
+    case BRIG_TYPE_F64: res = emulate_f2i(val.f64(), type, rounding, isValid); break;
+        
+    default:
+        assert(false);
+        break;
+    }
+    
+    if (!isValid) return undefValue();
 
-    if (!checkTypeBoundaries(type, v)) return aluMod.isSat() ? f2i_saturate(type, v <= 0) : undefValue();
+    if (isSignalingRounding(rounding) && !isIntegral(val)) return unimplemented(); // generate an inexact exception
 
-    if (aluMod.isSignaling() && !isIntegral(val)) return unimplemented(); // generate an inexact exception
-
-    return isSignedType(type)? Val(type, static_cast<s64_t>(v)) : Val(type, static_cast<u64_t>(v));
+    return isSignedType(type)? Val(type, static_cast<s64_t>(res)) : Val(type, static_cast<u64_t>(res));
 }
 
-static Val cvt_f2x(unsigned type, unsigned stype, AluMod aluMod, Val arg)
+static Val cvt_f2f(unsigned type, unsigned stype, unsigned rounding, Val arg)
+{
+    assert(isFloatType(stype));
+    assert(isFloatType(type));
+    assert(type != stype);
+
+    if (!isSupportedFpRounding(rounding)) return unimplemented();
+
+    switch(type)
+    {
+    case BRIG_TYPE_F16: return emulateUnrOpF(stype, rounding, arg, op_f2f16());
+    case BRIG_TYPE_F32: return emulateUnrOpF(stype, rounding, arg, op_f2f32());
+    case BRIG_TYPE_F64: return emulateUnrOpF(stype, rounding, arg, op_f2f64());
+        
+    default:
+        assert(false);
+        return emulationFailed();
+    }
+}
+
+static Val cvt_f2x(unsigned type, unsigned stype, unsigned rounding, Val arg)
 {
     assert(isFloatType(stype));
 
     if (isFloatType(type))
     {
-        if (type == BRIG_TYPE_F64 && stype == BRIG_TYPE_F32)
-        {
-            return static_cast<f64_t>(arg.f32());
-        }
-        else if (type == BRIG_TYPE_F32 && stype == BRIG_TYPE_F64)
-        {
-            if (aluMod.getRounding() == AluMod::ROUNDING_NEAR)  // This is the default MS C++ rounding mode
-            {
-                return static_cast<f32_t>(arg.f64());
-            }
-            else
-            {
-                return unimplemented(); // FIXME: fp rounding is not implemented yet
-            }
-        }
-
-        return unimplemented(); // f16 is not supported yet
+        return cvt_f2f(type, stype, rounding, arg);
     }
     else
     {
         assert(isIntType(type));
-
-        if (stype == BRIG_TYPE_F32) return cvt_f2i<f32_t>(type, aluMod, arg);
-        if (stype == BRIG_TYPE_F64) return cvt_f2i<f64_t>(type, aluMod, arg);
-
-        return unimplemented();  // f16 is not supported yet
+        return cvt_f2i(type, rounding, arg);
     }
 }
 
-static Val cvt_i2f(unsigned type, Val val, AluMod aluMod)
+static Val cvt_i2f(unsigned type, Val val, unsigned rounding)
 {
-    assert(isFloatType(type));
+    if (!isSupportedFpRounding(rounding)) return unimplemented();
 
-    if (aluMod.getRounding() == AluMod::ROUNDING_NEAR) // This is the default MS C++ rounding mode
+    switch(type)
     {
-        if (type == BRIG_TYPE_F32) return emulateUnrOpUS(val.getType(), val, op_i2f32());
-        if (type == BRIG_TYPE_F64) return emulateUnrOpUS(val.getType(), val, op_i2f64());
-        return unimplemented(); // f16 is not supported yet
+    case BRIG_TYPE_F16: return emulateUnrOpUS_Rnd(val.getType(), rounding, val, op_i2f16());
+    case BRIG_TYPE_F32: return emulateUnrOpUS_Rnd(val.getType(), rounding, val, op_i2f32());
+    case BRIG_TYPE_F64: return emulateUnrOpUS_Rnd(val.getType(), rounding, val, op_i2f64());
+
+    default:
+        assert(false);
+        return emulationFailed();
     }
-    return unimplemented(); // other fp rounding modes are not supported yet
 }
 
-static Val cvt_i2x(unsigned type, unsigned stype, AluMod aluMod, Val arg)
+static Val cvt_i2x(unsigned type, unsigned stype, unsigned rounding, Val arg)
 {
     assert(isIntType(stype));
 
     return isIntType(type)?
             Val(type, arg.getAsS64()) : // zero/sign-extend as necessary
-            cvt_i2f(type, arg, aluMod);
+            cvt_i2f(type, arg, rounding);
 }
 
-static Val cvt_x2b1(unsigned type, unsigned stype, AluMod aluMod, Val arg)
+static Val cvt_x2b1(unsigned type, unsigned stype, Val arg)
 {
     return isIntType(stype)?
             Val(type, arg.getAsB64() != 0) :
@@ -1727,18 +1202,21 @@ static Val emulateCvt(unsigned type, unsigned stype, AluMod aluMod, Val arg)
     assert(arg.getType() == stype);
     assert(type != stype);
 
-    if (type == BRIG_TYPE_F16) return unimplemented();
+    unsigned rounding = aluMod.getRounding();
 
-    if (stype == BRIG_TYPE_B1) // to avoid handling this type in other places
+    // to avoid handling b1 in other places, pretend that it is an u32 value
+    if (stype == BRIG_TYPE_B1) 
     {
+        assert(rounding == Brig::BRIG_ROUND_NONE);
+        if (isFloatType(type)) rounding = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN; // Any fp mode will do
+        arg = Val(BRIG_TYPE_U32, arg.getAsB64());
         stype = BRIG_TYPE_U32;
-        arg = Val(stype, arg.getAsB64());
     }
 
-    if (type == BRIG_TYPE_B1)  return cvt_x2b1(type, stype, aluMod, arg);
+    if (type == BRIG_TYPE_B1)  return cvt_x2b1(type, stype, arg);
     else                       return isFloatType(stype)?
-                                      cvt_f2x(type, stype, aluMod, arg) :
-                                      cvt_i2x(type, stype, aluMod, arg);
+                                      cvt_f2x(type, stype, rounding, arg) :
+                                      cvt_i2x(type, stype, rounding, arg);
 }
 
 //=============================================================================
@@ -1794,7 +1272,7 @@ static Val emulateAluFlag(unsigned type, Val arg1, Val arg2, T op)
 
     unsigned utype = type;
 
-    if (isSignedType(type)) // Convert args to unsigned (to simplify functor implementation)
+    if (isSignedType(type)) // Convert args to unsigned (to simplify template implementation)
     {
         utype = (getBrigTypeNumBits(type) == 32)? BRIG_TYPE_U32 : BRIG_TYPE_U64;
 
@@ -2035,24 +1513,25 @@ static Val emulateMod(unsigned opcode, unsigned type, AluMod aluMod, Val arg1, V
 {
     using namespace Brig;
 
-    if (aluMod.getRounding() != AluMod::ROUNDING_NONE &&
-        aluMod.getRounding() != AluMod::ROUNDING_NEAR) return unimplemented();
+    if (!isSupportedFpRounding(aluMod.getRounding())) return unimplemented();
+
+    unsigned rounding = aluMod.getRounding();
 
     switch (opcode)
     {
-    case BRIG_OPCODE_ABS:       return emulateUnrOpSF(type, arg1, op_abs());
-    case BRIG_OPCODE_NEG:       return emulateUnrOpSF(type, arg1, op_neg());
+    case BRIG_OPCODE_ABS:       return emulateUnrOpSF(type, rounding, arg1, op_abs());
+    case BRIG_OPCODE_NEG:       return emulateUnrOpSF(type, rounding, arg1, op_neg());
 
     case BRIG_OPCODE_NOT:       return emulateUnrOpB(type, arg1, op_not());
 
-    case BRIG_OPCODE_ADD:       return emulateBinOpBSUF(type, arg1, arg2, op_add());
-    case BRIG_OPCODE_SUB:       return emulateBinOpBSUF(type, arg1, arg2, op_sub());
-    case BRIG_OPCODE_MUL:       return emulateBinOpBSUF(type, arg1, arg2, op_mul());
-    case BRIG_OPCODE_MULHI:     return emulateBinOpBSUF(type, arg1, arg2, op_mulhi());
-    case BRIG_OPCODE_DIV:       return emulateBinOpBSUF(type, arg1, arg2, op_div());
-    case BRIG_OPCODE_MAX:       return emulateBinOpBSUF(type, arg1, arg2, op_max());
-    case BRIG_OPCODE_MIN:       return emulateBinOpBSUF(type, arg1, arg2, op_min());
+    case BRIG_OPCODE_ADD:       return emulateBinOpBSUF(type, rounding, arg1, arg2, op_add());
+    case BRIG_OPCODE_SUB:       return emulateBinOpBSUF(type, rounding, arg1, arg2, op_sub());
+    case BRIG_OPCODE_MUL:       return emulateBinOpBSUF(type, rounding, arg1, arg2, op_mul());
+    case BRIG_OPCODE_DIV:       return emulateBinOpBSUF(type, rounding, arg1, arg2, op_div());
+    case BRIG_OPCODE_MAX:       return emulateBinOpBSUF(type, rounding, arg1, arg2, op_max());
+    case BRIG_OPCODE_MIN:       return emulateBinOpBSUF(type, rounding, arg1, arg2, op_min());
 
+    case BRIG_OPCODE_MULHI:     return emulateBinOpSU(type, arg1, arg2, op_mulhi());
     case BRIG_OPCODE_REM:       return emulateBinOpSU(type, arg1, arg2, op_rem());
 
     case BRIG_OPCODE_MUL24:     return emulateTrnOpSU(type, arg1, arg2, Val(type, 0), op_mad24(0));
@@ -2065,32 +1544,33 @@ static Val emulateMod(unsigned opcode, unsigned type, AluMod aluMod, Val arg1, V
     case BRIG_OPCODE_OR:        return emulateBinOpB(type, arg1, arg2, op_or());
     case BRIG_OPCODE_XOR:       return emulateBinOpB(type, arg1, arg2, op_xor());
 
-    case BRIG_OPCODE_COPYSIGN:  return emulateBinOpF(type, arg1, arg2, op_copysign());
-
     case BRIG_OPCODE_CARRY:     return emulateAluFlag(type, arg1, arg2, op_carry());
     case BRIG_OPCODE_BORROW:    return emulateAluFlag(type, arg1, arg2, op_borrow());
 
     case BRIG_OPCODE_SHL:       return emulateBinOpSU_U32(type, arg1, arg2, op_shl());
     case BRIG_OPCODE_SHR:       return emulateBinOpSU_U32(type, arg1, arg2, op_shr());
 
-    case BRIG_OPCODE_FRACT:     return emulateUnrOpF(type, arg1, op_fract());
-    case BRIG_OPCODE_CEIL:      return emulateUnrOpF(type, arg1, op_ceil());
-    case BRIG_OPCODE_FLOOR:     return emulateUnrOpF(type, arg1, op_floor());
-    case BRIG_OPCODE_RINT:      return emulateUnrOpF(type, arg1, op_rint());
-    case BRIG_OPCODE_TRUNC:     return emulateUnrOpF(type, arg1, op_trunc());
+    case BRIG_OPCODE_COPYSIGN:  return emulateBinOpF(type, rounding, arg1, arg2, op_cpsgn());
 
-    case BRIG_OPCODE_SQRT:      return emulateUnrOpF(type, arg1, op_sqrt());
-    case BRIG_OPCODE_NCOS:      return emulateUnrOpF(type, arg1, op_cos());
-    case BRIG_OPCODE_NSIN:      return emulateUnrOpF(type, arg1, op_sin());
-    case BRIG_OPCODE_NEXP2:     return emulateUnrOpF(type, arg1, op_exp2());
-    case BRIG_OPCODE_NLOG2:     return emulateUnrOpF(type, arg1, op_log2());
-    case BRIG_OPCODE_NSQRT:     return emulateUnrOpF(type, arg1, op_sqrt());
-    case BRIG_OPCODE_NRSQRT:    return emulateUnrOpF(type, arg1, op_rsqrt());
-    case BRIG_OPCODE_NRCP:      return emulateUnrOpF(type, arg1, op_rcp());
-    case BRIG_OPCODE_NFMA:      return emulateTrnOpSUF(type, arg1, arg2, arg3, op_mad());
+    case BRIG_OPCODE_FRACT:     return emulateUnrOpF(type, rounding, arg1, op_fract());
+    case BRIG_OPCODE_CEIL:      return emulateUnrOpF(type, rounding, arg1, op_ceil());
+    case BRIG_OPCODE_FLOOR:     return emulateUnrOpF(type, rounding, arg1, op_floor());
+    case BRIG_OPCODE_RINT:      return emulateUnrOpF(type, rounding, arg1, op_rint());
+    case BRIG_OPCODE_TRUNC:     return emulateUnrOpF(type, rounding, arg1, op_trunc());
+    
+    case BRIG_OPCODE_SQRT:      return emulateUnrOpF(type, rounding, arg1, op_sqrt());
+    case BRIG_OPCODE_NCOS:      return emulateUnrOpF(type, rounding, arg1, op_ncos());
+    case BRIG_OPCODE_NSIN:      return emulateUnrOpF(type, rounding, arg1, op_nsin());
+    case BRIG_OPCODE_NEXP2:     return emulateUnrOpF(type, rounding, arg1, op_nexp2());
+    case BRIG_OPCODE_NLOG2:     return emulateUnrOpF(type, rounding, arg1, op_nlog2());
+    case BRIG_OPCODE_NSQRT:     return emulateUnrOpF(type, rounding, arg1, op_nsqrt());
+    case BRIG_OPCODE_NRSQRT:    return emulateUnrOpF(type, rounding, arg1, op_nrsqrt());
+    case BRIG_OPCODE_NRCP:      return emulateUnrOpF(type, rounding, arg1, op_nrcp());
+    case BRIG_OPCODE_NFMA:      return emulateTrnOpF(type, rounding, arg1, arg2, arg3, op_nfma());
 
-    case BRIG_OPCODE_MAD:       return emulateTrnOpSUF(type, arg1, arg2, arg3, op_mad());
-    case BRIG_OPCODE_FMA:       return emulateTrnOpSUF(type, arg1, arg2, arg3, op_mad());  // the same as mad but fp type
+    case BRIG_OPCODE_FMA:       return emulateTrnOpF(type, rounding, arg1, arg2, arg3, op_fma());
+
+    case BRIG_OPCODE_MAD:       return emulateTrnOpSU(type, arg1, arg2, arg3, op_mad());
 
     case BRIG_OPCODE_MOV:       assert(arg1.getType() == type);         return arg1;
     case BRIG_OPCODE_CMOV:      assert(arg1.getType() == BRIG_TYPE_B1); return emulateTrnOpB(type, Val(type, arg1.getAsB32()), arg2, arg3, op_cmov());
@@ -2369,14 +1849,15 @@ static Val emulateDstValPackedRegular(Inst inst, Val arg0, Val arg1, Val arg2, V
 
         if (opcode == BRIG_OPCODE_MULHI) res = emulateMulHiPacked(  type,        baseType,                                    x1, x2);
         else if (isSatPacking(packing))  res = emulateSat(opcode,   type,                                                     x1, x2);
-        else if (InstBasic i = inst)     res = emulateMod(opcode,   baseType,    AluMod(),                                    x1, x2);
+        else if (InstBasic i = inst)     res = emulateMod(opcode,   baseType,    AluMod(i),                                   x1, x2);
         else if (InstMod   i = inst)     res = emulateMod(opcode,   baseType,    AluMod(i.modifier().allBits()),              x1, x2);
         else if (InstCmp   i = inst)     res = emulateCmp(baseType, baseSrcType, AluMod(i.modifier().allBits()), i.compare(), x1, x2);
         else                             { assert(false); }
 
         if (res.empty())
         {
-            assert(idx == 0);
+            assert(idx == 0 || 
+                   (opcode == BRIG_OPCODE_CMP && isFloatPackedType(stype))); // Non-zero index is possible with signaling comparison (NaN may be in eny element)
             return unimplemented();
         }
 
@@ -2419,7 +1900,7 @@ static Val emulateDstValPackedSpecial(Inst inst, Val arg0, Val arg1, Val arg2, V
 
 static Val emulateDstValCommon(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 {
-    if      (InstBasic      i = inst)  return emulateMod(i.opcode(), i.type(), AluMod(),                       arg1, arg2, arg3, arg4);
+    if      (InstBasic      i = inst)  return emulateMod(i.opcode(), i.type(), AluMod(i),                      arg1, arg2, arg3, arg4);
     else if (InstMod        i = inst)  return emulateMod(i.opcode(), i.type(), AluMod(i.modifier().allBits()), arg1, arg2, arg3, arg4);
     else if (InstCmp        i = inst)  return emulateCmp(i.type(),   i.sourceType(), AluMod(i.modifier().allBits()), i.compare(), arg1, arg2);
     else if (InstCvt        i = inst)  return emulateCvt(i.type(),   i.sourceType(), AluMod(i.modifier().allBits()), arg1);
@@ -2455,6 +1936,12 @@ bool testableInst(Inst inst)
         if (instMem.width() != BRIG_WIDTH_NONE && instMem.width() != BRIG_WIDTH_1) return false;
         if (instMem.modifier().isConst()) return false;
         if (instMem.equivClass() != 0) return false;
+    }
+    else if (InstCvt instCvt = inst)
+    {
+        // Saturating signalign rounding is badly defined in spec; the behavior is unclear
+        unsigned rounding = instCvt.modifier().round();
+        return !(isSatRounding(rounding) && isSignalingRounding(rounding));
     }
 
     return true;
@@ -2532,19 +2019,14 @@ double getPrecision(Inst inst)
     case BRIG_OPCODE_NRSQRT:
     case BRIG_OPCODE_NEXP2:
     case BRIG_OPCODE_NLOG2:
-        if (inst.type() == BRIG_TYPE_F32) return 0.0000005;  // Relative
-        if (inst.type() == BRIG_TYPE_F64) return 0.00000002; // Relative
-        break;
-
     case BRIG_OPCODE_NSIN:
     case BRIG_OPCODE_NCOS:
-        return NSIN_NCOS_RESULT_PRECISION_ULPS;
+    case BRIG_OPCODE_NFMA:
+        return getNativeOpPrecision(inst.opcode(), inst.type());
 
     default:
-        break;
+        return 1; // 0.5 ULP (infinite precision)
     }
-
-    return 1; // 0.5 ULP (infinite precision)
 }
 
 //=============================================================================

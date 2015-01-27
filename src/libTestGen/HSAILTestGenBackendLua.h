@@ -96,12 +96,10 @@ private:
 
     void defLuaArray(ostringstream& os, string name, unsigned type, unsigned dim)
     {
-        assert(type != BRIG_TYPE_F16);
-
         // Subword values are represented as 32-bit values
         // s64/u64 values are represented as 2 32-bit values because of LUA limitations
         unsigned    typeSize  = getBrigTypeNumBits(type);
-        const char* arrayType = isFloatType(type)? (typeSize == 64? "DOUBLE" : "FLOAT")
+        const char* arrayType = isFloatType(type)? (typeSize == 64? "DOUBLE" : typeSize == 32? "FLOAT" : "F16") //F TODO: this is a temporary workaround as LUA does not support F16 yet
                               : isSignedLuaType(type) ?             "INT32"  : "UINT32";
         unsigned    arraySize = isFloatType(type)? 1 : (typeSize == 128? 4 : typeSize == 64? 2 : 1);
 
@@ -146,7 +144,6 @@ private:
 
     void defLuaCheckRules(ostringstream& os, string checkName, string arrayName, unsigned type)
     {
-        assert(type != BRIG_TYPE_F16);
         double precision = getPrecision(testSample);
 
         os << checkName << " = new_result_array_check(" << arrayName;

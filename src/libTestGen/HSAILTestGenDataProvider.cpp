@@ -1,4 +1,5 @@
 #include "HSAILTestGenDataProvider.h"
+#include "HSAILTestGenEmulatorTypes.h"
 #include "HSAILTestGenUtilities.h"
 
 #include <limits>
@@ -9,14 +10,6 @@ using std::vector;
 using std::numeric_limits;
 
 namespace TESTGEN {
-
-//==============================================================================
-//==============================================================================
-//==============================================================================
-
-extern unsigned getRoundingTestsNum(unsigned dstType);
-extern const float*  getF32RoundingTestsData(unsigned dstType, AluMod aluMod);
-extern const double* getF64RoundingTestsData(unsigned dstType, AluMod aluMod);
 
 //==============================================================================
 //==============================================================================
@@ -239,6 +232,7 @@ private:
         IDX_s32_t,
         IDX_s64_t,
 
+        IDX_f16_t,
         IDX_f32_t,
         IDX_f64_t,
 
@@ -262,9 +256,9 @@ private:
         IDX_u32x4_t,
         IDX_u64x2_t,
 
-//      IDX_f16x2_t,
-//      IDX_f16x4_t,
-//      IDX_f16x8_t,
+        IDX_f16x2_t,
+        IDX_f16x4_t,
+        IDX_f16x8_t,
         IDX_f32x2_t,
         IDX_f32x4_t,
         IDX_f64x2_t,
@@ -313,6 +307,7 @@ public:
         case BRIG_TYPE_S32: return *predefined[IDX_s32_t];
         case BRIG_TYPE_S64: return *predefined[IDX_s64_t];
 
+        case BRIG_TYPE_F16: return *predefined[IDX_f16_t];
         case BRIG_TYPE_F32: return *predefined[IDX_f32_t];
         case BRIG_TYPE_F64: return *predefined[IDX_f64_t];
 
@@ -336,9 +331,9 @@ public:
         case BRIG_TYPE_U32X4: return *predefined[IDX_u32x4_t];
         case BRIG_TYPE_U64X2: return *predefined[IDX_u64x2_t];
 
-//      case BRIG_TYPE_F16X2: return *predefined[IDX_f16x2_t];
-//      case BRIG_TYPE_F16X4: return *predefined[IDX_f16x4_t];
-//      case BRIG_TYPE_F16X8: return *predefined[IDX_f16x8_t];
+        case BRIG_TYPE_F16X2: return *predefined[IDX_f16x2_t];
+        case BRIG_TYPE_F16X4: return *predefined[IDX_f16x4_t];
+        case BRIG_TYPE_F16X8: return *predefined[IDX_f16x8_t];
         case BRIG_TYPE_F32X2: return *predefined[IDX_f32x2_t];
         case BRIG_TYPE_F32X4: return *predefined[IDX_f32x4_t];
         case BRIG_TYPE_F64X2: return *predefined[IDX_f64x2_t];
@@ -491,12 +486,13 @@ int TestDataProvider::getLastOperandIdx()     { return lastSrcOperand; }      //
 
 void TestDataProvider::clean()                { OperandTestDataFactory::clean(); OperandTestData::clean(); }
 
-void TestDataProvider::init(bool grpTests, bool grpImms, unsigned rndTestNum, unsigned ws, unsigned maxGridSz /*=0*/)
+void TestDataProvider::init(bool grpTests, bool grpImms, unsigned rndTestNum, unsigned ws, unsigned maxGridSz, bool testF16)
 {
     wavesize = ws;
     groupTests = grpTests;
     groupImms = grpTests && grpImms;
     maxGridSize = (maxGridSz > 0)? maxGridSz : MAX_GRID_SIZE;
+    enableF16 = testF16;
 
     OperandTestDataFactory::init();
     OperandTestData::init(rndTestNum);
@@ -506,6 +502,7 @@ unsigned TestDataProvider::wavesize    = TestDataProvider::DEFAULT_WAVESIZE;
 unsigned TestDataProvider::maxGridSize = TestDataProvider::DEFAULT_GRID_SIZE;
 bool     TestDataProvider::groupTests  = true;
 bool     TestDataProvider::groupImms   = true;
+bool     TestDataProvider::enableF16   = false;
 
 //=============================================================================
 //=============================================================================
@@ -528,6 +525,7 @@ bool     TestDataProvider::groupImms   = true;
 #define S32T (static_cast<OperandTestDataImpl<s32_t>&>(OperandTestDataFactory::get(BRIG_TYPE_S32)))
 #define S64T (static_cast<OperandTestDataImpl<s64_t>&>(OperandTestDataFactory::get(BRIG_TYPE_S64)))
 
+#define F16T (static_cast<OperandTestDataImpl<f16_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F16)))
 #define F32T (static_cast<OperandTestDataImpl<f32_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F32)))
 #define F64T (static_cast<OperandTestDataImpl<f64_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F64)))
 
@@ -551,9 +549,9 @@ bool     TestDataProvider::groupImms   = true;
 #define U32X4T (static_cast<OperandTestDataImpl<u32x4_t>&>(OperandTestDataFactory::get(BRIG_TYPE_U32X4)))
 #define U64X2T (static_cast<OperandTestDataImpl<u64x2_t>&>(OperandTestDataFactory::get(BRIG_TYPE_U64X2)))
 
-//#define F16X2T (static_cast<OperandTestDataImpl<f16x2_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F16X2)))
-//#define F16X4T (static_cast<OperandTestDataImpl<f16x4_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F16X4)))
-//#define F16X8T (static_cast<OperandTestDataImpl<f16x8_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F16X8)))
+#define F16X2T (static_cast<OperandTestDataImpl<f16x2_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F16X2)))
+#define F16X4T (static_cast<OperandTestDataImpl<f16x4_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F16X4)))
+#define F16X8T (static_cast<OperandTestDataImpl<f16x8_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F16X8)))
 #define F32X2T (static_cast<OperandTestDataImpl<f32x2_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F32X2)))
 #define F32X4T (static_cast<OperandTestDataImpl<f32x4_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F32X4)))
 #define F64X2T (static_cast<OperandTestDataImpl<f64x2_t>&>(OperandTestDataFactory::get(BRIG_TYPE_F64X2)))
@@ -611,10 +609,15 @@ bool     TestDataProvider::groupImms   = true;
     TYPE(U32X4)     \
     TYPE(U64X2)
 
+#define FX32TYPES   \
+    TYPE(F16X2)
+
 #define FX64TYPES   \
+    TYPE(F16X4)     \
     TYPE(F32X2)
 
 #define FX128TYPES  \
+    TYPE(F16X8)     \
     TYPE(F32X4)     \
     TYPE(F64X2)
 
@@ -629,6 +632,7 @@ bool     TestDataProvider::groupImms   = true;
     UX128TYPES
 
 #define FXTYPES  \
+    FX32TYPES    \
     FX64TYPES    \
     FX128TYPES
 
@@ -650,6 +654,7 @@ bool     TestDataProvider::groupImms   = true;
 #define SRCT return (new TestDataProvider(srcType))->def
 #define ADD clone
 #define ADDL(x) cloneList(sizeof(x), x)
+#define ADD_RF16() cloneValues(getRoundingTestsNum(dstType), getF16RoundingTestsData(dstType, aluMod))
 #define ADD_RF32() cloneValues(getRoundingTestsNum(dstType), getF32RoundingTestsData(dstType, aluMod))
 #define ADD_RF64() cloneValues(getRoundingTestsNum(dstType), getF64RoundingTestsData(dstType, aluMod))
 #define NEW reset
@@ -695,6 +700,7 @@ void OperandTestDataFactory::init()
     DCL_TEST_SET(s32_t)  = TEST_DATA_s32_t;
     DCL_TEST_SET(s64_t)  = TEST_DATA_s64_t;
 
+    DCL_TEST_SET(f16_t)  = TEST_DATA_f16_t;
     DCL_TEST_SET(f32_t)  = TEST_DATA_f32_t;
     DCL_TEST_SET(f64_t)  = TEST_DATA_f64_t;
 
@@ -718,9 +724,9 @@ void OperandTestDataFactory::init()
     DCL_TEST_SET(u32x4_t) = TEST_DATA_u32x4_t;
     DCL_TEST_SET(u64x2_t) = TEST_DATA_u64x2_t;
 
-//  DCL_TEST_SET(f16x2_t) = TEST_DATA_f16x2_t;
-//  DCL_TEST_SET(f16x4_t) = TEST_DATA_f16x4_t;
-//  DCL_TEST_SET(f16x8_t) = TEST_DATA_f16x8_t;
+    DCL_TEST_SET(f16x2_t) = TEST_DATA_f16x2_t;
+    DCL_TEST_SET(f16x4_t) = TEST_DATA_f16x4_t;
+    DCL_TEST_SET(f16x8_t) = TEST_DATA_f16x8_t;
     DCL_TEST_SET(f32x2_t) = TEST_DATA_f32x2_t;
     DCL_TEST_SET(f32x4_t) = TEST_DATA_f32x4_t;
     DCL_TEST_SET(f64x2_t) = TEST_DATA_f64x2_t;
@@ -743,6 +749,7 @@ void OperandTestDataFactory::init()
     REGISTER_TEST_VALUES(s32_t);
     REGISTER_TEST_VALUES(s64_t);
 
+    REGISTER_TEST_VALUES(f16_t);
     REGISTER_TEST_VALUES(f32_t);
     REGISTER_TEST_VALUES(f64_t);
 
@@ -766,9 +773,9 @@ void OperandTestDataFactory::init()
     REGISTER_TEST_VALUES(u32x4_t);
     REGISTER_TEST_VALUES(u64x2_t);
 
-//  REGISTER_TEST_VALUES(f16x2_t);
-//  REGISTER_TEST_VALUES(f16x4_t);
-//  REGISTER_TEST_VALUES(f16x8_t);
+    REGISTER_TEST_VALUES(f16x2_t);
+    REGISTER_TEST_VALUES(f16x4_t);
+    REGISTER_TEST_VALUES(f16x8_t);
     REGISTER_TEST_VALUES(f32x2_t);
     REGISTER_TEST_VALUES(f32x4_t);
     REGISTER_TEST_VALUES(f64x2_t);
