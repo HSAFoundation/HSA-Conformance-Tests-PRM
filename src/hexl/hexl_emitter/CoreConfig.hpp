@@ -83,8 +83,8 @@ namespace hexl {
       class GridsConfig : public ConfigBase {
       private:
         hexl::VectorSequence<uint32_t> dimensions;
-        hexl::GridGeometry defaultGeometry, trivialGeometry;
-        hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet;
+        hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
+        hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32, *severalwaves, *severalwavesingroup;
 
       public:
@@ -104,6 +104,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* Boundary24Set() { return boundary24; }
         hexl::Sequence<hexl::Grid>* SeveralWavesSet() { return severalwaves; }
         hexl::Sequence<hexl::Grid>* SeveralWavesInGroupSet() { return severalwavesingroup; }
+        hexl::Sequence<hexl::Grid>* AllWavesIdSet() { return allWavesIdSet; }
       };
 
       class SegmentsConfig : public ConfigBase {
