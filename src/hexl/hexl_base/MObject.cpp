@@ -62,6 +62,9 @@ size_t ValueTypeSize(ValueType type)
   case MV_UINT32: return 4;
   case MV_INT64: return 8;
   case MV_UINT64: return 8;
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER: return 4;
+#endif
   case MV_FLOAT16: return 2;
   case MV_FLOAT: return 4;
   case MV_DOUBLE: return 8;
@@ -220,6 +223,9 @@ const char *ValueTypeString(ValueType type)
   case MV_UINT32: return "uint32";
   case MV_INT64: return "int64";
   case MV_UINT64: return "uint64";
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER:
+#endif
   case MV_FLOAT16: return "half";
   case MV_FLOAT: return "float";
   case MV_DOUBLE: return "double";
@@ -258,6 +264,9 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_UINT32: return 10;
   case MV_INT64: return 18;
   case MV_UINT64: return 18;
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER:
+#endif
   case MV_FLOAT16: return 10;
   case MV_FLOAT: return 10;
   case MV_DOUBLE: return 18;
@@ -363,6 +372,9 @@ void Value::Print(std::ostream& out) const
   case MV_UINT64:
     out << U64();
     break;
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER:
+#endif
   case MV_FLOAT16:
     PrintHalf(H(), U16(), out);
     break;
@@ -436,6 +448,9 @@ bool operator<(const Value& v1, const Value& v2)
   case MV_UINT32: return v1.U32() < v2.U32();
   case MV_INT64: return v1.S64() < v2.S64();
   case MV_UINT64: return v1.U64() < v2.U64();
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER:
+#endif
   case MV_FLOAT16: return v1.H() < v2.H();
   case MV_FLOAT: return v1.F() < v2.F();
   case MV_DOUBLE: return v1.D() < v2.D();
@@ -456,6 +471,9 @@ void Value::WriteTo(void *dest) const
   case MV_UINT32: *((uint32_t *) dest) = data.u32; break;
   case MV_INT64: *((int64_t *) dest) = data.s64; break;
   case MV_UINT64: *((uint64_t *) dest) = data.u64; break;
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER: ((half *) dest)[0] = data.h; ((uint16_t *) dest)[1] = 0; break;
+#endif
   case MV_FLOAT16: *((half *) dest) = data.h; break;
   case MV_FLOAT: *((float *) dest) = data.f; break;
   case MV_DOUBLE: *((double *) dest) = data.d; break;
@@ -488,6 +506,9 @@ void Value::ReadFrom(const void *src, ValueType type)
   case MV_UINT32: data.u32 = *((uint32_t *) src); break;
   case MV_INT64: data.s64 = *((int64_t *) src); break;
   case MV_UINT64: data.u64 = *((uint64_t *) src); break;
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER:
+#endif
   case MV_FLOAT16: data.h = *((half *) src); break;
   case MV_FLOAT: data.f = *((float *) src); break;
   case MV_DOUBLE: data.d = *((double *) src); break;
@@ -826,6 +847,9 @@ void Comparison::Reset(ValueType type)
     case MV_INT16: maxError = Value(MV_UINT16, U16(0)); break;
     case MV_INT32: maxError = Value(MV_UINT32, U32(0)); break;
     case MV_INT64: maxError = Value(MV_UINT64, U64(0)); break;
+#ifdef MBUFFER_KEEP_F16_AS_U32
+    case MV_FLOAT16_MBUFFER:
+#endif
     case MV_FLOAT16: maxError = Value(MV_DOUBLE, D((double) 0)); break;
     case MV_FLOAT: maxError = Value(MV_DOUBLE, D((double) 0)); break;
     case MV_DOUBLE: maxError = Value(MV_DOUBLE, D((double) 0)); break;
@@ -850,6 +874,9 @@ void Comparison::Reset(ValueType type)
     case MV_FLOAT: maxError = Value(MV_UINT32, U32(0)); break;
     case MV_DOUBLE: maxError = Value(MV_UINT64, U64(0)); break;
     case MV_FLOATX2: maxError = Value(MV_UINT32X2, U32X2(0, 0)); break;
+#ifdef MBUFFER_KEEP_F16_AS_U32
+    case MV_FLOAT16_MBUFFER:
+#endif
     case MV_FLOAT16: maxError = Value(MV_UINT16, U16(0)); break;
     case MV_FLOAT16X2: maxError = Value(MV_UINT16X2, U16X2(0, 0)); break;
     case MV_FLOAT16X4: maxError = Value(MV_UINT16X4, U16X4(0, 0, 0, 0)); break;
@@ -867,6 +894,9 @@ void Comparison::SetDefaultPrecision(ValueType type)
   switch (method) {
   case CM_DECIMAL:
     switch (type) {
+#ifdef MBUFFER_KEEP_F16_AS_U32
+    case MV_FLOAT16_MBUFFER:
+#endif
     case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
       if (precision.U64() == 0) { precision = Value(MV_DOUBLE, D(pow((double) 10, -F16_DEFAULT_DECIMAL_PRECISION))); }
       break;
@@ -882,6 +912,9 @@ void Comparison::SetDefaultPrecision(ValueType type)
     break;
   case CM_ULPS:
     switch (type) {
+#ifdef MBUFFER_KEEP_F16_AS_U32
+    case MV_FLOAT16_MBUFFER:
+#endif
     case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
     case MV_FLOAT: case MV_FLOATX2:
     case MV_DOUBLE:
@@ -893,6 +926,9 @@ void Comparison::SetDefaultPrecision(ValueType type)
     break;
   case CM_RELATIVE:
     switch (type) {
+#ifdef MBUFFER_KEEP_F16_AS_U32
+    case MV_FLOAT16_MBUFFER:
+#endif
     case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
     case MV_FLOAT: case MV_FLOATX2:
     case MV_DOUBLE:
@@ -1041,6 +1077,9 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
     error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
     return error.U64() == 0;
   }
+#ifdef MBUFFER_KEEP_F16_AS_U32
+  case MV_FLOAT16_MBUFFER:
+#endif
   case MV_FLOAT16: {
     auto res = CompareHalf(v1, v2, method, precision, error);
     return res;

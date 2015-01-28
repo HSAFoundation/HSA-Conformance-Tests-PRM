@@ -309,7 +309,10 @@ public:
         case MV_UINT32:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }
         case MV_INT64:    { auto data = val.S64(); PushResult(result, &data, val.Type()); break; }
         case MV_UINT64:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }
-        case MV_FLOAT16:  { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
+#ifdef MBUFFER_KEEP_F16_AS_U32
+        case MV_FLOAT16_MBUFFER:
+#endif
+        case MV_FLOAT16:  { auto data = val.H();   PushResult(result, &data, val.Type()); break; }
         case MV_FLOAT:    { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
         case MV_DOUBLE:   { auto data = val.D();   PushResult(result, &data, val.Type()); break; }
         case MV_UINT8X4:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; } 

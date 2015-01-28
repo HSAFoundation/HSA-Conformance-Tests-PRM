@@ -28,9 +28,18 @@
 #include <map>
 #include <memory>
 
+/// For now, f16 i/o values are passed in elements of u32 arrays, in lower 16 bits.
+/// f16x2 values occupy the whole 32 bits. To differientiate, use:
+/// - MV_FLOAT16_MBUFFER: for plain f16 vars, size = 4 bytes
+/// - MV_FLOAT16: for elemants of f16xN vars, size = 2 bytes
+#define MBUFFER_KEEP_F16_AS_U32
+
 namespace hexl {
 
 enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_IMAGEREF, MV_EXPR, MV_STRING, 
+#ifdef MBUFFER_KEEP_F16_AS_U32
+                 MV_FLOAT16_MBUFFER,
+#endif
                  MV_INT8X4, MV_INT8X8, MV_UINT8X4, MV_UINT8X8, MV_INT16X2, MV_INT16X4, MV_UINT16X2, MV_UINT16X4, MV_INT32X2, MV_UINT32X2, MV_FLOAT16X2, MV_FLOAT16X4, MV_FLOATX2, MV_LAST};
 
 enum MObjectType {
