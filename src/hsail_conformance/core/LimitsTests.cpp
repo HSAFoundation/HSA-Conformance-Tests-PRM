@@ -26,7 +26,23 @@ using namespace HSAIL_ASM;
 
 namespace hsail_conformance {
 
-class EquivalenceClassesLimitsTest: public Test {
+class SkipTest : public Test {
+public:
+  explicit SkipTest(Location codeLocation, Grid geometry = 0)
+    : Test(codeLocation, geometry) { }
+
+  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 0); }
+
+  TypedReg Result() override {
+    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(BRIG_TYPE_U32, 0));
+    return result;
+  }
+};
+
+
+class EquivalenceClassesLimitsTest: public SkipTest {
 private:
   std::vector<Variable> memories;
   BrigOpcode opcode;
@@ -51,10 +67,10 @@ protected:
   }
 
 public:
-  explicit EquivalenceClassesLimitsTest(BrigOpcode opcode_): Test(Location::KERNEL), opcode(opcode_) {}
+  explicit EquivalenceClassesLimitsTest(BrigOpcode opcode_): SkipTest(Location::KERNEL), opcode(opcode_) {}
 
   void Init() override {
-    Test::Init();
+    SkipTest::Init();
     memories.reserve(LIMIT);
     for (int i = 0; i < LIMIT; ++i) {
       memories.push_back(kernel->NewVariable("memory_" + std::to_string(i), BRIG_SEGMENT_GROUP, ValueType()));
@@ -69,9 +85,6 @@ public:
     return opcode == BRIG_OPCODE_ST || opcode == BRIG_OPCODE_LD;
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const override { return Value(MV_UINT32, 0); }
-
   TypedReg Result() override {
     // generate 256 instructions with 256 equivalence classes
     auto dst = be.AddTReg(ValueType());
@@ -84,10 +97,7 @@ public:
       EmitEquivInstruction(i, dst, src0, src1);
     }
 
-    // result value of kernel
-    auto result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 0));
-    return result;
+    return SkipTest::Result();
   }
 };
 
@@ -149,6 +159,93 @@ public:
 };
 
 
+class WorkGroupSizeLimitTest: public Test {
+private:
+  static const int LIMIT = 256;
+
+  TypedReg WorkgroupSize() {
+    auto xSize = be.EmitWorkgroupSize(0);
+    auto ySize = be.EmitWorkgroupSize(1);
+    auto zSize = be.EmitWorkgroupSize(2);
+
+    auto size = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitArith(BRIG_OPCODE_MUL, size, xSize, ySize->Reg());
+    be.EmitArith(BRIG_OPCODE_MUL, size, size, zSize->Reg());
+    return size;
+  }
+
+public:
+  explicit WorkGroupSizeLimitTest(Grid geometry): Test(Location::KERNEL, geometry) {}
+
+  void Name(std::ostream& out) const {
+    out << geometry;
+  }
+  
+  bool IsValid() const override {
+    return geometry->WorkgroupSize() >= LIMIT &&
+           geometry->isPartial() == false;
+  }
+
+  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
+  TypedReg Result() override {
+    // compare current workgroup size with Limit (256)
+    auto wgSize = WorkgroupSize();
+    auto ge = be.AddCTReg();
+    be.EmitCmp(ge->Reg(), wgSize, be.Immed(wgSize->Type(), LIMIT), BRIG_COMPARE_GE);
+
+    auto result = be.AddTReg(ResultType());
+    be.EmitCvt(result, ge);
+    return result;
+  }
+};
+
+
+class WavesizeLimitTest: public Test {
+private:
+  static const int BOTTOM_LIMIT = 1;
+  static const int TOP_LIMIT = 256;
+
+public:
+  WavesizeLimitTest(Grid geometry): Test(Location::KERNEL, geometry) {}
+
+  void Name(std::ostream& out) const {
+    out << geometry;
+  }
+  
+  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
+  TypedReg Result() override {
+    //wavesize
+    auto waveSize = be.AddTReg(BRIG_TYPE_U64);
+    be.EmitMov(waveSize, be.Wavesize());
+    
+    // compare wavesize with limits (1; 256)
+    auto ge = be.AddCTReg();
+    be.EmitCmp(ge->Reg(), waveSize, be.Immed(waveSize->Type(), BOTTOM_LIMIT), BRIG_COMPARE_GE);
+    auto le = be.AddCTReg();
+    be.EmitCmp(le->Reg(), waveSize, be.Immed(waveSize->Type(), TOP_LIMIT), BRIG_COMPARE_LE);
+    
+    // check if wavesize is a power of 2 with help of formula: x & (x - 1) == 0
+    auto tmp = be.AddTReg(waveSize->Type());
+    be.EmitArith(BRIG_OPCODE_SUB, tmp, waveSize, be.Immed(waveSize->Type(), 1));
+    be.EmitArith(BRIG_OPCODE_AND, tmp, waveSize, tmp->Reg());
+    auto eq = be.AddCTReg();
+    be.EmitCmp(eq->Reg(), tmp, be.Immed(tmp->Type(), 0), BRIG_COMPARE_EQ);
+
+    // check all conditions
+    auto cmp = be.AddCTReg();
+    be.EmitArith(BRIG_OPCODE_AND, cmp, ge, le->Reg());
+    be.EmitArith(BRIG_OPCODE_AND, cmp, cmp, eq->Reg());
+    auto result = be.AddTReg(ResultType());
+    be.EmitCvt(result, cmp);
+    return result;
+  }
+};
+
+
 void LimitsTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -157,6 +254,10 @@ void LimitsTests::Iterate(TestSpecIterator& it)
 
   TestForEach<EquivalenceClassesLimitsTest>(ap, it, "equiv", cc->Memory().LdStOpcodes());
   TestForEach<AtomicEquivalenceLimitsTest>(ap, it, "equiv", cc->Memory().AtomicOpcodes(), cc->Memory().AtomicOperations());
+
+  TestForEach<WorkGroupSizeLimitTest>(ap, it, "wgsize", cc->Grids().WorkGroupsSize256());
+
+  TestForEach<WavesizeLimitTest>(ap, it, "wavesize", cc->Grids().SimpleSet());
 }
 
 }

@@ -547,6 +547,16 @@ BrigType16_t BrigEmitter::ArithType(Brig::BrigOpcode16_t opcode, BrigType16_t op
         default: return operandType;
       }
     }
+    case BRIG_OPCODE_AND: 
+    case BRIG_OPCODE_OR: 
+    case BRIG_OPCODE_XOR: 
+    case BRIG_OPCODE_NOT:{
+      switch (operandType) {
+        case BRIG_TYPE_U32: case BRIG_TYPE_S32: return BRIG_TYPE_B32;
+        case BRIG_TYPE_U64: case BRIG_TYPE_S64: return BRIG_TYPE_B64;
+        default: return operandType;
+      }                   
+    } 
     default: return operandType;
   }
 }
