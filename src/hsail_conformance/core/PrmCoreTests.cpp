@@ -27,6 +27,7 @@
 #include "MemoryFenceTests.hpp"
 #include "InitializerTests.hpp"
 #include "DirectiveTests.hpp"
+#include "LimitsTests.hpp"
 #ifdef ENABLE_HEXL_HSAILTESTGEN
 #include "HexlTestGen.hpp"
 #endif // ENABLE_HEXL_HSAILTESTGEN
@@ -188,6 +189,14 @@ DirectiveTestsUnion::DirectiveTestsUnion()
   Add(new DirectiveTests());
 }
 
+DECLARE_TESTSET_UNION(LimitsTestsUnion);
+
+LimitsTestsUnion::LimitsTestsUnion()
+  : TestSetUnion("limits")
+{
+  Add(new LimitsTests());
+}
+
 
 DECLARE_TESTSET_UNION(PrmCoreTests);
 
@@ -202,6 +211,7 @@ PrmCoreTests::PrmCoreTests()
   Add(new SpecialOperationsTests());
   Add(new VariablesTests());
   Add(new DirectiveTestsUnion());
+  Add(new LimitsTestsUnion());
 }
 
 hexl::TestSet* NewPrmCoreTests()
