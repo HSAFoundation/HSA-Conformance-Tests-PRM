@@ -22,6 +22,7 @@
 #include "DllApi.hpp"
 #include "hsa.h"
 #include "hsa_ext_finalize.h"
+#include "hsa_ext_image.h"
 
 namespace hexl {
 
@@ -79,6 +80,12 @@ struct HsaApiTable {
     hsa_ext_brig_module_handle_t module,
     hsa_ext_brig_code_section_offset32_t symbol,
     hsa_ext_code_descriptor_t** kernel_descriptor);
+  hsa_status_t (*hsa_ext_image_create)(hsa_agent_t agent,
+                         const hsa_ext_image_descriptor_t *image_descriptor,
+                         const void *image_data,
+                         hsa_access_permission_t access_permission,
+                         hsa_ext_image_t *image);
+  hsa_status_t (*hsa_ext_image_destroy)(hsa_agent_t agent, hsa_ext_image_t image);
 };
 
 class HsaApi : public DllApi<HsaApiTable> {

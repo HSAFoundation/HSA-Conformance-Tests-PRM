@@ -464,21 +464,23 @@ ValueType ImageValueType(unsigned geometry);
 
 class MImage : public MObject {
 public:
-  MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned format_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
+  MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
     : MObject(id, MIMAGE, name),
-      geometry(geometry_), format(format_), width(width_), height(height_),
+      geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_), width(width_), height(height_),
       depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_) { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
 
   unsigned Geometry() const { return geometry; }
-  unsigned Format() const { return format; }
+  unsigned ChannelOrder() const { return channelOrder; }
+  unsigned ChannelType() const { return channelType; }
+  unsigned AccessPermission() const { return accessPermission; } 
+    
   size_t Width() const { return width; }
   size_t Height() const { return height; }
   size_t Depth() const { return depth; }
   size_t RowPitch() const { return rowPitch; }
   size_t SlicePitch() const { return slicePitch; }
-
-  size_t Size() const { assert(false); }
+  size_t Size() const { return height * width * depth; }
   Value GetRaw(size_t i) { assert(false); }
 
   Values& Data() { return data; }
@@ -491,7 +493,10 @@ public:
   virtual void SerializeData(std::ostream& out) const;
 
 private:
-  unsigned geometry, format;
+  unsigned accessPermission;
+  unsigned geometry;
+  unsigned channelOrder;
+  unsigned channelType;
   size_t width, height, depth, rowPitch, slicePitch;
   Values data;
 

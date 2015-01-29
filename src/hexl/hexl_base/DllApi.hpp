@@ -48,7 +48,7 @@ protected:
   bool InitDll() {
     char buf[0x100];
 #ifdef _WIN32
-    snprintf(buf, sizeof(buf), "%s.dll", libName);
+    _snprintf_s(buf, sizeof(buf), "%s.dll", libName);
     dllHandle = LoadLibrary(buf);
     if (!dllHandle) {
       env->Error("LoadLibrary failed: GetLastError=%08x", GetLastError());

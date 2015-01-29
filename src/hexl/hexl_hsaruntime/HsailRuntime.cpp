@@ -62,6 +62,8 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_ext_add_module);
   GET_FUNCTION(hsa_ext_finalize_program);
   GET_FUNCTION(hsa_ext_query_kernel_descriptor_address);
+  GET_FUNCTION(hsa_ext_image_create);
+  GET_FUNCTION(hsa_ext_image_destroy);
   return api;
 }
 
@@ -183,6 +185,39 @@ private:
 public:
   HRBuffer(HsailMemoryState* mstate_, MRBuffer* mr_, HBuffer* hb_)
     : HObject(mstate_), mr(mr_), hb(hb_) { }
+  virtual bool Push();
+  virtual bool Pull();
+  virtual bool Validate();
+  virtual void Print(std::ostream& out) const;
+  virtual size_t Size() const;
+};
+
+class HImage : public HObject {
+private:
+  MImage* mi;
+  void *ptr;
+  hsa_ext_image_t imgh;
+public:
+  HImage(HsailMemoryState* mstate_, MImage* mi_, void *ptr_, hsa_ext_image_t imgh_)
+    : HObject(mstate_), mi(mi_), ptr(ptr_), imgh(imgh_) { }
+  ~HImage();
+  MImage* Mi() { return mi; }
+  void *Ptr() { return ptr; }
+  hsa_ext_image_t *Handle() { return &imgh; }
+  virtual bool Push();
+  virtual bool Pull();
+  virtual bool Validate();
+  virtual void Print(std::ostream& out) const;
+  virtual size_t Size() const;
+};
+
+class HRImage : public HObject {
+private:
+  MRImage* mr;
+  HImage* hi;
+public:
+  HRImage(HsailMemoryState* mstate_, MRImage* mr_, HImage* hi_)
+    : HObject(mstate_), mr(mr_), hi(hi_) { }
   virtual bool Push();
   virtual bool Pull();
   virtual bool Validate();
@@ -460,6 +495,72 @@ size_t HRBuffer::Size() const
   return hb->Size();
 }
 
+
+HImage::~HImage()
+{
+    if (ptr) {
+        State()->Runtime()->Hsa()->hsa_ext_image_destroy(State()->Runtime()->Agent(), imgh);        
+        free(ptr);
+    }
+}
+
+bool HImage::Push()
+{
+   return true;
+}
+
+bool HImage::Pull()
+{
+  // Do nothing.
+  return true;
+}
+
+bool HImage::Validate()
+{
+  // Do nothing.
+  return true;
+}
+
+void HImage::Print(std::ostream& out) const
+{
+  // Do nothing.
+  return;
+}
+
+size_t HImage::Size() const
+{
+  return mi->Size();
+}
+
+bool HRImage::Push()
+{
+  // Do nothing.
+  return true;
+}
+
+bool HRImage::Pull()
+{
+  // Do nothing for now.
+  return true;
+}
+
+bool HRImage::Validate()
+{
+  // Do nothing.
+  return true;
+}
+
+void HRImage::Print(std::ostream& out) const
+{
+  // Do nothing.
+  return;
+}
+
+size_t HRImage::Size() const
+{
+  return hi->Size();
+}
+
 HsailMemoryState::HsailMemoryState(HsailRuntimeContextState* state_)
     : MemoryStateBase(state_->GetContext()),
       state(state_), kernArgSize(0), kernArgPos(0), kernArg(0), dynamicGroupSize(0)
@@ -570,14 +671,28 @@ HObject* HsailMemoryState::AllocateRBuffer(MRBuffer* mr)
 
 HObject* HsailMemoryState::AllocateImage(MImage* mr)
 {
-  assert(false);
-  return 0;
+  hsa_ext_image_descriptor_t image_descriptor;
+  image_descriptor.height = mr->Height();
+  image_descriptor.width = mr->Width();
+  image_descriptor.geometry = (hsa_ext_image_geometry_t)mr->Geometry();
+  image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t)mr->ChannelOrder();
+  image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t)mr->ChannelType();
+  image_descriptor.depth = mr->Depth();
+  image_descriptor.array_size = mr->Size();
+  hsa_access_permission_t access_permission = (hsa_access_permission_t)mr->AccessPermission();
+  hsa_ext_image_t image = {0};
+  void *ptr = malloc(mr->Size());
+  hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, ptr, access_permission, &image);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); return 0; }
+
+  return new HImage(this, mr, ptr, image);
 }
 
 HObject* HsailMemoryState::AllocateRImage(MRImage* mr)
 {
-  assert(false);
-  return 0;
+  assert(mr);
+  HImage* hi = Get<HImage>(mr->RefId());
+  return new HRImage(this, mr, hi);
 }
 
 HsailRuntimeContext* HsailMemoryState::Runtime()
