@@ -83,9 +83,10 @@ namespace hexl {
       class GridsConfig : public ConfigBase {
       private:
         hexl::VectorSequence<uint32_t> dimensions;
-        hexl::GridGeometry defaultGeometry, trivialGeometry;
-        hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet;
-        hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32, *severalwaves, *severalwavesingroup;
+        hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
+        hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
+        hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32, 
+          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -104,6 +105,9 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* Boundary24Set() { return boundary24; }
         hexl::Sequence<hexl::Grid>* SeveralWavesSet() { return severalwaves; }
         hexl::Sequence<hexl::Grid>* SeveralWavesInGroupSet() { return severalwavesingroup; }
+        hexl::Sequence<hexl::Grid>* AllWavesIdSet() { return allWavesIdSet; }
+        hexl::Sequence<hexl::Grid>* WorkGroupsSize256() { return workgroup256; }
+        hexl::Sequence<hexl::Grid>* LimitGridSet() { return limitGrids; }
       };
 
       class SegmentsConfig : public ConfigBase {
