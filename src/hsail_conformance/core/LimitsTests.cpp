@@ -18,29 +18,15 @@
 #include "HCTests.hpp"
 #include "BrigEmitter.hpp"
 #include "CoreConfig.hpp"
+#include "UtilTests.hpp"
 
 using namespace hexl;
 using namespace hexl::emitter;
 using namespace Brig;
 using namespace HSAIL_ASM;
+using namespace hsail_conformance::utils;
 
 namespace hsail_conformance {
-
-class SkipTest : public Test {
-public:
-  explicit SkipTest(Location codeLocation, Grid geometry = 0)
-    : Test(codeLocation, geometry) { }
-
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const override { return Value(MV_UINT32, 0); }
-
-  TypedReg Result() override {
-    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(BRIG_TYPE_U32, 0));
-    return result;
-  }
-};
-
 
 class EquivalenceClassesLimitsTest: public SkipTest {
 private:
@@ -208,7 +194,7 @@ private:
   static const int TOP_LIMIT = 256;
 
 public:
-  WavesizeLimitTest(Grid geometry): Test(Location::KERNEL, geometry) {}
+  explicit WavesizeLimitTest(Grid geometry): Test(Location::KERNEL, geometry) {}
 
   void Name(std::ostream& out) const {
     out << geometry;
@@ -246,6 +232,55 @@ public:
 };
 
 
+class WorkGroupNumberLimitTest : public SkipTest {
+private:
+  static const GridGeometry LIMIT_GEOMETRY; // geometry with 2^32 - 1 work-groups
+
+public:
+  explicit WorkGroupNumberLimitTest(bool): SkipTest(Location::KERNEL, &LIMIT_GEOMETRY) { }
+
+  void Name(std::ostream& out) const {}
+};
+
+const GridGeometry WorkGroupNumberLimitTest::LIMIT_GEOMETRY(3, 65537, 257, 255, 1, 1, 1);
+
+
+class DimsLimitTest : public Test {
+private:
+  static const uint64_t LIMIT = 0xffffffff; // 2^32 - 1
+public:
+  explicit DimsLimitTest(Grid geometry): Test(Location::KERNEL, geometry) {}
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+
+  bool IsValid() const override {
+    return geometry->GridSize() == LIMIT;
+  }
+
+  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
+  TypedReg Result() override {
+    // compare grid sizes for each dimension reported by instruction gridsize with one obtained from original geometry
+    auto gridSize = be.AddTReg(BRIG_TYPE_U32);
+    auto eq = be.AddCTReg();
+    auto and = be.AddCTReg();
+    be.EmitMov(and, be.Immed(and->Type(), 1));
+    for (uint16_t i = 1; i <= 3; ++i) {
+      gridSize = be.EmitGridSize(i);
+      be.EmitCmp(eq->Reg(), gridSize, be.Immed(gridSize->Type(), geometry->GridSize(i)), BRIG_COMPARE_EQ);
+      be.EmitArith(BRIG_OPCODE_AND, and, and, eq->Reg());
+    }
+    
+    auto result = be.AddTReg(ResultType());
+    be.EmitCvt(result, and);
+    return result;
+  }
+};
+
+
 void LimitsTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -258,6 +293,10 @@ void LimitsTests::Iterate(TestSpecIterator& it)
   TestForEach<WorkGroupSizeLimitTest>(ap, it, "wgsize", cc->Grids().WorkGroupsSize256());
 
   TestForEach<WavesizeLimitTest>(ap, it, "wavesize", cc->Grids().SimpleSet());
+  
+  TestForEach<WorkGroupNumberLimitTest>(ap, it, "wgnumber", Bools::Value(true));
+  
+  TestForEach<DimsLimitTest>(ap, it, "dims", cc->Grids().LimitGridSet());
 }
 
 }

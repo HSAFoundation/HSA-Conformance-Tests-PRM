@@ -39,6 +39,12 @@ namespace Bools {
     } bools;
     return &bools;
   }
+
+  hexl::Sequence<bool>* Value(bool val) {
+    static OneValueSequence<bool> trueSequence(true);
+    static OneValueSequence<bool> falseSequence(false);
+    return val ? &trueSequence : &falseSequence;
+  }
 }
 
 std::string Dir2Str(BrigControlDirective d)

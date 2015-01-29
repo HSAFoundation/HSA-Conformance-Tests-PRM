@@ -58,7 +58,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     boundary32(NEWA hexl::VectorSequence<hexl::Grid>()),
     severalwaves(NEWA hexl::VectorSequence<hexl::Grid>()),
     severalwavesingroup(NEWA hexl::VectorSequence<hexl::Grid>()),
-    workgroup256(NEWA hexl::VectorSequence<hexl::Grid>())
+    workgroup256(NEWA hexl::VectorSequence<hexl::Grid>()),
+    limitGrids(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -101,6 +102,12 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   workgroup256->Add(NEWA GridGeometry(2, 64, 4, 1, 64, 4, 1));
   workgroup256->Add(NEWA GridGeometry(3, 8, 8, 4, 8, 8, 4));
   workgroup256->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
+  limitGrids->Add(NEWA GridGeometry(1, 0xffffffff, 1, 1, 256, 1, 1));
+  //limitGrids->Add(NEWA GridGeometry(2, 1, 0xffffffff, 1, 1, 256, 1));
+  //limitGrids->Add(NEWA GridGeometry(3, 1, 1, 0xffffffff, 1, 1, 256));
+  //limitGrids->Add(NEWA GridGeometry(3, 65537, 257, 255, 8, 8, 4));
+  //limitGrids->Add(NEWA GridGeometry(3, 257, 65537, 255, 8, 8, 4));
+  //limitGrids->Add(NEWA GridGeometry(3, 255, 257, 65537, 4, 8, 8));
 }
 
 static const BrigSegment allSegments[] = {
