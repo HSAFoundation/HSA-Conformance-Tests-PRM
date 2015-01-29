@@ -5,7 +5,155 @@
 
 using namespace HSAIL_ASM;
 
+#include <limits>
+using std::numeric_limits;
+
 namespace TESTGEN {
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
+// Implementation of F16 type
+
+f16_t::f16_t(f64_t x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
+{ 
+    FloatProp64 f64(F64_2U(x));
+
+    if (!f64.isRegular())
+    {
+        bits = (u16_t)f64.mapSpecialValues<FloatProp16>();
+    }
+    else if (f64.isSubnormal()) // f64 subnormal should be mapped to (f16)0
+    {
+        FloatProp16 f16(f64.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
+        bits = f16.getBits();
+    }
+    else
+    {
+        s64_t exponent = f64.decodeExponent();
+        u64_t mantissa = f64.mapNormalizedMantissa<FloatProp16>();
+
+        if (!FloatProp16::isValidExponent(exponent))
+        {
+            if (exponent > 0)
+            {
+                bits = f64.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
+            }
+            else
+            {
+                u64_t mantissa16 = f64.normalizeMantissa<FloatProp16>(exponent);
+                FloatProp16 f16(f64.isPositive(), mantissa16, exponent);
+                bits = f16.getBits();
+            }
+        }
+        else
+        {
+            FloatProp16 f16(f64.isPositive(), mantissa, exponent);
+            bits = f16.getBits();
+        }
+    }
+}
+
+f64_t f16_t::f64() const 
+{ 
+    FloatProp16 f16(bits);
+    u64_t bits64;
+
+    if (!f16.isRegular())
+    {
+        bits64 = f16.mapSpecialValues<FloatProp64>();
+    }
+    else if (f16.isSubnormal())
+    {
+        s64_t exponent = f16.decodeExponent();
+        assert(exponent == FloatProp16::decodedSubnormalExponent());
+        exponent = FloatProp16::actualSubnormalExponent();
+        u64_t mantissa = f16.normalizeMantissa<FloatProp64>(exponent);
+        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
+        bits64 = f64.getBits();
+    }
+    else
+    {
+        s64_t exponent = f16.decodeExponent();
+        u64_t mantissa = f16.mapNormalizedMantissa<FloatProp64>();
+        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
+        bits64 = f64.getBits();
+    }
+
+    return HEX2F64(bits64);
+};
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
+
+void f16_t::sanityTests()
+{
+    // Testing f16 Constructor 
+
+    assert(f16_t(0.0).bits == 0x0000);
+    assert(f16_t(0.5).bits == 0x3800);
+    assert(f16_t(1.0).bits == 0x3c00);
+    assert(f16_t(2.0).bits == 0x4000);
+    assert(f16_t(10.0).bits == 0x4900);
+    assert(f16_t(3.1459).bits == 0x424a);
+
+    assert(f16_t(-0.5).bits == 0xb800);
+    assert(f16_t(-3.1459).bits == 0xc24a);
+
+    assert(f16_t(-(0.0)).bits == 0x8000);
+    assert(f16_t(numeric_limits<double>::quiet_NaN()).bits == 0x7e00);
+    assert(f16_t(numeric_limits<double>::infinity()).bits  == 0x7c00);
+    assert(f16_t(-numeric_limits<double>::infinity()).bits == 0xfc00);
+
+    assert(f16_t(7.0e-5).bits == 0x0496);
+    assert(f16_t(6.10352e-5).bits == 0x0400);   // minimum normal
+    assert(f16_t(-6.10352e-5).bits == 0x8400);  // minimum normal
+    assert(f16_t(65504.0).bits == 0x7bff);      // maximum normal
+
+    assert(f16_t(65536.0).bits == 0x7c00);      // maximum normal
+    assert(f16_t(-65536.0).bits == 0xfc00);     // maximum normal
+    assert(f16_t(6.23876e+30).bits == 0x7c00);  // maximum normal
+
+    assert(f16_t(0.000000059604644775390625).bits == 0x0001); // minimum positive subnormal
+    assert(f16_t(0.000030517578125).bits          == 0x0200);
+    assert(f16_t(-0.000019073486328125).bits      == 0x8140);
+    assert(f16_t(2.0e-5).bits     == 0x014f);
+    assert(f16_t(6.10351e-5).bits == 0x03ff);                 // maximum subnormal
+
+    // f16->f64 Conversion  
+
+    f64_t pZero = f16_t::make(0x0000).f64(); assert(FloatProp64(F64_2U(pZero)).isPositiveZero());
+    f64_t nZero = f16_t::make(0x8000).f64(); assert(FloatProp64(F64_2U(nZero)).isNegativeZero());
+
+    f64_t pInf = f16_t::make(0x7c00).f64(); assert(FloatProp64(F64_2U(pInf)).isPositiveInf());
+    f64_t nInf = f16_t::make(0xfc00).f64(); assert(FloatProp64(F64_2U(nInf)).isNegativeInf());
+
+    f64_t nan = f16_t::make(0x7e00).f64(); assert(FloatProp64(F64_2U(nan)).isQuietNan());
+
+    assert(f16_t::make(0x3800).f64() == 0.5);
+    assert(f16_t::make(0x3c00).f64() == 1.0);
+    assert(f16_t::make(0x4000).f64() == 2.0);
+    assert(f16_t::make(0x4900).f64() == 10.0);
+    assert(f16_t::make(0x424a).f64() == 3.1445312500000000);
+
+    assert(f16_t::make(0xb800).f64() == -0.5);
+    assert(f16_t::make(0xc24a).f64() == -3.1445312500000000);
+
+    assert(f16_t::make(0x0496).f64() == 6.9975852966308594e-005);
+    assert(f16_t::make(0x0400).f64() == 6.1035156250000000e-005);    // minimum normal
+    assert(f16_t::make(0x8400).f64() == -6.1035156250000000e-005);   // minimum normal
+    assert(f16_t::make(0x7bff).f64() == 65504.0);                    // maximum normal
+    assert(f16_t::make(0xfbff).f64() == -65504.0);                   // maximum normal
+
+    assert(f16_t::make(0x3555).f64() == 0.33325195312500000);        // maximum normal
+
+    assert(f16_t::make(0x0001).f64() == 5.9604644775390625e-008);    // minimum positive subnormal
+    assert(f16_t::make(0x0200).f64() == 3.0517578125000000e-005);    
+    assert(f16_t::make(0x8140).f64() == -1.9073486328125000e-005);   
+    assert(f16_t::make(0x014f).f64() == 1.9967555999755859e-005);    
+    assert(f16_t::make(0x03ff).f64() == 6.0975551605224609e-005);    // maximum subnormal
+}
 
 //=============================================================================
 //=============================================================================
