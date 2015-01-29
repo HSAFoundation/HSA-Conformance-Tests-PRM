@@ -268,16 +268,16 @@ public:
     // compare grid sizes for each dimension reported by instruction gridsize with one obtained from original geometry
     auto gridSize = be.AddTReg(BRIG_TYPE_U32);
     auto eq = be.AddCTReg();
-    auto and = be.AddCTReg();
-    be.EmitMov(and, be.Immed(and->Type(), 1));
+    auto cand = be.AddCTReg();
+    be.EmitMov(cand, be.Immed(cand->Type(), 1));
     for (uint16_t i = 0; i < 3; ++i) {
       gridSize = be.EmitGridSize(i);
       be.EmitCmp(eq->Reg(), gridSize, be.Immed(gridSize->Type(), geometry->GridSize(i)), BRIG_COMPARE_EQ);
-      be.EmitArith(BRIG_OPCODE_AND, and, and, eq->Reg());
+      be.EmitArith(BRIG_OPCODE_AND, cand, cand, eq->Reg());
     }
     
     auto result = be.AddTReg(ResultType());
-    be.EmitCvt(result, and);
+    be.EmitCvt(result, cand);
     return result;
   }
 };

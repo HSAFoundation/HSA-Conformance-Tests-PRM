@@ -30,4 +30,5 @@ prm/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_global_scr
 prm/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_global_scar
 prm/special/misc/kernargbaseptr/identity/kernel
 prm/special/misc/kernargbaseptr/identity/function
+prm/limits/wgnumber
 
