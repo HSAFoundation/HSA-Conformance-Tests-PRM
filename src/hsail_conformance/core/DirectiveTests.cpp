@@ -18,11 +18,13 @@
 #include "HCTests.hpp"
 #include "BrigEmitter.hpp"
 #include "CoreConfig.hpp"
+#include "UtilTests.hpp"
 
 using namespace hexl;
 using namespace hexl::emitter;
 using namespace Brig;
 using namespace HSAIL_ASM;
+using namespace hsail_conformance::utils;
 
 namespace hsail_conformance {
 
@@ -84,22 +86,6 @@ Sequence<AnnotationLocation>* AnnotationLocations() {
 }
 
 
-class SkipTest : public Test {
-public:
-  explicit SkipTest(Location codeLocation, Grid geometry = 0)
-    : Test(codeLocation, geometry) { }
-
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const override { return Value(MV_UINT32, 0); }
-
-  TypedReg Result() override {
-    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(BRIG_TYPE_U32, 0));
-    return result;
-  }
-};
-
-
 class AnnotationLocationTest : public SkipTest {
 private:
   AnnotationLocation annotationLocation;
@@ -135,7 +121,7 @@ private:
       EmitAnnotation();
     }
 
-    // emit some dumb code that do nothing (in case we know that result contain 0)
+    // emit some dumb code that do nothing
     auto tmp = be.AddTReg(result->Type());
     be.EmitArith(BRIG_OPCODE_MUL, tmp, result, be.Immed(result->Type(), 123456789));
     be.EmitNop();
@@ -145,7 +131,8 @@ private:
     }
 
     be.EmitArith(BRIG_OPCODE_ADD, tmp, tmp, result->Reg());
-    be.EmitMov(result, tmp);
+    be.EmitArith(BRIG_OPCODE_SUB, tmp, tmp, tmp->Reg());
+    be.EmitArith(BRIG_OPCODE_ADD, result, result, tmp->Reg());
     be.EmitCall(empty_function->Directive(), ItemList(), ItemList());
 
     if (annotationLocation == AnnotationLocation::END_ARG_BLOCK) {

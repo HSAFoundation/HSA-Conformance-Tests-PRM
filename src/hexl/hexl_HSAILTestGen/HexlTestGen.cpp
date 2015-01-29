@@ -88,7 +88,7 @@ private:
       id = defResultArray(dsetup, testGroup, id, "mem", false);
     }
     std::ostringstream ss;
-    ss << std::setw(5) << std::setfill('0') << index++ << "_"<< dumpInst(testDesc.getInst());
+    ss << dumpInst(testDesc.getInst()) << "_" << std::setw(5) << std::setfill('0') << index++;
     std::string testName = ss.str();
     Test* test = new ValidateBrigContainerTest(testName, brig, dsetup);
     return new TestHolder(test);

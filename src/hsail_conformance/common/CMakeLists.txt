@@ -1,7 +1,7 @@
 add_library(
 hc_common
-HCTests.cpp
-HCTests.hpp
+HCTests.cpp  UtilTests.cpp
+HCTests.hpp  UtilTests.hpp
 )
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_base)
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_emitter)

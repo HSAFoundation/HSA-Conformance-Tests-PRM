@@ -712,6 +712,7 @@ public:
     : GlobalBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
+
 class WaveidLessMaxTest: public LessEqMaximumText {
 public:
   WaveidLessMaxTest(
@@ -862,7 +863,9 @@ void MiscOperationsTests::Iterate(TestSpecIterator& it)
   TestForEach<MaxcuidIdentityTest>(ap, it, "misc/maxcuid/identity", CodeLocations(), cc->Grids().SimpleSet());
 
   TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().SimpleSet());  
+  TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().AllWavesIdSet());  
   TestForEach<WaveidIdentityTest>(ap, it, "misc/waveid/identity", CodeLocations(), cc->Grids().SimpleSet());
+  TestForEach<WaveidIdentityTest>(ap, it, "misc/waveid/identity", CodeLocations(), cc->Grids().AllWavesIdSet());
 
   TestForEach<MaxwaveidIdentityTest>(ap, it, "misc/maxwaveid/identity", CodeLocations(), cc->Grids().SimpleSet());
 

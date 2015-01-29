@@ -36,6 +36,7 @@ namespace hexl {
 
 namespace Bools {
   hexl::Sequence<bool>* All();
+  hexl::Sequence<bool>* Value(bool val);
 }
 
 std::string Dir2Str(Brig::BrigControlDirective d);
