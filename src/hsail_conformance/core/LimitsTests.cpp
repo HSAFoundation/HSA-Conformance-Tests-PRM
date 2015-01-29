@@ -234,6 +234,7 @@ public:
 
 class WorkGroupNumberLimitTest : public SkipTest {
 private:
+  static const uint64_t LIMIT = 0xffffffff; // 2^32 - 1
   static const GridGeometry LIMIT_GEOMETRY; // geometry with 2^32 - 1 work-groups
 
 public:
@@ -245,11 +246,12 @@ public:
 const GridGeometry WorkGroupNumberLimitTest::LIMIT_GEOMETRY(3, 65537, 257, 255, 1, 1, 1);
 
 
-class DimsLimitTest : public Test {
+class DimsLimitTest : public BoundaryTest {
 private:
   static const uint64_t LIMIT = 0xffffffff; // 2^32 - 1
+
 public:
-  explicit DimsLimitTest(Grid geometry): Test(Location::KERNEL, geometry) {}
+  explicit DimsLimitTest(Grid geometry): BoundaryTest(1, Location::KERNEL, geometry) {}
 
   void Name(std::ostream& out) const override {
     out << geometry;
@@ -268,7 +270,7 @@ public:
     auto eq = be.AddCTReg();
     auto and = be.AddCTReg();
     be.EmitMov(and, be.Immed(and->Type(), 1));
-    for (uint16_t i = 1; i <= 3; ++i) {
+    for (uint16_t i = 0; i < 3; ++i) {
       gridSize = be.EmitGridSize(i);
       be.EmitCmp(eq->Reg(), gridSize, be.Immed(gridSize->Type(), geometry->GridSize(i)), BRIG_COMPARE_EQ);
       be.EmitArith(BRIG_OPCODE_AND, and, and, eq->Reg());
