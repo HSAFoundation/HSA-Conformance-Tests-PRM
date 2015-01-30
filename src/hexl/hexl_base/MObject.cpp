@@ -253,36 +253,40 @@ const char *ValueTypeString(ValueType type)
   }
 }
 
+/// For X2/X4/X8 types - returns width per element
 size_t ValueTypePrintWidth(ValueType type)
 {
   switch (type) {
-  case MV_INT8: return 3;
-  case MV_UINT8: return 3;
-  case MV_INT16: return 5;
-  case MV_UINT16: return 5;
-  case MV_INT32: return 10;
-  case MV_UINT32: return 10;
-  case MV_INT64: return 18;
-  case MV_UINT64: return 18;
+  case MV_INT8X4:
+  case MV_INT8X8:
+  case MV_INT8: return ValueTypePrintWidth(MV_UINT8)+1;
+  case MV_UINT8X4:
+  case MV_UINT8X8:
+  case MV_UINT8: return strlen("255");
+  case MV_INT16X2:
+  case MV_INT16X4:
+  case MV_INT16: return ValueTypePrintWidth(MV_UINT16)+1;
+  case MV_UINT16X2:
+  case MV_UINT16X4:
+  case MV_UINT16: return strlen("65535");
+  case MV_INT32X2: 
+  case MV_INT32: return ValueTypePrintWidth(MV_UINT32)+1;
+  case MV_UINT32X2:
+  case MV_UINT32: return strlen("4294967295");
+  case MV_INT64: return ValueTypePrintWidth(MV_UINT64)+1;
+  case MV_UINT64: return strlen("9223372036854775807");
 #ifdef MBUFFER_KEEP_F16_AS_U32
   case MV_FLOAT16_MBUFFER:
 #endif
-  case MV_FLOAT16: return 10;
-  case MV_FLOAT: return 10;
-  case MV_DOUBLE: return 18;
-  case MV_INT8X4: return 8 + 4 * ValueTypePrintWidth(MV_INT8);
-  case MV_INT8X8: return 16 + 8 * ValueTypePrintWidth(MV_INT8);
-  case MV_UINT8X4: return 8 + 4 * ValueTypePrintWidth(MV_UINT8);
-  case MV_UINT8X8: return 16 + 8 * ValueTypePrintWidth(MV_UINT8);
-  case MV_INT16X2: return 4 + 2 * ValueTypePrintWidth(MV_INT16);
-  case MV_INT16X4: return 8 + 4 * ValueTypePrintWidth(MV_INT16);
-  case MV_UINT16X2: return 4 + 2 * ValueTypePrintWidth(MV_UINT16);
-  case MV_UINT16X4: return 8 + 4 * ValueTypePrintWidth(MV_UINT16);
-  case MV_INT32X2: return 4 + 2 * ValueTypePrintWidth(MV_INT32);
-  case MV_UINT32X2: return 4 + 2 * ValueTypePrintWidth(MV_UINT32);
-  case MV_FLOAT16X2: return 4 + 2 * ValueTypePrintWidth(MV_FLOAT16);
-  case MV_FLOAT16X4: return 8 + 4 * ValueTypePrintWidth(MV_FLOAT16);
-  case MV_FLOATX2: return 4 + 2 * ValueTypePrintWidth(MV_FLOAT);
+  case MV_FLOAT16X2:
+  case MV_FLOAT16X4:
+  case MV_FLOAT16: // return 8;
+    return Comparison::F16_MAX_DECIMAL_PRECISION + strlen("+.-E12");
+  case MV_FLOATX2:
+  case MV_FLOAT: // return 10;
+    return Comparison::F32_MAX_DECIMAL_PRECISION + strlen("+.-E123");
+  case MV_DOUBLE: // return 18;
+    return Comparison::F64_MAX_DECIMAL_PRECISION + strlen("+.-E1234");
   case MV_IMAGE:
   case MV_REF:
   case MV_IMAGEREF:
@@ -315,33 +319,40 @@ std::ostream& operator<<(std::ostream& out, const Value& v)
 static bool isnan_half(const half) { return false; } /// \todo
 static bool is_inf_half(const half) { return false; } /// \todo
 
-std::ostream& PrintHalf(half h, uint16_t bits, std::ostream& out){
+static
+void PrintExtraHex(std::ostream& out, uint64_t zero_extended_bits, size_t sizeof_bits) {
+  const std::streamsize wSave = out.width(); /// \todo get rid of width save/restore? --artem
+  out << " (0x" << std::hex << std::setw(sizeof_bits * 2) << std::setfill('0') << zero_extended_bits << ")";
+  out << std::setfill(' ') << std::dec << std::setw(wSave);
+}
+
+std::ostream& PrintHalf(half h, uint16_t bits, std::ostream& out, const bool extraHex){
   if (isnan_half(h) || is_inf_half(h)) {
     out << (isnan_half(h) ? "NAN" : "INF");
   } else {
     out << std::setprecision(Comparison::F16_MAX_DECIMAL_PRECISION) << (float)h;
   }
-  out << " (0x" << std::hex << bits << ")" << std::dec;
+  if (extraHex) PrintExtraHex(out, bits, sizeof(bits));
   return out;
 };
 
-std::ostream& PrintFloat(float f, uint32_t bits, std::ostream& out){
+std::ostream& PrintFloat(float f, uint32_t bits, std::ostream& out, const bool extraHex){
   if (isnan(f) || is_inf(f)) {
     out << (isnan(f) ? "NAN" : "INF");
   } else {
     out << std::setprecision(Comparison::F32_MAX_DECIMAL_PRECISION) << f;
   }
-  out << " (0x" << std::hex << bits << ")" << std::dec;
+  if (extraHex) PrintExtraHex(out, bits, sizeof(bits));
   return out;
 };
 
-std::ostream& PrintDouble(double d, uint64_t bits, std::ostream& out){
+std::ostream& PrintDouble(double d, uint64_t bits, std::ostream& out, const bool extraHex){
   if (isnan(d) || is_inf(d)) {
     out << (isnan(d) ? "NAN" : "INF");
   } else {
     out << std::setprecision(Comparison::F64_MAX_DECIMAL_PRECISION) << d;
   }
-  out << " (0x" << std::hex << bits << ")" << std::dec;
+  if (extraHex) PrintExtraHex(out, bits, sizeof(bits));
   return out;
 };
 
@@ -376,13 +387,13 @@ void Value::Print(std::ostream& out) const
   case MV_FLOAT16_MBUFFER:
 #endif
   case MV_FLOAT16:
-    PrintHalf(H(), U16(), out);
+    PrintHalf(H(), U16(), out, printExtraHex);
     break;
   case MV_FLOAT:
-    PrintFloat(F(), U32(), out);
+    PrintFloat(F(), U32(), out, printExtraHex);
     break;
   case MV_DOUBLE:
-    PrintDouble(D(), U64(), out);
+    PrintDouble(D(), U64(), out, printExtraHex);
     break;
   case MV_INT8X4: 
     out << "(" << S8X4(0) << ", " << S8X4(1) << ", " << S8X4(2) << ", " << S8X4(3) << ")";
@@ -415,7 +426,7 @@ void Value::Print(std::ostream& out) const
     out << "(" << U32X2(0) << ", " << U32X2(1) << ")";
     break;
   case MV_FLOATX2:
-    out << "(" << PrintFloat(FX2(0), U32X2(0), out) << ", " << PrintFloat(FX2(1), U32X2(1), out) << ")";
+    out << "(" << PrintFloat(FX2(0), U32X2(0), out, printExtraHex) << ", " << PrintFloat(FX2(1), U32X2(1), out, printExtraHex) << ")";
     break;
   case MV_REF:
   case MV_IMAGEREF:
@@ -712,7 +723,7 @@ std::string MBuffer::GetPosStr(size_t pos) const
 {
   std::stringstream ss;
   switch (dim) {
-  case 1: ss << "[" << pos << "]"; break;
+  case 1: ss << "[" << std::setw(2) << pos << "]"; break;
   case 2: ss << "[" << GetDim(pos, 0) << "," << GetDim(pos, 1) << "]"; break;
   case 3: ss << "[" << GetDim(pos, 0) << "," << GetDim(pos, 1) << "," << GetDim(pos, 2) << "]"; break;
   default:
@@ -1010,7 +1021,7 @@ bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, con
       return res;
     case CM_DECIMAL:
     case CM_RELATIVE:
-      error = Value(MV_DOUBLE, F(res ? 0.0f : 1.0f));
+      error = Value(MV_DOUBLE, D(res ? 0.0f : 1.0f));
       return res;
     default:
       assert(!"Unsupported compare method in CompareValues"); return false;
@@ -1267,8 +1278,13 @@ void Comparison::Print(std::ostream& out) const
   out << std::setw(rvalue.PrintWidth()) << rvalue;
 }
 
-void Comparison::PrintLong(std::ostream& out) const
+void Comparison::PrintLong(std::ostream& out)
 {
+  /// \todo We need to restore print width after each intermediate extraHex printout (X2/4/8 cases).
+  /// Add new attribute to Value saying that we want fixed-width printing? and get rid of
+  /// Value::PrintWidth() and save-restore of width in PrintExtraHex? --Artem
+  rvalue.SetPrintExtraHex(true);
+  evalue.SetPrintExtraHex(true);
   Print(out);
   out << " (exp. " << std::setw(evalue.PrintWidth()) << evalue;
   out << ", " << GetMethodDescription() << " difference " << std::setw(error.PrintWidth()) << error;

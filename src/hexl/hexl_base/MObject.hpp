@@ -145,13 +145,15 @@ class Comparison;
 
 class Value {
 public:
-  Value(ValueType type_, ValueData data_) : type(type_), data(data_) {}
-  Value() : type(MV_UINT64) { data.u64 = 0; }
-  Value(const Value& v) : type(v.type), data(v.data) { }
-  Value& operator=(const Value& v) { type = v.type; data = v.data; return *this; }
-  Value(ValueType _type, uint64_t _value) : type(_type) { data.u64 = _value; }
-  Value(float _value) : type(MV_FLOAT)  { data.f = _value; }
-  Value(double _value) : type(MV_DOUBLE) { data.d = _value; }
+  /// Unsafe constructor, take care. Example: Value(MV_DOUBLE, F(expr)) yields totally invalid result.
+  Value(ValueType type_, ValueData data_) : type(type_), data(data_), printExtraHex(false) {}
+  Value() : type(MV_UINT64), printExtraHex(false) { data.u64 = 0; }
+  Value(const Value& v) : type(v.type), data(v.data), printExtraHex(v.printExtraHex) { }
+  Value& operator=(const Value& v) { type = v.type; data = v.data; printExtraHex = v.printExtraHex; return *this; }
+  /// \todo HIGHLY unsafe, take care! Example: Value(MV_FLOAT, 1.5F) will cast 1.5F to uint64 1 (0x1), which means float denorm.
+  Value(ValueType _type, uint64_t _value) : type(_type), printExtraHex(false) { data.u64 = _value; }
+  explicit Value(float value_) : type(MV_FLOAT), printExtraHex(false)  { data.f = value_; }
+  explicit Value(double value_) : type(MV_DOUBLE), printExtraHex(false) { data.d = value_; }
   ~Value();
 
   ValueType Type() const { return type; }
@@ -187,6 +189,7 @@ public:
     
   size_t Size() const;
   size_t PrintWidth() const;
+  void SetPrintExtraHex(bool m) { printExtraHex = m; }
 
   void WriteTo(void *dest) const;
   void ReadFrom(const void *src, ValueType type);
@@ -196,6 +199,7 @@ public:
 private:
   ValueType type;
   ValueData data;
+  bool printExtraHex;
   friend class Comparison;
   friend std::ostream& operator<<(std::ostream& out, const Value& value);
   friend std::ostream& operator<<(std::ostream& out, const Comparison& comparison);
@@ -409,7 +413,7 @@ public:
   void PrintDesc(std::ostream& out) const;
   void Print(std::ostream& out) const;
   void PrintShort(std::ostream& out) const;
-  void PrintLong(std::ostream& out) const;
+  void PrintLong(std::ostream& out);
 
   bool Compare(const Value& evalue, const Value& rvalue);
 
