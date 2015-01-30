@@ -64,6 +64,8 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_ext_query_kernel_descriptor_address);
   GET_FUNCTION(hsa_ext_image_create);
   GET_FUNCTION(hsa_ext_image_destroy);
+  GET_FUNCTION(hsa_ext_sampler_create);
+  GET_FUNCTION(hsa_ext_sampler_destroy);
   return api;
 }
 
@@ -225,6 +227,37 @@ public:
   virtual size_t Size() const;
 };
 
+class HSampler : public HObject {
+private:
+  MSampler* ms;
+  hsa_ext_sampler_t smph;
+public:
+  HSampler(HsailMemoryState* mstate_, MSampler* ms_, hsa_ext_sampler_t smph_)
+    : HObject(mstate_), ms(ms_), smph(smph_) { }
+  ~HSampler();
+  MSampler* Ms() { return ms; }
+  hsa_ext_sampler_t *Handle() { return &smph; }
+  virtual bool Push();
+  virtual bool Pull();
+  virtual bool Validate();
+  virtual void Print(std::ostream& out) const;
+  virtual size_t Size() const;
+};
+
+class HRSampler : public HObject {
+private:
+  MRSampler* mr;
+  HSampler* hs;
+public:
+  HRSampler(HsailMemoryState* mstate_, MRSampler* mr_, HSampler* hs_)
+    : HObject(mstate_), mr(mr_), hs(hs_) { }
+  virtual bool Push();
+  virtual bool Pull();
+  virtual bool Validate();
+  virtual void Print(std::ostream& out) const;
+  virtual size_t Size() const;
+};
+
 class HsailMemoryState : public MemoryStateBase<HsailMemoryState> {
 private:
   HsailRuntimeContextState* state;
@@ -240,6 +273,8 @@ protected:
   virtual HObject* AllocateRBuffer(MRBuffer* mo);
   virtual HObject* AllocateImage(MImage* mi);
   virtual HObject* AllocateRImage(MRImage* mi);
+  virtual HObject* AllocateSampler(MSampler* mi);
+  virtual HObject* AllocateRSampler(MRSampler* mi);
 
 public:
   explicit HsailMemoryState(HsailRuntimeContextState* state_);
@@ -561,6 +596,70 @@ size_t HRImage::Size() const
   return hi->Size();
 }
 
+HSampler::~HSampler()
+{
+    State()->Runtime()->Hsa()->hsa_ext_sampler_destroy(State()->Runtime()->Agent(), smph);
+}
+
+bool HSampler::Push()
+{
+    // Do nothing.
+   return true;
+}
+
+bool HSampler::Pull()
+{
+  // Do nothing.
+  return true;
+}
+
+bool HSampler::Validate()
+{
+  // Do nothing.
+  return true;
+}
+
+void HSampler::Print(std::ostream& out) const
+{
+  // Do nothing.
+  return;
+}
+
+size_t HSampler::Size() const
+{
+  return ms->Size();
+}
+
+
+bool HRSampler::Push()
+{
+  // Do nothing.
+  return true;
+}
+
+bool HRSampler::Pull()
+{
+  // Do nothing for now.
+  return true;
+}
+
+bool HRSampler::Validate()
+{
+  // Do nothing.
+  return true;
+}
+
+void HRSampler::Print(std::ostream& out) const
+{
+  // Do nothing.
+  return;
+}
+
+size_t HRSampler::Size() const
+{
+  return hs->Size();
+}
+
 HsailMemoryState::HsailMemoryState(HsailRuntimeContextState* state_)
     : MemoryStateBase(state_->GetContext()),
       state(state_), kernArgSize(0), kernArgPos(0), kernArg(0), dynamicGroupSize(0)
@@ -669,23 +768,23 @@ HObject* HsailMemoryState::AllocateRBuffer(MRBuffer* mr)
   return new HRBuffer(this, mr, hb);
 }
 
-HObject* HsailMemoryState::AllocateImage(MImage* mr)
+HObject* HsailMemoryState::AllocateImage(MImage* mi)
 {
   hsa_ext_image_descriptor_t image_descriptor;
-  image_descriptor.height = mr->Height();
-  image_descriptor.width = mr->Width();
-  image_descriptor.geometry = (hsa_ext_image_geometry_t)mr->Geometry();
-  image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t)mr->ChannelOrder();
-  image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t)mr->ChannelType();
-  image_descriptor.depth = mr->Depth();
-  image_descriptor.array_size = mr->Size();
-  hsa_access_permission_t access_permission = (hsa_access_permission_t)mr->AccessPermission();
+  image_descriptor.height = mi->Height();
+  image_descriptor.width = mi->Width();
+  image_descriptor.geometry = (hsa_ext_image_geometry_t)mi->Geometry();
+  image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t)mi->ChannelOrder();
+  image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t)mi->ChannelType();
+  image_descriptor.depth = mi->Depth();
+  image_descriptor.array_size = mi->Size();
+  hsa_access_permission_t access_permission = (hsa_access_permission_t)mi->AccessPermission();
   hsa_ext_image_t image = {0};
-  void *ptr = malloc(mr->Size());
+  void *ptr = malloc(mi->Size());
   hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, ptr, access_permission, &image);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); return 0; }
 
-  return new HImage(this, mr, ptr, image);
+  return new HImage(this, mi, ptr, image);
 }
 
 HObject* HsailMemoryState::AllocateRImage(MRImage* mr)
@@ -693,6 +792,26 @@ HObject* HsailMemoryState::AllocateRImage(MRImage* mr)
   assert(mr);
   HImage* hi = Get<HImage>(mr->RefId());
   return new HRImage(this, mr, hi);
+}
+
+HObject* HsailMemoryState::AllocateSampler(MSampler* ms)
+{
+  hsa_ext_sampler_descriptor_t samp_descriptor;
+  samp_descriptor.coordinate_mode = (hsa_ext_sampler_coordinate_mode_t)ms->Coords();
+  samp_descriptor.filter_mode = (hsa_ext_sampler_filter_mode_t)ms->Filter();
+  samp_descriptor.address_mode = (hsa_ext_sampler_addressing_mode_t)ms->Addressing();
+  hsa_ext_sampler_t sampler = {0};
+  hsa_status_t status = Runtime()->Hsa()->hsa_ext_sampler_create(Runtime()->Agent(), &samp_descriptor, &sampler);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_sampler_create failed", status); return 0; }
+
+  return new HSampler(this, ms, sampler);
+}
+
+HObject* HsailMemoryState::AllocateRSampler(MRSampler* mr)
+{
+  assert(mr);
+  HSampler* hs = Get<HSampler>(mr->RefId());
+  return new HRSampler(this, mr, hs);
 }
 
 HsailRuntimeContext* HsailMemoryState::Runtime()

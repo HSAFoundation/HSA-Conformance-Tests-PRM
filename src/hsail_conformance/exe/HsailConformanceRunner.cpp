@@ -22,6 +22,7 @@
 #include "HexlResource.hpp"
 
 #include "PrmCoreTests.hpp"
+#include "ImageCoreTests.hpp"
 #include "HexlLib.hpp"
 #ifdef ENABLE_HEXL_AGENT
 #include "HexlAgent.hpp"
@@ -38,16 +39,18 @@ class HCTestFactory : public DefaultTestFactory {
 private:
   Context* context;
   hexl::TestSet* prmCoreTests;
+  hexl::TestSet* imageCoreTests;
 
 public:
   HCTestFactory(Context* context_)
-    : context(context_), prmCoreTests(NewPrmCoreTests())
+    : context(context_), prmCoreTests(NewPrmCoreTests()), imageCoreTests(NewImagesCoreTests())
   {
   }
 
   ~HCTestFactory()
   {
     delete prmCoreTests;
+    delete imageCoreTests;
   }
 
   virtual Test* CreateTest(const std::string& type, const std::string& name, const Options& options = Options())
@@ -61,12 +64,19 @@ public:
     TestSet* ts;
     ts = prmCoreTests;
     ts->InitContext(context);
-    if (type != "all") {
-      TestNameFilter* filter = new TestNameFilter(type);
-      TestSet* fts = prmCoreTests->Filter(filter);
-      if (fts != ts) {
-        fts->InitContext(context);
-        ts = fts;
+    if (type == "images") {
+        ts = imageCoreTests;
+        ts->InitContext(context);
+    }
+    else
+    {
+      if (type != "all") {
+        TestNameFilter* filter = new TestNameFilter(type);
+        TestSet* fts = prmCoreTests->Filter(filter);
+        if (fts != ts) {
+          fts->InitContext(context);
+          ts = fts;
+        }
       }
     }
     return ts;
@@ -193,7 +203,7 @@ void HCRunner::Run()
   runner->RunTests(*tests);
 
   // cleanup in reverse order. new never fails.
-  if (tests) { delete tests; } delete runner; runner = 0;
+  delete runner; runner = 0;
   if (runtime) { delete runtime; } 
   delete rm;  delete env;
 }
