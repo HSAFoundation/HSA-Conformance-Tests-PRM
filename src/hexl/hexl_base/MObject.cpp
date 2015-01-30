@@ -818,6 +818,25 @@ void MRImage::DeserializeData(std::istream& in)
   assert(false);
 }
 
+void MSampler::SerializeData(std::ostream& out) const
+{
+  assert(false);
+}
+
+void MSampler::DeserializeData(std::istream& in)
+{
+  assert(false);
+}
+
+void MRSampler::SerializeData(std::ostream& out) const
+{
+  assert(false);
+}
+
+void MRSampler::DeserializeData(std::istream& in)
+{
+  assert(false);
+}
 
 ValueType ImageValueType(unsigned geometry)
 {
