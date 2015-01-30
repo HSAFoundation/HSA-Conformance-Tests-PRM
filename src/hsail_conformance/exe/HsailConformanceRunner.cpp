@@ -165,6 +165,7 @@ void HCRunner::Run()
   optReg.RegisterBooleanOption("dummy");
   optReg.RegisterBooleanOption("verbose");
   optReg.RegisterBooleanOption("dump");
+  optReg.RegisterBooleanOption("XtestF16"); // eXperimental
   optReg.RegisterOption("match");
   {
     int n = hexl::ParseOptions(argc, argv, optReg, options);
