@@ -14,32 +14,26 @@
    limitations under the License.
 */
 
-#include "ImageCoreTests.hpp"
+#include "ImagesTests.hpp"
 #include "ImageRdTests.hpp"
-#ifdef ENABLE_HEXL_HSAILTESTGEN
-#include "HexlTestGen.hpp"
-#endif // ENABLE_HEXL_HSAILTESTGEN
 #include "CoreConfig.hpp"
 
 using namespace Brig;
 using namespace hexl;
-#ifdef ENABLE_HEXL_HSAILTESTGEN
-using namespace hexl::TestGen;
-#endif // ENABLE_HEXL_HSAILTESTGEN
 
 namespace hsail_conformance { 
 
-DECLARE_TESTSET_UNION(ImagesOperationsTests);
+DECLARE_TESTSET_UNION(PrmImagesTests);
 
-ImagesOperationsTests::ImagesOperationsTests()
-  : TestSetUnion("images")
+PrmImagesTests::PrmImagesTests()
+  : TestSetUnion("image")
 {
-  Add(new ImageRdTestSet());
+    Add(new ImageRdTestSet());
 }
 
-hexl::TestSet* NewImagesCoreTests()
+hexl::TestSet* NewPrmImagesTests()
 {
-  return new ImagesOperationsTests();
+  return new PrmImagesTests();
 }
 
 }

@@ -680,6 +680,7 @@ size_t HsailMemoryState::GetValueSize(ValueType type) {
   switch (type) {
   case MV_REF:
     return sizeof(void *);
+  case MV_SAMPLERREF:
   case MV_IMAGEREF:
     return 8;
   default:
@@ -695,6 +696,7 @@ Value HsailMemoryState::GetValue(Value v)
     assert(ho);
     return Value(MV_POINTER, P(ho->Ptr()));
   }
+  case MV_SAMPLERREF:
   case MV_IMAGEREF: {
     assert(false);
     return Value(MV_UINT64, (uint64_t) 0);

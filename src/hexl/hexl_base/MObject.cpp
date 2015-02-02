@@ -21,6 +21,7 @@
 #include <iostream>
 #include <sstream>
 #include <cmath>
+#include <cstring>
 
 #ifdef _WIN32
 #define isnan _isnan
@@ -262,31 +263,31 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_INT8: return ValueTypePrintWidth(MV_UINT8)+1;
   case MV_UINT8X4:
   case MV_UINT8X8:
-  case MV_UINT8: return strlen("255");
+  case MV_UINT8: return std::strlen("255");
   case MV_INT16X2:
   case MV_INT16X4:
   case MV_INT16: return ValueTypePrintWidth(MV_UINT16)+1;
   case MV_UINT16X2:
   case MV_UINT16X4:
-  case MV_UINT16: return strlen("65535");
+  case MV_UINT16: return std::strlen("65535");
   case MV_INT32X2: 
   case MV_INT32: return ValueTypePrintWidth(MV_UINT32)+1;
   case MV_UINT32X2:
-  case MV_UINT32: return strlen("4294967295");
+  case MV_UINT32: return std::strlen("4294967295");
   case MV_INT64: return ValueTypePrintWidth(MV_UINT64)+1;
-  case MV_UINT64: return strlen("9223372036854775807");
+  case MV_UINT64: return std::strlen("9223372036854775807");
 #ifdef MBUFFER_KEEP_F16_AS_U32
   case MV_FLOAT16_MBUFFER:
 #endif
   case MV_FLOAT16X2:
   case MV_FLOAT16X4:
   case MV_FLOAT16: // return 8;
-    return Comparison::F16_MAX_DECIMAL_PRECISION + strlen("+.-E12");
+    return Comparison::F16_MAX_DECIMAL_PRECISION + std::strlen("+.-E12");
   case MV_FLOATX2:
   case MV_FLOAT: // return 10;
-    return Comparison::F32_MAX_DECIMAL_PRECISION + strlen("+.-E123");
+    return Comparison::F32_MAX_DECIMAL_PRECISION + std::strlen("+.-E123");
   case MV_DOUBLE: // return 18;
-    return Comparison::F64_MAX_DECIMAL_PRECISION + strlen("+.-E1234");
+    return Comparison::F64_MAX_DECIMAL_PRECISION + std::strlen("+.-E1234");
   case MV_IMAGE:
   case MV_REF:
   case MV_IMAGEREF:

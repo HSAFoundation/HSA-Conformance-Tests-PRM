@@ -36,7 +36,7 @@
 
 namespace hexl {
 
-enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_SAMPLER, MV_IMAGEREF, MV_EXPR, MV_STRING, 
+enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_SAMPLER, MV_IMAGEREF, MV_SAMPLERREF, MV_EXPR, MV_STRING, 
 #ifdef MBUFFER_KEEP_F16_AS_U32
                  MV_FLOAT16_MBUFFER,
 #endif
@@ -474,10 +474,11 @@ ValueType ImageValueType(unsigned geometry);
 
 class MImage : public MObject {
 public:
-  MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
-    : MObject(id, MIMAGE, name),
-      geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_), width(width_), height(height_),
-      depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_) { }
+  MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_,
+    size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
+    : MObject(id, MIMAGE, name), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_),
+      width(width_), height(height_), depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_)
+      { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
 
   unsigned Geometry() const { return geometry; }
@@ -503,10 +504,10 @@ public:
   virtual void SerializeData(std::ostream& out) const;
 
 private:
-  unsigned accessPermission;
   unsigned geometry;
   unsigned channelOrder;
   unsigned channelType;
+  unsigned accessPermission;
   size_t width, height, depth, rowPitch, slicePitch;
   Values data;
 
@@ -538,7 +539,7 @@ inline MImage* NewMValue(unsigned id, const std::string& name, unsigned geometry
                          size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, ValueData data) {
   MImage* mi = new MImage(id, name, geometry, chanel_order, channel_type, access, 
                          width, height, depth, rowPitch, slicePitch);
-  for (int i = 0; i < mi->Size(); i++)
+  for (size_t i = 0; i < mi->Size(); i++)
   {
     mi->Data().push_back(Value(MV_UINT8, data));
   }

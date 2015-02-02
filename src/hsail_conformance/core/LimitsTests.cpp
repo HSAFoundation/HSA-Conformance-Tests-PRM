@@ -283,6 +283,255 @@ public:
 };
 
 
+class MemorySegmentSizeLimitTest: public Test {
+private:
+  Variable var;
+
+protected:
+  Variable GetVariable() const { return var; }
+
+  virtual void EmitInitialization(TypedReg value) = 0;
+  virtual TypedReg EmitValue() = 0;
+  virtual Variable InitializeVariable() = 0;
+  virtual uint32_t Limit() const = 0;
+  virtual BrigSegment Segment() const = 0;
+
+public:
+  explicit MemorySegmentSizeLimitTest(Location codeLocation = Location::KERNEL, Grid geometry = 0): 
+      Test(codeLocation, geometry) {}
+
+  void Init() override {
+    Test::Init();
+    var = InitializeVariable();
+  }
+
+  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
+  TypedReg Result() override {
+    auto falseLabel = "@false";
+    auto endLabel = "@end";
+    
+    auto value = EmitValue();
+    EmitInitialization(value);
+
+    // read values from first and last positions in each work-items
+    // compare values with expected
+
+    // read first
+    auto first = be.AddTReg(value->Type());
+    var->EmitLoadTo(first);
+    auto cmp = be.AddCTReg();
+    be.EmitCmp(cmp->Reg(), first, value, BRIG_COMPARE_NE);
+    be.EmitCbr(cmp->Reg(), falseLabel);
+
+    // read last
+    auto offset = Limit() - getBrigTypeNumBytes(value->Type());
+    auto last = be.AddTReg(value->Type());
+    be.EmitLoad(Segment(), last, be.Address(var->Variable(), offset));
+    be.EmitCmp(cmp->Reg(), last, value, BRIG_COMPARE_NE);
+    be.EmitCbr(cmp->Reg(), falseLabel);
+
+    auto result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitBr(endLabel);
+
+    be.EmitLabel(falseLabel);
+    be.EmitMov(result, be.Immed(result->Type(), 0));
+
+    be.EmitLabel(endLabel);
+    return result;
+  }
+};
+
+
+
+class GroupMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
+private:
+  static const uint32_t LIMIT = 0x8000; // 32 KBytes of group memory
+  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE = 123456789;
+
+protected:
+  void EmitInitialization(TypedReg value) override {
+    auto skipLabel = "@skip_initializer";
+    // store VALUE in first and last positions of var in first work-item
+    auto wiId = be.EmitWorkitemFlatId();
+    auto cmp = be.AddCTReg();
+    be.EmitCmp(cmp->Reg(), wiId, be.Immed(wiId->Type(), 0), BRIG_COMPARE_NE);
+    be.EmitCbr(cmp->Reg(), skipLabel);
+
+    // store in first position
+    GetVariable()->EmitStoreFrom(value);
+
+    // store in last position
+    auto offset = LIMIT - getBrigTypeNumBytes(value->Type());
+    be.EmitStore(BRIG_SEGMENT_GROUP, value, be.Address(GetVariable()->Variable(), offset));
+
+    be.EmitLabel(skipLabel);
+    be.EmitBarrier();
+  }
+
+  TypedReg EmitValue() override {
+    auto value = be.AddTReg(VALUE_TYPE);
+    be.EmitMov(value, be.Immed(VALUE_TYPE, VALUE));
+    return value;
+  }
+
+  Variable InitializeVariable() override {
+    return kernel->NewVariable("var", BRIG_SEGMENT_GROUP, VALUE_TYPE, Location::AUTO, BRIG_ALIGNMENT_NONE, LIMIT / getBrigTypeNumBytes(VALUE_TYPE));
+  }
+
+  uint32_t Limit() const override { return LIMIT; }
+  BrigSegment Segment() const override { return BRIG_SEGMENT_GROUP; }
+
+public:
+  explicit GroupMemorySizeLimitTest(Grid geometry): MemorySegmentSizeLimitTest(Location::KERNEL, geometry) {}
+
+  bool IsValid() const override {
+    return geometry->GridGroups() == 1;
+  }
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+};
+
+
+class PrivateMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
+private:
+  static const uint32_t LIMIT = 0x100; // 256 Bytes of private memory per work-item = 256 * 256 = 64 KBytes
+
+protected:
+  void EmitInitialization(TypedReg value) override {
+    // store value in first and last positions
+    GetVariable()->EmitStoreFrom(value);
+    auto offset = LIMIT - getBrigTypeNumBytes(value->Type());
+    be.EmitStore(BRIG_SEGMENT_PRIVATE, value, be.Address(GetVariable()->Variable(), offset));
+  }
+
+  TypedReg EmitValue() override {
+    return be.WorkitemFlatAbsId(false);
+  }
+
+  Variable InitializeVariable() override {
+    return kernel->NewVariable("var", BRIG_SEGMENT_PRIVATE, BRIG_TYPE_U32, Location::AUTO, 
+                               BRIG_ALIGNMENT_NONE, LIMIT/getBrigTypeNumBytes(BRIG_TYPE_U32));
+  }
+
+  uint32_t Limit() const override { return LIMIT; }
+  BrigSegment Segment() const override { return BRIG_SEGMENT_PRIVATE; }
+
+public:
+  explicit PrivateMemorySizeLimitTest(Grid geometry): MemorySegmentSizeLimitTest(Location::KERNEL, geometry) {}
+
+  bool IsValid() const override {
+    return 256 == geometry->WorkgroupSize()   // check that work-group is full
+        && !geometry->isPartial();
+  }
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+};
+
+
+class KernargMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
+private:
+  static const uint32_t LIMIT = 1024; // 1KByte of kernarg memory
+  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE = 123456789;
+
+  uint32_t VarSize() const {
+    return Limit() / getBrigTypeNumBytes(VALUE_TYPE);
+  }
+
+protected:
+  void EmitInitialization(TypedReg value) override {}
+
+  TypedReg EmitValue() override {
+    auto value = be.AddTReg(VALUE_TYPE);
+    be.EmitMov(value, be.Immed(VALUE_TYPE, VALUE));
+    return value;
+  }
+
+  Variable InitializeVariable() override {
+    auto var = kernel->NewVariable("var", BRIG_SEGMENT_KERNARG, VALUE_TYPE, Location::AUTO, BRIG_ALIGNMENT_NONE, VarSize());
+    for (uint32_t i = 0; i < VarSize(); ++i) {
+      var->PushBack(Value(Brig2ValueType(VALUE_TYPE), VALUE));
+    }
+    return var;
+  }
+
+  uint32_t Limit() const override { 
+    return LIMIT - (getSegAddrSize(BRIG_SEGMENT_GLOBAL, te->CoreCfg()->IsLarge()) / 8); 
+  }
+
+  BrigSegment Segment() const override { return BRIG_SEGMENT_KERNARG; }
+
+public:
+  explicit KernargMemorySizeLimitTest(Grid geometry): MemorySegmentSizeLimitTest(Location::KERNEL, geometry) {}
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+};
+
+
+class ArgMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
+private:
+  static const uint32_t LIMIT = 64; // 64 bytes of arg memory
+  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE = 123456789;
+
+  uint32_t VarSize() const {
+    return Limit() / getBrigTypeNumBytes(VALUE_TYPE);
+  }
+
+protected:
+  void EmitInitialization(TypedReg value) override {}
+
+  TypedReg EmitValue() override {
+    auto value = be.AddTReg(VALUE_TYPE);
+    be.EmitMov(value, be.Immed(VALUE_TYPE, VALUE));
+    return value;
+  }
+
+  Variable InitializeVariable() override {
+    return function->NewVariable("var", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::AUTO, 
+                                 BRIG_ALIGNMENT_NONE, VarSize());
+  }
+
+  uint32_t Limit() const override { 
+    return LIMIT - getBrigTypeNumBytes(ResultType()); // part of arg space is occupied by result argument of function 
+  }
+
+  BrigSegment Segment() const override { return BRIG_SEGMENT_ARG; }
+
+public:
+  explicit ArgMemorySizeLimitTest(Grid geometry): MemorySegmentSizeLimitTest(Location::FUNCTION, geometry) {}
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+
+  bool IsValid() const override {
+    return MemorySegmentSizeLimitTest::IsValid()
+        && VarSize() <= 16;  // ensure that we sutisfy assertion on TypedReg count limit
+  }
+
+  void ActualCallArguments(TypedRegList inputs, TypedRegList outputs) override {
+    MemorySegmentSizeLimitTest::ActualCallArguments(inputs, outputs);
+    auto value = EmitValue();
+    auto reg = be.AddTReg(VALUE_TYPE, 15);
+    for (uint32_t i = 0; i < VarSize(); ++i) {
+      be.EmitMov(reg->Reg(i), value->Reg(), getBrigTypeNumBits(VALUE_TYPE));
+    }
+    inputs->Add(reg);
+  }
+};
+
+
 void LimitsTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -299,6 +548,11 @@ void LimitsTests::Iterate(TestSpecIterator& it)
   TestForEach<WorkGroupNumberLimitTest>(ap, it, "wgnumber", Bools::Value(true));
   
   TestForEach<DimsLimitTest>(ap, it, "dims", cc->Grids().LimitGridSet());
+
+  TestForEach<GroupMemorySizeLimitTest>(ap, it, "group_memory_size", cc->Grids().SingleGroupSet());
+  TestForEach<PrivateMemorySizeLimitTest>(ap, it, "private_memory_size", cc->Grids().WorkGroupsSize256());
+  TestForEach<KernargMemorySizeLimitTest>(ap, it, "kernarg_memory_size", cc->Grids().SimpleSet());
+  TestForEach<ArgMemorySizeLimitTest>(ap, it, "arg_memory_size", cc->Grids().SimpleSet());
 }
 
 }
