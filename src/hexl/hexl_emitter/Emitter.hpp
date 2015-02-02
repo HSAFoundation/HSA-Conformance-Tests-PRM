@@ -218,7 +218,7 @@ class EVariable : public EVariableSpec {
 private:
   std::string id;
   HSAIL_ASM::DirectiveVariable var;
-  HSAIL_ASM::ArbitraryData data;
+  hexl::Values data;
 
   Location RealLocation() const;
 
@@ -233,25 +233,8 @@ public:
   std::string VariableName() const;
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
 
-  template<typename T>
-  void PushBack(T val) {
-    if (!Is128Bit(type)) {
-      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type));    
-    } else {
-      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type) / 2);    
-    }
-    data.push_back(val);
-  }
-
-  template<typename T>
-  void WriteData(T val, size_t pos) {
-    if (!Is128Bit(type)) {
-      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type));    
-    } else {
-      assert(sizeof(T) == HSAIL_ASM::getBrigTypeNumBytes(type) / 2);    
-    }
-    data.write(val, pos);
-  }
+  void PushBack(hexl::Value val);
+  void WriteData(hexl::Value val, size_t pos); 
 
   void Name(std::ostream& out) const;
 
@@ -267,6 +250,8 @@ public:
   void FunctionVariables();
   void KernelArguments();
   void KernelVariables();
+
+  void SetupDispatch(DispatchSetup* setup);
 };
 
 class EAddressSpec : public Emittable {

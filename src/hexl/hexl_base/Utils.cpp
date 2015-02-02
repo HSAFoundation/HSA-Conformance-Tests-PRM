@@ -225,5 +225,4 @@ bool Is128Bit(BrigTypeX type) {
   return HSAIL_ASM::getBrigTypeNumBytes(type) == 16;
 }
 
-
 }

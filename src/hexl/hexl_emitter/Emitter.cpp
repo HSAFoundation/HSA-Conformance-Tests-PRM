@@ -212,6 +212,17 @@ Location EVariable::RealLocation() const
   }
 }
 
+void EVariable::PushBack(hexl::Value val) {
+  assert(hexl::Brig2ValueType(type) == val.Type());    
+  data.push_back(val);
+}
+
+void EVariable::WriteData(hexl::Value val, size_t pos) {
+  assert(pos < data.size());
+  assert(hexl::Brig2ValueType(type) == val.Type());    
+  data[pos] = val;
+}
+
 void EVariable::ModuleVariables()
 {
   if (RealLocation() == MODULE) {
@@ -290,10 +301,47 @@ void EVariable::EmitInitializer()
 {
   assert(var);
   if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) { 
-    if (data.numBytes() != 0) {
-      te->Brig()->EmitVariableInitializer(var, data.toSRef());
+    if (data.size() != 0) {
+      ArbitraryData arbData;
+      for (const auto& val: data) {
+        switch (type) {
+        case BRIG_TYPE_S8:    arbData.push_back(val.S8());  break;
+        case BRIG_TYPE_U8:    arbData.push_back(val.U8());  break;
+        case BRIG_TYPE_S16:   arbData.push_back(val.S16()); break;
+        case BRIG_TYPE_U16:   arbData.push_back(val.U16()); break;
+        case BRIG_TYPE_S32:   arbData.push_back(val.S32()); break;
+        case BRIG_TYPE_U32:   arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_S64:   arbData.push_back(val.S64()); break;
+        case BRIG_TYPE_U64:   arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_F16:   arbData.push_back(val.F());   break;
+        case BRIG_TYPE_F32:   arbData.push_back(val.F());   break;
+        case BRIG_TYPE_F64:   arbData.push_back(val.D());   break;
+        case BRIG_TYPE_U8X4:  arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_U8X8:  arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_S8X4:  arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_S8X8:  arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_U16X2: arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_U16X4: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_S16X2: arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_S16X4: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_U32X2: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_S32X2: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_F32X2: arbData.push_back(val.U64()); break;
+    
+        case BRIG_TYPE_U8X16: case BRIG_TYPE_U16X8: case BRIG_TYPE_U32X4: case BRIG_TYPE_U64X2: 
+        case BRIG_TYPE_S8X16: case BRIG_TYPE_S16X8: case BRIG_TYPE_S32X4: case BRIG_TYPE_S64X2: 
+        case BRIG_TYPE_F32X4: case BRIG_TYPE_F64X2: 
+          arbData.push_back(val.U64());  break;
+
+        case BRIG_TYPE_SIG32: arbData.push_back(val.U32());  break;
+        case BRIG_TYPE_SIG64: arbData.push_back(val.U64());  break;
+
+        default: assert(false);
+        }
+      }
+      te->Brig()->EmitVariableInitializer(var, arbData.toSRef());
     }
-  } // ToDo: create initializers for other segments with help of MObjects
+  }
 }
 
 void EVariable::EmitLoadTo(TypedReg dst, bool useVectorInstructions)
@@ -304,6 +352,16 @@ void EVariable::EmitLoadTo(TypedReg dst, bool useVectorInstructions)
 void EVariable::EmitStoreFrom(TypedReg src, bool useVectorInstructions)
 {
   te->Brig()->EmitStore(segment, src, te->Brig()->Address(Variable()), useVectorInstructions);
+}
+
+void EVariable::SetupDispatch(DispatchSetup* setup) {
+  if (segment == BRIG_SEGMENT_KERNARG) {
+    assert(var);
+    uint32_t sizes[] = { Dim32(), 1, 1 };
+    auto marg = new MBuffer(setup->MSetup().Count(), id + ".var", MEM_KERNARG, Brig2ValueType(type), 1, sizes);
+    marg->Data() = data;
+    setup->MSetup().Add(marg);
+  }
 }
 
 void EControlDirectives::Name(std::ostream& out) const

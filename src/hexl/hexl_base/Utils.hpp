@@ -35,7 +35,6 @@ hexl::ValueType Brig2ValueType(Brig::BrigTypeX type);
 Brig::BrigTypeX Value2BrigType(hexl::ValueType type);
 bool Is128Bit(Brig::BrigTypeX type);
 
-
 template <>
 struct Serializer<brig_container_t> {
   static void Write(std::ostream& out, const brig_container_t& brig) {
