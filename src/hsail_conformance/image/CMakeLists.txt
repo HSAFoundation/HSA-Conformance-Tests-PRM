@@ -1,6 +1,6 @@
 add_library(
 hc_image
-ImageCoreTests.cpp  ImageCoreTests.hpp ImageRdTests.cpp  ImageRdTests.hpp  CMakeLists.txt
+ImagesTests.cpp  ImagesTests.hpp ImageRdTests.cpp  ImageRdTests.hpp  CMakeLists.txt
 )
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_base)
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_hsaruntime)
