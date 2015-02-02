@@ -442,7 +442,7 @@ private:
   static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE = 123456789;
 
-  uint32_t VarSize() {
+  uint32_t VarSize() const {
     return Limit() / getBrigTypeNumBytes(VALUE_TYPE);
   }
 
@@ -478,6 +478,60 @@ public:
 };
 
 
+class ArgMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
+private:
+  static const uint32_t LIMIT = 64; // 64 bytes of arg memory
+  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE = 123456789;
+
+  uint32_t VarSize() const {
+    return Limit() / getBrigTypeNumBytes(VALUE_TYPE);
+  }
+
+protected:
+  void EmitInitialization(TypedReg value) override {}
+
+  TypedReg EmitValue() override {
+    auto value = be.AddTReg(VALUE_TYPE);
+    be.EmitMov(value, be.Immed(VALUE_TYPE, VALUE));
+    return value;
+  }
+
+  Variable InitializeVariable() override {
+    return function->NewVariable("var", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::AUTO, 
+                                 BRIG_ALIGNMENT_NONE, VarSize());
+  }
+
+  uint32_t Limit() const override { 
+    return LIMIT - getBrigTypeNumBytes(ResultType()); // part of arg space is occupied by result argument of function 
+  }
+
+  BrigSegment Segment() const override { return BRIG_SEGMENT_ARG; }
+
+public:
+  explicit ArgMemorySizeLimitTest(Grid geometry): MemorySegmentSizeLimitTest(Location::FUNCTION, geometry) {}
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+
+  bool IsValid() const override {
+    return MemorySegmentSizeLimitTest::IsValid()
+        && VarSize() <= 16;  // ensure that we sutisfy assertion on TypedReg count limit
+  }
+
+  void ActualCallArguments(TypedRegList inputs, TypedRegList outputs) override {
+    MemorySegmentSizeLimitTest::ActualCallArguments(inputs, outputs);
+    auto value = EmitValue();
+    auto reg = be.AddTReg(VALUE_TYPE, 15);
+    for (uint32_t i = 0; i < VarSize(); ++i) {
+      be.EmitMov(reg->Reg(i), value->Reg(), getBrigTypeNumBits(VALUE_TYPE));
+    }
+    inputs->Add(reg);
+  }
+};
+
+
 void LimitsTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -498,6 +552,7 @@ void LimitsTests::Iterate(TestSpecIterator& it)
   TestForEach<GroupMemorySizeLimitTest>(ap, it, "group_memory_size", cc->Grids().SingleGroupSet());
   TestForEach<PrivateMemorySizeLimitTest>(ap, it, "private_memory_size", cc->Grids().WorkGroupsSize256());
   TestForEach<KernargMemorySizeLimitTest>(ap, it, "kernarg_memory_size", cc->Grids().SimpleSet());
+  TestForEach<ArgMemorySizeLimitTest>(ap, it, "arg_memory_size", cc->Grids().SimpleSet());
 }
 
 }
