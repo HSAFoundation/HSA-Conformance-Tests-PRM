@@ -489,10 +489,10 @@ public:
 
 class NullSignalInitializerTest : public Test {
 private:
-  BrigTypeX signalType;
   BrigSegment segment;
   uint64_t dim;
   bool isConst;
+  BrigTypeX signalType;
 
   uint64_t DataSize() const { return std::max(dim, (uint64_t) 1); }
   

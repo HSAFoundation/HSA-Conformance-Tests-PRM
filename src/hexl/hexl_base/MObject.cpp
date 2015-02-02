@@ -21,6 +21,7 @@
 #include <iostream>
 #include <sstream>
 #include <cmath>
+#include <cstring>
 
 #ifdef _WIN32
 #define isnan _isnan
@@ -281,12 +282,12 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_FLOAT16X2:
   case MV_FLOAT16X4:
   case MV_FLOAT16: // return 8;
-    return Comparison::F16_MAX_DECIMAL_PRECISION + strlen("+.-E12");
+    return Comparison::F16_MAX_DECIMAL_PRECISION + std::strlen("+.-E12");
   case MV_FLOATX2:
   case MV_FLOAT: // return 10;
-    return Comparison::F32_MAX_DECIMAL_PRECISION + strlen("+.-E123");
+    return Comparison::F32_MAX_DECIMAL_PRECISION + std::strlen("+.-E123");
   case MV_DOUBLE: // return 18;
-    return Comparison::F64_MAX_DECIMAL_PRECISION + strlen("+.-E1234");
+    return Comparison::F64_MAX_DECIMAL_PRECISION + std::strlen("+.-E1234");
   case MV_IMAGE:
   case MV_REF:
   case MV_IMAGEREF:

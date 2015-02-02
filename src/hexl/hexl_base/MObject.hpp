@@ -472,8 +472,8 @@ class MImage : public MObject {
 public:
   MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_,
     size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
-    : geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_), width(width_), height(height_),
-      depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_), MObject(id, MIMAGE, name)
+    : MObject(id, MIMAGE, name), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_),
+      width(width_), height(height_), depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_)
       { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
 
@@ -500,10 +500,10 @@ public:
   virtual void SerializeData(std::ostream& out) const;
 
 private:
-  unsigned accessPermission;
   unsigned geometry;
   unsigned channelOrder;
   unsigned channelType;
+  unsigned accessPermission;
   size_t width, height, depth, rowPitch, slicePitch;
   Values data;
 
