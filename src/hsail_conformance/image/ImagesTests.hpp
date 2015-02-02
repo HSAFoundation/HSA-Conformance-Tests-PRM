@@ -21,7 +21,7 @@
 
 namespace hsail_conformance {
 
-hexl::TestSet* NewImagesCoreTests();
+hexl::TestSet* NewPrmImagesTests();
 
 }
 

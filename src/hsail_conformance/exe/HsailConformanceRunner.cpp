@@ -22,7 +22,7 @@
 #include "HexlResource.hpp"
 
 #include "PrmCoreTests.hpp"
-#include "ImageCoreTests.hpp"
+#include "ImagesTests.hpp"
 #include "HexlLib.hpp"
 #ifdef ENABLE_HEXL_AGENT
 #include "HexlAgent.hpp"
@@ -35,22 +35,29 @@ using namespace hexl::emitter;
 
 namespace hsail_conformance {
 
+DECLARE_TESTSET_UNION(PrmTests);
+
+PrmTests::PrmTests()
+  : TestSetUnion("prm")
+{
+    Add(NewPrmCoreTests());
+    Add(NewPrmImagesTests());
+}
+
 class HCTestFactory : public DefaultTestFactory {
 private:
   Context* context;
-  hexl::TestSet* prmCoreTests;
-  hexl::TestSet* imageCoreTests;
+  hexl::TestSetUnion* prmTests;
 
 public:
   HCTestFactory(Context* context_)
-    : context(context_), prmCoreTests(NewPrmCoreTests()), imageCoreTests(NewImagesCoreTests())
+    : context(context_), prmTests(new PrmTests())
   {
   }
 
   ~HCTestFactory()
   {
-    delete prmCoreTests;
-    delete imageCoreTests;
+    delete prmTests;
   }
 
   virtual Test* CreateTest(const std::string& type, const std::string& name, const Options& options = Options())
@@ -62,23 +69,17 @@ public:
   virtual TestSet* CreateTestSet(const std::string& type)
   {
     TestSet* ts;
-    ts = prmCoreTests;
-    ts->InitContext(context);
-    if (type == "images") {
-        ts = imageCoreTests;
-        ts->InitContext(context);
-    }
-    else
-    {
+      ts = prmTests;
+      ts->InitContext(context);
       if (type != "all") {
         TestNameFilter* filter = new TestNameFilter(type);
-        TestSet* fts = prmCoreTests->Filter(filter);
+        TestSet* fts = prmTests->Filter(filter);
         if (fts != ts) {
           fts->InitContext(context);
           ts = fts;
         }
       }
-    }
+
     return ts;
   }
 };
