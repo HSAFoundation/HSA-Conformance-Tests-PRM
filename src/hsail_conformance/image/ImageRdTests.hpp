@@ -21,7 +21,7 @@
 
 namespace hsail_conformance {
 
-DECLARE_TESTSET(ImageTests, "image");
+DECLARE_TESTSET(ImageRdTestSet, "image_rd");
 
 }
 

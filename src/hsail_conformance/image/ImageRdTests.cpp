@@ -14,7 +14,7 @@
    limitations under the License.
 */
 
-#include "ImageTests.hpp"
+#include "ImageRdTests.hpp"
 #include "HCTests.hpp"
 #include "MObject.hpp"
 
@@ -25,36 +25,24 @@ using namespace hexl::emitter;
 
 namespace hsail_conformance {
 
-class ImageBaseTest:  public Test {
-
-public:
-  ImageBaseTest(Location codeLocation, 
-      Grid geometry): Test(codeLocation, geometry)
-  {
-  }
-
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
-
-  void Name(std::ostream& out) const {
-    out << CodeLocationString() << '_' << geometry;
-  }
-};
-
-
-class ImageRdTest:  public ImageBaseTest {
+class ImageRdTest:  public Test {
 private:
   DirectiveVariable img;
   DirectiveVariable samp;
 
 public:
   ImageRdTest(Location codeLocation, 
-      Grid geometry): ImageBaseTest(codeLocation, geometry)
+      Grid geometry): Test(codeLocation, geometry)
   {
+  }
+  
+  void Name(std::ostream& out) const {
+    out << CodeLocationString() << '_' << geometry;
   }
 
  void KernelArguments() {
     Test::KernelArguments();
-    img = be.EmitVariableDefinition("%roimg", BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
+    img = be.EmitVariableDefinition("%roimage", BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
     samp = be.EmitVariableDefinition("%sampler", BRIG_SEGMENT_KERNARG, BRIG_TYPE_SAMP);
 
   }
@@ -63,23 +51,27 @@ public:
     Test::SetupDispatch(dsetup);
     unsigned id = dsetup->MSetup().Count();
     
-   // MObject* in = NewMValue(id++, "Input", MEM_GLOBAL, addressSpec->VType(), U64(42));
-    //dsetup->MSetup().Add(in);
-    //dsetup->MSetup().Add(NewMValue(id++, "Input (arg)", MEM_KERNARG, MV_REF, R(in->Id()))); 
+    MImage* in1 = NewMValue(id++, "Roimage", BRIG_GEOMETRY_1D, BRIG_CHANNEL_ORDER_A, BRIG_CHANNEL_TYPE_SNORM_INT8, 1 /*HSA_ACCESS_PERMISSION_RO*/, 256,1,1,256,1,U8(42));
+    dsetup->MSetup().Add(in1);
+    dsetup->MSetup().Add(NewMValue(id++, "Roimage (arg)", MEM_KERNARG, MV_REF, R(in1->Id())));
+
+    MSampler* in2 = NewMValue(id++, "Sampler", BRIG_COORD_NORMALIZED, BRIG_FILTER_NEAREST, BRIG_ADDRESSING_CLAMP_TO_EDGE);
+    dsetup->MSetup().Add(in2);
+    dsetup->MSetup().Add(NewMValue(id++, "Sampler (arg)", MEM_KERNARG, MV_REF, R(in2->Id())));
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigTypeX ResultType() const { return BRIG_TYPE_U8; }
 
   Value ExpectedResult() const {
-     return Value(MV_EXPR, 0);
+     return Value(MV_EXPR, U8(42));
   }
 
   TypedReg Result() {
    // Load input
     TypedReg image = be.AddTReg(BRIG_TYPE_ROIMG);
-    be.EmitLoad(img.segment(), image, be.Address(img));
+   // be.EmitLoad(img.segment(), image, be.Address(img));
     TypedReg sampler = be.AddTReg(BRIG_TYPE_SAMP);
-    be.EmitLoad(img.segment(), sampler, be.Address(samp));
+   // be.EmitLoad(img.segment(), sampler, be.Address(samp));
 
     TypedReg reg_coord = be.AddTReg(BRIG_TYPE_F32);
     //10 coords
@@ -88,17 +80,17 @@ public:
     OperandOperandList reg_dest = be.AddVec(BRIG_TYPE_U32, 4);
     
    // be.EmitRdImage(reg_dest, image, sampler, reg_coord);
-    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    TypedReg result = be.AddTReg(BRIG_TYPE_U8);
     be.EmitMov(result, reg_dest.elements(0));
     return result;
   }
 };
 
-void ImageTests::Iterate(hexl::TestSpecIterator& it)
+void ImageRdTestSet::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<ImageRdTest>(ap, it, "image/image_rd/basic", CodeLocations(), cc->Grids().DimensionSet());
+  TestForEach<ImageRdTest>(ap, it, "image_rd_1d/basic", CodeLocations(), cc->Grids().DimensionSet());
 }
 
 } // hsail_conformance

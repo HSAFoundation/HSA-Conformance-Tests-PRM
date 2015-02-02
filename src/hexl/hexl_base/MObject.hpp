@@ -36,7 +36,7 @@
 
 namespace hexl {
 
-enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_IMAGEREF, MV_EXPR, MV_STRING, 
+enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_SAMPLER, MV_IMAGEREF, MV_SAMPLERREF, MV_EXPR, MV_STRING, 
 #ifdef MBUFFER_KEEP_F16_AS_U32
                  MV_FLOAT16_MBUFFER,
 #endif
@@ -48,6 +48,8 @@ enum MObjectType {
   MRBUFFER,
   MIMAGE,
   MRIMAGE,
+  MSAMPLER,
+  MRSAMPLER,
   MLAST,
 };
 
@@ -145,13 +147,15 @@ class Comparison;
 
 class Value {
 public:
-  Value(ValueType type_, ValueData data_) : type(type_), data(data_) {}
-  Value() : type(MV_UINT64) { data.u64 = 0; }
-  Value(const Value& v) : type(v.type), data(v.data) { }
-  Value& operator=(const Value& v) { type = v.type; data = v.data; return *this; }
-  Value(ValueType _type, uint64_t _value) : type(_type) { data.u64 = _value; }
-  Value(float _value) : type(MV_FLOAT)  { data.f = _value; }
-  Value(double _value) : type(MV_DOUBLE) { data.d = _value; }
+  /// Unsafe constructor, take care. Example: Value(MV_DOUBLE, F(expr)) yields totally invalid result.
+  Value(ValueType type_, ValueData data_) : type(type_), data(data_), printExtraHex(false) {}
+  Value() : type(MV_UINT64), printExtraHex(false) { data.u64 = 0; }
+  Value(const Value& v) : type(v.type), data(v.data), printExtraHex(v.printExtraHex) { }
+  Value& operator=(const Value& v) { type = v.type; data = v.data; printExtraHex = v.printExtraHex; return *this; }
+  /// \todo HIGHLY unsafe, take care! Example: Value(MV_FLOAT, 1.5F) will cast 1.5F to uint64 1 (0x1), which means float denorm.
+  Value(ValueType _type, uint64_t _value) : type(_type), printExtraHex(false) { data.u64 = _value; }
+  explicit Value(float value_) : type(MV_FLOAT), printExtraHex(false)  { data.f = value_; }
+  explicit Value(double value_) : type(MV_DOUBLE), printExtraHex(false) { data.d = value_; }
   ~Value();
 
   ValueType Type() const { return type; }
@@ -187,6 +191,7 @@ public:
     
   size_t Size() const;
   size_t PrintWidth() const;
+  void SetPrintExtraHex(bool m) { printExtraHex = m; }
 
   void WriteTo(void *dest) const;
   void ReadFrom(const void *src, ValueType type);
@@ -196,6 +201,7 @@ public:
 private:
   ValueType type;
   ValueData data;
+  bool printExtraHex;
   friend class Comparison;
   friend std::ostream& operator<<(std::ostream& out, const Value& value);
   friend std::ostream& operator<<(std::ostream& out, const Comparison& comparison);
@@ -409,7 +415,7 @@ public:
   void PrintDesc(std::ostream& out) const;
   void Print(std::ostream& out) const;
   void PrintShort(std::ostream& out) const;
-  void PrintLong(std::ostream& out) const;
+  void PrintLong(std::ostream& out);
 
   bool Compare(const Value& evalue, const Value& rvalue);
 
@@ -464,10 +470,11 @@ ValueType ImageValueType(unsigned geometry);
 
 class MImage : public MObject {
 public:
-  MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
-    : MObject(id, MIMAGE, name),
-      geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_), width(width_), height(height_),
-      depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_) { }
+  MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_,
+    size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
+    : MObject(id, MIMAGE, name), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_),
+      width(width_), height(height_), depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_)
+      { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
 
   unsigned Geometry() const { return geometry; }
@@ -493,10 +500,10 @@ public:
   virtual void SerializeData(std::ostream& out) const;
 
 private:
-  unsigned accessPermission;
   unsigned geometry;
   unsigned channelOrder;
   unsigned channelType;
+  unsigned accessPermission;
   size_t width, height, depth, rowPitch, slicePitch;
   Values data;
 
@@ -523,6 +530,83 @@ private:
   Comparison comparison;
   void DeserializeData(std::istream& in);
 };
+
+inline MImage* NewMValue(unsigned id, const std::string& name, unsigned geometry, unsigned chanel_order, unsigned channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, ValueData data) {
+  MImage* mi = new MImage(id, name, geometry, chanel_order, channel_type, access, 
+                         width, height, depth, rowPitch, slicePitch);
+  for (size_t i = 0; i < mi->Size(); i++)
+  {
+    mi->Data().push_back(Value(MV_UINT8, data));
+  }
+  return mi;
+}
+
+inline MRImage* NewMRValue(unsigned id, MImage* mi, Value data, const Comparison& comparison = Comparison()) {
+  MRImage* mr = new MRImage(id, mi->Name() + " (check)", mi->Geometry(), mi->Id(), comparison);
+  mr->Data().push_back(data);
+  return mr;
+}
+
+inline MRImage* NewMRValue(unsigned id, MImage* mi, ValueData data, const Comparison& comparison = Comparison()) {
+  return NewMRValue(id, mi, Value(mi->GetValueType(), data), comparison);
+}
+
+class MSampler : public MObject {
+public:
+  MSampler(unsigned id, const std::string& name, unsigned coords_, unsigned filter_, unsigned addressing_)
+    : MObject(id, MSAMPLER, name),
+      coords(coords_), filter(filter_), addressing(addressing_) { }
+  MSampler(unsigned id, const std::string& name, std::istream& in) : MObject(id, MSAMPLER, name) { DeserializeData(in); }
+
+  unsigned Coords() const { return coords; }
+  unsigned Filter() const { return filter; }
+  unsigned Addressing() const { return addressing; }
+  size_t Size() const { return sizeof(void*); }
+  Value GetRaw(size_t i) { assert(false); }
+
+  ValueType VType() const { return MV_SAMPLER; }
+
+  Values& Data() { assert(false); }
+  const Values& Data() const { assert(false); }
+
+  void PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const;
+  void PrintComparisonSummary(std::ostream& out, Comparison& comparison) const;
+  virtual void SerializeData(std::ostream& out) const;
+
+private:
+  unsigned coords;
+  unsigned filter;
+  unsigned addressing;
+
+  void DeserializeData(std::istream& in);
+};
+
+class MRSampler : public MObject {
+public:
+  MRSampler(unsigned id, const std::string& name, unsigned refid_, const Comparison& comparison_) :
+    MObject(id, MRSAMPLER, name), refid(refid_), comparison(comparison_) { }
+  MRSampler(unsigned id, const std::string& name, std::istream& in) : MObject(id, MRSAMPLER, name) { DeserializeData(in); }
+
+  unsigned RefId() const { return refid; }
+  Comparison& GetComparison() { return comparison; }
+  virtual void SerializeData(std::ostream& out) const;
+
+private:
+  unsigned refid;
+  Comparison comparison;
+  void DeserializeData(std::istream& in);
+};
+
+inline MSampler* NewMValue(unsigned id, const std::string& name, unsigned coords_, unsigned filter_, unsigned addressing_) {
+  MSampler* ms = new MSampler(id, name, coords_, filter_, addressing_);
+  return ms;
+}
+
+inline MRSampler* NewMRValue(unsigned id, MSampler* ms, const Comparison& comparison = Comparison()) {
+  MRSampler* mr = new MRSampler(id, ms->Name() + " (check)", ms->Id(), comparison);
+  return mr;
+}
 
 class MemorySetup {
 private:

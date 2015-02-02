@@ -22,6 +22,7 @@
 #include "HexlResource.hpp"
 
 #include "PrmCoreTests.hpp"
+#include "ImagesTests.hpp"
 #include "HexlLib.hpp"
 #ifdef ENABLE_HEXL_AGENT
 #include "HexlAgent.hpp"
@@ -34,20 +35,29 @@ using namespace hexl::emitter;
 
 namespace hsail_conformance {
 
+DECLARE_TESTSET_UNION(PrmTests);
+
+PrmTests::PrmTests()
+  : TestSetUnion("prm")
+{
+    Add(NewPrmCoreTests());
+    Add(NewPrmImagesTests());
+}
+
 class HCTestFactory : public DefaultTestFactory {
 private:
   Context* context;
-  hexl::TestSet* prmCoreTests;
+  hexl::TestSetUnion* prmTests;
 
 public:
   HCTestFactory(Context* context_)
-    : context(context_), prmCoreTests(NewPrmCoreTests())
+    : context(context_), prmTests(new PrmTests())
   {
   }
 
   ~HCTestFactory()
   {
-    delete prmCoreTests;
+    delete prmTests;
   }
 
   virtual Test* CreateTest(const std::string& type, const std::string& name, const Options& options = Options())
@@ -59,16 +69,17 @@ public:
   virtual TestSet* CreateTestSet(const std::string& type)
   {
     TestSet* ts;
-    ts = prmCoreTests;
-    ts->InitContext(context);
-    if (type != "all") {
-      TestNameFilter* filter = new TestNameFilter(type);
-      TestSet* fts = prmCoreTests->Filter(filter);
-      if (fts != ts) {
-        fts->InitContext(context);
-        ts = fts;
+      ts = prmTests;
+      ts->InitContext(context);
+      if (type != "all") {
+        TestNameFilter* filter = new TestNameFilter(type);
+        TestSet* fts = prmTests->Filter(filter);
+        if (fts != ts) {
+          fts->InitContext(context);
+          ts = fts;
+        }
       }
-    }
+
     return ts;
   }
 };
@@ -155,6 +166,7 @@ void HCRunner::Run()
   optReg.RegisterBooleanOption("dummy");
   optReg.RegisterBooleanOption("verbose");
   optReg.RegisterBooleanOption("dump");
+  optReg.RegisterBooleanOption("XtestF16"); // eXperimental
   optReg.RegisterOption("match");
   {
     int n = hexl::ParseOptions(argc, argv, optReg, options);
@@ -193,7 +205,7 @@ void HCRunner::Run()
   runner->RunTests(*tests);
 
   // cleanup in reverse order. new never fails.
-  if (tests) { delete tests; } delete runner; runner = 0;
+  delete runner; runner = 0;
   if (runtime) { delete runtime; } 
   delete rm;  delete env;
 }

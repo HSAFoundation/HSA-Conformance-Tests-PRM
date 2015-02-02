@@ -264,8 +264,7 @@ private:
 
 void TestGenTestSet::Iterate(TestSpecIterator& it)
 {
-  const bool testF16 = false;
-  TestDataProvider::init(true, true, 0, 64, 0, testF16);
+  TestDataProvider::init(true, true, 0, 64, 0, context->Opts()->IsSet("XtestF16"));
   TestGenConfig* testGenConfig = context->Get<TestGenConfig*>(TestGenConfig::ID);
   assert(testGenConfig);
   BrigSettings::init(testGenConfig->Model(), testGenConfig->Profile(), true, false, false, context->IsDumpEnabled("hsail"));
