@@ -8,3 +8,4 @@ install_manifest.txt
 build/
 cmake_linux.sh
 cmake_windows.bat
+src/hexl/hexl_orca
