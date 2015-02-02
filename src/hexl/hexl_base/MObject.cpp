@@ -583,6 +583,18 @@ void MBuffer::Print(std::ostream& out) const
   out << " (" << Count() << " total, " << Data().size() << " init values)";
 }
 
+void MBuffer::PrintWithBuffer(std::ostream& out) const
+{
+  Print(out);
+  IndentStream indent(out);
+  for (unsigned i = 0; i < Data().size(); ++i) {
+    Value value = Data()[i];
+    value.SetPrintExtraHex(true);
+    out << std::endl;
+    out << GetPosStr(i) << ": " << std::setw(value.PrintWidth()) << value;
+  }
+}
+
 size_t MBuffer::GetDim(size_t pos, unsigned d) const
 {
   switch (d) {
@@ -783,6 +795,17 @@ void MRBuffer::Print(std::ostream& out) const
   out << " (" << Data().size() << " check values)";
 }
 
+void MRBuffer::PrintWithBuffer(std::ostream& out) const
+{
+  Print(out);
+  IndentStream indent(out);
+  for (unsigned i = 0; i < Data().size(); ++i) {
+    Value value = Data()[i];
+    value.SetPrintExtraHex(true);
+    out << std::endl;
+    out << "[" << std::setw(2) << i << "]" << ": " << std::setw(value.PrintWidth()) << value;
+  }
+}
 
 void MRBuffer::SerializeData(std::ostream& out) const
 {
@@ -1333,6 +1356,13 @@ void MemorySetup::Print(std::ostream& out) const
   }
 }
 
+void MemorySetup::PrintWithBuffers(std::ostream& out) const
+{
+  for (const std::unique_ptr<MObject>& mo : mos) {
+    mo->PrintWithBuffer(out); out << std::endl;
+  }
+}
+
 void MemorySetup::Serialize(std::ostream& out) const
 {
   uint32_t size = (uint32_t) mos.size();
@@ -1353,7 +1383,15 @@ void MemorySetup::Deserialize(std::istream& in) {
   }
 }
 
-void DispatchSetup::Print(std::ostream& out) const
+void DispatchSetup::Print(std::ostream& out) const {
+  PrintImpl(out, false);
+}
+
+void DispatchSetup::PrintWithBuffers(std::ostream& out) const {
+  PrintImpl(out, true);
+}
+
+void DispatchSetup::PrintImpl(std::ostream& out, const bool withBuffers) const
 {
   {
     out << "Dispatch setup:" << std::endl;
@@ -1366,7 +1404,11 @@ void DispatchSetup::Print(std::ostream& out) const
   {
     out << "Memory setup:" << std::endl;
     IndentStream indent(out);
-    msetup.Print(out);
+    if (withBuffers) {
+      msetup.PrintWithBuffers(out);
+    } else {
+      msetup.Print(out);
+    }
   }
 }
 

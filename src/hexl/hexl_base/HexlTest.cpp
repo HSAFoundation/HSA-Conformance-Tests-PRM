@@ -194,6 +194,21 @@ void Context::DumpBrigIfEnabled(const std::string& name, void* _brig)
   }
 }
 
+void Context::DumpDispatchsetupIfEnabled(const std::string& name, const void* dsetup_)
+{
+  const DispatchSetup* const dsetup = reinterpret_cast<const DispatchSetup*>(dsetup_);
+  if (IsDumpEnabled("dispatchsetup")) {
+    std::string testName = GetOutputName(name, "dispatchsetup");
+    std::string outFileName = RM()->GetOutputFileName(testName);
+    std::ostringstream text;
+    // Always dump with buffers. Otherwise useless (and already resides in the log).
+    dsetup->PrintWithBuffers(text);
+    if (!SaveTextResource(RM(), outFileName, text.str())) {
+      Info() << "Warning: failed to dump dispatch setup to " << outFileName << std::endl;
+    }
+  }
+}
+
 void TestSpec::Run()
 {
   if (!IsValid()) { result = TestResult(NA, "Skipped: spec is not valid"); return; }
