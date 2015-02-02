@@ -262,19 +262,19 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_INT8: return ValueTypePrintWidth(MV_UINT8)+1;
   case MV_UINT8X4:
   case MV_UINT8X8:
-  case MV_UINT8: return strlen("255");
+  case MV_UINT8: return std::strlen("255");
   case MV_INT16X2:
   case MV_INT16X4:
   case MV_INT16: return ValueTypePrintWidth(MV_UINT16)+1;
   case MV_UINT16X2:
   case MV_UINT16X4:
-  case MV_UINT16: return strlen("65535");
+  case MV_UINT16: return std::strlen("65535");
   case MV_INT32X2: 
   case MV_INT32: return ValueTypePrintWidth(MV_UINT32)+1;
   case MV_UINT32X2:
-  case MV_UINT32: return strlen("4294967295");
+  case MV_UINT32: return std::strlen("4294967295");
   case MV_INT64: return ValueTypePrintWidth(MV_UINT64)+1;
-  case MV_UINT64: return strlen("9223372036854775807");
+  case MV_UINT64: return std::strlen("9223372036854775807");
 #ifdef MBUFFER_KEEP_F16_AS_U32
   case MV_FLOAT16_MBUFFER:
 #endif
