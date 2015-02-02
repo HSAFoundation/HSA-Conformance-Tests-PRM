@@ -32,6 +32,7 @@ CoreConfig::CoreConfig(
     majorVersion(majorVersion_), minorVersion(minorVersion_),
     model(model_), profile(profile_),
     wavesize(64),
+    wavesPerGroup(4),
     grids(this),
     segments(this),
     types(this),
@@ -59,7 +60,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     severalwaves(NEWA hexl::VectorSequence<hexl::Grid>()),
     severalwavesingroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     workgroup256(NEWA hexl::VectorSequence<hexl::Grid>()),
-    limitGrids(NEWA hexl::VectorSequence<hexl::Grid>())
+    limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
+    singleGroup(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -108,6 +110,10 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   limitGrids->Add(NEWA GridGeometry(3, 65537, 257, 255, 8, 8, 4));
   limitGrids->Add(NEWA GridGeometry(3, 257, 65537, 255, 8, 8, 4));
   limitGrids->Add(NEWA GridGeometry(3, 255, 257, 65537, 4, 8, 8));
+  singleGroup->Add(NEWA GridGeometry(1, 64, 1, 1, 64, 1, 1));
+  singleGroup->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
+  singleGroup->Add(NEWA GridGeometry(2, 16, 16, 1, 16, 16, 1));
+  singleGroup->Add(NEWA GridGeometry(3, 8, 8, 4, 8, 8, 4));
 }
 
 static const BrigSegment allSegments[] = {

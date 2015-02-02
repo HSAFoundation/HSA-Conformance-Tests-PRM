@@ -44,6 +44,7 @@ namespace hexl {
       Brig::BrigMachineModel8_t model;
       Brig::BrigProfile8_t profile;
       uint32_t wavesize;
+      uint8_t wavesPerGroup;
 
     public:
       static const char *CONTEXT_KEY;
@@ -61,6 +62,7 @@ namespace hexl {
       Brig::BrigMachineModel8_t Model() const { return model; }
       Brig::BrigProfile8_t Profile() const { return profile; }
       uint32_t Wavesize() const { return wavesize; }
+      uint8_t WavesPerGroup() const { return wavesPerGroup; }
       EndiannessConfig Endianness() { return ENDIANNESS_LITTLE; }
 
       bool IsLarge() const {
@@ -86,7 +88,7 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32, 
-          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids;
+          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -108,6 +110,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* AllWavesIdSet() { return allWavesIdSet; }
         hexl::Sequence<hexl::Grid>* WorkGroupsSize256() { return workgroup256; }
         hexl::Sequence<hexl::Grid>* LimitGridSet() { return limitGrids; }
+        hexl::Sequence<hexl::Grid>* SingleGroupSet() { return singleGroup; }
       };
 
       class SegmentsConfig : public ConfigBase {
