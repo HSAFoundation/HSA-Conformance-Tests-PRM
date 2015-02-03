@@ -166,6 +166,9 @@ void HCRunner::Run()
   optReg.RegisterBooleanOption("dummy");
   optReg.RegisterBooleanOption("verbose");
   optReg.RegisterBooleanOption("dump");
+  optReg.RegisterBooleanOption("dump.brig");
+  optReg.RegisterBooleanOption("dump.hsail");
+  optReg.RegisterBooleanOption("dump.dispatchsetup");
   optReg.RegisterBooleanOption("XtestF16"); // eXperimental
   optReg.RegisterOption("match");
   {

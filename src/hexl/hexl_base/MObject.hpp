@@ -322,7 +322,7 @@ public:
 
   // Dumping helpers.
   bool IsVerbose(const std::string& what) const;
-  bool IsDumpEnabled(const std::string& what, bool dumpAll = true) const;
+  bool IsDumpEnabled(const std::string& what, bool enableWithPlainDumpOption = true) const;
   void SetOutputPath(const std::string& path) { Put("hexl.outputPath", path); }
   std::string GetOutputName(const std::string& name, const std::string& what);
   bool DumpTextIfEnabled(const std::string& name, const std::string& what, const std::string& text);

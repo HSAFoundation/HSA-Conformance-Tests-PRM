@@ -131,9 +131,9 @@ bool Context::IsVerbose(const std::string& what) const
   return Opts()->IsSet("verbose") || Opts()->IsSet("hexl.verbose.all") || Opts()->IsSet("hexl.verbose." + what);
 }
 
-bool Context::IsDumpEnabled(const std::string& what, bool dumpAll) const
+bool Context::IsDumpEnabled(const std::string& what, bool enableWithPlainDumpOption) const
 {
-  return (dumpAll && Opts()->IsSet("dump")) || Opts()->IsSet("dump." + what);
+  return (enableWithPlainDumpOption && Opts()->IsSet("dump")) || Opts()->IsSet("dump." + what);
 }
 
 std::string Context::GetOutputName(const std::string& name, const std::string& what)
