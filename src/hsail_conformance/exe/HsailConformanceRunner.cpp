@@ -184,8 +184,7 @@ void HCRunner::Run()
       exit(6);
     }
   }
-  EnvContext* env = new EnvContext();
-  context->Put("hexl.env", env);
+  context->Put("hexl.stats", new AllStats());
   ResourceManager* rm = new DirectoryResourceManager(options.GetString("testbase", "."), options.GetString("results", "."));
   context->Put("hexl.rm", rm);
   context->Put("hexl.options", &options);
@@ -207,7 +206,7 @@ void HCRunner::Run()
   // cleanup in reverse order. new never fails.
   delete runner; runner = 0;
   if (runtime) { delete runtime; } 
-  delete rm;  delete env;
+  delete rm;
 }
 
 }

@@ -121,7 +121,7 @@ void SimpleTestRunner::BeforeTest(const std::string& path, Test* test)
       delete out;
     }
   }
-  testContext->Env()->Stats().Clear();
+  testContext->Stats().Clear();
 }
 
 void SimpleTestRunner::AfterTest(const std::string& path, Test* test, const TestResult& result)
@@ -163,7 +163,7 @@ bool HTestRunner::BeforeTestSet(TestSet& testSet)
   std::string testLogName = context->Opts()->GetString("testlog", "test.log");
   testLog.open(testLogName.c_str(), std::ofstream::out);
   if (!testLog.is_open()) {
-    context->Env()->Error("Failed to open test log %s", testLogName.c_str());
+    context->Error() << "Failed to open test log " << testLogName << std::endl;
     return false;
   }
   return true;
