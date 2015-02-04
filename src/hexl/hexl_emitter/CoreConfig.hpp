@@ -139,6 +139,7 @@ namespace hexl {
       class TypesConfig : public ConfigBase {
       private:
         hexl::Sequence<Brig::BrigTypeX> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128;
+        hexl::Sequence<size_t>* registerSizes;
 
       public:
         TypesConfig(CoreConfig* cc);
@@ -148,6 +149,7 @@ namespace hexl {
         hexl::Sequence<Brig::BrigTypeX>* Packed128Bit() { return packed128; }
         const hexl::Sequence<Brig::BrigTypeX>* CompoundIntegral() { return compoundIntegral; }
         const hexl::Sequence<Brig::BrigTypeX>* CompoundFloating() { return compoundFloating; }
+        hexl::Sequence<size_t>* RegisterSizes() { return registerSizes; }
       };
 
       class VariablesConfig : public ConfigBase {

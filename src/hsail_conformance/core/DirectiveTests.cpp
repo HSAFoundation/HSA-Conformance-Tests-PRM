@@ -238,6 +238,8 @@ public:
     }
 
     var2->EmitDefinition();
+
+    SkipTest::ModuleVariables();
   }
 };
 

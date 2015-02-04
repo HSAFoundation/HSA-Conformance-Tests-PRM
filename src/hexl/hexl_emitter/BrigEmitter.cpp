@@ -269,6 +269,10 @@ Operand BrigEmitter::Immed(BrigType16_t type, uint64_t imm)
   return brigantine.createImmed(imm, type);
 }
 
+Operand BrigEmitter::Immed(SRef data) {
+  return brigantine.createImmed(data);
+}
+
 Operand BrigEmitter::ImmedString(const std::string& str) 
 {
   return brigantine.createOperandString(str);
@@ -367,6 +371,9 @@ void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress 
 
 BrigType16_t BrigEmitter::MemOpType(BrigType16_t type)
 {
+  if (getBrigTypeNumBits(type) == 128) {
+    return BRIG_TYPE_B128;
+  }
   switch (type) {
   case BRIG_TYPE_B16: return BRIG_TYPE_U16;
   case BRIG_TYPE_B32: return BRIG_TYPE_U32;

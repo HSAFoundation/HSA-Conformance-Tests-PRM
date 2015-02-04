@@ -532,6 +532,234 @@ public:
 };
 
 
+class RegistersLimitTest: public SkipTest {
+private:
+  uint32_t typeSize;
+
+  static const uint32_t LIMIT = 128;  // 128 s registers
+  static const uint32_t VALUE = 123456789;
+
+  BrigTypeX RegisterType() const {
+    switch (typeSize) {
+    case 32: return BRIG_TYPE_U32;
+    case 64: return BRIG_TYPE_U64;
+    case 128: return BRIG_TYPE_U64X2;
+    default: assert(false); return BRIG_TYPE_NONE;
+    }
+  }
+
+  uint32_t Limit() const {
+    return LIMIT / (typeSize / 32);
+  }
+
+  OperandData ImmedValue(uint64_t value) {
+    if (typeSize != 128) {
+      return be.Immed(RegisterType(), value);
+    } else {
+      std::vector<char> vect(16, '\0');
+      memcpy(vect.data(), (const char*)&value, 8);
+      memcpy(vect.data() + 8, (const char*)&value, 8);
+      return be.Immed(vect);      
+    }
+  }
+
+public:
+  RegistersLimitTest(size_t typeSize_, Location codeLocation): 
+            SkipTest(codeLocation), typeSize(static_cast<uint32_t>(typeSize_)) {}
+
+  void Name(std::ostream& out) const override {
+    switch (typeSize) {
+    case 32: out << "s_"; break;
+    case 64: out << "d_"; break;
+    case 128: out << "q_"; break;
+    default: assert(false); break;
+    }
+    out << CodeLocationString();
+  }
+
+  bool IsValid() const override {
+    return SkipTest::IsValid()
+      && (typeSize == 32 || typeSize == 64 || typeSize == 128);
+  }
+
+  BrigTypeX ResultType() const override { return RegisterType(); }
+
+  TypedReg Result() override {
+    auto falseLabel = "@false";
+    auto endLabel = "@end";
+    
+    // create registers
+    // first register is used as result
+    std::vector<TypedReg> registers;
+    registers.reserve(Limit());
+    for (uint32_t i = 0; i < Limit(); ++i) {
+      registers.push_back(be.AddTReg(RegisterType()));
+    }
+
+    // store value in registers
+    for (auto reg: registers) {
+      be.EmitMov(reg, ImmedValue(VALUE));
+    }
+
+    // compare contents of registers with value
+    // it is impossible to compare 128-bit registers directly so we don't do this for 128-bit registers
+    if (typeSize != 128) { 
+      auto cmp = be.AddCTReg();
+      for (auto reg: registers) {
+        be.EmitCmp(cmp->Reg(), reg, ImmedValue(VALUE), BRIG_COMPARE_NE);
+        be.EmitCbr(cmp->Reg(), falseLabel);
+      }
+    }
+
+    be.EmitMov(registers[0], ImmedValue(1));
+    be.EmitBr(endLabel);
+
+    be.EmitLabel(falseLabel);
+    be.EmitMov(registers[0], ImmedValue(0));
+
+    be.EmitLabel(endLabel);
+    return registers[0];
+  }
+};
+
+
+class SDQRegistersLimitTest: public SkipTest {
+private:
+  uint32_t sNumber;
+  uint32_t dNumber;
+  uint32_t qNumber;
+
+  static const uint32_t LIMIT = 128;
+  static const uint32_t VALUE = 123456789;
+
+  OperandData ImmedValue(uint64_t value, BrigTypeX type) {
+    if (getBrigTypeNumBits(type) != 128) {
+      return be.Immed(type, value);
+    } else {
+      std::vector<char> vect(16, '\0');
+      memcpy(vect.data(), (const char*)&value, 8);
+      memcpy(vect.data() + 8, (const char*)&value, 8);
+      return be.Immed(vect);      
+    }
+  }
+
+public:
+  SDQRegistersLimitTest(Location codeLocation, uint32_t sNumber_ = 42, uint32_t dNumber_ = 21, uint32_t qNumber_ = 11):
+    SkipTest(codeLocation), sNumber(sNumber_), dNumber(dNumber_), qNumber(qNumber_) {}
+
+  void Name(std::ostream& out) const override {
+    out << "sdq_" << CodeLocationString();
+  }
+
+  bool IsValid() const override {
+    return SkipTest::IsValid()
+      && ((sNumber + dNumber * 2 + qNumber * 4) <= LIMIT);
+  }
+
+  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
+  TypedReg Result() override {
+        auto falseLabel = "@false";
+    auto endLabel = "@end";
+    
+    // create registers
+    // first s-register is used as result
+    std::vector<TypedReg> sRegs, dRegs, qRegs;
+    sRegs.reserve(sNumber); dRegs.reserve(dNumber); qRegs.reserve(qNumber);
+    for (uint32_t i = 0; i < sNumber; ++i) {
+      sRegs.push_back(be.AddTReg(BRIG_TYPE_U32));
+    }
+    for (uint32_t i = 0; i < dNumber; ++i) {
+      dRegs.push_back(be.AddTReg(BRIG_TYPE_U64));
+    }
+    for (uint32_t i = 0; i < qNumber; ++i) {
+      qRegs.push_back(be.AddTReg(BRIG_TYPE_U64X2));
+    }
+
+    // store value in registers
+    for (auto reg: sRegs) {
+      be.EmitMov(reg, ImmedValue(VALUE, BRIG_TYPE_U32));
+    }
+    for (auto reg: dRegs) {
+      be.EmitMov(reg, ImmedValue(VALUE, BRIG_TYPE_U64));
+    }
+    for (auto reg: qRegs) {
+      be.EmitMov(reg, ImmedValue(VALUE, BRIG_TYPE_U64X2));
+    }
+
+    // compare contents of registers with value
+    auto cmp = be.AddCTReg();
+    for (auto reg: sRegs) {
+      be.EmitCmp(cmp->Reg(), reg, ImmedValue(VALUE, BRIG_TYPE_U32), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
+    for (auto reg: dRegs) {
+      be.EmitCmp(cmp->Reg(), reg, ImmedValue(VALUE, BRIG_TYPE_U64), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
+
+    be.EmitMov(sRegs[0], ImmedValue(1, BRIG_TYPE_U32));
+    be.EmitBr(endLabel);
+
+    be.EmitLabel(falseLabel);
+    be.EmitMov(sRegs[0], ImmedValue(0, BRIG_TYPE_U32));
+
+    be.EmitLabel(endLabel);
+    return sRegs[0];
+  }
+};
+
+
+class CRegistersLimitTest: public SkipTest {
+private:
+  static const uint32_t LIMIT = 8;  // 8 c registers
+
+public:
+  explicit CRegistersLimitTest(Location codeLocation): SkipTest(codeLocation) {}
+
+  void Name(std::ostream& out) const override {
+    out << "c_" << CodeLocationString();
+  }
+
+  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
+  TypedReg Result() override {
+    auto falseLabel = "@false";
+    auto endLabel = "@end";
+    
+    // create registers
+    std::vector<TypedReg> registers;
+    registers.reserve(LIMIT);
+    for (uint32_t i = 0; i < LIMIT; ++i) {
+      registers.push_back(be.AddCTReg());
+    }
+
+    // store 1 (true) in registers
+    for (auto reg: registers) {
+      be.EmitMov(reg, be.Immed(reg->Type(), 1));
+    }
+
+    // compare registers with 1
+    for (auto reg: registers) {
+      be.EmitArith(BRIG_OPCODE_NOT, reg, reg->Reg());
+      be.EmitCbr(reg->Reg(), falseLabel);
+    }
+
+    auto result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitBr(endLabel);
+
+    be.EmitLabel(falseLabel);
+    be.EmitMov(result, be.Immed(result->Type(), 0));
+
+    be.EmitLabel(endLabel);
+    return result;
+  }
+};
+
+
 void LimitsTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -553,6 +781,10 @@ void LimitsTests::Iterate(TestSpecIterator& it)
   TestForEach<PrivateMemorySizeLimitTest>(ap, it, "private_memory_size", cc->Grids().WorkGroupsSize256());
   TestForEach<KernargMemorySizeLimitTest>(ap, it, "kernarg_memory_size", cc->Grids().SimpleSet());
   TestForEach<ArgMemorySizeLimitTest>(ap, it, "arg_memory_size", cc->Grids().SimpleSet());
+
+  TestForEach<RegistersLimitTest>(ap, it, "registers", cc->Types().RegisterSizes(), CodeLocations());
+  TestForEach<SDQRegistersLimitTest>(ap, it, "registers", CodeLocations());
+  TestForEach<CRegistersLimitTest>(ap, it, "registers", CodeLocations());
 }
 
 }

@@ -120,6 +120,7 @@ public:
 
   // Immediates
   HSAIL_ASM::Operand Immed(Brig::BrigType16_t type, uint64_t imm);
+  HSAIL_ASM::Operand Immed(HSAIL_ASM::SRef data);
   HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
 
