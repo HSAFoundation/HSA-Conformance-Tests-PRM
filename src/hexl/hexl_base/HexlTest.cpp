@@ -69,25 +69,11 @@ std::string Test::TestName() const
   return ss.str();
 }
 
-void TestImpl::Fail(const char *format, ...)
+void TestImpl::Fail(const std::string& msg)
 {
   assert(context);
   SetFailed();
-  va_list ap;
-  va_start(ap, format);
-  context->Env()->vError(format, ap);
-  va_end(ap);
-}
-
-void TestImpl::Error(const char *format, ...)
-{
-  assert(context);
-  SetFailed();
-  SetError();
-  va_list ap;
-  va_start(ap, format);
-  context->Env()->vError(format, ap);
-  va_end(ap);
+  context->Error() << msg << std::endl;
 }
 
 void TestImpl::Serialize(std::ostream& out) const
@@ -109,21 +95,6 @@ bool TestImpl::DumpTextIfEnabled(const std::string& what, const std::string& tex
 bool TestImpl::DumpBinaryIfEnabled(const std::string& what, const void *buffer, size_t bufferSize)
 {
   return context->DumpBinaryIfEnabled(TestName(), what, buffer, bufferSize);
-}
-
-void EnvContext::vError(const char *format, va_list ap)
-{
-  printf("Error: ");
-  vfprintf(stdout, format, ap);
-  fprintf(stdout, "\n");
-}
-
-void EnvContext::Error(const char *format, ...)
-{
-  va_list ap;
-  va_start(ap, format);
-  vError(format, ap);
-  va_end(ap);
 }
 
 bool Context::IsVerbose(const std::string& what) const

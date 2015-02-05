@@ -211,12 +211,12 @@ private:
 
 typedef std::vector<Value> Values;
 
-class EnvContext;
 class ResourceManager;
 class TestFactory;
 class RuntimeContext;
 class RuntimeContextState;
 class Options;
+class AllStats;
 
 class IndentStream : public std::streambuf {
 private:
@@ -307,7 +307,6 @@ public:
   std::string GetString(const std::string& key);
 
   // Helper methods. Include HexlTest.hpp to use them.
-  EnvContext* Env() { return Get<EnvContext*>("hexl.env"); }
   ResourceManager* RM() { return Get<ResourceManager*>("hexl.rm"); }
   TestFactory* Factory() { return Get<TestFactory*>("hexl.testFactory"); }
   RuntimeContextState* State() { return Get<RuntimeContextState*>("hexl.runtimestate"); }
@@ -318,6 +317,9 @@ public:
   std::ostream& Debug() { return *Get<std::ostream*>("hexl.log.stream.debug"); }
   std::ostream& Info() { return *Get<std::ostream*>("hexl.log.stream.info"); }
   std::ostream& Error() { return *Get<std::ostream*>("hexl.log.stream.error"); }
+  void Error(const char *format, ...);
+  void vError(const char *format, va_list ap);
+  AllStats& Stats() { return *Get<AllStats*>("hexl.stats"); }
 
   // Dumping helpers.
   bool IsVerbose(const std::string& what) const;

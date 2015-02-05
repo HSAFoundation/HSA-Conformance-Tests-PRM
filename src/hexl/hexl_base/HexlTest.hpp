@@ -99,8 +99,7 @@ protected:
 
   void SetFailed() { result.SetFailed(); }
   void SetError() { result.SetError(); }
-  void Fail(const char *format, ...);
-  void Error(const char *format, ...);
+  void Fail(const std::string& msg);
   virtual void SerializeData(std::ostream& out) const { assert(false); }
   std::string GetOutputName(const std::string& what);
   bool DumpTextIfEnabled(const std::string& what, const std::string& text);
@@ -333,17 +332,6 @@ class AllStats;
 
 class ResourceManager;
 class TestFactory;
-
-class EnvContext {
-public:
-  void Error(const char *format, ...);
-  void vError(const char *format, va_list ap);
-  AllStats& Stats() { return stats; }
-  const AllStats& Stats() const { return stats; }
-private:
-  AllStats stats;
-};
-
 
 };
 

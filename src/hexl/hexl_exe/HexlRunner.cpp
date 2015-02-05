@@ -118,7 +118,7 @@ int HexlRunner::ParseOptions()
 TestSet* HexlRunner::CreateTestSet(const size_t i)
 {
   if (options.IsSet("testlist")) {
-    if (!options.IsSet("test")) { context->Env()->Error("test is not set"); return 0; }
+    if (!options.IsSet("test")) { context->Error() << "test is not set" << std::endl; return 0; }
     std::string testType = options.GetString("test");
     const Options::MultiString* t = options.GetMultiString("testlist"); assert(t);
     SimpleTestList* testList = new SimpleTestList(t->at(i), testFactory.get(), testType, options.GetString("key", ""));
@@ -149,8 +149,7 @@ void HexlRunner::Run()
   int result = 4;
   result = ParseOptions();
   context->Put("hexl.options", &options);
-  EnvContext* env = new EnvContext();
-  context->Put("hexl.env", env);
+  context->Put("hexl.stats", new AllStats());
   ResourceManager* rm = new DirectoryResourceManager(options.GetString("testbase", "."), options.GetString("results", "."));
   context->Put("hexl.rm", rm);
   RuntimeContext* runtime = CreateRuntimeContext(context.get());
@@ -189,7 +188,7 @@ void HexlRunner::Run()
       for (; testSetIndex < t->size(); ++testSetIndex) {
         TestSet* testSet = CreateTestSet(testSetIndex);
         if (!testSet) {
-          env->Error("Unable to create testset from '%s'", t->at(testSetIndex).c_str());
+          context->Error() << "Failed to create testset from '" << t->at(testSetIndex).c_str() << "'" << std::endl;
           total.TestSet().IncError();
           break;
         }
@@ -205,14 +204,13 @@ void HexlRunner::Run()
       if (result == 0 && !total.TestSet().AllPassed()) { result = 10; }
     } else {
       TestSet* testSet = CreateTestSet();
-      if (!testSet) { context->Env()->Error("Unable to create testset"); result = 5; }
+      if (!testSet) { context->Error() << "Failed to create testset" << std::endl; result = 5; }
       testRunner->RunTests(*testSet);
-      if (result == 0 && !context->Env()->Stats().TestSet().AllPassed()) { result = 10; }
+      if (result == 0 && !context->Stats().TestSet().AllPassed()) { result = 10; }
     }
   }
   if (runtime) { delete runtime; }
   if (rm) { delete rm; }
-  if (env) { delete env; }
   exit(result);
 }
 

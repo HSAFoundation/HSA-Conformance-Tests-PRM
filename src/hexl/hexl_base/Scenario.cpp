@@ -125,12 +125,12 @@ public:
   virtual bool Run() {
     Program* program = context->Get<Program*>(programId);
     if (!program) {
-      context->Env()->Error("Program not found: %s", programId.c_str());
+      context->Error() << "Program not found: " << programId << std::endl;
       return false;
     }
     brig_container_t brig = context->Get<brig_container_t>(brigId);
     if (!brig) {
-      context->Env()->Error("Brig not found: %s", brigId.c_str());
+      context->Error() << "Brig not found: " << brigId << std::endl;
       return false;
     }
     Module* module = context->State()->NewModuleFromBrig(brig);
@@ -158,7 +158,7 @@ public:
     if (!program) { return false; }
     std::string errMsg;
     if (!program->Validate(errMsg)) {
-      context->Env()->Error("Program %s validation failed: %s", programId.c_str(), errMsg.c_str());
+      context->Error() << "Program " << programId.c_str() << " validation failed: " << errMsg << std::endl;
       return false;
     }
     return true;

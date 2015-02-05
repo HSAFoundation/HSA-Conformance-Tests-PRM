@@ -48,11 +48,11 @@ RuntimeContext* CreateRuntimeContext(Context* context) {
   } else
 #endif // ENABLE_HEXL_ORCA
   {
-    context->Env()->Error("Unsupported runtime: %s", rt.c_str());
+    context->Error() << "Unsupported runtime: " << rt << std::endl;
     return 0;
   }
   if (!runtime->Init()) {
-    context->Env()->Error("Failed to initialize runtime");
+    context->Error() << "Failed to initialize runtime" << std::endl;
     return 0;
   }
   return runtime;
