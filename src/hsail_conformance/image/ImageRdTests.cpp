@@ -18,6 +18,8 @@
 #include "HCTests.hpp"
 #include "MObject.hpp"
 
+#define FIXME_UNUSED(var) (void)var
+
 using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
@@ -69,9 +71,9 @@ public:
   TypedReg Result() {
    // Load input
     TypedReg image = be.AddTReg(BRIG_TYPE_ROIMG);
-   // be.EmitLoad(img.segment(), image, be.Address(img));
+    FIXME_UNUSED(image); // be.EmitLoad(img.segment(), image, be.Address(img));
     TypedReg sampler = be.AddTReg(BRIG_TYPE_SAMP);
-   // be.EmitLoad(img.segment(), sampler, be.Address(samp));
+    FIXME_UNUSED(sampler); // be.EmitLoad(img.segment(), sampler, be.Address(samp));
 
     TypedReg reg_coord = be.AddTReg(BRIG_TYPE_F32);
     //10 coords
