@@ -37,7 +37,7 @@ void FinalizeProgramTest::Run()
     program = SetupProgram();
     if (!program) { Fail("Failed to setup program"); break; }
     std::string errMsg;
-    if (!program->Validate(errMsg)) { Fail("Failed to validate program: %s", errMsg.c_str()); break; }
+    if (!program->Validate(errMsg)) { context->Error() << errMsg << std::endl; Fail("BRIG failed validation"); break; }
     code = state->Finalize(program);
     if (!code) { Fail("Failed to finalize program"); break; }
   } while (0);
@@ -118,7 +118,7 @@ Code* ValidateProgramTest::SetupCode()
   if (!program) { Fail("Failed to setup program"); return 0; }
   assert(state);
   std::string errMsg;
-  if (!program->Validate(errMsg)) { Fail("Invalid input BRIG.\n%s", errMsg.c_str()); return 0; }
+  if (!program->Validate(errMsg)) { context->Error() << errMsg << std::endl; Fail("BRIG failed validation"); return 0; }
   Code* code = state->Finalize(program, 0, dsetup.get());
   if (!code) {
     Fail("Failed to finalize program");

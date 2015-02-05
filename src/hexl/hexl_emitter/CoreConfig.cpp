@@ -298,13 +298,18 @@ static const BrigTypeX packed128BitTypes[] = {
   BRIG_TYPE_F64X2
 };
 
+static const size_t registerSizesArr[] = {
+  32, 64, 128
+};
+
 CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
   : ConfigBase(cc),
     compound(NEWA ArraySequence<BrigTypeX>(compoundTypes, NELEM(compoundTypes))),
     compoundIntegral(NEWA ArraySequence<BrigTypeX>(compoundIntegralTypes, NELEM(compoundIntegralTypes))),
     compoundFloating(NEWA ArraySequence<BrigTypeX>(compoundFloatingTypes, NELEM(compoundFloatingTypes))),
     packed(NEWA ArraySequence<BrigTypeX>(packedTypes, NELEM(packedTypes))),
-    packed128(NEWA ArraySequence<BrigTypeX>(packed128BitTypes, NELEM(packed128BitTypes)))
+    packed128(NEWA ArraySequence<BrigTypeX>(packed128BitTypes, NELEM(packed128BitTypes))),
+    registerSizes(NEWA ArraySequence<size_t>(registerSizesArr, NELEM(registerSizesArr)))
 {
 }
 

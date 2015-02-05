@@ -328,7 +328,7 @@ public:
 
 HsailRuntimeContext::HsailRuntimeContext(Context* context)
   : RuntimeContext(context),
-    hsaApi(context->Env(), context->Opts(), HSARUNTIMECORENAME),
+    hsaApi(context, context->Opts(), HSARUNTIMECORENAME),
     queue(0), queueSize(0), error(false)
 {
 }
@@ -420,7 +420,7 @@ bool HsailDispatch::Execute()
     result = Runtime()->Hsa()->hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_EQ, 0, timeout, HSA_WAIT_STATE_ACTIVE);
     clock_t clocks = clock() - beg;
     if (clocks > (clock_t) timeout && result != 0) {
-      Runtime()->Env()->Error("Kernel execution timed out, elapsed time: %ld clocks (clocks per second %ld)", (long) clocks, (long) CLOCKS_PER_SEC);
+      Runtime()->GetContext()->Error() << "Kernel execution timed out, elapsed time: " << (long) clocks << " clocks (clocks per second " << (long) CLOCKS_PER_SEC << ")" << std::endl;
       Runtime()->Hsa()->hsa_signal_destroy(signal);
       return false;
     }

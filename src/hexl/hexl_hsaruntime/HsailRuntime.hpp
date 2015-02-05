@@ -26,8 +26,6 @@
 
 namespace hexl {
 
-class EnvContext;
-
 RuntimeContext* CreateHsailRuntimeContext(Context* context);
 
 namespace hsail_runtime {
@@ -94,8 +92,8 @@ struct HsaApiTable {
 
 class HsaApi : public DllApi<HsaApiTable> {
 public:
-  HsaApi(EnvContext* env, const Options* options, const char *libName)
-    : DllApi<HsaApiTable>(env, options, libName) { }
+  HsaApi(Context* context, const Options* options, const char *libName)
+    : DllApi<HsaApiTable>(context, options, libName) { }
 
   const HsaApiTable* InitApiTable();
 };
@@ -125,7 +123,6 @@ public:
     return "HSA Foundation Runtime";
   }
 
-  EnvContext* Env() { return context->Env(); }
   const Options* Opts() const { return context->Opts(); }
   virtual RuntimeContextState* NewState(Context* context);
 

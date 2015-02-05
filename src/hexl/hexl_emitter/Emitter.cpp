@@ -1354,7 +1354,9 @@ void EmittedTest::KernelCode()
 {
   emitter::TypedReg kernelResult = KernelResult();
   assert(kernelResult);
-  output->EmitStoreData(kernelResult);
+  if (output) {
+    output->EmitStoreData(kernelResult);
+  }
 }
 
 void EmittedTest::ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
@@ -1372,7 +1374,9 @@ void EmittedTest::SetupDispatch(DispatchSetup* dispatch)
   dispatch->SetDimensions(geometry->Dimensions());
   dispatch->SetWorkgroupSize(geometry->WorkgroupSize(0), geometry->WorkgroupSize(1), geometry->WorkgroupSize(2));
   dispatch->SetGridSize(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2));
-  output->SetData(ExpectedResults());
+  if (output) {
+    output->SetData(ExpectedResults());
+  }
   kernel->SetupDispatch(dispatch);
 }
 
