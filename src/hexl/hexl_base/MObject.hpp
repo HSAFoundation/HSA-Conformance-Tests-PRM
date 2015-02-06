@@ -77,6 +77,7 @@ public:
   const std::string& Name() const { return name; }
 
   virtual void Print(std::ostream& out) const { out << id << ": '" << name << "'"; }
+  virtual void PrintWithBuffer(std::ostream& out) const { Print(out); } // type-specific, so nothing by default
   virtual void SerializeData(std::ostream& out) const = 0;
 private:
   MObject(const MObject&) {}
@@ -323,12 +324,13 @@ public:
 
   // Dumping helpers.
   bool IsVerbose(const std::string& what) const;
-  bool IsDumpEnabled(const std::string& what, bool dumpAll = true) const;
+  bool IsDumpEnabled(const std::string& what, bool enableWithPlainDumpOption = true) const;
   void SetOutputPath(const std::string& path) { Put("hexl.outputPath", path); }
   std::string GetOutputName(const std::string& name, const std::string& what);
   bool DumpTextIfEnabled(const std::string& name, const std::string& what, const std::string& text);
   bool DumpBinaryIfEnabled(const std::string& name, const std::string& what, const void *buffer, size_t bufferSize);
   void DumpBrigIfEnabled(const std::string& name, void* brig);
+  void DumpDispatchsetupIfEnabled(const std::string& name, const void* dsetup);
 };
 
 void WriteTo(void *dest, const Values& values);
@@ -346,7 +348,8 @@ public:
 
   MObjectMem MType() const { return mtype; }
   ValueType VType() const { return vtype; }
-  void Print(std::ostream& out) const;
+  virtual void Print(std::ostream& out) const;
+  virtual void PrintWithBuffer(std::ostream& out) const;
   unsigned Dim() const { return dim; }
   size_t Count() const { return size[0] * size[1] * size[2]; }
   size_t Size(Context* context) const;
@@ -442,7 +445,8 @@ public:
   MRBuffer(unsigned id, const std::string& name, std::istream& in) : MObject(id, MRBUFFER, name) { DeserializeData(in); }
 
   ValueType VType() const { return vtype; }
-  void Print(std::ostream& out) const;
+  virtual void Print(std::ostream& out) const;
+  virtual void PrintWithBuffer(std::ostream& out) const;
   unsigned RefId() const { return refid; }
   Values& Data() { return data; }
   const Values& Data() const { return data; }
@@ -619,6 +623,7 @@ public:
   MObject* Get(size_t i) const { return mos[i].get(); }
   void Add(MObject* mo) { mos.push_back(std::move(std::unique_ptr<MObject>(mo))); }
   void Print(std::ostream& out) const;
+  void PrintWithBuffers(std::ostream& out) const;
   void Serialize(std::ostream& out) const;
   void Deserialize(std::istream& in);
 };
@@ -637,6 +642,7 @@ public:
   }
 
   void Print(std::ostream& out) const;
+  void PrintWithBuffers(std::ostream& out) const;
       
   void SetDimensions(uint32_t dimensions) { this->dimensions = dimensions; }
   uint32_t Dimensions() const { return dimensions; }
@@ -695,6 +701,8 @@ private:
   uint16_t workgroupSize[3];
   uint64_t globalOffset[3];
   MemorySetup msetup;
+
+  void PrintImpl(std::ostream& out, bool withBuffers) const;
 };
 
 // Serialization helpers

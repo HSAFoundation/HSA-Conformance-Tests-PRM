@@ -174,6 +174,13 @@ void ValidateBrigContainerTest::PrintExtraInfo(std::ostream &s) const {
   remove(filename);
 }
 
+void ValidateBrigContainerTest::DumpIfEnabled()
+{
+  ValidateBrigTest::DumpIfEnabled();
+  const DispatchSetup* const dsetup_ = dsetup.get();
+  if (dsetup_) context->DumpDispatchsetupIfEnabled(TestName(), dsetup_);
+}
+
 void ValidateBrigContainerTest::SerializeData(std::ostream& out) const
 {
   WriteData(out, TestName());

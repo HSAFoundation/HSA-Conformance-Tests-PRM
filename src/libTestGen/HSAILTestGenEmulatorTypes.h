@@ -201,7 +201,7 @@ public:
         {
             assert(isSubnormal());
 
-            unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
+            // unused: unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
 
             u64_t mantissa = getMantissa();
             mantissa <<= 64 - MANTISSA_WIDTH;
