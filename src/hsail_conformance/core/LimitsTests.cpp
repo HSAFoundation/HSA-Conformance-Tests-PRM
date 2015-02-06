@@ -616,19 +616,6 @@ private:
 
   static const uint32_t LIMIT = 128;  // 128 s registers
 
-  BrigTypeX RegisterType() const {
-    switch (typeSize) {
-    case 32: return BRIG_TYPE_U32;
-    case 64: return BRIG_TYPE_U64;
-    case 128: return BRIG_TYPE_U64X2;
-    default: assert(false); return BRIG_TYPE_NONE;
-    }
-  }
-
-  uint32_t Limit() const {
-    return LIMIT / (typeSize / 32);
-  }
-
 protected:
   std::vector<TypedReg> CreateRegisters() override {
     std::vector<TypedReg> registers;
@@ -637,6 +624,10 @@ protected:
       registers.push_back(be.AddTReg(RegisterType()));
     }
     return registers;
+  }
+
+  virtual uint32_t Limit() const {
+    return LIMIT / (typeSize / 32);
   }
 
 public:
@@ -659,6 +650,76 @@ public:
   }
 
   BrigTypeX ResultType() const override { return RegisterType(); }
+
+  BrigTypeX RegisterType() const {
+    switch (typeSize) {
+    case 32: return BRIG_TYPE_U32;
+    case 64: return BRIG_TYPE_U64;
+    case 128: return BRIG_TYPE_U64X2;
+    default: assert(false); return BRIG_TYPE_NONE;
+    }
+  }
+};
+
+
+class LiveRegistersLimitTest: public RegistersLimitTest {
+private:
+  Variable buffer;
+
+public:
+  LiveRegistersLimitTest(size_t typeSize, Location codeLocation): 
+            RegistersLimitTest(typeSize, codeLocation) {}
+
+  void Init() override {
+    RegistersLimitTest::Init();
+    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GLOBAL, RegisterType(), Location::MODULE, BRIG_ALIGNMENT_NONE, Limit());
+  }
+
+  void ModuleVariables() override {
+    RegistersLimitTest::ModuleVariables();
+    buffer->EmitDefinition();
+  }
+
+  TypedReg Result() override {
+    auto registers = CreateRegisters();
+
+    // load from global buffer in each register
+    for (uint32_t i = 0; i < registers.size(); ++i) {
+      auto offset = i * getBrigTypeNumBytes(RegisterType());
+      be.EmitLoad(BRIG_SEGMENT_GLOBAL, registers[i], be.Address(buffer->Variable(), offset));
+    }
+
+    be.EmitBarrier();
+
+    // store zeroes in global buffer
+    if (getBrigTypeNumBits(RegisterType()) != 128) {  
+      for (uint32_t i = 0; i < registers.size(); ++i) {
+        auto storeType = be.MemOpType(RegisterType());
+        auto zero = ImmedValue(0, storeType);
+        auto offset = i * getBrigTypeNumBytes(RegisterType());
+        be.EmitStore(BRIG_SEGMENT_GLOBAL, storeType, zero, be.Address(buffer->Variable(), offset));
+      }
+    } else { // for 128-bit registers we use first register as source to store
+      be.EmitMov(registers[0], ImmedValue(0, RegisterType()));
+      for (uint32_t i = 0; i < registers.size(); ++i) {
+        auto offset = i * getBrigTypeNumBytes(RegisterType());
+        be.EmitStore(BRIG_SEGMENT_GLOBAL, registers[0], be.Address(buffer->Variable(), offset));
+      }
+    }
+
+    be.EmitBarrier();
+
+    // store original values in global buffer
+    for (uint32_t i = 0; i < registers.size(); ++i) {
+      auto offset = i * getBrigTypeNumBytes(RegisterType());
+      be.EmitStore(BRIG_SEGMENT_GLOBAL, registers[i], be.Address(buffer->Variable(), offset));
+    }
+
+    auto result = ResultReg(registers);
+    be.EmitMov(result, ImmedValue(1, result->Type()));
+    return result;
+  }
+
 };
 
 
@@ -764,6 +825,8 @@ void LimitsTests::Iterate(TestSpecIterator& it)
   TestForEach<RegistersLimitTest>(ap, it, "registers", cc->Types().RegisterSizes(), CodeLocations());
   TestForEach<SDQRegistersLimitTest>(ap, it, "registers", CodeLocations());
   TestForEach<CRegistersLimitTest>(ap, it, "registers", CodeLocations());
+
+  TestForEach<LiveRegistersLimitTest>(ap, it, "registers/live", cc->Types().RegisterSizes(), CodeLocations());
 }
 
 }
