@@ -158,6 +158,22 @@ Function EmittableContainer::NewFunction(const std::string& id)
   return function;
 }
 
+Image EmittableContainer::NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch)
+{
+  Image image = te->NewImage(id, brigseg, geometry, chanel_order, channel_type, access, 
+                         width, height, depth, rowPitch, slicePitch);
+  Add(image);
+  return image;
+}
+
+Sampler EmittableContainer::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing)
+{
+  Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing);
+  Add(sampler);
+  return sampler;
+}
+
 bool EVariableSpec::IsValidVar() const
 {
   //if (IsEmpty()) { return true; }
@@ -357,7 +373,7 @@ void EVariable::EmitStoreFrom(TypedReg src, bool useVectorInstructions)
 void EVariable::SetupDispatch(DispatchSetup* setup) {
   if (segment == BRIG_SEGMENT_KERNARG) {
     assert(var);
-    uint32_t sizes[] = { Dim32(), 1, 1 };
+    uint32_t sizes[] = { Count(), 1, 1 };
     auto marg = new MBuffer(setup->MSetup().Count(), id + ".var", MEM_KERNARG, Brig2ValueType(type), 1, sizes);
     marg->Data() = data;
     setup->MSetup().Add(marg);
@@ -736,6 +752,60 @@ void EUserModeQueue::EmitCasQueueWriteIndex(Brig::BrigSegment segment, Brig::Bri
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
   inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(Address(segment)), src0, src1);
+}
+
+
+void EImage::SetupDispatch(DispatchSetup* dispatch) {
+  
+  unsigned i = dispatch->MSetup().Count();
+  image = new MImage(i++, id, segment, geometry, chanel_order, channel_type, access, 
+                         width, height, depth, rowPitch, slicePitch);
+  dispatch->MSetup().Add(image);
+  dispatch->MSetup().Add(NewMValue(i++, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
+}
+
+void EImage::EmitImageRd(OperandOperandList dest, TypedReg image, TypedReg sampler, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = BRIG_TYPE_S32;
+  ItemList OptList;
+  OptList.push_back(dest);
+  OptList.push_back(image->Reg());
+  OptList.push_back(sampler->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+
+void EImage::KernelArguments()
+{
+  var = EmitAddressDefinition(segment);
+}
+
+HSAIL_ASM::DirectiveVariable EImage::EmitAddressDefinition(BrigSegment segment)
+{
+  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->ImageType(access));
+}
+
+void ESampler::SetupDispatch(DispatchSetup* dispatch) {
+  
+  unsigned i = dispatch->MSetup().Count();
+  sampler = new MSampler(i++, id, segment, coord, filter, addressing);
+  dispatch->MSetup().Add(sampler);
+  dispatch->MSetup().Add(NewMValue(i++, id + ".kernarg", MEM_KERNARG, MV_SAMPLERREF, U64(sampler->Id())));
+}
+
+void ESampler::KernelArguments()
+{
+  var = EmitAddressDefinition(segment);
+}
+
+HSAIL_ASM::DirectiveVariable ESampler::EmitAddressDefinition(BrigSegment segment)
+{
+  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->SamplerType());
 }
 
 void ESignal::ScenarioInit()
@@ -1168,6 +1238,19 @@ Function TestEmitter::NewFunction(const std::string& id)
   return new(Ap()) EFunction(this, id);
 }
 
+Image TestEmitter::NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch)
+{
+  return new(Ap()) EImage(this, id, brigseg, geometry, chanel_order, channel_type, access, 
+                         width, height, depth, rowPitch, slicePitch);
+}
+
+
+
+Sampler TestEmitter::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing)
+{
+  return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing);
+}
 
 }
 
@@ -1355,8 +1438,8 @@ void EmittedTest::KernelCode()
   emitter::TypedReg kernelResult = KernelResult();
   assert(kernelResult);
   if (output) {
-    output->EmitStoreData(kernelResult);
-  }
+  output->EmitStoreData(kernelResult);
+}
 }
 
 void EmittedTest::ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
@@ -1375,7 +1458,7 @@ void EmittedTest::SetupDispatch(DispatchSetup* dispatch)
   dispatch->SetWorkgroupSize(geometry->WorkgroupSize(0), geometry->WorkgroupSize(1), geometry->WorkgroupSize(2));
   dispatch->SetGridSize(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2));
   if (output) {
-    output->SetData(ExpectedResults());
+  output->SetData(ExpectedResults());
   }
   kernel->SetupDispatch(dispatch);
 }

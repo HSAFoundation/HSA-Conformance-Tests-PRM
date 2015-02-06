@@ -238,6 +238,10 @@ public:
   void EmitAgentId(TypedReg dest);
   void EmitQueuePtr(PointerReg dest);
 
+  // Images operations
+  Brig::BrigTypeX ImageType(unsigned access) const;
+  Brig::BrigTypeX SamplerType() const;
+
   // Dispatch packet operations
   TypedReg EmitCurrentWorkgroupSize(uint32_t dim);
   TypedReg EmitDim();

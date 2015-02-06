@@ -62,6 +62,85 @@ enum MObjectMem {
   MEM_LAST,
 };
 
+enum MObjectImageGeometry {
+  IMG_1D = 0,
+  IMG_2D,
+  IMG_3D,
+  IMG_1DA,
+  IMG_2DA,
+  IMG_1DB,
+  IMG_2DDEPTH,
+  IMG_2DADEPTH
+};
+
+enum MObjectImageChannelType {
+  IMG_SNORM_INT8 = 0,
+  IMG_SNORM_INT16,
+  IMG_UNORM_INT8,
+  IMG_UNORM_INT16,
+  IMG_UNORM_INT24,
+  IMG_UNORM_SHORT_555,
+  IMG_UNORM_SHORT_565,
+  IMG_UNORM_SHORT_101010,
+  IMG_SIGNED_INT8,
+  IMG_SIGNED_INT16,
+  IMG_SIGNED_INT32,
+  IMG_UNSIGNED_INT8,
+  IMG_UNSIGNED_INT16,
+  IMG_UNSIGNED_INT32,
+  IMG_HALF_FLOAT,
+  IMG_FLOAT
+};
+
+enum MObjectImageChannelOrder {
+  IMG_ORDER_A = 0,
+  IMG_ORDER_R,
+  IMG_ORDER_RX,
+  IMG_ORDER_RG,
+  IMG_ORDER_RGX,
+  IMG_ORDER_RA,
+  IMG_ORDER_RGB,
+  IMG_ORDER_RGBX,
+  IMG_ORDER_RGBA,
+  IMG_ORDER_BRGA,
+  IMG_ORDER_ARGB,
+  IMG_ORDER_ABGR,
+  IMG_ORDER_SRGB,
+  IMG_ORDER_SRGBX,
+  IMG_ORDER_SRGBA,
+  IMG_ORDER_SBGRA,
+  IMG_ORDER_INTENSITY,
+  IMG_ORDER_LUMINANCE,
+  IMG_ORDER_DEPTH,
+  IMG_ORDER_DEPTH_STENCIL
+};
+
+enum MObjectImageAccess {
+  IMG_ACCESS_NOT_SUPPORTED = 0x0,
+  IMG_ACCESS_READ_ONLY,
+  IMG_ACCESS_WRITE_ONLY,
+  IMG_ACCESS_READ_WRITE,
+  IMG_ACCESS_READ_MODIFY_WRITE = 0x8
+};
+
+enum MObjectSamplerFilter {
+  SMP_NEAREST = 0,
+  SMP_LINEAR
+};
+
+enum MObjectSamplerCoords {
+  SMP_NORMALIZED = 0,
+  SMP_UNNORMALIZED
+};
+
+enum MObjectSamplerAddressing {
+  SMP_UNDEFINED = 0,
+  SMP_CLAMP_TO_EDGE,
+  SMP_CLAMP_TO_BORDER,
+  SMP_MODE_REPEAT,
+  SMP_MIRRORED_REPEAT
+};
+
 enum SpecialValues {
   RV_QUEUEID = 101,
   RV_QUEUEPTR = 102,
@@ -476,9 +555,9 @@ ValueType ImageValueType(unsigned geometry);
 
 class MImage : public MObject {
 public:
-  MImage(unsigned id, const std::string& name, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_,
+  MImage(unsigned id, const std::string& name, unsigned segment_, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_,
     size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
-    : MObject(id, MIMAGE, name), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_),
+    : MObject(id, MIMAGE, name), segment(segment_), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_),
       width(width_), height(height_), depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_)
       { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
@@ -496,11 +575,11 @@ public:
   size_t Size() const { return height * width * depth; }
   Value GetRaw(size_t i) { assert(false); }
 
-  Values& Data() { return data; }
-  const Values& Data() const { return data; }
+  Value& Data() { return data; }
+  const Value& Data() const { return data; }
 
   ValueType GetValueType() const { return ImageValueType(geometry); }
-
+  void Print(std::ostream& out) const;
   void PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const;
   void PrintComparisonSummary(std::ostream& out, Comparison& comparison) const;
   virtual void SerializeData(std::ostream& out) const;
@@ -511,8 +590,8 @@ private:
   unsigned channelType;
   unsigned accessPermission;
   size_t width, height, depth, rowPitch, slicePitch;
-  Values data;
-
+  Value data;
+  unsigned segment;
   void DeserializeData(std::istream& in);
 };
 
@@ -524,44 +603,35 @@ public:
 
   unsigned Geometry() const { return geometry; }
   unsigned RefId() const { return refid; }
-  Values& Data() { return data; }
-  const Values& Data() const { return data; }
+  Value& Data() { return data; }
+  const Value& Data() const { return data; }
   Comparison& GetComparison() { return comparison; }
   virtual void SerializeData(std::ostream& out) const;
 
 private:
   unsigned geometry;
   unsigned refid;
-  Values data;
+  Value data;
   Comparison comparison;
   void DeserializeData(std::istream& in);
 };
 
-inline MImage* NewMValue(unsigned id, const std::string& name, unsigned geometry, unsigned chanel_order, unsigned channel_type, unsigned access, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, ValueData data) {
-  MImage* mi = new MImage(id, name, geometry, chanel_order, channel_type, access, 
+inline MImage* NewMValue(unsigned id, const std::string& name, unsigned segment, unsigned geometry, unsigned chanel_order, unsigned channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch) {
+  MImage* mi = new MImage(id, name, segment, geometry, chanel_order, channel_type, access, 
                          width, height, depth, rowPitch, slicePitch);
-  for (size_t i = 0; i < mi->Size(); i++)
-  {
-    mi->Data().push_back(Value(MV_UINT8, data));
-  }
   return mi;
 }
 
-inline MRImage* NewMRValue(unsigned id, MImage* mi, Value data, const Comparison& comparison = Comparison()) {
+inline MRImage* NewMRValue(unsigned id, MImage* mi, const Comparison& comparison = Comparison()) {
   MRImage* mr = new MRImage(id, mi->Name() + " (check)", mi->Geometry(), mi->Id(), comparison);
-  mr->Data().push_back(data);
   return mr;
-}
-
-inline MRImage* NewMRValue(unsigned id, MImage* mi, ValueData data, const Comparison& comparison = Comparison()) {
-  return NewMRValue(id, mi, Value(mi->GetValueType(), data), comparison);
 }
 
 class MSampler : public MObject {
 public:
-  MSampler(unsigned id, const std::string& name, unsigned coords_, unsigned filter_, unsigned addressing_)
-    : MObject(id, MSAMPLER, name),
+  MSampler(unsigned id, const std::string& name, unsigned segment_, unsigned coords_, unsigned filter_, unsigned addressing_)
+    : MObject(id, MSAMPLER, name), segment(segment_),
       coords(coords_), filter(filter_), addressing(addressing_) { }
   MSampler(unsigned id, const std::string& name, std::istream& in) : MObject(id, MSAMPLER, name) { DeserializeData(in); }
 
@@ -573,9 +643,9 @@ public:
 
   ValueType VType() const { return MV_SAMPLER; }
 
-  Values& Data() { assert(false); }
-  const Values& Data() const { assert(false); }
-
+  Value& Data() { return data; }
+  const Value& Data() const { return data; }
+  void Print(std::ostream& out) const;
   void PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const;
   void PrintComparisonSummary(std::ostream& out, Comparison& comparison) const;
   virtual void SerializeData(std::ostream& out) const;
@@ -584,7 +654,8 @@ private:
   unsigned coords;
   unsigned filter;
   unsigned addressing;
-
+  Value data;
+  unsigned segment;
   void DeserializeData(std::istream& in);
 };
 
@@ -604,8 +675,8 @@ private:
   void DeserializeData(std::istream& in);
 };
 
-inline MSampler* NewMValue(unsigned id, const std::string& name, unsigned coords_, unsigned filter_, unsigned addressing_) {
-  MSampler* ms = new MSampler(id, name, coords_, filter_, addressing_);
+inline MSampler* NewMValue(unsigned id, const std::string& name, unsigned segment, unsigned coords_, unsigned filter_, unsigned addressing_) {
+  MSampler* ms = new MSampler(id, name, segment, coords_, filter_, addressing_);
   return ms;
 }
 

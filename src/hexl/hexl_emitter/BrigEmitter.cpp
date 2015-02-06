@@ -867,6 +867,21 @@ BrigTypeX BrigEmitter::SignalType() const
   }
 }
 
+BrigTypeX BrigEmitter::ImageType(unsigned access) const
+{
+  switch (access) {
+  case 1: return BRIG_TYPE_ROIMG;
+  case 2: return BRIG_TYPE_WOIMG;
+  case 3: return BRIG_TYPE_RWIMG;
+  default: assert(false); return BRIG_TYPE_NONE;
+  }
+}
+
+BrigTypeX BrigEmitter::SamplerType() const
+{
+  return BRIG_TYPE_SAMP;
+}
+
 BrigTypeX BrigEmitter::AtomicValueBitType() const
 {
   switch (coreConfig->Model()) {

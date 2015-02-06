@@ -15,11 +15,12 @@
 */
 
 #include "ImageRdTests.hpp"
+#include "RuntimeContext.hpp"
 #include "HCTests.hpp"
 #include "MObject.hpp"
 
-#define FIXME_UNUSED(var) (void)var
-
+using namespace hexl::emitter;
+using namespace hexl::scenario;
 using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
@@ -29,8 +30,10 @@ namespace hsail_conformance {
 
 class ImageRdTest:  public Test {
 private:
-  DirectiveVariable img;
-  DirectiveVariable samp;
+  Variable nx;
+  Variable ny;
+  Image imgobj;
+  Sampler smpobj;
 
 public:
   ImageRdTest(Location codeLocation, 
@@ -42,48 +45,78 @@ public:
     out << CodeLocationString() << '_' << geometry;
   }
 
- void KernelArguments() {
-    Test::KernelArguments();
-    img = be.EmitVariableDefinition("%roimage", BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
-    samp = be.EmitVariableDefinition("%sampler", BRIG_SEGMENT_KERNARG, BRIG_TYPE_SAMP);
+  void Init() {
+   Test::Init();
+   unsigned access = 0;
 
+   access = 1; //HSA_ACCESS_PERMISSION_RO
+
+  // access = 2; //HSA_ACCESS_PERMISSION_WO
+
+  // access = 3; //HSA_ACCESS_PERMISSION_RW
+
+   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, BRIG_GEOMETRY_1D, BRIG_CHANNEL_ORDER_A, BRIG_CHANNEL_TYPE_UNSIGNED_INT8, access, 1000,1,1,1,1);
+   smpobj = kernel->NewSampler("%sampler", BRIG_SEGMENT_KERNARG, BRIG_COORD_UNNORMALIZED, BRIG_FILTER_LINEAR, BRIG_ADDRESSING_UNDEFINED);
+
+   nx = kernel->NewVariable("nx", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+   nx->PushBack(Value(MV_UINT32, 1000));
+   ny = kernel->NewVariable("ny", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+   ny->PushBack(Value(MV_UINT32, 1));
   }
 
- void SetupDispatch(DispatchSetup* dsetup) {
-    Test::SetupDispatch(dsetup);
-    unsigned id = dsetup->MSetup().Count();
-    
-    MImage* in1 = NewMValue(id++, "Roimage", BRIG_GEOMETRY_1D, BRIG_CHANNEL_ORDER_A, BRIG_CHANNEL_TYPE_SNORM_INT8, 1 /*HSA_ACCESS_PERMISSION_RO*/, 256,1,1,256,1,U8(42));
-    dsetup->MSetup().Add(in1);
-    dsetup->MSetup().Add(NewMValue(id++, "Roimage (arg)", MEM_KERNARG, MV_REF, R(in1->Id())));
-
-    MSampler* in2 = NewMValue(id++, "Sampler", BRIG_COORD_NORMALIZED, BRIG_FILTER_NEAREST, BRIG_ADDRESSING_CLAMP_TO_EDGE);
-    dsetup->MSetup().Add(in2);
-    dsetup->MSetup().Add(NewMValue(id++, "Sampler (arg)", MEM_KERNARG, MV_REF, R(in2->Id())));
+  void ModuleDirectives() override {
+    be.EmitExtensionDirective("IMAGE");
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U8; }
+  bool IsValid() const
+  {
+    return (codeLocation != FUNCTION);
+  }
+
+  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const {
-     return Value(MV_EXPR, U8(42));
+    return Value(MV_UINT32, 255);
+  }
+
+  size_t OutputBufferSize() const override {
+    return 1000;
   }
 
   TypedReg Result() {
+    auto x = be.EmitWorkitemId(0);
+    auto y = be.EmitWorkitemId(1);
+    auto nxReg = nx->AddDataReg();
+    be.EmitLoad(nx->Segment(), nxReg->Type(), nxReg->Reg(), be.Address(nx->Variable())); 
+    auto nyReg = ny->AddDataReg();
+    be.EmitLoad(ny->Segment(), nyReg->Type(), nyReg->Reg(), be.Address(ny->Variable())); 
+    auto result = be.AddTReg(ResultType());
+    be.EmitMov(result, be.Immed(ResultType(), 0));
+    SRef s_label_exit = "@exit";
+    auto reg_c = be.AddTReg(BRIG_TYPE_B1);
+    // x > nx
+    be.EmitCmp(reg_c->Reg(), x, nxReg, BRIG_COMPARE_GT);
+    be.EmitCbr(reg_c, s_label_exit);
+    // y > ny
+    be.EmitCmp(reg_c->Reg(), y, nyReg, BRIG_COMPARE_GT);
+    be.EmitCbr(reg_c, s_label_exit);
    // Load input
-    TypedReg image = be.AddTReg(BRIG_TYPE_ROIMG);
-    FIXME_UNUSED(image); // be.EmitLoad(img.segment(), image, be.Address(img));
-    TypedReg sampler = be.AddTReg(BRIG_TYPE_SAMP);
-    FIXME_UNUSED(sampler); // be.EmitLoad(img.segment(), sampler, be.Address(samp));
+    auto imageaddr = be.AddTReg(imgobj->Variable().type());
+    be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
 
-    TypedReg reg_coord = be.AddTReg(BRIG_TYPE_F32);
-    //10 coords
-    be.EmitMov(reg_coord, be.Immed(reg_coord->Type(), 10));
+    auto sampleraddr = be.AddTReg(smpobj->Variable().type());
+    be.EmitLoad(smpobj->Segment(), sampleraddr->Type(), sampleraddr->Reg(), be.Address(smpobj->Variable())); 
 
     OperandOperandList reg_dest = be.AddVec(BRIG_TYPE_U32, 4);
+
+    auto coord = be.AddTReg(BRIG_TYPE_F32);
+    be.EmitMov(coord, be.Immed(coord->Type(), 0));
+
+    imgobj->EmitImageRd(reg_dest, imageaddr, sampleraddr, coord);
     
-   // be.EmitRdImage(reg_dest, image, sampler, reg_coord);
-    TypedReg result = be.AddTReg(BRIG_TYPE_U8);
-    be.EmitMov(result, reg_dest.elements(0));
+    be.EmitMov(result, reg_dest.elements(3));
+
+    be.Brigantine().addLabel(s_label_exit);
     return result;
   }
 };

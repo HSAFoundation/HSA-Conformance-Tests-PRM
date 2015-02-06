@@ -66,6 +66,8 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_ext_image_destroy);
   GET_FUNCTION(hsa_ext_sampler_create);
   GET_FUNCTION(hsa_ext_sampler_destroy);
+  GET_FUNCTION(hsa_ext_image_data_get_info);
+  GET_FUNCTION(hsa_ext_image_import);
   return api;
 }
 
@@ -205,7 +207,7 @@ public:
   ~HImage();
   MImage* Mi() { return mi; }
   void *Ptr() { return ptr; }
-  hsa_ext_image_t *Handle() { return &imgh; }
+  uint64_t Handle() { return imgh.handle; }
   virtual bool Push();
   virtual bool Pull();
   virtual bool Validate();
@@ -236,7 +238,7 @@ public:
     : HObject(mstate_), ms(ms_), smph(smph_) { }
   ~HSampler();
   MSampler* Ms() { return ms; }
-  hsa_ext_sampler_t *Handle() { return &smph; }
+  uint64_t Handle() { return smph.handle; }
   virtual bool Push();
   virtual bool Pull();
   virtual bool Validate();
@@ -534,8 +536,8 @@ size_t HRBuffer::Size() const
 HImage::~HImage()
 {
     if (ptr) {
-        State()->Runtime()->Hsa()->hsa_ext_image_destroy(State()->Runtime()->Agent(), imgh);        
-        free(ptr);
+        State()->Runtime()->Hsa()->hsa_ext_image_destroy(State()->Runtime()->Agent(), imgh);
+        HSAIL_ALIGNED_FREE(ptr);
     }
 }
 
@@ -696,10 +698,13 @@ Value HsailMemoryState::GetValue(Value v)
     assert(ho);
     return Value(MV_POINTER, P(ho->Ptr()));
   }
-  case MV_SAMPLERREF:
   case MV_IMAGEREF: {
-    assert(false);
-    return Value(MV_UINT64, (uint64_t) 0);
+    HImage* hi = Get<HImage>(v.U32());
+    return Value(MV_POINTER, hi->Handle());
+  }
+  case MV_SAMPLERREF: {
+    HSampler* hs = Get<HSampler>(v.U32());
+    return Value(MV_POINTER, hs->Handle());
   }
   case MV_EXPR: {
     return GetContext()->GetValue(v.S());
@@ -779,12 +784,22 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
   image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t)mi->ChannelOrder();
   image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t)mi->ChannelType();
   image_descriptor.depth = mi->Depth();
-  image_descriptor.array_size = mi->Size();
+  image_descriptor.array_size = image_descriptor.depth > 1 ? image_descriptor.depth : 0;
   hsa_access_permission_t access_permission = (hsa_access_permission_t)mi->AccessPermission();
+
+  hsa_ext_image_data_info_t image_info = {0};
+  hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_data_get_info(Runtime()->Agent(), &image_descriptor, access_permission, &image_info);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); return 0; }
+
   hsa_ext_image_t image = {0};
-  void *ptr = malloc(mi->Size());
-  hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, ptr, access_permission, &image);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); return 0; }
+  void *ptr = HSAIL_ALIGNED_MALLOC(image_info.size, image_info.alignment);
+  if (ptr == NULL) { Runtime()->HsaError("Allocate image. No memory.", HSA_STATUS_ERROR); return 0; }
+  memset(ptr, 0xFF, image_info.size);
+
+  status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, ptr, access_permission, &image);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); free(ptr); return 0; }
+
+  mi->Data() = Value(MV_IMAGE, image.handle);
 
   return new HImage(this, mi, ptr, image);
 }
@@ -805,6 +820,8 @@ HObject* HsailMemoryState::AllocateSampler(MSampler* ms)
   hsa_ext_sampler_t sampler = {0};
   hsa_status_t status = Runtime()->Hsa()->hsa_ext_sampler_create(Runtime()->Agent(), &samp_descriptor, &sampler);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_sampler_create failed", status); return 0; }
+
+  ms->Data() = Value(MV_SAMPLER, sampler.handle);
 
   return new HSampler(this, ms, sampler);
 }

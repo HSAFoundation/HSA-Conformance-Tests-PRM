@@ -88,6 +88,8 @@ size_t ValueTypeSize(ValueType type)
     return 4;
   case MV_IMAGEREF:
     return 8;
+  case MV_SAMPLERREF:
+    return 8;
   case MV_POINTER:
     return sizeof(void *);
   case MV_EXPR:
@@ -213,6 +215,113 @@ const char *MemString(MObjectMem mem)
   }
 }
 
+const char *ImageGeometryString(MObjectImageGeometry mem)
+{
+  switch (mem) {
+  case IMG_1D: return "1d";
+  case IMG_2D: return "2d";
+  case IMG_3D: return "3d";
+  case IMG_1DA: return "1da";
+  case IMG_2DA: return "2da";
+  case IMG_1DB: return "1db";
+  case IMG_2DDEPTH: return "2ddepth";
+  case IMG_2DADEPTH: return "2dadepth";
+  default: assert(false); return "<unknown geometry>";
+  }
+}
+
+const char *ImageChannelTypeString(MObjectImageChannelType mem)
+{
+  switch (mem) {
+  case IMG_SNORM_INT8: return "snorm_int8";
+  case IMG_SNORM_INT16: return "snorm_int16";
+  case IMG_UNORM_INT8: return "unorm_int8";
+  case IMG_UNORM_INT16: return "unorm_int16";
+  case IMG_UNORM_INT24: return "unorn_int32";
+  case IMG_UNORM_SHORT_555: return "unorn_short_555";
+  case IMG_UNORM_SHORT_565: return "unorn_short_565";
+  case IMG_UNORM_SHORT_101010: return "unorn_short_101010";
+  case IMG_SIGNED_INT8: return "signed_int8";
+  case IMG_SIGNED_INT16: return "signed_int16";
+  case IMG_SIGNED_INT32: return "signed_int32";
+  case IMG_UNSIGNED_INT8: return "unsigned_int8";
+  case IMG_UNSIGNED_INT16: return "unsigned_int16";
+  case IMG_UNSIGNED_INT32: return "unsigned_int32";
+  case IMG_HALF_FLOAT: return "half_float";
+  case IMG_FLOAT: return "float";
+  default: assert(false); return "<unknown channel type>";
+  }
+}
+
+const char *ImageChannelOrderString(MObjectImageChannelOrder mem)
+{
+  switch (mem) {
+  case IMG_ORDER_A: return "a";
+  case IMG_ORDER_R: return "r";
+  case IMG_ORDER_RX: return "rx";
+  case IMG_ORDER_RG: return "rg";
+  case IMG_ORDER_RGX: return "rgx";
+  case IMG_ORDER_RA: return "ra";
+  case IMG_ORDER_RGB: return "rgb";
+  case IMG_ORDER_RGBX: return "rgbx";
+  case IMG_ORDER_RGBA: return "rgba";
+  case IMG_ORDER_BRGA: return "brga";
+  case IMG_ORDER_ARGB: return "argb";
+  case IMG_ORDER_ABGR: return "abgr";
+  case IMG_ORDER_SRGB: return "srgb";
+  case IMG_ORDER_SRGBX: return "srgbx";
+  case IMG_ORDER_SRGBA: return "srgba";
+  case IMG_ORDER_SBGRA: return "sbgra";
+  case IMG_ORDER_INTENSITY: return "intensity";
+  case IMG_ORDER_LUMINANCE: return "luminance";
+  case IMG_ORDER_DEPTH: return "depth";
+  case IMG_ORDER_DEPTH_STENCIL: return "depth_stencil";
+  default: assert(false); return "<unknown channel order>";
+  }
+}
+
+const char *ImageAccessString(MObjectImageAccess mem)
+{
+  switch (mem) {
+  case IMG_ACCESS_READ_ONLY: return "ro";
+  case IMG_ACCESS_WRITE_ONLY: return "wo";
+  case IMG_ACCESS_READ_WRITE: return "rw";
+  case IMG_ACCESS_NOT_SUPPORTED:
+  case IMG_ACCESS_READ_MODIFY_WRITE:
+  default: assert(false); return "<unknown access type>";
+  }
+};
+
+const char *SamplerFilterString(MObjectSamplerFilter mem)
+{
+  switch (mem) {
+  case SMP_NEAREST: return "nearest";
+  case SMP_LINEAR: return "linear";
+  default: assert(false); return "<unknown filter>";
+  }
+}
+
+const char *SamplerCoordsString(MObjectSamplerCoords mem)
+{
+  switch (mem) {
+  case SMP_NORMALIZED: return "normalized";
+  case SMP_UNNORMALIZED: return "unnormalized";
+  default: assert(false); return "<unknown coords>";
+  }
+}
+
+const char *SamplerAddressingString(MObjectSamplerAddressing mem)
+{
+  switch (mem) {
+  case SMP_UNDEFINED: return "undefined";
+  case SMP_CLAMP_TO_EDGE: return "clamp_to_edge";
+  case SMP_CLAMP_TO_BORDER: return "clamp_to_border";
+  case SMP_MODE_REPEAT: return "repeat";
+  case SMP_MIRRORED_REPEAT: return "mirrored_repeat";
+  default: assert(false); return "<unknown addressing>";
+  }
+}
+
 const char *ValueTypeString(ValueType type)
 {
   switch (type) {
@@ -246,6 +355,7 @@ const char *ValueTypeString(ValueType type)
   case MV_IMAGE: return "image";
   case MV_REF: return "ref";
   case MV_IMAGEREF: return "imageref";
+  case MV_SAMPLERREF: return "samplerref";
   case MV_POINTER: return "pointer";
   case MV_EXPR: return "expr";
   case MV_STRING: return "string";
@@ -822,6 +932,14 @@ void MRBuffer::DeserializeData(std::istream& in)
   ReadData(in, data);
 }
 
+void MImage::Print(std::ostream& out) const
+{
+  MObject::Print(out);
+  out << ", MImage details: " << ImageGeometryString(MObjectImageGeometry(geometry)) << \
+    ", " << ImageChannelTypeString(MObjectImageChannelType(channelType)) <<  ", " << ImageChannelOrderString(MObjectImageChannelOrder(channelOrder)) << ", " << ImageAccessString(MObjectImageAccess(accessPermission));
+  out << " (" << "Image dim: [" << Width() << "x" << Height() << "x" << Depth() << "])";
+}
+
 void MImage::SerializeData(std::ostream& out) const
 {
   assert(false);
@@ -840,6 +958,13 @@ void MRImage::SerializeData(std::ostream& out) const
 void MRImage::DeserializeData(std::istream& in)
 {
   assert(false);
+}
+
+void MSampler::Print(std::ostream& out) const
+{
+  MObject::Print(out);
+  out << ", MSampler details: " << SamplerFilterString(MObjectSamplerFilter(filter)) << \
+   ", " << SamplerCoordsString(MObjectSamplerCoords(coords)) << ", " << SamplerAddressingString(MObjectSamplerAddressing(addressing));
 }
 
 void MSampler::SerializeData(std::ostream& out) const

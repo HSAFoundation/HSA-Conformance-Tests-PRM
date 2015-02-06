@@ -342,6 +342,9 @@ public:
   UserModeQueue NewQueue(const std::string& id, UserModeQueueType type);
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
+  Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch);
+  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing);
 };
 
 class EBuffer : public Emittable {
@@ -456,6 +459,67 @@ public:
   TypedReg AddReg();
   TypedReg AddValueReg();
 };
+
+class EImage : public Emittable {
+private:
+  std::string id;
+  HSAIL_ASM::DirectiveVariable var;
+  Brig::BrigImageGeometry geometry;
+  Brig::BrigImageChannelOrder chanel_order;
+  Brig::BrigImageChannelType channel_type;
+  unsigned access;
+  size_t width;
+  size_t height;
+  size_t depth;
+  size_t rowPitch;
+  size_t slicePitch;
+  Brig::BrigSegment segment;
+  MImage* image;
+
+  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
+
+public:
+  EImage(TestEmitter* te, const std::string& id_, Brig::BrigSegment brigseg_, Brig::BrigImageGeometry geometry_, Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_, unsigned access_, 
+                         size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
+    : Emittable(te), id(id_), segment(brigseg_), geometry(geometry_), chanel_order(chanel_order_), channel_type(channel_type_), access(access_), width(width_), height(height_), depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_) { }
+
+  const std::string& Id() const { return id; }
+
+  void KernelArguments();
+  void SetupDispatch(DispatchSetup* dispatch);
+  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, TypedReg image, TypedReg sampler, TypedReg coord);
+  Brig::BrigSegment Segment() { return segment; }
+  HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
+  PointerReg AddAReg();
+  TypedReg AddValueReg();
+};
+
+class ESampler : public Emittable {
+private:
+  std::string id;
+  HSAIL_ASM::DirectiveVariable var;
+  Brig::BrigSamplerCoordNormalization coord;
+  Brig::BrigSamplerFilter filter;
+  Brig::BrigSamplerAddressing addressing;
+  Brig::BrigSegment segment;
+  MSampler* sampler;
+
+  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
+
+public:
+  ESampler(TestEmitter* te, const std::string& id_, Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_, Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_)
+    : Emittable(te), id(id_), segment(brigseg_), coord(coord_), filter(filter_), addressing(addressing_) { }
+
+  const std::string& Id() const { return id; }
+
+  void KernelArguments();
+  void SetupDispatch(DispatchSetup* dispatch);
+  Brig::BrigSegment Segment() { return segment; }
+  HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
+  TypedReg AddReg();
+  TypedReg AddValueReg();
+};
+
 
 class EKernel : public EmittableContainer {
 private:
@@ -598,6 +662,9 @@ public:
   Signal NewSignal(const std::string& id, uint64_t initialValue);
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
+  Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch);
+  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing);
 };
 
 }
