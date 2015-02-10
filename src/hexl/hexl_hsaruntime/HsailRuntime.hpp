@@ -23,17 +23,9 @@
 #include "hsa.h"
 #include "hsa_ext_finalize.h"
 #include "hsa_ext_image.h"
+#include <functional>
 
 namespace hexl {
-
-#if defined(_WIN32) || defined(_WIN64)
-  #define HSAIL_ALIGNED_MALLOC(size, align)  _mm_malloc(size, align)
-  #define HSAIL_ALIGNED_FREE(pointer) _mm_free(pointer)
-#else
-  #define HSAIL_ALIGNED_MALLOC(size, align)  memalign(align, size)
-  #define HSAIL_ALIGNED_FREE(pointer) free(pointer)
-#endif // _WIN32 || _WIN64
-
 
 class EnvContext;
 
@@ -119,7 +111,8 @@ public:
 
 class HsailRuntimeContext;
 
-typedef bool (*RegionMatch)(HsailRuntimeContext* runtime, hsa_region_t region);
+//typedef bool (*RegionMatch)(HsailRuntimeContext* runtime, hsa_region_t region);
+typedef std::function<bool(HsailRuntimeContext*, hsa_region_t)> RegionMatch;
 
 class HsailRuntimeContext : public RuntimeContext {
 private:

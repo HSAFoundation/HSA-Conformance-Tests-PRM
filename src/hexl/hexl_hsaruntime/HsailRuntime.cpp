@@ -537,7 +537,7 @@ HImage::~HImage()
 {
     if (ptr) {
         State()->Runtime()->Hsa()->hsa_ext_image_destroy(State()->Runtime()->Agent(), imgh);
-        HSAIL_ALIGNED_FREE(ptr);
+        State()->Runtime()->Hsa()->hsa_memory_free(ptr);
     }
 }
 
@@ -777,6 +777,29 @@ HObject* HsailMemoryState::AllocateRBuffer(MRBuffer* mr)
 
 HObject* HsailMemoryState::AllocateImage(MImage* mi)
 {
+  
+  class ImageRegionMatcher {
+  private:
+    hsa_ext_image_data_info_t image_info;
+
+  public:
+    ImageRegionMatcher(hsa_ext_image_data_info_t image_info_): image_info(image_info_) {};
+
+    bool operator() (HsailRuntimeContext* runtime, hsa_region_t region) {
+      size_t align = 0;
+      hsa_region_segment_t seg;
+
+      runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_SEGMENT, &seg);
+      if (seg == HSA_REGION_SEGMENT_GLOBAL)
+      {
+        runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALIGNMENT, &align);
+        if (align >= image_info.alignment)
+          return true;
+      }
+      return false;
+    }  
+  };
+
   hsa_ext_image_descriptor_t image_descriptor;
   image_descriptor.height = mi->Height();
   image_descriptor.width = mi->Width();
@@ -792,8 +815,11 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); return 0; }
 
   hsa_ext_image_t image = {0};
-  void *ptr = HSAIL_ALIGNED_MALLOC(image_info.size, image_info.alignment);
-  if (ptr == NULL) { Runtime()->HsaError("Allocate image. No memory.", HSA_STATUS_ERROR); return 0; }
+  void *ptr = NULL;
+
+  status = Runtime()->Hsa()->hsa_memory_allocate(Runtime()->GetRegion(ImageRegionMatcher(image_info)), image_info.size, &ptr);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate failed", status); return 0; }
+
   memset(ptr, 0xFF, image_info.size);
 
   status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, ptr, access_permission, &image);
