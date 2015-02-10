@@ -15,7 +15,6 @@
 */
 
 #include "MObject.hpp"
-#include "HSAILFloats.h"
 #include <cassert>
 #include <iomanip>
 #include <iostream>
@@ -31,7 +30,7 @@ namespace hexl {
 
 template <typename T>
 static int is_inf(T const& x)
-{
+{ /// \todo too narrow impl... Rework this
   if (x == std::numeric_limits<T>::infinity()) return 1;
   if (x == -std::numeric_limits<T>::infinity()) return -1;
   return 0;
@@ -63,8 +62,8 @@ size_t ValueTypeSize(ValueType type)
   case MV_UINT32: return 4;
   case MV_INT64: return 8;
   case MV_UINT64: return 8;
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER: return 4;
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16: return 4;
 #endif
   case MV_FLOAT16: return 2;
   case MV_FLOAT: return 4;
@@ -189,16 +188,16 @@ ValueData FX2(float a, float b) {
 }
 
 ValueData HX2(half a, half b) {
-  std::vector<half> vector(2);
-  vector[0] = a; vector[1] = b;
+  std::vector<half::bits_t> vector(2);
+  vector[0] = a.getBits(); vector[1] = b.getBits();
   ValueData data;
   data.u32 = *reinterpret_cast<uint32_t *>(vector.data());
   return data;
 }
 
 ValueData HX4(half a, half b, half c, half d) {
-  std::vector<half> vector(4);
-  vector[0] = a; vector[1] = b; vector[2] = c; vector[3] = d;
+  std::vector<half::bits_t> vector(4);
+  vector[0] = a.getBits(); vector[1] = b.getBits(); vector[2] = c.getBits(); vector[3] = d.getBits();
   ValueData data;
   data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
   return data;
@@ -333,8 +332,8 @@ const char *ValueTypeString(ValueType type)
   case MV_UINT32: return "uint32";
   case MV_INT64: return "int64";
   case MV_UINT64: return "uint64";
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
 #endif
   case MV_FLOAT16: return "half";
   case MV_FLOAT: return "float";
@@ -386,8 +385,8 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_UINT32: return std::strlen("4294967295");
   case MV_INT64: return ValueTypePrintWidth(MV_UINT64)+1;
   case MV_UINT64: return std::strlen("9223372036854775807");
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
 #endif
   case MV_FLOAT16X2:
   case MV_FLOAT16X4:
@@ -427,18 +426,24 @@ std::ostream& operator<<(std::ostream& out, const Value& v)
   return out;
 }
 
-static bool isnan_half(const half) { return false; } /// \todo
-static bool is_inf_half(const half) { return false; } /// \todo
+static bool isnan_half(const half h) {
+  return HSAIL_X::FloatProp16(h.getBits()).isNan();
+}
+
+static bool isinf_half(const half h) {
+  return HSAIL_X::FloatProp16(h.getBits()).isInf();
+}
 
 static
-void PrintExtraHex(std::ostream& out, uint64_t zero_extended_bits, size_t sizeof_bits) {
+void PrintExtraHex(std::ostream& out, uint64_t bits /* zero-extended */, size_t sizeof_bits) {
   const std::streamsize wSave = out.width(); /// \todo get rid of width save/restore? --artem
-  out << " (0x" << std::hex << std::setw(sizeof_bits * 2) << std::setfill('0') << zero_extended_bits << ")";
+  out << " (0x" << std::hex << std::setw(sizeof_bits * 2) << std::setfill('0') << bits << ")";
   out << std::setfill(' ') << std::dec << std::setw(wSave);
 }
 
-std::ostream& PrintHalf(half h, uint16_t bits, std::ostream& out, const bool extraHex){
-  if (isnan_half(h) || is_inf_half(h)) {
+static
+std::ostream& PrintHalf(const half h, const half::bits_t bits, std::ostream& out, const bool extraHex){
+  if (isnan_half(h) || isinf_half(h)) {
     out << (isnan_half(h) ? "NAN" : "INF");
   } else {
     out << std::setprecision(Comparison::F16_MAX_DECIMAL_PRECISION) << (float)h;
@@ -447,7 +452,8 @@ std::ostream& PrintHalf(half h, uint16_t bits, std::ostream& out, const bool ext
   return out;
 };
 
-std::ostream& PrintFloat(float f, uint32_t bits, std::ostream& out, const bool extraHex){
+static
+std::ostream& PrintFloat(const float f, const uint32_t bits, std::ostream& out, const bool extraHex){
   if (isnan(f) || is_inf(f)) {
     out << (isnan(f) ? "NAN" : "INF");
   } else {
@@ -457,7 +463,8 @@ std::ostream& PrintFloat(float f, uint32_t bits, std::ostream& out, const bool e
   return out;
 };
 
-std::ostream& PrintDouble(double d, uint64_t bits, std::ostream& out, const bool extraHex){
+static
+std::ostream& PrintDouble(const double d, const uint64_t bits, std::ostream& out, const bool extraHex){
   if (isnan(d) || is_inf(d)) {
     out << (isnan(d) ? "NAN" : "INF");
   } else {
@@ -494,8 +501,8 @@ void Value::Print(std::ostream& out) const
   case MV_UINT64:
     out << U64();
     break;
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
 #endif
   case MV_FLOAT16:
     PrintHalf(H(), U16(), out, printExtraHex);
@@ -570,8 +577,8 @@ bool operator<(const Value& v1, const Value& v2)
   case MV_UINT32: return v1.U32() < v2.U32();
   case MV_INT64: return v1.S64() < v2.S64();
   case MV_UINT64: return v1.U64() < v2.U64();
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
 #endif
   case MV_FLOAT16: return v1.H() < v2.H();
   case MV_FLOAT: return v1.F() < v2.F();
@@ -593,10 +600,13 @@ void Value::WriteTo(void *dest) const
   case MV_UINT32: *((uint32_t *) dest) = data.u32; break;
   case MV_INT64: *((int64_t *) dest) = data.s64; break;
   case MV_UINT64: *((uint64_t *) dest) = data.u64; break;
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER: ((half *) dest)[0] = data.h; ((uint16_t *) dest)[1] = 0; break;
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
+    ((uint32_t *) dest)[0] = 0; // whole u32
+    ((half::bits_t *) dest)[0] = data.h_bits;
+    break;
 #endif
-  case MV_FLOAT16: *((half *) dest) = data.h; break;
+  case MV_FLOAT16: *((half::bits_t *) dest) = data.h_bits; break;
   case MV_FLOAT: *((float *) dest) = data.f; break;
   case MV_DOUBLE: *((double *) dest) = data.d; break;
   case MV_INT8X4: ((int8_t *) dest)[0] = S8X4(0); ((int8_t *) dest)[1] = S8X4(1); ((int8_t *) dest)[2] = S8X4(2); ((int8_t *) dest)[3] = S8X4(3); break;
@@ -628,10 +638,10 @@ void Value::ReadFrom(const void *src, ValueType type)
   case MV_UINT32: data.u32 = *((uint32_t *) src); break;
   case MV_INT64: data.s64 = *((int64_t *) src); break;
   case MV_UINT64: data.u64 = *((uint64_t *) src); break;
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
 #endif
-  case MV_FLOAT16: data.h = *((half *) src); break;
+  case MV_FLOAT16: data.h_bits = *((half::bits_t *) src); break;
   case MV_FLOAT: data.f = *((float *) src); break;
   case MV_DOUBLE: data.d = *((double *) src); break;
   case MV_INT8X4: data.u32 = *((uint32_t *) src); break;
@@ -1026,8 +1036,8 @@ void Comparison::Reset(ValueType type)
     case MV_INT16: maxError = Value(MV_UINT16, U16(0)); break;
     case MV_INT32: maxError = Value(MV_UINT32, U32(0)); break;
     case MV_INT64: maxError = Value(MV_UINT64, U64(0)); break;
-#ifdef MBUFFER_KEEP_F16_AS_U32
-    case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+    case MV_PLAIN_FLOAT16:
 #endif
     case MV_FLOAT16: maxError = Value(MV_DOUBLE, D((double) 0)); break;
     case MV_FLOAT: maxError = Value(MV_DOUBLE, D((double) 0)); break;
@@ -1043,8 +1053,8 @@ void Comparison::Reset(ValueType type)
     case MV_INT32X2: maxError = Value(MV_INT32X2, S32X2(0, 0)); break;
     case MV_UINT32X2: maxError = Value(MV_UINT32X2, U32X2(0, 0)); break;
     case MV_FLOATX2: maxError = Value(MV_FLOATX2, FX2(0, 0)); break;
-    case MV_FLOAT16X2: maxError = Value(MV_FLOAT16X2, HX2(0, 0)); break;
-    case MV_FLOAT16X4: maxError = Value(MV_FLOAT16X4, HX4(0, 0, 0, 0)); break;
+    case MV_FLOAT16X2: maxError = Value(MV_FLOAT16X2, HX2(half(0), half(0))); break;
+    case MV_FLOAT16X4: maxError = Value(MV_FLOAT16X4, HX4(half(0), half(0), half(0), half(0))); break;
     default: maxError = Value(type, U64((uint64_t) 0)); break;
     }
     break;
@@ -1053,8 +1063,8 @@ void Comparison::Reset(ValueType type)
     case MV_FLOAT: maxError = Value(MV_UINT32, U32(0)); break;
     case MV_DOUBLE: maxError = Value(MV_UINT64, U64(0)); break;
     case MV_FLOATX2: maxError = Value(MV_UINT32X2, U32X2(0, 0)); break;
-#ifdef MBUFFER_KEEP_F16_AS_U32
-    case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+    case MV_PLAIN_FLOAT16:
 #endif
     case MV_FLOAT16: maxError = Value(MV_UINT16, U16(0)); break;
     case MV_FLOAT16X2: maxError = Value(MV_UINT16X2, U16X2(0, 0)); break;
@@ -1073,8 +1083,8 @@ void Comparison::SetDefaultPrecision(ValueType type)
   switch (method) {
   case CM_DECIMAL:
     switch (type) {
-#ifdef MBUFFER_KEEP_F16_AS_U32
-    case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+    case MV_PLAIN_FLOAT16:
 #endif
     case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
       if (precision.U64() == 0) { precision = Value(MV_DOUBLE, D(pow((double) 10, -F16_DEFAULT_DECIMAL_PRECISION))); }
@@ -1091,8 +1101,8 @@ void Comparison::SetDefaultPrecision(ValueType type)
     break;
   case CM_ULPS:
     switch (type) {
-#ifdef MBUFFER_KEEP_F16_AS_U32
-    case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+    case MV_PLAIN_FLOAT16:
 #endif
     case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
     case MV_FLOAT: case MV_FLOATX2:
@@ -1105,8 +1115,8 @@ void Comparison::SetDefaultPrecision(ValueType type)
     break;
   case CM_RELATIVE:
     switch (type) {
-#ifdef MBUFFER_KEEP_F16_AS_U32
-    case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+    case MV_PLAIN_FLOAT16:
 #endif
     case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
     case MV_FLOAT: case MV_FLOATX2:
@@ -1125,10 +1135,10 @@ bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, cons
   if (isnan_half(v1.H()) || isnan_half(v2.H())) {
     res = isnan_half(v1.H()) && isnan_half(v2.H());
     compared = true;
-  } else if (is_inf_half(v1.H()) || is_inf_half(v2.H())) {
-    res = is_inf_half(v1.H()) == is_inf_half(v2.H());
+  } else if (isinf_half(v1.H()) || isinf_half(v2.H())) {
+    res = isinf_half(v1.H()) == isinf_half(v2.H());
     compared = true;
-  } else if (v1.H() == 0 && v2.H() == 0) { // ignore sign of 0
+  } else if (v1.H() == half(0) && v2.H() == half(0)) { // ignore sign of 0
     res = true;
     compared = true;
   }
@@ -1156,7 +1166,7 @@ bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, cons
   }
   case CM_RELATIVE: {
     double eps = precision.D();
-    if (v1.H() == 0) {
+    if (v1.H() == half(0)) {
       error = Value(MV_DOUBLE, D((double) v2.H()));
       return error.D() < eps;
     } else {
@@ -1256,8 +1266,8 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
     error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
     return error.U64() == 0;
   }
-#ifdef MBUFFER_KEEP_F16_AS_U32
-  case MV_FLOAT16_MBUFFER:
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
 #endif
   case MV_FLOAT16: {
     auto res = CompareHalf(v1, v2, method, precision, error);
@@ -1561,3 +1571,184 @@ void DispatchSetup::Deserialize(std::istream& in)
 }
 
 }
+
+/// \todo copy-paste from HSAILTestGenEmulatorTypes
+namespace HSAIL_X { // experimental
+
+// Type-safe re-interpretation of floating values as unsigned integers
+namespace impl {
+  template<typename T> struct Floating2BitsTraits;
+  template<> struct Floating2BitsTraits<float> { typedef uint32_t BitsType; };
+  template<> struct Floating2BitsTraits<double> { typedef uint64_t BitsType; };
+  template<typename T> struct Floating2Bits {
+    typedef typename Floating2BitsTraits<T>::BitsType B;
+  private:
+    union val {
+      B b_;
+      T f_;
+      explicit val(T f) : f_(f) {}
+    } const u;
+  public:
+    explicit Floating2Bits(T f) : u(f) { };
+    B Get() const { return u.b_; }
+  };
+} // namespace
+
+template <typename T>
+impl::Floating2Bits<T> floating2bits(T f) { return impl::Floating2Bits<T>(f); }
+
+/// \todo Make it so
+static inline float bitsToFloat(const uint32_t bits_) {
+  union { uint32_t bits; float floating; } val;
+  val.bits = bits_;
+  return val.floating;
+}
+
+static inline double bitsToDouble(const uint64_t bits_) {
+  union { uint64_t bits; double floating; } val;
+  val.bits = bits_;
+  return val.floating;
+}
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
+// Implementation of F16 type
+
+f16_t::f16_t(double x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
+{ 
+    const FloatProp64 input(floating2bits(x).Get());
+
+    if (!input.isRegular())
+    {
+        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
+    }
+    else if (input.isSubnormal()) // f64 subnormal should be mapped to (f16)0
+    {
+        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
+        bits = f16.getBits();
+    }
+    else
+    {
+        int64_t exponent = input.decodeExponent();
+        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
+
+        if (!FloatProp16::isValidExponent(exponent))
+        {
+            if (exponent > 0)
+            {
+                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
+            }
+            else
+            {
+                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
+                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
+                bits = f16.getBits();
+            }
+        }
+        else
+        {
+            FloatProp16 f16(input.isPositive(), mantissa, exponent);
+            bits = f16.getBits();
+        }
+    }
+}
+
+f16_t::f16_t(float x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
+{ 
+    const FloatProp32 input(floating2bits(x).Get());
+
+    if (!input.isRegular())
+    {
+        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
+    }
+    else if (input.isSubnormal()) // subnormal -> (f16)0
+    {
+        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
+        bits = f16.getBits();
+    }
+    else
+    {
+        int64_t exponent = input.decodeExponent();
+        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
+
+        if (!FloatProp16::isValidExponent(exponent))
+        {
+            if (exponent > 0)
+            {
+                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
+            }
+            else
+            {
+                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
+                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
+                bits = f16.getBits();
+            }
+        }
+        else
+        {
+            FloatProp16 f16(input.isPositive(), mantissa, exponent);
+            bits = f16.getBits();
+        }
+    }
+}
+
+f64_t f16_t::f64() const 
+{ 
+    FloatProp16 f16(bits);
+    uint64_t bits64;
+
+    if (!f16.isRegular())
+    {
+        bits64 = f16.mapSpecialValues<FloatProp64>();
+    }
+    else if (f16.isSubnormal())
+    {
+        int64_t exponent = f16.decodeExponent();
+        assert(exponent == FloatProp16::decodedSubnormalExponent());
+        exponent = FloatProp16::actualSubnormalExponent();
+        uint64_t mantissa = f16.normalizeMantissa<FloatProp64>(exponent);
+        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
+        bits64 = f64.getBits();
+    }
+    else
+    {
+        int64_t exponent = f16.decodeExponent();
+        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp64>();
+        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
+        bits64 = f64.getBits();
+    }
+
+    return bitsToDouble(bits64);
+}
+
+f32_t f16_t::f32() const 
+{ 
+    FloatProp16 f16(bits);
+    uint32_t outbits;
+
+    if (!f16.isRegular())
+    {
+        outbits = f16.mapSpecialValues<FloatProp32>();
+    }
+    else if (f16.isSubnormal())
+    {
+        int64_t exponent = f16.decodeExponent();
+        assert(exponent == FloatProp16::decodedSubnormalExponent());
+        exponent = FloatProp16::actualSubnormalExponent();
+        uint64_t mantissa = f16.normalizeMantissa<FloatProp32>(exponent);
+        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        outbits = outprop.getBits();
+    }
+    else
+    {
+        int64_t exponent = f16.decodeExponent();
+        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp32>();
+        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        outbits = outprop.getBits();
+    }
+
+    return bitsToFloat(outbits);
+}
+
+} // namespace

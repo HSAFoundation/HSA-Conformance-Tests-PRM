@@ -17,6 +17,8 @@
 #ifndef MOBJECT_HPP
 #define MOBJECT_HPP
 
+//#include "HSAILTestGenEmulatorTypes.h" // for f16_t & related
+
 #include <stdint.h>
 #include <cstddef>
 #include <ostream>
@@ -28,17 +30,17 @@
 #include <map>
 #include <memory>
 
-/// For now, f16 i/o values are passed in elements of u32 arrays, in lower 16 bits.
+/// For now, plain f16 i/o values are passed to kernels in elements of u32 arrays, in lower 16 bits.
 /// f16x2 values occupy the whole 32 bits. To differientiate, use:
-/// - MV_FLOAT16_MBUFFER: for plain f16 vars, size = 4 bytes
+/// - MV_PLAIN_FLOAT16: for plain f16 vars, size = 4 bytes
 /// - MV_FLOAT16: for elemants of f16xN vars, size = 2 bytes
-#define MBUFFER_KEEP_F16_AS_U32
+#define MBUFFER_PASS_PLAIN_F16_AS_U32
 
 namespace hexl {
 
 enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV_INT64, MV_UINT64, MV_FLOAT16, MV_FLOAT, MV_DOUBLE, MV_REF, MV_POINTER, MV_IMAGE, MV_SAMPLER, MV_IMAGEREF, MV_SAMPLERREF, MV_EXPR, MV_STRING, 
-#ifdef MBUFFER_KEEP_F16_AS_U32
-                 MV_FLOAT16_MBUFFER,
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+                 MV_PLAIN_FLOAT16,
 #endif
                  MV_INT8X4, MV_INT8X8, MV_UINT8X4, MV_UINT8X8, MV_INT16X2, MV_INT16X4, MV_UINT16X2, MV_UINT16X4, MV_INT32X2, MV_UINT32X2, MV_FLOAT16X2, MV_FLOAT16X4, MV_FLOATX2, MV_LAST};
 
@@ -168,13 +170,356 @@ private:
 
 inline std::ostream& operator<<(std::ostream& out, MObject* mo) { mo->Print(out); return out; }
 
-// Rudimentary type to represent f16. To be extended as needed.
-typedef int16_t half;
-/// \todo
-/// static_cast<double>(half)
-/// static_cast<float>(half)
-/// static_cast<half>(double)
-/// static_cast<half>(float)
+}
+/// \todo copy-paste from HSAILTestGenEmulatorTypes
+#include "Brig.h"
+namespace HSAIL_X { // eXperimental
+
+// ============================================================================
+// ============================================================================
+// ============================================================================
+// Types representing HSAIL values
+
+typedef float    f32_t;
+typedef double   f64_t;
+
+//=============================================================================
+//=============================================================================
+//=============================================================================
+// Decoder of IEEE 754 float properties
+
+// IEEE 754 (32-bit)
+//
+//         S   (E-127)       23
+// F = (-1) * 2        (1+M/2  )
+//
+// S - sign
+// E - exponent
+// M - mantissa
+//
+// For regular numbers, normalized exponent (E-127) must be in range [-126, 127]
+// Value -127 is reserved for subnormals
+// Value +128 is reserved for infinities and NaNs
+//
+// Special cases:
+//  ----------------------------------------------
+//  | S EXP MANTISSA  | MEANING         | NOTES  |
+//  ----------------------------------------------
+//  | 0 000 00.....0  | +0              |        |
+//  | 1 000 00.....0  | -0              |        |
+//  | 0 111 00.....0  | +INF            |        |
+//  | 1 111 00.....0  | -INF            |        |
+//  | X 111 1?.....?  | NAN (quiet)     |        |
+//  | X 111 0?.....?  | NAN (signaling) | M != 0 |
+//  | X 000 ??.....?  | SUBNORMAL       | M != 0 |
+//  ----------------------------------------------
+//
+
+template<typename T, T sign_mask, T exponent_mask, T mantissa_mask, T mantissa_msb_mask, int exponent_bias, int mantissa_width>
+class IEEE754
+{
+public:
+    typedef T Type;
+
+    static const Type SIGN_MASK         = sign_mask;
+    static const Type EXPONENT_MASK     = exponent_mask;
+    static const Type MANTISSA_MASK     = mantissa_mask;
+    static const Type MANTISSA_MSB_MASK = mantissa_msb_mask;
+    static const Type NAN_TYPE_MASK     = mantissa_msb_mask;
+
+    static const int EXPONENT_BIAS  = exponent_bias;
+    static const int MANTISSA_WIDTH = mantissa_width;
+
+private:
+    Type bits;
+
+public:
+    explicit IEEE754(Type val) : bits(val) {}
+    IEEE754(bool isPositive, uint64_t mantissa, int64_t decodedExponent)
+    {
+        Type exponent = (Type)(decodedExponent + EXPONENT_BIAS) << MANTISSA_WIDTH;
+
+        assert((exponent & ~EXPONENT_MASK) == 0);
+        assert((mantissa & ~MANTISSA_MASK) == 0);
+        assert((Type)(-1) > 0 && "Type must be unsigned integer");
+        assert(EXPONENT_BIAS >= 0 && MANTISSA_WIDTH > 0 && MANTISSA_WIDTH <= sizeof(Type)*8); // rudementary checks
+
+        bits = (isPositive? 0 : SIGN_MASK) | 
+               (exponent & EXPONENT_MASK)  | 
+               (mantissa & MANTISSA_MASK);
+    }
+
+public:
+    Type getBits() const { return bits; }
+
+public:
+    Type getSign()      const { return bits & SIGN_MASK; }
+    Type getMantissa()  const { return bits & MANTISSA_MASK; }
+    Type getExponent()  const { return bits & EXPONENT_MASK; }
+    Type getNanType()   const { return bits & NAN_TYPE_MASK; }
+
+public:
+    bool isPositive()          const { return getSign() == 0; }
+    bool isNegative()          const { return getSign() != 0; }
+
+    bool isZero()              const { return getExponent() == 0 && getMantissa() == 0; }
+    bool isPositiveZero()      const { return isZero() && isPositive();  }
+    bool isNegativeZero()      const { return isZero() && !isPositive(); }
+
+    bool isInf()               const { return getExponent() == EXPONENT_MASK && getMantissa() == 0; }
+    bool isPositiveInf()       const { return isInf() && isPositive();  }
+    bool isNegativeInf()       const { return isInf() && !isPositive(); }
+
+    bool isNan()               const { return getExponent() == EXPONENT_MASK && getMantissa() != 0; }
+    bool isQuietNan()          const { return isNan() && getNanType() != 0; }
+    bool isSignalingNan()      const { return isNan() && getNanType() == 0; }
+
+    bool isSubnormal()         const { return getExponent() == 0 && getMantissa() != 0; }
+    bool isPositiveSubnormal() const { return isSubnormal() && isPositive(); }
+    bool isNegativeSubnormal() const { return isSubnormal() && !isPositive(); }
+
+    bool isRegular()           const { return !isZero() && !isNan() && !isInf(); }
+    bool isRegularPositive()   const { return isPositive() && isRegular(); }
+    bool isRegularNegative()   const { return isNegative() && isRegular(); }
+
+                                                // Natural = (fraction == 0)
+                                                // getNormalizedFract() return 0 for small numbers so there is exponent check for this case
+    bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANTISSA_WIDTH) >= EXPONENT_BIAS); }
+
+public:
+    static Type getQuietNan()     { return EXPONENT_MASK | NAN_TYPE_MASK; }
+    static Type getNegativeZero() { return SIGN_MASK; }
+    static Type getPositiveZero() { return 0; }
+    static Type getNegativeInf()  { return SIGN_MASK | EXPONENT_MASK; }
+    static Type getPositiveInf()  { return             EXPONENT_MASK; }
+
+    static bool isValidExponent(int64_t exponenValue) // check _decoded_ exponent value
+    {
+        const int64_t minExp = -EXPONENT_BIAS;      // Reserved for subnormals
+        const int64_t maxExp = EXPONENT_BIAS + 1;  // Reserved for Infs and NaNs
+        return minExp < exponenValue && exponenValue < maxExp;
+    }
+
+    static int64_t decodedSubnormalExponent() { return 0 - EXPONENT_BIAS; } // Decoded exponent value which indicates a subnormal
+    static int64_t actualSubnormalExponent()  { return 1 - EXPONENT_BIAS; } // Actual decoded exponent value for subnormals
+
+public:
+    template<typename TargetType> typename TargetType::Type mapSpecialValues() const
+    {
+        assert(!isRegular());
+
+        if      (isPositiveZero()) { return TargetType::getPositiveZero();  }
+        else if (isNegativeZero()) { return TargetType::getNegativeZero();  }
+        else if (isPositiveInf())  { return TargetType::getPositiveInf();   }
+        else if (isNegativeInf())  { return TargetType::getNegativeInf();   }
+        else if (isQuietNan())     { return TargetType::getQuietNan();      }
+        else if (isSignalingNan()) { assert(false); }
+
+        assert(false);
+        return 0;
+    }
+
+    template<typename TargetType> uint64_t mapNormalizedMantissa() const // map to target type
+    {
+        uint64_t mantissa = getMantissa();
+        int targetMantissaWidth = TargetType::MANTISSA_WIDTH;
+
+        assert(targetMantissaWidth != MANTISSA_WIDTH);
+
+        if (targetMantissaWidth < MANTISSA_WIDTH) return mantissa >> (MANTISSA_WIDTH - targetMantissaWidth);
+        else                                      return mantissa << (targetMantissaWidth - MANTISSA_WIDTH);
+    }
+
+    template<typename TargetType> uint64_t normalizeMantissa(int64_t& exponent) const
+    {
+        assert(sizeof(Type) != sizeof(typename TargetType::Type));
+
+        if (sizeof(Type) < sizeof(typename TargetType::Type)) // Map subnormal to a larger type
+        {
+            assert(isSubnormal());
+
+            // unused: unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
+
+            uint64_t mantissa = getMantissa();
+            mantissa <<= sizeof(mantissa)*8 - MANTISSA_WIDTH;
+
+            assert(mantissa != 0);
+
+            bool found = false;
+            for (; !found && TargetType::isValidExponent(exponent - 1); )
+            {
+                found = (mantissa & 0x8000000000000000ULL) != 0;
+                mantissa <<= 1;
+                exponent--;
+            }
+            if (!found) exponent = TargetType::decodedSubnormalExponent(); // subnormal -> subnormal
+
+            return mantissa >> (sizeof(mantissa)*8 - TargetType::MANTISSA_WIDTH);
+        }
+        else // Map regular value with large negative mantissa to a smaller type (resulting in subnormal or 0)
+        {
+            assert(exponent < 0);
+            assert(!TargetType::isValidExponent(exponent));
+            assert(sizeof(T) > sizeof(typename TargetType::Type));
+
+            uint64_t mantissa = getMantissa();
+
+            // Add hidden bit of mantissa
+            mantissa = MANTISSA_MSB_MASK | (mantissa >> 1);
+            exponent++;
+
+            for (; !TargetType::isValidExponent(exponent); )
+            {
+                mantissa >>= 1;
+                exponent++;
+            }
+
+            exponent = TargetType::decodedSubnormalExponent();
+            int delta = (MANTISSA_WIDTH - TargetType::MANTISSA_WIDTH);
+            assert(delta >= 0);
+            return mantissa >> delta;
+        }
+    }
+
+    // Return exponent as a signed number
+    int64_t decodeExponent() const
+    {
+        int64_t e = getExponent() >> MANTISSA_WIDTH;
+        return e - EXPONENT_BIAS;
+    }
+
+    // Return fractional part of fp number
+    // normalized so that x-th digit is at (63-x)-th bit of u64_t
+    uint64_t getNormalizedFract(int x = 0) const
+    {
+        if (isZero() || isInf() || isNan()) return 0;
+
+        uint64_t mantissa = getMantissa() | (MANTISSA_MASK + 1); // Highest bit of mantissa is not encoded but assumed
+        int exponent = static_cast<int>(getExponent() >> MANTISSA_WIDTH);
+
+        // Compute shift required to place 1st fract bit at 63d bit of u64_t
+        int width = static_cast<int>(sizeof(mantissa) * 8);
+        int shift = (exponent - EXPONENT_BIAS) + (width - MANTISSA_WIDTH) + x;
+        if (shift <= -width || width <= shift) return 0;
+        return (shift >= 0)? mantissa << shift : mantissa >> (-shift);
+    }
+
+    Type negate()      const { return (getSign()? 0 : SIGN_MASK) | getExponent() | getMantissa(); }
+    Type copySign(Type v) const { return (v & SIGN_MASK) | getExponent() | getMantissa(); }
+
+    Type normalize(bool discardNanSign) const // Clear NaN payload and sign
+    {
+        if (isQuietNan())
+        {
+            if (!discardNanSign) return getSign() | getExponent() | getNanType();
+            else                 return             getExponent() | getNanType();
+        }
+        return bits;
+    }
+};
+
+//=============================================================================
+//=============================================================================
+//=============================================================================
+// Decoders for IEEE 754 numbers
+
+typedef IEEE754
+    <
+        uint16_t,
+        0x8000,  // Sign
+        0x7C00,  // Exponent
+        0x03ff,  // Mantissa
+        0x0200,  // Mantissa MSB
+        15,      // Exponent bias
+        10       // Mantissa width
+    > FloatProp16;
+
+typedef IEEE754
+    <
+        uint32_t,
+        0x80000000,  // Sign
+        0x7f800000,  // Exponent
+        0x007fffff,  // Mantissa
+        0x00400000,  // Mantissa MSB
+        127,         // Exponent bias
+        23           // Mantissa width
+    > FloatProp32;
+
+typedef IEEE754
+    <
+        uint64_t,
+        0x8000000000000000ULL,  // Sign
+        0x7ff0000000000000ULL,  // Exponent
+        0x000fffffffffffffULL,  // Mantissa
+        0x0008000000000000ULL,  // Mantissa MSB
+        1023,                   // Exponent bias
+        52                      // Mantissa width
+    > FloatProp64;
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
+// F16 type
+
+class f16_t
+{
+public:
+    typedef FloatProp16::Type bits_t;
+private:
+    static const unsigned RND_NEAR = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN;
+    static const unsigned RND_ZERO = Brig::BRIG_ROUND_FLOAT_ZERO;
+    static const unsigned RND_UP   = Brig::BRIG_ROUND_FLOAT_PLUS_INFINITY;
+    static const unsigned RND_DOWN = Brig::BRIG_ROUND_FLOAT_MINUS_INFINITY;
+
+private:
+    bits_t bits;
+
+public:
+    f16_t() {}
+    explicit f16_t(double x, unsigned rounding = RND_NEAR);
+    explicit f16_t(float x, unsigned rounding = RND_NEAR);
+    //explicit f16_t(f64_t x, unsigned rounding = RND_NEAR) : f16_t(double(x), rounding) {};
+    //explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) : f16_t(float(x), rounding) {};
+    explicit f16_t(int32_t x) { bits = f16_t((f64_t)x).getBits(); }
+
+public:
+    bool operator>  (const f16_t& x) const { return f64() >  x.f64(); } /// \todo reimplement all via f32 at least
+    bool operator<  (const f16_t& x) const { return f64() <  x.f64(); }
+    bool operator>= (const f16_t& x) const { return f64() >= x.f64(); }
+    bool operator<= (const f16_t& x) const { return f64() <= x.f64(); }
+    bool operator== (const f16_t& x) const { return f64() == x.f64(); }
+
+public:
+    f16_t& operator+= (f16_t x) { bits = f16_t(f64() + x.f64()).bits; return *this; }
+
+public:
+    f32_t f32() const;
+    f64_t f64() const;
+    operator float() const { return f32(); }
+    operator double() const { return f64(); }
+
+public:
+    f16_t neg() const { return make(FloatProp16(bits).negate()); }
+
+public:
+    static f16_t make(bits_t bits) { f16_t res; res.bits = bits; return res; }
+    bits_t getBits() const { return bits; }
+
+public:
+/* FIXME
+    static void sanityTests();
+    string dump() { return FloatProp16(bits).dump(); }*/
+};
+
+/* FIXME
+inline f16_t operator+ (f16_t l, f16_t r) { return f16_t(l.f64() + r.f64()); }
+inline f16_t operator- (f16_t l, f16_t r) { return f16_t(l.f64() - r.f64()); } */
+
+} // namespace
+
+namespace hexl {
+
+typedef HSAIL_X::f16_t half;
 
 typedef union {
   uint8_t u8;
@@ -185,7 +530,7 @@ typedef union {
   int32_t s32;
   uint64_t u64;
   int64_t s64;
-  half h;
+  half::bits_t h_bits;
   float f;
   double d;
   std::ptrdiff_t o;
@@ -204,6 +549,7 @@ inline ValueData U32(uint32_t u32) { ValueData data; data.u32 = u32;  return dat
 inline ValueData S32(int32_t s32) { ValueData data; data.s32 = s32;  return data; }
 inline ValueData U64(uint64_t u64) { ValueData data; data.u64 = u64;  return data; }
 inline ValueData S64(int64_t s64) { ValueData data; data.s64 = s64;  return data; }
+inline ValueData H(half h) { ValueData data; data.h_bits = h.getBits();  return data; }
 inline ValueData F(float f) { ValueData data; data.f = f;  return data; }
 inline ValueData D(double d) { ValueData data; data.d = d;  return data; }
 inline ValueData O(std::ptrdiff_t o) { ValueData data; data.o = o; return data; }
@@ -250,7 +596,7 @@ public:
   uint32_t U32() const { return data.u32; }
   int64_t S64() const { return data.s64; }
   uint64_t U64() const { return data.u64; }
-  half H() const { return data.h; }
+  half H() const { return half::make(data.h_bits); }
   float F() const { return data.f; }
   double D() const { return data.d; }
   std::ptrdiff_t O() const { return data.o; }
