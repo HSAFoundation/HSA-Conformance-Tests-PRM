@@ -931,13 +931,13 @@ public:
   virtual void SerializeData(std::ostream& out) const;
 
 private:
+  unsigned segment;
   unsigned geometry;
   unsigned channelOrder;
   unsigned channelType;
   unsigned accessPermission;
   size_t width, height, depth, rowPitch, slicePitch;
   Value data;
-  unsigned segment;
   void DeserializeData(std::istream& in);
 };
 
@@ -997,11 +997,11 @@ public:
   virtual void SerializeData(std::ostream& out) const;
 
 private:
+  unsigned segment;
   unsigned coords;
   unsigned filter;
   unsigned addressing;
   Value data;
-  unsigned segment;
   void DeserializeData(std::istream& in);
 };
 
