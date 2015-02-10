@@ -14,8 +14,8 @@
    limitations under the License.
 */
 
-#ifndef HC_IMAGES_LD_TESTS_HPP
-#define HC_IMAGES_LD_TESTS_HPP
+#ifndef HC_IMAGELD_TESTS_HPP
+#define HC_IMAGELD_TESTS_HPP
 
 #include "HexlTest.hpp"
 
@@ -25,4 +25,4 @@ DECLARE_TESTSET(ImageLdTestSet, "image_ld");
 
 }
 
-#endif // HC_IMAGES_LD_TESTS_HPP
+#endif // HC_IMAGELD_TESTS_HPP

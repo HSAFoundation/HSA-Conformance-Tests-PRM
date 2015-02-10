@@ -496,7 +496,8 @@ public:
   void EmitImageRd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
   void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
   void EmitImageQuery(TypedReg dest, TypedReg image, Brig::BrigImageQuery query);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, TypedReg image, TypedReg coord);
+  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, TypedReg image, TypedReg coord); //color images
+  void EmitImageLd(TypedReg dest, TypedReg image, TypedReg coord); //depth images
   Brig::BrigSegment Segment() { return segment; }
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
   PointerReg AddAReg();
