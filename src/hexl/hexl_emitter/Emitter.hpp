@@ -493,6 +493,7 @@ public:
   void KernelArguments();
   void SetupDispatch(DispatchSetup* dispatch);
   void EmitImageRd(HSAIL_ASM::OperandOperandList dest, TypedReg image, TypedReg sampler, TypedReg coord);
+  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, TypedReg image, TypedReg coord);
   Brig::BrigSegment Segment() { return segment; }
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
   PointerReg AddAReg();
