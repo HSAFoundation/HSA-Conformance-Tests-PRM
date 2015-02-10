@@ -24,16 +24,16 @@
 #include "hsa_ext_finalize.h"
 #include "hsa_ext_image.h"
 
-namespace hexl {
-
 #if defined(_WIN32) || defined(_WIN64)
   #define HSAIL_ALIGNED_MALLOC(size, align)  _mm_malloc(size, align)
   #define HSAIL_ALIGNED_FREE(pointer) _mm_free(pointer)
 #else
+  #include <malloc.h>
   #define HSAIL_ALIGNED_MALLOC(size, align)  memalign(align, size)
   #define HSAIL_ALIGNED_FREE(pointer) free(pointer)
 #endif // _WIN32 || _WIN64
 
+namespace hexl {
 
 class EnvContext;
 
