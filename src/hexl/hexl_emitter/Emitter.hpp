@@ -464,6 +464,7 @@ class EImage : public Emittable {
 private:
   std::string id;
   HSAIL_ASM::DirectiveVariable var;
+  Brig::BrigSegment segment;
   Brig::BrigImageGeometry geometry;
   Brig::BrigImageChannelOrder chanel_order;
   Brig::BrigImageChannelType channel_type;
@@ -473,15 +474,19 @@ private:
   size_t depth;
   size_t rowPitch;
   size_t slicePitch;
-  Brig::BrigSegment segment;
   MImage* image;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
 
 public:
-  EImage(TestEmitter* te, const std::string& id_, Brig::BrigSegment brigseg_, Brig::BrigImageGeometry geometry_, Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_, unsigned access_, 
-                         size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
-    : Emittable(te), id(id_), segment(brigseg_), geometry(geometry_), chanel_order(chanel_order_), channel_type(channel_type_), access(access_), width(width_), height(height_), depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_) { }
+  EImage(TestEmitter* te, const std::string& id_,
+    Brig::BrigSegment brigseg_, Brig::BrigImageGeometry geometry_,
+    Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_,
+    unsigned access_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
+  : Emittable(te), id(id_), segment(brigseg_), geometry(geometry_), chanel_order(chanel_order_),
+    channel_type(channel_type_), access(access_), width(width_), height(height_), depth(depth_),
+    rowPitch(rowPitch_), slicePitch(slicePitch_)
+  {}
 
   const std::string& Id() const { return id; }
 
@@ -498,17 +503,20 @@ class ESampler : public Emittable {
 private:
   std::string id;
   HSAIL_ASM::DirectiveVariable var;
+  Brig::BrigSegment segment;
   Brig::BrigSamplerCoordNormalization coord;
   Brig::BrigSamplerFilter filter;
   Brig::BrigSamplerAddressing addressing;
-  Brig::BrigSegment segment;
   MSampler* sampler;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
 
 public:
-  ESampler(TestEmitter* te, const std::string& id_, Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_, Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_)
-    : Emittable(te), id(id_), segment(brigseg_), coord(coord_), filter(filter_), addressing(addressing_) { }
+  ESampler(TestEmitter* te, const std::string& id_,
+    Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
+    Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_)
+  : Emittable(te), id(id_), segment(brigseg_), coord(coord_), filter(filter_), addressing(addressing_)
+  {}
 
   const std::string& Id() const { return id; }
 
