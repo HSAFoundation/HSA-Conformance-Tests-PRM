@@ -854,6 +854,36 @@ void EImage::EmitImageLd(TypedReg dest, TypedReg image, TypedReg coord)
   inst.operands() = OptList;
 }
 
+void EImage::EmitImageSt(OperandOperandList src, TypedReg image, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = BRIG_TYPE_S32;
+  ItemList OptList;
+  OptList.push_back(src);
+  OptList.push_back(image->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageSt(TypedReg src, TypedReg image, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = BRIG_TYPE_S32;
+  ItemList OptList;
+  OptList.push_back(src->Reg());
+  OptList.push_back(image->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+
 void EImage::KernelArguments()
 {
   var = EmitAddressDefinition(segment);
