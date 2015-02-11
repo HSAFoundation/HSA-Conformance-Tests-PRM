@@ -1119,7 +1119,7 @@ static Val cvt_f2i(unsigned type, unsigned rounding, Val val)
     case BRIG_TYPE_F64: res = emulate_f2i(val.f64(), type, rounding, isValid); break;
         
     default:
-        assert(false);
+        assert(false); res = 0; // -warn
         break;
     }
     

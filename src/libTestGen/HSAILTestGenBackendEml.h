@@ -1484,8 +1484,7 @@ private:
     static bool testableTypes(Inst inst)
     {
         assert(inst);
-        return TestDataProvider::testF16() || 
-               (!isF16(getType(inst)) && !isF16(getSrcType(inst)));
+        return (isF16(getType(inst)) || isF16(getSrcType(inst))) ? TestDataProvider::testF16() : true;
     }
 
     static bool isF16(unsigned type)

@@ -39,6 +39,12 @@ namespace Bools {
     } bools;
     return &bools;
   }
+
+  hexl::Sequence<bool>* Value(bool val) {
+    static OneValueSequence<bool> trueSequence(true);
+    static OneValueSequence<bool> falseSequence(false);
+    return val ? &trueSequence : &falseSequence;
+  }
 }
 
 std::string Dir2Str(BrigControlDirective d)
@@ -152,6 +158,22 @@ Function EmittableContainer::NewFunction(const std::string& id)
   return function;
 }
 
+Image EmittableContainer::NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch)
+{
+  Image image = te->NewImage(id, brigseg, geometry, chanel_order, channel_type, access, 
+                         width, height, depth, rowPitch, slicePitch);
+  Add(image);
+  return image;
+}
+
+Sampler EmittableContainer::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing)
+{
+  Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing);
+  Add(sampler);
+  return sampler;
+}
+
 bool EVariableSpec::IsValidVar() const
 {
   //if (IsEmpty()) { return true; }
@@ -204,6 +226,17 @@ Location EVariable::RealLocation() const
   } else {
     return location;
   }
+}
+
+void EVariable::PushBack(hexl::Value val) {
+  assert(hexl::Brig2ValueType(type) == val.Type());    
+  data.push_back(val);
+}
+
+void EVariable::WriteData(hexl::Value val, size_t pos) {
+  assert(pos < data.size());
+  assert(hexl::Brig2ValueType(type) == val.Type());    
+  data[pos] = val;
 }
 
 void EVariable::ModuleVariables()
@@ -284,10 +317,47 @@ void EVariable::EmitInitializer()
 {
   assert(var);
   if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) { 
-    if (data.numBytes() != 0) {
-      te->Brig()->EmitVariableInitializer(var, data.toSRef());
+    if (data.size() != 0) {
+      ArbitraryData arbData;
+      for (const auto& val: data) {
+        switch (type) {
+        case BRIG_TYPE_S8:    arbData.push_back(val.S8());  break;
+        case BRIG_TYPE_U8:    arbData.push_back(val.U8());  break;
+        case BRIG_TYPE_S16:   arbData.push_back(val.S16()); break;
+        case BRIG_TYPE_U16:   arbData.push_back(val.U16()); break;
+        case BRIG_TYPE_S32:   arbData.push_back(val.S32()); break;
+        case BRIG_TYPE_U32:   arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_S64:   arbData.push_back(val.S64()); break;
+        case BRIG_TYPE_U64:   arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_F16:   arbData.push_back(val.F());   break;
+        case BRIG_TYPE_F32:   arbData.push_back(val.F());   break;
+        case BRIG_TYPE_F64:   arbData.push_back(val.D());   break;
+        case BRIG_TYPE_U8X4:  arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_U8X8:  arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_S8X4:  arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_S8X8:  arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_U16X2: arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_U16X4: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_S16X2: arbData.push_back(val.U32()); break;
+        case BRIG_TYPE_S16X4: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_U32X2: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_S32X2: arbData.push_back(val.U64()); break;
+        case BRIG_TYPE_F32X2: arbData.push_back(val.U64()); break;
+    
+        case BRIG_TYPE_U8X16: case BRIG_TYPE_U16X8: case BRIG_TYPE_U32X4: case BRIG_TYPE_U64X2: 
+        case BRIG_TYPE_S8X16: case BRIG_TYPE_S16X8: case BRIG_TYPE_S32X4: case BRIG_TYPE_S64X2: 
+        case BRIG_TYPE_F32X4: case BRIG_TYPE_F64X2: 
+          arbData.push_back(val.U64());  break;
+
+        case BRIG_TYPE_SIG32: arbData.push_back(val.U32());  break;
+        case BRIG_TYPE_SIG64: arbData.push_back(val.U64());  break;
+
+        default: assert(false);
+        }
+      }
+      te->Brig()->EmitVariableInitializer(var, arbData.toSRef());
     }
-  } // ToDo: create initializers for other segments with help of MObjects
+  }
 }
 
 void EVariable::EmitLoadTo(TypedReg dst, bool useVectorInstructions)
@@ -298,6 +368,16 @@ void EVariable::EmitLoadTo(TypedReg dst, bool useVectorInstructions)
 void EVariable::EmitStoreFrom(TypedReg src, bool useVectorInstructions)
 {
   te->Brig()->EmitStore(segment, src, te->Brig()->Address(Variable()), useVectorInstructions);
+}
+
+void EVariable::SetupDispatch(DispatchSetup* setup) {
+  if (segment == BRIG_SEGMENT_KERNARG) {
+    assert(var);
+    uint32_t sizes[] = { Count(), 1, 1 };
+    auto marg = new MBuffer(setup->MSetup().Count(), id + ".var", MEM_KERNARG, Brig2ValueType(type), 1, sizes);
+    marg->Data() = data;
+    setup->MSetup().Add(marg);
+  }
 }
 
 void EControlDirectives::Name(std::ostream& out) const
@@ -672,6 +752,175 @@ void EUserModeQueue::EmitCasQueueWriteIndex(Brig::BrigSegment segment, Brig::Bri
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
   inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(Address(segment)), src0, src1);
+}
+
+
+void EImage::SetupDispatch(DispatchSetup* dispatch) {
+  
+  unsigned i = dispatch->MSetup().Count();
+  image = new MImage(i++, id, segment, geometry, chanel_order, channel_type, access, 
+                         width, height, depth, rowPitch, slicePitch);
+  dispatch->MSetup().Add(image);
+  dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
+}
+
+void EImage::EmitImageRd(OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = destType;
+  ItemList OptList;
+  OptList.push_back(dest);
+  OptList.push_back(image->Reg());
+  OptList.push_back(sampler->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+void EImage::EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigTypeX coordType)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coordType;
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = destType;
+  ItemList OptList;
+  OptList.push_back(dest);
+  OptList.push_back(image->Reg());
+  OptList.push_back(sampler->Reg());
+  OptList.push_back(coord);
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigTypeX coordType)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coordType;
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = dest->Type();
+  ItemList OptList;
+  OptList.push_back(dest->Reg());
+  OptList.push_back(image->Reg());
+  OptList.push_back(sampler->Reg());
+  OptList.push_back(coord);
+  inst.operands() = OptList;
+}
+
+void  EImage::EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query)
+{
+  InstQueryImage inst = te->Brig()->Brigantine().addInst<InstQueryImage>(BRIG_OPCODE_QUERYIMAGE);
+  inst.imageType() = image->Type();
+  inst.geometry() = geometry;
+  inst.imageQuery() = query;
+  inst.type() = dest->Type();
+  ItemList OptList;
+  OptList.push_back(dest->Reg());
+  OptList.push_back(image->Reg());
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageLd(OperandOperandList dest, TypedReg image, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = BRIG_TYPE_S32;
+  ItemList OptList;
+  OptList.push_back(dest);
+  OptList.push_back(image->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageLd(TypedReg dest, TypedReg image, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = BRIG_TYPE_S32;
+  ItemList OptList;
+  OptList.push_back(dest->Reg());
+  OptList.push_back(image->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageSt(OperandOperandList src, TypedReg image, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = BRIG_TYPE_S32;
+  ItemList OptList;
+  OptList.push_back(src);
+  OptList.push_back(image->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageSt(TypedReg src, TypedReg image, TypedReg coord)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coord->Type();
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = BRIG_TYPE_S32;
+  ItemList OptList;
+  OptList.push_back(src->Reg());
+  OptList.push_back(image->Reg());
+  OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+
+void EImage::KernelArguments()
+{
+  var = EmitAddressDefinition(segment);
+}
+
+HSAIL_ASM::DirectiveVariable EImage::EmitAddressDefinition(BrigSegment segment)
+{
+  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->ImageType(access));
+}
+
+void ESampler::SetupDispatch(DispatchSetup* dispatch) {
+  
+  unsigned i = dispatch->MSetup().Count();
+  sampler = new MSampler(i++, id, segment, coord, filter, addressing);
+  dispatch->MSetup().Add(sampler);
+  dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_SAMPLERREF, U64(sampler->Id())));
+}
+
+void ESampler::KernelArguments()
+{
+  var = EmitAddressDefinition(segment);
+}
+
+void ESampler::EmitSamplerQuery(TypedReg dest, TypedReg sampler, BrigSamplerQuery query)
+{
+  InstQuerySampler inst = te->Brig()->Brigantine().addInst<InstQuerySampler>(BRIG_OPCODE_QUERYSAMPLER);
+  inst.samplerQuery() = query;
+  inst.type() = dest->Type();
+  ItemList OptList;
+  OptList.push_back(dest->Reg());
+  OptList.push_back(sampler->Reg());
+  inst.operands() = OptList;
+}
+
+HSAIL_ASM::DirectiveVariable ESampler::EmitAddressDefinition(BrigSegment segment)
+{
+  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->SamplerType());
 }
 
 void ESignal::ScenarioInit()
@@ -1104,6 +1353,19 @@ Function TestEmitter::NewFunction(const std::string& id)
   return new(Ap()) EFunction(this, id);
 }
 
+Image TestEmitter::NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch)
+{
+  return new(Ap()) EImage(this, id, brigseg, geometry, chanel_order, channel_type, access, 
+                         width, height, depth, rowPitch, slicePitch);
+}
+
+
+
+Sampler TestEmitter::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing)
+{
+  return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing);
+}
 
 }
 
@@ -1290,7 +1552,9 @@ void EmittedTest::KernelCode()
 {
   emitter::TypedReg kernelResult = KernelResult();
   assert(kernelResult);
+  if (output) {
   output->EmitStoreData(kernelResult);
+}
 }
 
 void EmittedTest::ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
@@ -1308,7 +1572,9 @@ void EmittedTest::SetupDispatch(DispatchSetup* dispatch)
   dispatch->SetDimensions(geometry->Dimensions());
   dispatch->SetWorkgroupSize(geometry->WorkgroupSize(0), geometry->WorkgroupSize(1), geometry->WorkgroupSize(2));
   dispatch->SetGridSize(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2));
+  if (output) {
   output->SetData(ExpectedResults());
+  }
   kernel->SetupDispatch(dispatch);
 }
 

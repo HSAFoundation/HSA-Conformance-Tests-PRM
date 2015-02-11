@@ -137,7 +137,12 @@ hexl::ValueType Brig2ValueType(BrigTypeX type)
   case BRIG_TYPE_B64:
   case BRIG_TYPE_U64: return MV_UINT64;
   case BRIG_TYPE_S64: return MV_INT64;
-  case BRIG_TYPE_F16: return MV_FLOAT16;
+  case BRIG_TYPE_F16: 
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+    return MV_PLAIN_FLOAT16;
+#else
+    return MV_FLOAT16;
+#endif
   case BRIG_TYPE_F32: return MV_FLOAT;
   case BRIG_TYPE_F64: return MV_DOUBLE;
   case BRIG_TYPE_U8X4: return MV_UINT8X4;
@@ -151,6 +156,8 @@ hexl::ValueType Brig2ValueType(BrigTypeX type)
   case BRIG_TYPE_U32X2: return MV_UINT32X2;
   case BRIG_TYPE_S32X2: return MV_INT32X2;
   case BRIG_TYPE_F32X2: return MV_FLOATX2;
+  case BRIG_TYPE_F16X2: return MV_FLOAT16X2;
+  case BRIG_TYPE_F16X4: return MV_FLOAT16X4;
 
   case BRIG_TYPE_U8X16: return MV_UINT8X8;
   case BRIG_TYPE_U16X8: return MV_UINT16X4;
@@ -182,6 +189,9 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
   case MV_INT32: return BRIG_TYPE_S32;
   case MV_UINT64: return BRIG_TYPE_U64;
   case MV_INT64: return BRIG_TYPE_S64;
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
+#endif
   case MV_FLOAT16: return BRIG_TYPE_F16;
   case MV_FLOAT: return BRIG_TYPE_F32;
   case MV_DOUBLE: return BRIG_TYPE_F64;
@@ -196,6 +206,8 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
   case MV_UINT32X2: return BRIG_TYPE_U32X2;
   case MV_INT32X2: return BRIG_TYPE_S32X2;
   case MV_FLOATX2: return BRIG_TYPE_F32X2;
+  case MV_FLOAT16X2: return BRIG_TYPE_F16X2;
+  case MV_FLOAT16X4: return BRIG_TYPE_F16X4;
   case MV_EXPR:
     assert(false); return BRIG_TYPE_NONE;
 /*
@@ -212,6 +224,5 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
 bool Is128Bit(BrigTypeX type) {
   return HSAIL_ASM::getBrigTypeNumBytes(type) == 16;
 }
-
 
 }

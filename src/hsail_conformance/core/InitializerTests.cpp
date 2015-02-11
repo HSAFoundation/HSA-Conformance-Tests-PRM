@@ -216,37 +216,7 @@ private:
   void PushInitial() {
     auto val = generator.Generate(ValueType());
     data.push_back(val);
-    switch (type) {
-    case BRIG_TYPE_S8:    Var()->PushBack(val.S8());  break;
-    case BRIG_TYPE_U8:    Var()->PushBack(val.U8());  break;
-    case BRIG_TYPE_S16:   Var()->PushBack(val.S16()); break;
-    case BRIG_TYPE_U16:   Var()->PushBack(val.U16()); break;
-    case BRIG_TYPE_S32:   Var()->PushBack(val.S32()); break;
-    case BRIG_TYPE_U32:   Var()->PushBack(val.U32()); break;
-    case BRIG_TYPE_S64:   Var()->PushBack(val.S64()); break;
-    case BRIG_TYPE_U64:   Var()->PushBack(val.U64()); break;
-    case BRIG_TYPE_F16:   Var()->PushBack(val.F());   break;
-    case BRIG_TYPE_F32:   Var()->PushBack(val.F());   break;
-    case BRIG_TYPE_F64:   Var()->PushBack(val.D());   break;
-    case BRIG_TYPE_U8X4:  Var()->PushBack(val.U32()); break;
-    case BRIG_TYPE_U8X8:  Var()->PushBack(val.U64()); break;
-    case BRIG_TYPE_S8X4:  Var()->PushBack(val.U32()); break;
-    case BRIG_TYPE_S8X8:  Var()->PushBack(val.U64()); break;
-    case BRIG_TYPE_U16X2: Var()->PushBack(val.U32()); break;
-    case BRIG_TYPE_U16X4: Var()->PushBack(val.U64()); break;
-    case BRIG_TYPE_S16X2: Var()->PushBack(val.U32()); break;
-    case BRIG_TYPE_S16X4: Var()->PushBack(val.U64()); break;
-    case BRIG_TYPE_U32X2: Var()->PushBack(val.U64()); break;
-    case BRIG_TYPE_S32X2: Var()->PushBack(val.U64()); break;
-    case BRIG_TYPE_F32X2: Var()->PushBack(val.U64()); break;
-    
-    case BRIG_TYPE_U8X16: case BRIG_TYPE_U16X8: case BRIG_TYPE_U32X4: case BRIG_TYPE_U64X2: 
-    case BRIG_TYPE_S8X16: case BRIG_TYPE_S16X8: case BRIG_TYPE_S32X4: case BRIG_TYPE_S64X2: 
-    case BRIG_TYPE_F32X4: case BRIG_TYPE_F64X2: 
-      Var()->PushBack(val.U64());  break;
-
-    default: assert(false);
-    }
+    Var()->PushBack(val);
   }
 
 protected:
@@ -309,7 +279,10 @@ public:
         case MV_UINT32:   { auto data = val.U32(); PushResult(result, &data, val.Type()); break; }
         case MV_INT64:    { auto data = val.S64(); PushResult(result, &data, val.Type()); break; }
         case MV_UINT64:   { auto data = val.U64(); PushResult(result, &data, val.Type()); break; }
-        case MV_FLOAT16:  { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+        case MV_PLAIN_FLOAT16:
+#endif
+        case MV_FLOAT16:  { auto data = val.H();   PushResult(result, &data, val.Type()); break; }
         case MV_FLOAT:    { auto data = val.F();   PushResult(result, &data, val.Type()); break; }
         case MV_DOUBLE:   { auto data = val.D();   PushResult(result, &data, val.Type()); break; }
         case MV_UINT8X4:  { auto data = val.U32(); PushResult(result, &data, val.Type()); break; } 
@@ -486,10 +459,10 @@ public:
 
 class NullSignalInitializerTest : public Test {
 private:
-  BrigTypeX signalType;
   BrigSegment segment;
   uint64_t dim;
   bool isConst;
+  BrigTypeX signalType;
 
   uint64_t DataSize() const { return std::max(dim, (uint64_t) 1); }
   
@@ -517,9 +490,9 @@ public:
     InitVar();
     for (uint32_t i = 0; i < DataSize(); ++i) {
       if (signalType == BRIG_TYPE_SIG64) {
-        Var()->PushBack(static_cast<uint64_t>(0));
+        Var()->PushBack(Value(MV_UINT64, 0));
       } else {
-        Var()->PushBack(static_cast<uint32_t>(0));
+        Var()->PushBack(Value(MV_UINT32, 0));
       }
     }
   }

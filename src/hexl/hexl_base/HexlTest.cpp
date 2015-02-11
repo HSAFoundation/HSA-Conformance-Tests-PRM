@@ -69,25 +69,11 @@ std::string Test::TestName() const
   return ss.str();
 }
 
-void TestImpl::Fail(const char *format, ...)
+void TestImpl::Fail(const std::string& msg)
 {
   assert(context);
   SetFailed();
-  va_list ap;
-  va_start(ap, format);
-  context->Env()->vError(format, ap);
-  va_end(ap);
-}
-
-void TestImpl::Error(const char *format, ...)
-{
-  assert(context);
-  SetFailed();
-  SetError();
-  va_list ap;
-  va_start(ap, format);
-  context->Env()->vError(format, ap);
-  va_end(ap);
+  context->Error() << msg << std::endl;
 }
 
 void TestImpl::Serialize(std::ostream& out) const
@@ -111,29 +97,14 @@ bool TestImpl::DumpBinaryIfEnabled(const std::string& what, const void *buffer, 
   return context->DumpBinaryIfEnabled(TestName(), what, buffer, bufferSize);
 }
 
-void EnvContext::vError(const char *format, va_list ap)
-{
-  printf("Error: ");
-  vfprintf(stdout, format, ap);
-  fprintf(stdout, "\n");
-}
-
-void EnvContext::Error(const char *format, ...)
-{
-  va_list ap;
-  va_start(ap, format);
-  vError(format, ap);
-  va_end(ap);
-}
-
 bool Context::IsVerbose(const std::string& what) const
 {
   return Opts()->IsSet("verbose") || Opts()->IsSet("hexl.verbose.all") || Opts()->IsSet("hexl.verbose." + what);
 }
 
-bool Context::IsDumpEnabled(const std::string& what, bool dumpAll) const
+bool Context::IsDumpEnabled(const std::string& what, bool enableWithPlainDumpOption) const
 {
-  return (dumpAll && Opts()->IsSet("dump")) || Opts()->IsSet("dump." + what);
+  return (enableWithPlainDumpOption && Opts()->IsSet("dump")) || Opts()->IsSet("dump." + what);
 }
 
 std::string Context::GetOutputName(const std::string& name, const std::string& what)
@@ -190,6 +161,21 @@ void Context::DumpBrigIfEnabled(const std::string& name, void* _brig)
     std::string hsailFileName = RM()->GetOutputFileName(testName);
     if (0 != brig_container_disassemble_to_file(brig, hsailFileName.c_str())) {
       Info() << "Warning: failed to dump hsail to " << hsailFileName << ": " << brig_container_get_error_text(brig) << std::endl;
+    }
+  }
+}
+
+void Context::DumpDispatchsetupIfEnabled(const std::string& name, const void* dsetup_)
+{
+  const DispatchSetup* const dsetup = reinterpret_cast<const DispatchSetup*>(dsetup_);
+  if (IsDumpEnabled("dispatchsetup")) {
+    std::string testName = GetOutputName(name, "dispatchsetup");
+    std::string outFileName = RM()->GetOutputFileName(testName);
+    std::ostringstream text;
+    // Always dump with buffers. Otherwise useless (and already resides in the log).
+    dsetup->PrintWithBuffers(text);
+    if (!SaveTextResource(RM(), outFileName, text.str())) {
+      Info() << "Warning: failed to dump dispatch setup to " << outFileName << std::endl;
     }
   }
 }

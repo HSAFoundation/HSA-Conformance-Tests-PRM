@@ -86,10 +86,11 @@ protected:
 };
 
 class ValidateBrigTest : public ValidateModuleTest {
+public:
+  virtual void DumpIfEnabled();
 protected:
   Module* SetupModule();
   virtual brig_container_t SetupBrig() = 0;
-  virtual void DumpIfEnabled();
 };
 
 class ValidateBrigContainerTest : public ValidateBrigTest {
@@ -103,6 +104,7 @@ public:
   void Description(std::ostream& out) const { out << "Validate Brig " << name; }
   virtual void PrintExtraInfo(std::ostream &s) const;
   virtual void SerializeData(std::ostream& out) const;
+  virtual void DumpIfEnabled();
 
 protected:
   brig_container_t SetupBrig() { return brig; }

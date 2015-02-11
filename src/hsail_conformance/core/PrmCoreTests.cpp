@@ -201,7 +201,7 @@ LimitsTestsUnion::LimitsTestsUnion()
 DECLARE_TESTSET_UNION(PrmCoreTests);
 
 PrmCoreTests::PrmCoreTests()
-  : TestSetUnion("prm")
+  : TestSetUnion("core")
 {
   Add(new ArithmeticOperationsTests());
   Add(new MemoryOperationsTests());

@@ -136,6 +136,8 @@ protected:
     case MRBUFFER: return PreAllocateRBuffer(static_cast<MRBuffer*>(mo));
     case MIMAGE: return PreAllocateImage(static_cast<MImage*>(mo));
     case MRIMAGE: return PreAllocateRImage(static_cast<MRImage*>(mo));
+    case MSAMPLER: return PreAllocateSampler(static_cast<MSampler*>(mo));
+    case MRSAMPLER: return PreAllocateRSampler(static_cast<MRSampler*>(mo));
     default: assert(false); return false;
     }
   }
@@ -147,6 +149,8 @@ protected:
     case MRBUFFER: return AllocateRBuffer(static_cast<MRBuffer*>(mo));
     case MIMAGE: return AllocateImage(static_cast<MImage*>(mo));
     case MRIMAGE: return AllocateRImage(static_cast<MRImage*>(mo));
+    case MSAMPLER: return AllocateSampler(static_cast<MSampler*>(mo));
+    case MRSAMPLER: return AllocateRSampler(static_cast<MRSampler*>(mo));
     default: assert(false); return 0;
     }
   }
@@ -155,10 +159,14 @@ protected:
   virtual bool PreAllocateRBuffer(MRBuffer* mo) { return true; }
   virtual bool PreAllocateImage(MImage* mo) { return true; }
   virtual bool PreAllocateRImage(MRImage* mo) { return true; }
+  virtual bool PreAllocateSampler(MSampler* mo) { return true; }
+  virtual bool PreAllocateRSampler(MRSampler* mo) { return true; }
   virtual IObject<MState>* AllocateBuffer(MBuffer* mo) = 0;
   virtual IObject<MState>* AllocateRBuffer(MRBuffer* mo) = 0;
   virtual IObject<MState>* AllocateImage(MImage* mi) = 0;
   virtual IObject<MState>* AllocateRImage(MRImage* mi) = 0;
+  virtual IObject<MState>* AllocateSampler(MSampler* mi) = 0;
+  virtual IObject<MState>* AllocateRSampler(MRSampler* mi) = 0;
   virtual Value GetValue(Value v) = 0;
 
   virtual void Print(std::ostream& out) {

@@ -84,6 +84,8 @@ namespace hexl {
     class EKernel;
     class EFunction;
     class ECondition;
+    class EImage;
+    class ESampler;
 
     typedef ETypedRegList* TypedRegList;
     typedef ETypedReg* TypedReg;
@@ -99,6 +101,8 @@ namespace hexl {
     typedef EKernel* Kernel;
     typedef EFunction* Function;
     typedef ECondition* Condition;
+    typedef EImage* Image;
+    typedef ESampler* Sampler;
   }
 }
 

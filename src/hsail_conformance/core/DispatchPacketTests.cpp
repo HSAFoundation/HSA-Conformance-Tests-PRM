@@ -17,11 +17,13 @@
 #include "DispatchPacketTests.hpp"
 #include "HCTests.hpp"
 #include "MObject.hpp"
+#include "UtilTests.hpp"
 
 using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
+using namespace hsail_conformance::utils;
 
 namespace hsail_conformance {
 
@@ -312,67 +314,31 @@ public:
   }
 };
 
-class BoundaryBaseTest : public DispatchPacketBaseTest {
+class DispatchBoundaryBaseTest: public BoundaryTest {
 private:
   bool dest64;
 
 protected:
   static const uint64_t numBoundaryValues = 128;
+  ControlDirectives directives;
 
 public:
-  BoundaryBaseTest(Location codeLocation_, Grid geometry,
-    ControlDirectives directives, const bool dest64_ = false)
-    : DispatchPacketBaseTest(codeLocation_, geometry, directives), dest64(dest64_) { }
+  DispatchBoundaryBaseTest(Location codeLocation_, Grid geometry_,
+    ControlDirectives directives_, const bool dest64_ = false)
+    : BoundaryTest(numBoundaryValues, codeLocation_, geometry_), dest64(dest64_), directives(directives_)
+  {  
+    specList.Add(directives);
+  }
 
   BrigTypeX ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
 
   void Name(std::ostream& out) const {
-    DispatchPacketBaseTest::Name(out);
-    out << "_" << (dest64  ? "64" : "32");
-  }
-  
-  const uint64_t Boundary() const {
-    return geometry->GridSize() - numBoundaryValues;
-  }
-
-  size_t OutputBufferSize() const {
-    return numBoundaryValues;
-  }
-
-  void ExpectedResults(Values* result) const {
-    for (uint64_t i = 0; i < numBoundaryValues; ++i) {
-      result->push_back(ExpectedResult(i));
-    }
-  }
-
-  void KernelCode() {
-    TypedReg result64 = be.WorkitemFlatAbsId(true);
-    //Store condition
-    TypedReg reg_c = be.AddTReg(BRIG_TYPE_B1);
-    //cmp_ge c0, s0, n
-    Operand boundary = be.Immed(BRIG_TYPE_U64, Boundary());
-    be.EmitCmp(reg_c->Reg(), result64, boundary, BRIG_COMPARE_GE);
-    SRef then = "@then";
-    //cbr c0, @then
-    be.EmitCbr(reg_c, then);
-    SRef endif = "@endif";
-    //br @endif
-    be.EmitBr(endif);
-     //@then:
-    be.EmitLabel(then);
-    TypedReg index = be.AddTReg(BRIG_TYPE_U64);
-    //sub s1, s0, n
-    be.EmitArith(BRIG_OPCODE_SUB, index, result64, boundary);  
-    //insert workitemXXXid instruction
-    TypedReg result = KernelResult();
-    //store result
-    output->EmitStoreData(result, index);
-    //@endif:
-    be.EmitLabel(endif);
+    out << CodeLocationString() << '_' << geometry << '_' << directives
+        << "_" << (dest64  ? "64" : "32");
   }
 };
 
-class BoundaryDimTest : public BoundaryBaseTest {
+class BoundaryDimTest : public DispatchBoundaryBaseTest {
 protected:
   unsigned testDim;
 
@@ -380,11 +346,11 @@ public:
   BoundaryDimTest(Location codeLocation,
     Grid geometry, ControlDirectives directives,
     unsigned testDim_, bool dest64 = false)
-    : BoundaryBaseTest(codeLocation, geometry, directives, dest64),
+    : DispatchBoundaryBaseTest(codeLocation, geometry, directives, dest64),
       testDim(testDim_) { }
 
   void Name(std::ostream& out) const {
-    BoundaryBaseTest::Name(out); out << "_" << testDim;
+    DispatchBoundaryBaseTest::Name(out); out << "_" << testDim;
   }
 };
 
@@ -395,7 +361,7 @@ public:
     ControlDirectives directives, unsigned testDim, bool dest64)
     : BoundaryDimTest(codeLocation_, geometry, directives, testDim, dest64) { }
 
-  bool IsValid() const { return BoundaryBaseTest::IsValid() && IsResultType(BRIG_TYPE_U32); }
+  bool IsValid() const { return BoundaryDimTest::IsValid() && IsResultType(BRIG_TYPE_U32); }
   
   Value ExpectedResult(uint64_t i) const {
     Dim point = geometry->Point(geometry->GridSize() - numBoundaryValues + i);
@@ -424,12 +390,12 @@ public:
   }
 };
 
-class WorkitemFlatIdBoundaryTest : public BoundaryBaseTest {
+class WorkitemFlatIdBoundaryTest : public DispatchBoundaryBaseTest {
 public:
   WorkitemFlatIdBoundaryTest(Location codeLocation_,
     Grid geometry,
     ControlDirectives directives, bool dest64)
-    : BoundaryBaseTest(codeLocation_, geometry, directives, dest64) { }
+    : DispatchBoundaryBaseTest(codeLocation_, geometry, directives, dest64) { }
 
   bool IsValid() const { return IsResultType(BRIG_TYPE_U32); }
 
@@ -443,12 +409,12 @@ public:
   }
 };
 
-class WorkitemFlatAbsIdBoundaryTest : public BoundaryBaseTest {
+class WorkitemFlatAbsIdBoundaryTest : public DispatchBoundaryBaseTest {
 public:
   WorkitemFlatAbsIdBoundaryTest(Location codeLocation_,
     Grid geometry,
     ControlDirectives directives, bool dest64)
-    : BoundaryBaseTest(codeLocation_, geometry, directives, dest64) { }
+    : DispatchBoundaryBaseTest(codeLocation_, geometry, directives, dest64) { }
   
   Value ExpectedResult(uint64_t i) const {
     /*

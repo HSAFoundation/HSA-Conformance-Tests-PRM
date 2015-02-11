@@ -269,6 +269,10 @@ Operand BrigEmitter::Immed(BrigType16_t type, uint64_t imm)
   return brigantine.createImmed(imm, type);
 }
 
+Operand BrigEmitter::Immed(SRef data) {
+  return brigantine.createImmed(data);
+}
+
 Operand BrigEmitter::ImmedString(const std::string& str) 
 {
   return brigantine.createOperandString(str);
@@ -367,6 +371,9 @@ void BrigEmitter::EmitLoad(BrigSegment8_t segment, TypedReg dst, OperandAddress 
 
 BrigType16_t BrigEmitter::MemOpType(BrigType16_t type)
 {
+  if (getBrigTypeNumBits(type) == 128) {
+    return BRIG_TYPE_B128;
+  }
   switch (type) {
   case BRIG_TYPE_B16: return BRIG_TYPE_U16;
   case BRIG_TYPE_B32: return BRIG_TYPE_U32;
@@ -547,6 +554,16 @@ BrigType16_t BrigEmitter::ArithType(Brig::BrigOpcode16_t opcode, BrigType16_t op
         default: return operandType;
       }
     }
+    case BRIG_OPCODE_AND: 
+    case BRIG_OPCODE_OR: 
+    case BRIG_OPCODE_XOR: 
+    case BRIG_OPCODE_NOT:{
+      switch (operandType) {
+        case BRIG_TYPE_U32: case BRIG_TYPE_S32: return BRIG_TYPE_B32;
+        case BRIG_TYPE_U64: case BRIG_TYPE_S64: return BRIG_TYPE_B64;
+        default: return operandType;
+      }                   
+    } 
     default: return operandType;
   }
 }
@@ -848,6 +865,21 @@ BrigTypeX BrigEmitter::SignalType() const
   case BRIG_MACHINE_LARGE: return BRIG_TYPE_SIG64;
   default: assert(false); return BRIG_TYPE_NONE;
   }
+}
+
+BrigTypeX BrigEmitter::ImageType(unsigned access) const
+{
+  switch (access) {
+  case 1: return BRIG_TYPE_ROIMG;
+  case 2: return BRIG_TYPE_WOIMG;
+  case 3: return BRIG_TYPE_RWIMG;
+  default: assert(false); return BRIG_TYPE_NONE;
+  }
+}
+
+BrigTypeX BrigEmitter::SamplerType() const
+{
+  return BRIG_TYPE_SAMP;
 }
 
 BrigTypeX BrigEmitter::AtomicValueBitType() const

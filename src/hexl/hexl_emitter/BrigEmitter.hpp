@@ -120,6 +120,7 @@ public:
 
   // Immediates
   HSAIL_ASM::Operand Immed(Brig::BrigType16_t type, uint64_t imm);
+  HSAIL_ASM::Operand Immed(HSAIL_ASM::SRef data);
   HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
 
@@ -236,6 +237,10 @@ public:
   // User mode queues.
   void EmitAgentId(TypedReg dest);
   void EmitQueuePtr(PointerReg dest);
+
+  // Images operations
+  Brig::BrigTypeX ImageType(unsigned access) const;
+  Brig::BrigTypeX SamplerType() const;
 
   // Dispatch packet operations
   TypedReg EmitCurrentWorkgroupSize(uint32_t dim);

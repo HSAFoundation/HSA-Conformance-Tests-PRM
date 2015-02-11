@@ -22,6 +22,8 @@
 #include "DllApi.hpp"
 #include "hsa.h"
 #include "hsa_ext_finalize.h"
+#include "hsa_ext_image.h"
+#include <functional>
 
 namespace hexl {
 
@@ -79,19 +81,37 @@ struct HsaApiTable {
     hsa_ext_brig_module_handle_t module,
     hsa_ext_brig_code_section_offset32_t symbol,
     hsa_ext_code_descriptor_t** kernel_descriptor);
+  hsa_status_t (*hsa_ext_image_data_get_info)(hsa_agent_t agent, 
+    const hsa_ext_image_descriptor_t *image_descriptor,
+    hsa_access_permission_t access_permission,
+    hsa_ext_image_data_info_t *image_data_info);
+  hsa_status_t (*hsa_ext_image_create)(hsa_agent_t agent,
+    const hsa_ext_image_descriptor_t *image_descriptor,
+    const void *image_data,
+    hsa_access_permission_t access_permission,
+    hsa_ext_image_t *image);
+  hsa_status_t (*hsa_ext_image_destroy)(hsa_agent_t agent, hsa_ext_image_t image);
+  hsa_status_t (*hsa_ext_sampler_create)(hsa_agent_t agent, 
+    const hsa_ext_sampler_descriptor_t *sampler_descriptor,
+    hsa_ext_sampler_t *sampler);
+  hsa_status_t (*hsa_ext_sampler_destroy)(hsa_agent_t agent, hsa_ext_sampler_t sampler);
+  hsa_status_t (*hsa_ext_image_import)(hsa_agent_t agent, const void *src_memory,
+                         size_t src_row_pitch, size_t src_slice_pitch,
+                         hsa_ext_image_t dst_image,
+                         const hsa_ext_image_region_t *image_region);
 };
 
 class HsaApi : public DllApi<HsaApiTable> {
 public:
-  HsaApi(EnvContext* env, const Options* options, const char *libName)
-    : DllApi<HsaApiTable>(env, options, libName) { }
+  HsaApi(Context* context, const Options* options, const char *libName)
+    : DllApi<HsaApiTable>(context, options, libName) { }
 
   const HsaApiTable* InitApiTable();
 };
 
 class HsailRuntimeContext;
 
-typedef bool (*RegionMatch)(HsailRuntimeContext* runtime, hsa_region_t region);
+typedef std::function<bool(HsailRuntimeContext*, hsa_region_t)> RegionMatch;
 
 class HsailRuntimeContext : public RuntimeContext {
 private:
@@ -114,7 +134,6 @@ public:
     return "HSA Foundation Runtime";
   }
 
-  EnvContext* Env() { return context->Env(); }
   const Options* Opts() const { return context->Opts(); }
   virtual RuntimeContextState* NewState(Context* context);
 

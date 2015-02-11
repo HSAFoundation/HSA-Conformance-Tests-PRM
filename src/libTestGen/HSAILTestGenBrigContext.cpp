@@ -9,6 +9,8 @@
 #include <sstream>
 #include <iomanip>
 
+#define FIXME_UNUSED(var) (void)var
+
 using std::string;
 using std::ostringstream;
 using std::setw;
@@ -80,6 +82,7 @@ void BrigContext::emitVersion()
 void BrigContext::emitExtension(const char* name)
 {
     DirectiveExtension ext = brigantine.addExtension(name);
+    FIXME_UNUSED(ext);
 }
 
 string BrigContext::getLabName(const char* name, unsigned idx, unsigned width /*=0*/)
@@ -105,6 +108,7 @@ Operand BrigContext::emitLabelRef(const char* name)
 Operand BrigContext::emitLabelAndRef(const char* name)
 {
     DirectiveLabel lbl = emitLabel(name);
+    FIXME_UNUSED(lbl);
     return emitLabelRef(name);
 }
 

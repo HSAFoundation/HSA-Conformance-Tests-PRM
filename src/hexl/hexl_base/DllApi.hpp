@@ -42,43 +42,41 @@ private:
   const char* libName;
 
 protected:
-  EnvContext* env;
+  Context* context;
   const Options* options;
 
   bool InitDll() {
     char buf[0x100];
 #ifdef _WIN32
-    snprintf(buf, sizeof(buf), "%s.dll", libName);
+    _snprintf_s(buf, sizeof(buf), "%s.dll", libName);
     dllHandle = LoadLibrary(buf);
     if (!dllHandle) {
-      env->Error("LoadLibrary failed: GetLastError=%08x", GetLastError());
+      context->Error() << "LoadLibrary(" << buf << ") failed: GetLastError=" << GetLastError() << std::endl;
       return false;
     }
 #else
     snprintf(buf, sizeof(buf), "lib%s.so", libName);
     dllHandle = dlopen(buf, RTLD_NOW|RTLD_LOCAL);
     if (!dllHandle) {
-      env->Error("dlopen failed: %s", dlerror());
+      context->Error() << "dlopen(" << buf << ") failed: " << dlerror() << std::endl;
       return false;
     }
 #endif
     return true;
   }
 
-  EnvContext* Env() { return env; }
-
   template <typename F>
   F GetFunction(const char *functionName, F f0 = 0) {
 #ifdef _WIN32
     F f = (F) GetProcAddress(dllHandle, functionName);
     if (!f) {
-      env->Error("GetProcAddress failed: GetLastError=%08x", GetLastError());
+      context->Error() << "GetProcAddress(" << functionName << ") failed: GetLastError=" << GetLastError() << std::endl;
       return 0;
     }
 #else
     F f = (F) dlsym(dllHandle, functionName);
     if (!f) {
-      env->Error("dlsym failed: %s", dlerror());
+      context->Error() << "dlsym(" << functionName << ") failed: " << dlerror() << std::endl;
       return 0;
     }
 #endif
@@ -86,9 +84,9 @@ protected:
   }
 
 public:
-  DllApi(EnvContext* env_, const Options* options_, const char* libName_)
+  DllApi(Context* context_, const Options* options_, const char* libName_)
     : dllHandle(0), apiTable(0),
-      libName(libName_), env(env_), options(options_) { }
+      libName(libName_), context(context_), options(options_) { }
 
   ~DllApi() {
     if (apiTable) { delete apiTable; }
