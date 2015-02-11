@@ -761,22 +761,66 @@ void EImage::SetupDispatch(DispatchSetup* dispatch) {
   image = new MImage(i++, id, segment, geometry, chanel_order, channel_type, access, 
                          width, height, depth, rowPitch, slicePitch);
   dispatch->MSetup().Add(image);
-  dispatch->MSetup().Add(NewMValue(i++, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
+  dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
 }
 
-void EImage::EmitImageRd(OperandOperandList dest, TypedReg image, TypedReg sampler, TypedReg coord)
+void EImage::EmitImageRd(OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
-  inst.type() = BRIG_TYPE_S32;
+  inst.type() = destType;
   ItemList OptList;
   OptList.push_back(dest);
   OptList.push_back(image->Reg());
   OptList.push_back(sampler->Reg());
   OptList.push_back(coord->Reg());
+  inst.operands() = OptList;
+}
+void EImage::EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigTypeX coordType)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coordType;
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = destType;
+  ItemList OptList;
+  OptList.push_back(dest);
+  OptList.push_back(image->Reg());
+  OptList.push_back(sampler->Reg());
+  OptList.push_back(coord);
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigTypeX coordType)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coordType;
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = dest->Type();
+  ItemList OptList;
+  OptList.push_back(dest->Reg());
+  OptList.push_back(image->Reg());
+  OptList.push_back(sampler->Reg());
+  OptList.push_back(coord);
+  inst.operands() = OptList;
+}
+
+void  EImage::EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query)
+{
+  InstQueryImage inst = te->Brig()->Brigantine().addInst<InstQueryImage>(BRIG_OPCODE_QUERYIMAGE);
+  inst.imageType() = image->Type();
+  inst.geometry() = geometry;
+  inst.imageQuery() = query;
+  inst.type() = dest->Type();
+  ItemList OptList;
+  OptList.push_back(dest->Reg());
+  OptList.push_back(image->Reg());
   inst.operands() = OptList;
 }
 
@@ -810,12 +854,23 @@ void ESampler::SetupDispatch(DispatchSetup* dispatch) {
   unsigned i = dispatch->MSetup().Count();
   sampler = new MSampler(i++, id, segment, coord, filter, addressing);
   dispatch->MSetup().Add(sampler);
-  dispatch->MSetup().Add(NewMValue(i++, id + ".kernarg", MEM_KERNARG, MV_SAMPLERREF, U64(sampler->Id())));
+  dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_SAMPLERREF, U64(sampler->Id())));
 }
 
 void ESampler::KernelArguments()
 {
   var = EmitAddressDefinition(segment);
+}
+
+void ESampler::EmitSamplerQuery(TypedReg dest, TypedReg sampler, BrigSamplerQuery query)
+{
+  InstQuerySampler inst = te->Brig()->Brigantine().addInst<InstQuerySampler>(BRIG_OPCODE_QUERYSAMPLER);
+  inst.samplerQuery() = query;
+  inst.type() = dest->Type();
+  ItemList OptList;
+  OptList.push_back(dest->Reg());
+  OptList.push_back(sampler->Reg());
+  inst.operands() = OptList;
 }
 
 HSAIL_ASM::DirectiveVariable ESampler::EmitAddressDefinition(BrigSegment segment)

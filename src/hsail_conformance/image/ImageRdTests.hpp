@@ -14,8 +14,8 @@
    limitations under the License.
 */
 
-#ifndef HC_IMAGES_TESTS_HPP
-#define HC_IMAGES_TESTS_HPP
+#ifndef HC_IMAGERD_TESTS_HPP
+#define HC_IMAGERD_TESTS_HPP
 
 #include "HexlTest.hpp"
 
