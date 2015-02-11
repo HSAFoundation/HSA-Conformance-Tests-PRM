@@ -74,7 +74,7 @@ public:
   BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const {
-    return Value(MV_UINT32, 255);
+    return Value(MV_UINT32, 0xAA);
   }
 
   size_t OutputBufferSize() const override {
@@ -107,7 +107,10 @@ public:
     auto coord = be.AddTReg(BRIG_TYPE_U32);
     be.EmitMov(coord, be.Immed(coord->Type(), 0));
 
+    be.EmitMov(reg_dest.elements(3), be.Immed(coord->Type(), 0xAA), 32);
+
     imgobj->EmitImageSt(reg_dest, imageaddr, coord);
+    imgobj->EmitImageLd(reg_dest, imageaddr, coord);
     
     be.EmitMov(result, reg_dest.elements(3));
 
