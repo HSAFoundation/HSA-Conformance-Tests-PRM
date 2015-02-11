@@ -54,6 +54,46 @@ f16_t::f16_t(f64_t x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
     }
 }
 
+/// \todo Generalize this
+f16_t::f16_t(f32_t x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
+{ 
+    FloatProp32 input(F32_2U(x));
+
+    if (!input.isRegular())
+    {
+        bits = (u16_t)input.mapSpecialValues<FloatProp16>();
+    }
+    else if (input.isSubnormal()) // subnormal -> (f16)0
+    {
+        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
+        bits = f16.getBits();
+    }
+    else
+    {
+        s64_t exponent = input.decodeExponent();
+        u64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
+
+        if (!FloatProp16::isValidExponent(exponent))
+        {
+            if (exponent > 0)
+            {
+                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
+            }
+            else
+            {
+                u64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
+                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
+                bits = f16.getBits();
+            }
+        }
+        else
+        {
+            FloatProp16 f16(input.isPositive(), mantissa, exponent);
+            bits = f16.getBits();
+        }
+    }
+}
+
 f64_t f16_t::f64() const 
 { 
     FloatProp16 f16(bits);
@@ -81,6 +121,36 @@ f64_t f16_t::f64() const
     }
 
     return HEX2F64(bits64);
+};
+
+/// \todo Generalize this
+f32_t f16_t::f32() const 
+{ 
+    FloatProp16 f16(bits);
+    u32_t outbits;
+
+    if (!f16.isRegular())
+    {
+        outbits = f16.mapSpecialValues<FloatProp32>();
+    }
+    else if (f16.isSubnormal())
+    {
+        s64_t exponent = f16.decodeExponent();
+        assert(exponent == FloatProp16::decodedSubnormalExponent());
+        exponent = FloatProp16::actualSubnormalExponent();
+        u64_t mantissa = f16.normalizeMantissa<FloatProp32>(exponent);
+        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        outbits = outprop.getBits();
+    }
+    else
+    {
+        s64_t exponent = f16.decodeExponent();
+        u64_t mantissa = f16.mapNormalizedMantissa<FloatProp32>();
+        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        outbits = outprop.getBits();
+    }
+
+    return HEX2F32(outbits);
 };
 
 //==============================================================================
@@ -204,6 +274,7 @@ static const u32_t MAX_S64_F32H = 0x5effffff; // max float value (18446742974197
 static const u32_t MIN_S32_F32H = 0xcf000000; // min float value (2147483520.0f) which is greater than or equal to -(S32IB+1) = -2147483648
 static const u32_t MIN_S64_F32H = 0xdf000000; // min float value (18446742974197923840.0f) which is greater than or equal to -(S64IB+1) = -9223372036854775808
 
+/// \todo Check if we need ULL suffix!
 static const u64_t MAX_U64_F64H = 0x43efffffffffffff; // max float value which does not exceed U64IB = 18446744073709551615
 static const u64_t MAX_S64_F64H = 0x43dfffffffffffff; // max float value which does not exceed S64IB = 9223372036854775807
 static const u64_t MIN_S64_F64H = 0xc3e0000000000000; // min float value which is greater than or equal to -(S64IB+1) = -9223372036854775808

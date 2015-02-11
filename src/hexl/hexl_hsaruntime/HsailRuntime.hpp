@@ -111,7 +111,6 @@ public:
 
 class HsailRuntimeContext;
 
-//typedef bool (*RegionMatch)(HsailRuntimeContext* runtime, hsa_region_t region);
 typedef std::function<bool(HsailRuntimeContext*, hsa_region_t)> RegionMatch;
 
 class HsailRuntimeContext : public RuntimeContext {

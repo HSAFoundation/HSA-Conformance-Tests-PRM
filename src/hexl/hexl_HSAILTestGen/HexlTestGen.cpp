@@ -162,8 +162,8 @@ private:
     case BRIG_TYPE_U64: values.push_back(Value(MV_UINT64, val.u64())); return;
     case BRIG_TYPE_S64: values.push_back(Value(MV_INT64, val.s64())); return;
     case BRIG_TYPE_F16: 
-#ifdef MBUFFER_KEEP_F16_AS_U32
-      values.push_back(Value(MV_FLOAT16_MBUFFER, val.getAsB16())); return;
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+      values.push_back(Value(MV_PLAIN_FLOAT16, val.getAsB16())); return;
 #else
       values.push_back(Value(MV_FLOAT16, val.getAsB16())); return;
 #endif
@@ -177,7 +177,7 @@ private:
     case BRIG_TYPE_F16X2:
     case BRIG_TYPE_F16X4:
     case BRIG_TYPE_F16X8:
-#ifdef MBUFFER_KEEP_F16_AS_U32
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
     {
       unsigned dim = getPackedTypeDim(val.getType());
       for (unsigned i = 0; i < dim; ++i) {
@@ -217,8 +217,8 @@ private:
     switch (type) {
     case BRIG_TYPE_B1: return MV_UINT32;
     case BRIG_TYPE_F16:
-#ifdef MBUFFER_KEEP_F16_AS_U32
-      return MV_FLOAT16_MBUFFER;
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+      return MV_PLAIN_FLOAT16;
 #else
       return MV_FLOAT16;
 #endif

@@ -167,7 +167,7 @@ public:
     static s64_t actualSubnormalExponent()  { return 1 - (s64_t)EXPONENT_BIAS; } // Actual decoded exponent value for subnormals
 
 public:
-    template<typename TargetType> u64_t mapSpecialValues()
+    template<typename TargetType> typename TargetType::Type mapSpecialValues()
     {
         assert(!isRegular());
 
@@ -401,6 +401,8 @@ f16_t f16_todo();
 
 class f16_t
 {
+public:
+    typedef FloatProp16::Type bits_t;
 private:
     static const unsigned RND_NEAR = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN;
     static const unsigned RND_ZERO = Brig::BRIG_ROUND_FLOAT_ZERO;
@@ -408,13 +410,13 @@ private:
     static const unsigned RND_DOWN = Brig::BRIG_ROUND_FLOAT_MINUS_INFINITY;
 
 private:
-    u16_t bits;
+    bits_t bits;
 
 public:
     f16_t() {}
 
     explicit f16_t(f64_t x, unsigned rounding = RND_NEAR);
-    explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) { f16_todo(); }
+    explicit f16_t(f32_t x, unsigned rounding = RND_NEAR);
     explicit f16_t(s32_t x) { bits = f16_t((f64_t)x).bits; }
 
 public:
@@ -428,8 +430,8 @@ public:
     f16_t& operator+= (f16_t x) { bits = f16_t(f64() + x.f64()).bits; return *this; }
 
 public:
-    f32_t f32()      const { f16_todo(); return 0; };
-    f64_t f64()      const;
+    f32_t f32() const;
+    f64_t f64() const;
     operator f32_t() const { return f32(); }
     operator f64_t() const { return f64(); }
 
@@ -437,7 +439,7 @@ public:
     f16_t neg() const { return make(FloatProp16(bits).negate()); }
 
 public:
-    static f16_t make(u16_t bits) { f16_t res; res.bits = bits; return res; }
+    static f16_t make(bits_t bits) { f16_t res; res.bits = bits; return res; }
 
 public:
     static void sanityTests();
