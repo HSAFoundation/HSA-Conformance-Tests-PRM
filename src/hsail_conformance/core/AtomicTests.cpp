@@ -65,8 +65,8 @@ private:
     PointerReg atomicVarAddr;
     PointerReg resArrayAddr;
     TypedReg indexInResArray;
-    TypedReg atomicMem;
     TypedReg atomicDst;
+    TypedReg atomicMem;
 
 public:
     static const uint32_t gridSize = 256;
