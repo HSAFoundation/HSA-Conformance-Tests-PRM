@@ -61,7 +61,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     severalwavesingroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     workgroup256(NEWA hexl::VectorSequence<hexl::Grid>()),
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
-    singleGroup(NEWA hexl::VectorSequence<hexl::Grid>())
+    singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
+    atomic(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -114,6 +115,12 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   singleGroup->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
   singleGroup->Add(NEWA GridGeometry(2, 16, 16, 1, 16, 16, 1));
   singleGroup->Add(NEWA GridGeometry(3, 8, 8, 4, 8, 8, 4));
+  atomic->Add(NEWA GridGeometry(1,  cc->Wavesize(),  1,   1,  cc->Wavesize(),  1,   1));
+  atomic->Add(NEWA GridGeometry(1,  256,             1,   1,  cc->Wavesize(),  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              32,  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
 }
 
 static const BrigSegment allSegments[] = {
@@ -298,6 +305,15 @@ static const BrigTypeX packed128BitTypes[] = {
   BRIG_TYPE_F64X2
 };
 
+static const BrigTypeX atomicTypes[] = {
+  BRIG_TYPE_U32,
+  BRIG_TYPE_U64,
+  BRIG_TYPE_S32,
+  BRIG_TYPE_S64,
+  BRIG_TYPE_B32,
+  BRIG_TYPE_B64
+};
+
 static const size_t registerSizesArr[] = {
   32, 64, 128
 };
@@ -309,6 +325,7 @@ CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
     compoundFloating(NEWA ArraySequence<BrigTypeX>(compoundFloatingTypes, NELEM(compoundFloatingTypes))),
     packed(NEWA ArraySequence<BrigTypeX>(packedTypes, NELEM(packedTypes))),
     packed128(NEWA ArraySequence<BrigTypeX>(packed128BitTypes, NELEM(packed128BitTypes))),
+    atomic(NEWA ArraySequence<BrigTypeX>(atomicTypes, NELEM(atomicTypes))),
     registerSizes(NEWA ArraySequence<size_t>(registerSizesArr, NELEM(registerSizesArr)))
 {
 }
@@ -376,13 +393,13 @@ static const BrigAtomicOperation allAtomicsValues[] = {
 // TODO: initial & expected values for the rest atomics in barrier tests
   BRIG_ATOMIC_ADD,
   BRIG_ATOMIC_AND,
-//      BRIG_ATOMIC_CAS,
-//      BRIG_ATOMIC_EXCH,
-//      BRIG_ATOMIC_LD,
+  BRIG_ATOMIC_CAS,
+  BRIG_ATOMIC_EXCH,
+  BRIG_ATOMIC_LD,
   BRIG_ATOMIC_MAX,
   BRIG_ATOMIC_MIN,
   BRIG_ATOMIC_OR,
-//      BRIG_ATOMIC_ST,
+  BRIG_ATOMIC_ST,
   BRIG_ATOMIC_SUB,
   BRIG_ATOMIC_WRAPDEC,
   BRIG_ATOMIC_WRAPINC,

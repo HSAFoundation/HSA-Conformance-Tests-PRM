@@ -113,6 +113,14 @@ public:
   }
 
   bool IsValid() const {
+    // TODO: implement tests for the following 4 excluded atomics
+    switch (atomicOp) {
+      case BRIG_ATOMIC_CAS:
+      case BRIG_ATOMIC_EXCH:
+      case BRIG_ATOMIC_LD:
+      case BRIG_ATOMIC_ST: return false;
+      default: break;
+    }
     if (isSigned) {
       switch (atomicOp) {
         // 6.6.1., 6.7.1. Explanation of Modifiers. Type (signed is aplicable only for ADD, SUB, MAX, MIN)

@@ -1,8 +1,8 @@
 add_library(
 hc_core
-AddressTests.cpp  BarrierTests.hpp  CMakeLists.txt      DispatchPacketTests.cpp  FunctionsTests.hpp    MemoryFenceTests.cpp     MiscOperationsTests.hpp  SignalTests.cpp         UserModeQueueTests.hpp  LimitsTests.cpp
-AddressTests.hpp  BranchTests.cpp   CrossLaneTests.cpp  DispatchPacketTests.hpp  InitializerTests.cpp  MemoryFenceTests.hpp     PrmCoreTests.cpp         SignalTests.hpp         DirectiveTests.cpp      LimitsTests.hpp
-BarrierTests.cpp  BranchTests.hpp   CrossLaneTests.hpp  FunctionsTests.cpp       InitializerTests.hpp  MiscOperationsTests.cpp  PrmCoreTests.hpp         UserModeQueueTests.cpp  DirectiveTests.hpp
+AddressTests.cpp  AtomicTests.hpp   BranchTests.cpp  CrossLaneTests.cpp  DirectiveTests.hpp       FunctionsTests.cpp    InitializerTests.hpp  MemoryFenceTests.cpp     MiscOperationsTests.hpp  SignalTests.cpp         UserModeQueueTests.hpp
+AddressTests.hpp  BarrierTests.cpp  BranchTests.hpp  CrossLaneTests.hpp  DispatchPacketTests.cpp  FunctionsTests.hpp    LimitsTests.cpp       MemoryFenceTests.hpp     PrmCoreTests.cpp         SignalTests.hpp
+AtomicTests.cpp   BarrierTests.hpp  CMakeLists.txt   DirectiveTests.cpp  DispatchPacketTests.hpp  InitializerTests.cpp  LimitsTests.hpp       MiscOperationsTests.cpp  PrmCoreTests.hpp         UserModeQueueTests.cpp
 )
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_base)
 include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_hsaruntime)

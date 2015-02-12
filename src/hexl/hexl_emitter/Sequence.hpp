@@ -304,7 +304,7 @@ namespace hexl {
     SequenceProduct2<P6, P7> product2;
 
   public:
-    SequenceProduct7(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P6>* p7s_)
+    SequenceProduct7(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P7>* p7s_)
       : SequenceProduct6<P1, P2, P3, P4, P5, Pair<P6, P7>>(p1s_, p2s_, p3s_, p4s_, p5s_, &product2),
         product2(p6s_, p7s_) { }
   };
