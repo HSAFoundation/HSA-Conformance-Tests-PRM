@@ -22,7 +22,7 @@
 
 namespace hsail_conformance {
 
-DECLARE_TESTSET(AtomicTests, "atomic");
+DECLARE_TESTSET(AtomicTests, "atomicity");
 
 }
 

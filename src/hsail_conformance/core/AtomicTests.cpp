@@ -1035,7 +1035,7 @@ void AtomicTests::Iterate(hexl::TestSpecIterator& it)
 {
     CoreConfig* cc = CoreConfig::Get(context);
     Arena* ap = cc->Ap();
-    TestForEach<AtomicTest>(ap, it, "atomic/atomicity", cc->Grids().AtomicSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), cc->Types().Atomic(), Bools::All());
+    TestForEach<AtomicTest>(ap, it, "atomicity", cc->Grids().AtomicSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), cc->Types().Atomic(), Bools::All());
 }
 
 //=====================================================================================
