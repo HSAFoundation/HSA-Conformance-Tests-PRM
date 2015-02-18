@@ -159,6 +159,7 @@ public:
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand op);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, HSAIL_ASM::Operand src2);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, const TypedReg& src2);
+  HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand o);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand op);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandReg b, const TypedReg& src0, HSAIL_ASM::Operand src1, Brig::BrigCompareOperation8_t cmp);
@@ -167,6 +168,7 @@ public:
   HSAIL_ASM::InstCvt EmitCvt(HSAIL_ASM::Operand dst, Brig::BrigType16_t dstType, HSAIL_ASM::Operand src, Brig::BrigType16_t srcType);
   HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src);
   HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src, Brig::BrigRound round);
+  void EmitCvtOrMov(const TypedReg& dst, const TypedReg& src);
 
   HSAIL_ASM::InstAddr EmitLda(PointerReg dst, HSAIL_ASM::OperandAddress addr);
   HSAIL_ASM::InstAddr EmitLda(PointerReg dst, HSAIL_ASM::DirectiveVariable v);
@@ -204,6 +206,16 @@ public:
 
   // Barriers
   void EmitBarrier(Brig::BrigWidth width = Brig::BRIG_WIDTH_ALL);
+  HSAIL_ASM::DirectiveFbarrier EmitFbarrierDefinition(const std::string& name);
+  void EmitInitfbar(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitInitfbarInFirstWI(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitJoinfbar(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitWaitfbar(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitArrivefbar(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitLeavefbar(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitReleasefbar(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitReleasefbarInFirstWI(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitLdf(TypedReg dest, HSAIL_ASM::DirectiveFbarrier fb);
 
   // Atomics
   Brig::BrigTypeX AtomicValueBitType() const;
@@ -255,6 +267,7 @@ public:
   TypedReg EmitWorkitemFlatAbsId(bool large);
   TypedReg EmitWorkitemFlatId();
   TypedReg EmitWorkitemId(uint32_t dim);
+  TypedReg EmitCurrentWorkitemFlatId();
 
   // Cached (once per kernel) geometry properties.
   TypedReg WorkitemFlatAbsId(bool large);
@@ -271,6 +284,7 @@ public:
   void EmitWaveid(TypedReg dest);
 
   std::string GetVariableNameHere(const std::string& name);
+  Brig::BrigLinkage GetVariableLinkageHere();
   EmitterScope Scope() const { return currentScope; }
 };
 

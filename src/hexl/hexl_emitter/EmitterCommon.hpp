@@ -75,6 +75,7 @@ namespace hexl {
     class EPointerReg;
     class EVariableSpec;
     class EVariable;
+    class EFBarrier;
     class EAddressSpec;
     class EAddress;
     class EControlDirectives;
@@ -93,6 +94,7 @@ namespace hexl {
     typedef EBuffer* Buffer;
     typedef EVariableSpec* VariableSpec;
     typedef EVariable* Variable;
+    typedef EFBarrier* FBarrier;
     typedef EAddressSpec* AddressSpec;
     typedef EAddress* Address;
     typedef EControlDirectives* ControlDirectives;

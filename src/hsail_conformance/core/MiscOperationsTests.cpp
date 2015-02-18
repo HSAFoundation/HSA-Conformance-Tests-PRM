@@ -628,21 +628,7 @@ public:
 class GroupBufferIdentityTest: public BufferIdentityTest {
 protected:
   virtual TypedReg EmitWorkItemId() override {
-    auto xSize = be.EmitCurrentWorkgroupSize(0);
-    auto ySize = be.EmitCurrentWorkgroupSize(1);
-    
-    auto xId = be.EmitWorkitemId(0);
-    auto yId = be.EmitWorkitemId(1);
-    auto zId = be.EmitWorkitemId(2);
-
-    auto size = be.AddTReg(BRIG_TYPE_U32);
-
-    // workitemid(1) + workitemid(2) * currentworkgroupsize(1)
-    be.EmitArith(BRIG_OPCODE_MAD, size, zId, ySize->Reg(), yId);
-    
-    // workitemid(0) + workitemid(1) * currentworkgroupsize(0) + workitemid(2) * currentworkgroupsize(1) * currentworkgroupsize(0)
-    be.EmitArith(BRIG_OPCODE_MAD, size, size, xSize->Reg(), xId);
-    return size;
+    return be.EmitCurrentWorkitemFlatId();
   }
 
 public:

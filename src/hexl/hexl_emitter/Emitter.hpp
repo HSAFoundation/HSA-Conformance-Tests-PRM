@@ -254,6 +254,41 @@ public:
   void SetupDispatch(DispatchSetup* setup);
 };
 
+
+class EFBarrier : public Emittable {
+private:
+  std::string id;
+  Location location;
+  bool output;
+  HSAIL_ASM::DirectiveFbarrier fb;
+
+public:
+  EFBarrier(TestEmitter* te, const std::string& id, Location location = Location::KERNEL, bool output = false);
+
+  std::string FBarrierName() const;
+  HSAIL_ASM::DirectiveFbarrier FBarrier() const { assert(fb); return fb; }
+
+  void EmitDefinition();
+  void EmitInitfbar();
+  void EmitInitfbarInFirstWI();
+  void EmitJoinfbar();
+  void EmitWaitfbar();
+  void EmitArrivefbar();
+  void EmitLeavefbar();
+  void EmitReleasefbar();
+  void EmitReleasefbarInFirstWI();
+  void EmitLdf(TypedReg dest);
+
+  void Name(std::ostream& out) const override;
+
+  void ModuleVariables() override;
+  void FunctionFormalOutputArguments() override;
+  void FunctionFormalInputArguments() override;
+  void FunctionVariables() override;
+  void KernelVariables() override;
+};
+
+
 class EAddressSpec : public Emittable {
 protected:
   VariableSpec varSpec;
@@ -338,6 +373,7 @@ public:
   Variable NewVariable(const std::string& id, Brig::BrigSegment segment, Brig::BrigTypeX type, Location location = AUTO, Brig::BrigAlignment align = Brig::BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   Variable NewVariable(const std::string& id, VariableSpec varSpec);
   Variable NewVariable(const std::string& id, VariableSpec varSpec, bool output);
+  FBarrier NewFBarrier(const std::string& id, Location location = Location::KERNEL, bool output = false);
   Buffer NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count);
   UserModeQueue NewQueue(const std::string& id, UserModeQueueType type);
   Kernel NewKernel(const std::string& id);
@@ -673,6 +709,7 @@ public:
   Variable NewVariable(const std::string& id, Brig::BrigSegment segment, Brig::BrigTypeX type, Location location = AUTO, Brig::BrigAlignment align = Brig::BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   Variable NewVariable(const std::string& id, VariableSpec varSpec);
   Variable NewVariable(const std::string& id, VariableSpec varSpec, bool output);
+  FBarrier NewFBarrier(const std::string& id, Location location = Location::KERNEL, bool output = false);
   Buffer NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count);
   UserModeQueue NewQueue(const std::string& id, UserModeQueueType type);
   Signal NewSignal(const std::string& id, uint64_t initialValue);

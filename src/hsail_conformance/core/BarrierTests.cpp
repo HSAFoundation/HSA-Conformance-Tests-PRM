@@ -279,10 +279,360 @@ public:
   }
 };
 
+class FBarrierExampleTest: public Test {
+private:
+  FBarrier fb;
+  
+protected:
+  static const uint32_t VALUE1 = 123;
+  static const uint32_t VALUE2 = 456;
+  static const uint32_t VALUE3 = 789;
+  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+
+  FBarrier Fb() const { return fb; }
+
+public:
+  FBarrierExampleTest(Grid geometry) : Test(Location::KERNEL, geometry) {}
+
+  void Init() override {
+    Test::Init();
+    fb = kernel->NewFBarrier("fb");
+  }
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+
+  BrigTypeX ResultType() const override { return VALUE_TYPE; }
+
+  void ExpectedResults(Values* result) const override {
+    result->reserve(geometry->GridSize());
+    for (uint32_t z = 0; z < geometry->GridSize(2); ++z) {
+      for (uint32_t y = 0; y < geometry->GridSize(1); ++y) {
+        for (uint32_t x = 0; x < geometry->GridSize(0); ++x) {
+          Dim point(x, y, z);
+          auto wiId = geometry->WorkitemCurrentFlatId(point);
+          if (wiId < te->CoreCfg()->Wavesize()) {
+            result->push_back(Value(Brig2ValueType(VALUE_TYPE), VALUE1));
+          } else if (wiId < 2 * te->CoreCfg()->Wavesize()) {
+            result->push_back(Value(Brig2ValueType(VALUE_TYPE), VALUE2));
+          } else {
+            result->push_back(Value(Brig2ValueType(VALUE_TYPE), VALUE3));
+          }
+        }
+      }
+    }
+  }
+};
+
+
+
+class FBarrierFirstExampleTest: public FBarrierExampleTest {
+public:
+  FBarrierFirstExampleTest(Grid geometry) : FBarrierExampleTest(geometry) {}
+
+  void KernelCode() override {
+    auto elseLabel = "@else";
+    auto else2Label = "@else2";
+    auto endifLabel = "@endif";
+
+    // init and join fbarrier
+    Fb()->EmitInitfbarInFirstWI();
+    Fb()->EmitJoinfbar();
+
+    auto wiId = be.EmitCurrentWorkitemFlatId();
+    auto result = be.AddTReg(VALUE_TYPE);
+
+    // offset
+    auto wiAbsId = be.EmitWorkitemFlatAbsId(true);
+    auto offset = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    be.EmitArith(BRIG_OPCODE_MAD, offset, wiAbsId, be.Immed(offset->Type(), getBrigTypeNumBytes(VALUE_TYPE)), output->Address());
+
+    // if wiId < WAVESIZE
+    auto cmp = be.AddCTReg();
+    be.EmitCmp(cmp->Reg(), wiId, be.Wavesize(), BRIG_COMPARE_GE);
+    be.EmitCbr(cmp->Reg(), elseLabel);
+    // store VALUE1 in output
+    be.EmitMov(result, be.Immed(result->Type(), VALUE1));
+    be.EmitStore(result, offset);
+    // wait fbar
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    Fb()->EmitWaitfbar();
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    //leavefbar
+    Fb()->EmitLeavefbar();
+    be.EmitBr(endifLabel);
+
+    // else if wiId < 2 * WAVESIZE
+    be.EmitLabel(elseLabel);
+    auto mul = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitArith(BRIG_OPCODE_MUL, mul, be.Wavesize(), be.Immed(mul->Type(), 2));
+    be.EmitCmp(cmp->Reg(), wiId, mul, BRIG_COMPARE_GE);
+    be.EmitCbr(cmp->Reg(), else2Label);
+    // store VALUE2 in output
+    be.EmitMov(result, be.Immed(result->Type(), VALUE2));
+    be.EmitStore(result, offset);
+    //leavefbar
+    Fb()->EmitLeavefbar();
+    be.EmitBr(endifLabel);
+
+    // else
+    be.EmitLabel(else2Label);
+    // store VALUE3 in output
+    be.EmitMov(result, be.Immed(result->Type(), VALUE3));
+    be.EmitStore(result, offset);
+    //leavefbar
+    Fb()->EmitLeavefbar();
+
+    be.EmitLabel(endifLabel);
+    be.EmitBarrier();
+
+    Fb()->EmitReleasefbarInFirstWI();
+  }
+};
+
+
+class FBarrierSecondExampleTest: public FBarrierExampleTest {
+private:
+  FBarrier fb1;
+
+  FBarrier Fb1() const { return fb1; }
+
+public:
+  FBarrierSecondExampleTest(Grid geometry) : FBarrierExampleTest(geometry) {}
+
+  void Init() override {
+    FBarrierExampleTest::Init();
+    fb1 = kernel->NewFBarrier("fb1");
+  }
+
+  void KernelCode() override {
+    auto elseLabel = "@else";
+    auto else2Label = "@else2";
+    auto endifLabel = "@endif";
+
+    // init and join fbarrier
+    Fb()->EmitInitfbarInFirstWI();
+    Fb1()->EmitInitfbarInFirstWI();
+    Fb()->EmitJoinfbar();
+    be.EmitBarrier();
+
+    auto wiId = be.EmitCurrentWorkitemFlatId();
+    auto result = be.AddTReg(VALUE_TYPE);
+
+    // offset
+    auto wiAbsId = be.EmitWorkitemFlatAbsId(true);
+    auto offset = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    be.EmitArith(BRIG_OPCODE_MAD, offset, wiAbsId, be.Immed(offset->Type(), getBrigTypeNumBytes(VALUE_TYPE)), output->Address());
+
+    // if wiId < WAVESIZE
+    auto cmp = be.AddCTReg();
+    be.EmitCmp(cmp->Reg(), wiId, be.Wavesize(), BRIG_COMPARE_GE);
+    be.EmitCbr(cmp->Reg(), elseLabel);
+    // join to fb1 and wait on fb0
+    Fb1()->EmitJoinfbar();
+    Fb()->EmitWaitfbar();
+    // store VALUE1 in output
+    be.EmitMov(result, be.Immed(result->Type(), VALUE1));
+    be.EmitStore(result, offset);
+    // wait fb1
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    Fb1()->EmitWaitfbar();
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    //leave fb1
+    Fb1()->EmitLeavefbar();
+    be.EmitBr(endifLabel);
+
+    // else if wiId < 2 * WAVESIZE
+    be.EmitLabel(elseLabel);
+    auto mul = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitArith(BRIG_OPCODE_MUL, mul, be.Wavesize(), be.Immed(mul->Type(), 2));
+    be.EmitCmp(cmp->Reg(), wiId, mul, BRIG_COMPARE_GE);
+    be.EmitCbr(cmp->Reg(), else2Label);
+    // store VALUE2 in output
+    be.EmitMov(result, be.Immed(result->Type(), VALUE2));
+    be.EmitStore(result, offset);
+    //wait fb0
+    Fb()->EmitWaitfbar();
+    be.EmitBr(endifLabel);
+
+    // else
+    be.EmitLabel(else2Label);
+    // store VALUE3 in output
+    be.EmitMov(result, be.Immed(result->Type(), VALUE3));
+    be.EmitStore(result, offset);
+    //wait fb0
+    Fb()->EmitWaitfbar();
+
+    // leave fb0
+    be.EmitLabel(endifLabel);
+    Fb()->EmitLeavefbar();
+    be.EmitBarrier();
+
+    Fb()->EmitReleasefbarInFirstWI();
+    Fb1()->EmitReleasefbarInFirstWI();
+  }
+};
+
+
+class FBarrierThirdExampleTest: public Test {
+private:
+  FBarrier pfb;
+  FBarrier cfb;
+  Variable buffer;
+
+  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t DATA_ITEM_COUNT = 8;
+
+public:
+  FBarrierThirdExampleTest(Grid geometry): Test(Location::KERNEL, geometry) {}
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+
+  bool IsValid() const override {
+    uint32_t wavesize = 64;
+    return Test::IsValid() 
+        && !geometry->isPartial() // no partial work-groups
+        && (geometry->WorkgroupSize() % (2 * wavesize)) == 0; // group size is multiple of WAVESIZE and there are even number of waves in work-group
+  }
+
+  void Init() override {
+    Test::Init();
+    pfb = kernel->NewFBarrier("produced_fb");
+    cfb = kernel->NewFBarrier("consumed_fb");
+    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, VALUE_TYPE, Location::KERNEL, BRIG_ALIGNMENT_NONE, geometry->WorkgroupSize() / 2);
+  }
+
+  BrigTypeX ResultType() const override { return VALUE_TYPE; }
+  uint64_t ResultDim() const override { return DATA_ITEM_COUNT; }
+
+  void ExpectedResults(Values* result) const override {
+    result->reserve(OutputBufferSize());
+    for (uint32_t i = 0; i < DATA_ITEM_COUNT; ++i) {
+      for (uint32_t j = 0; j < geometry->GridSize(); ++j) {
+        result->push_back(Value(Brig2ValueType(VALUE_TYPE), i));
+      }
+    }
+  }
+
+  void KernelCode() override {
+    auto producerLabel = "@producer";
+    auto endLabel = "@end";
+
+    // init and join fbarrier
+    pfb->EmitInitfbarInFirstWI();
+    cfb->EmitInitfbarInFirstWI();
+    pfb->EmitJoinfbar();
+    cfb->EmitJoinfbar();
+    be.EmitBarrier();
+
+    // is work-item - producer
+    auto wiId = be.EmitWorkitemFlatId();
+    auto waveId = be.AddTReg(wiId->Type());
+    be.EmitArith(BRIG_OPCODE_DIV, waveId, wiId, be.Wavesize());
+    auto arith = be.AddTReg(wiId->Type());
+    be.EmitArith(BRIG_OPCODE_AND, arith, waveId, be.Immed(arith->Type(), 1));
+    auto isProducer = be.AddCTReg();
+    be.EmitCmp(isProducer->Reg(), arith, be.Immed(arith->Type(), 1), BRIG_COMPARE_EQ);
+
+    // global offset
+    auto wiAbsId = be.EmitWorkitemFlatAbsId(true);
+    auto globalOffset = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    be.EmitArith(BRIG_OPCODE_MAD, globalOffset, wiAbsId, be.Immed(globalOffset->Type(), getBrigTypeNumBytes(VALUE_TYPE)), output->Address());
+    output->Address();
+    
+    // group offset
+    be.EmitArith(BRIG_OPCODE_DIV, arith, waveId, be.Immed(arith->Type(), 2));
+    auto laneId = be.AddTReg(waveId->Type());
+    be.EmitLaneid(laneId);
+    be.EmitArith(BRIG_OPCODE_MAD, arith, arith, be.Wavesize(), laneId);
+    auto groupOffset = be.AddAReg(BRIG_SEGMENT_GROUP);
+    auto bufferAddress = be.AddAReg(buffer->Segment());
+    be.EmitLda(bufferAddress, be.Address(buffer->Variable()));
+    be.EmitArith(BRIG_OPCODE_MAD, groupOffset, arith, be.Immed(groupOffset->Type(), getBrigTypeNumBytes(VALUE_TYPE)), bufferAddress);
+
+    // counter
+    auto counter = be.AddTReg(VALUE_TYPE);
+    be.EmitMov(counter, be.Immed(counter->Type(), 0));
+    auto cmp = be.AddCTReg();
+    
+
+    // consumer
+    be.EmitCbr(isProducer->Reg(), producerLabel);
+    // initial arrive to consumer fbarrier
+    cfb->EmitArrivefbar();
+    auto consumerLoopLabel = "@consumer_loop";
+    be.EmitLabel(consumerLoopLabel);
+    // wait on producer fbarrrier
+    pfb->EmitWaitfbar();
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    // read produced data
+    auto data = be.AddTReg(VALUE_TYPE);
+    be.EmitLoad(data, groupOffset);
+    // if counter != DATA_ITEM_COUNT - 1 then signal producers
+    be.EmitCmp(cmp->Reg(), counter, be.Immed(counter->Type(), DATA_ITEM_COUNT - 1), BRIG_COMPARE_EQ);
+    auto signalProducerLabel = "@signal_producer";
+    be.EmitCbr(cmp->Reg(), signalProducerLabel);
+    cfb->EmitArrivefbar();
+    be.EmitLabel(signalProducerLabel);
+    // consumer store data in output
+    auto outputAddr = be.AddAReg(globalOffset->Segment());
+    auto cvt = be.AddTReg(outputAddr->Type());
+    be.EmitCvtOrMov(cvt, counter);
+    auto counterShift = be.Immed(cvt->Type(), geometry->GridSize() * getBrigTypeNumBytes(VALUE_TYPE));
+    be.EmitArith(BRIG_OPCODE_MAD, outputAddr, cvt, counterShift, globalOffset);
+    be.EmitStore(data, outputAddr);
+    // loop
+    be.EmitArith(BRIG_OPCODE_ADD, counter, counter, be.Immed(counter->Type(), 1));
+    be.EmitCmp(cmp->Reg(), counter, be.Immed(counter->Type(), DATA_ITEM_COUNT), BRIG_COMPARE_LT);
+    be.EmitCbr(cmp->Reg(), consumerLoopLabel);
+    be.EmitBr(endLabel);
+
+    
+    // producer
+    be.EmitLabel(producerLabel);
+    auto producerLoopLabel = "@producer_loop";
+    be.EmitLabel(producerLoopLabel);
+    // wait on consumer fbarrrier
+    cfb->EmitWaitfbar();
+    // fill group buffer with data and signal consumers
+    be.EmitStore(counter, groupOffset);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    pfb->EmitArrivefbar();
+    // producer store data in output
+    be.EmitCvtOrMov(cvt, counter);
+    be.EmitArith(BRIG_OPCODE_MAD, outputAddr, cvt, counterShift, globalOffset);
+    be.EmitStore(counter, outputAddr);
+    // loop
+    be.EmitArith(BRIG_OPCODE_ADD, counter, counter, be.Immed(counter->Type(), 1));
+    be.EmitCmp(cmp->Reg(), counter, be.Immed(counter->Type(), DATA_ITEM_COUNT), BRIG_COMPARE_LT);
+    be.EmitCbr(cmp->Reg(), producerLoopLabel);
+    be.EmitLabel(endLabel);
+
+
+    // leave fbarriers
+    pfb->EmitLeavefbar();
+    cfb->EmitLeavefbar();
+    be.EmitBarrier();
+    pfb->EmitReleasefbarInFirstWI();
+    cfb->EmitReleasefbarInFirstWI();
+  }
+};
+
+
 void BarrierTests::Iterate(hexl::TestSpecIterator& it) {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<BarrierTest>(ap, it, "barrier/atomics", cc->Grids().SeveralWavesInGroupSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), Bools::All(), Bools::All());
+  
+  TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().WorkGroupsSize256());
+  TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().SeveralWavesInGroupSet());
+  TestForEach<FBarrierSecondExampleTest>(ap, it, "fbarrier/example2", cc->Grids().WorkGroupsSize256());
+  TestForEach<FBarrierSecondExampleTest>(ap, it, "fbarrier/example2", cc->Grids().SeveralWavesInGroupSet());
+  TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().WorkGroupsSize256());
+  TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().SeveralWavesInGroupSet());
 }
 
 }
