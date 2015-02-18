@@ -321,7 +321,7 @@ namespace hexl {
       private:
         hexl::ImageGeometry defaultImageGeometry;
         hexl::Sequence<hexl::ImageGeometry* > *defaultImageGeometrySet;
-        hexl::Sequence<Brig::BrigImageGeometry>* imageGeometryProps, *imageDepthGeometryProp, *imageRdGeometryProp;
+        hexl::Sequence<Brig::BrigImageGeometry>* imageGeometryProps, *imageRdGeometryProp, *imageDepthGeometryProp;
         hexl::Sequence<Brig::BrigImageChannelOrder>* imageChannelOrders;
         hexl::Sequence<Brig::BrigImageChannelType>* imageChannelTypes;
         hexl::Sequence<Brig::BrigImageAccess>* imageAccessTypes;

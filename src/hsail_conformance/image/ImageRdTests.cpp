@@ -223,6 +223,8 @@ public:
                 return Value(MV_UINT32, 0xBB010204);
               case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0xBA810204);
+              default:
+                break;
               }
               return Value(MV_UINT32, 0xBB810204);
             }
@@ -244,6 +246,8 @@ public:
                 return Value(MV_UINT32, 0xB7000100);
               case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0xB7000100);
+              default:
+                break;
               }
               return Value(MV_UINT32, 0xBB810204);
             }
@@ -264,14 +268,15 @@ public:
                 return Value(MV_UINT32, 0x3E800000);
               case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0x3E000000);
+              default:
+                break;
               }
               return Value(MV_UINT32, 0x3E800000);
             }
         }
         return Value(MV_UINT32, 0x3F800000);
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
-       if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
+       if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
             {
               switch (imageGeometryProp)
@@ -284,6 +289,8 @@ public:
                 return Value(MV_UINT32, 0x3E800000);
               case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0x3E000080);
+              default:
+                break;
               }
               return Value(MV_UINT32, 0x3F000000);
             }
@@ -292,6 +299,8 @@ public:
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
+      default:
+        break;
     }
     assert(0);
     return  Value(MV_UINT32, 0xFF);
@@ -306,6 +315,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -339,6 +350,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -373,6 +386,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -406,6 +421,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -439,6 +456,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -472,6 +491,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -538,6 +559,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -571,6 +594,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -711,6 +736,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -745,6 +772,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -778,6 +807,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
@@ -811,6 +842,8 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
+    default:
+      break;
     }
 
     return ImageRdTestBase::IsValid();
