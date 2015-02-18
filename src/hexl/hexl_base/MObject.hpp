@@ -148,6 +148,14 @@ enum SpecialValues {
   RV_QUEUEPTR = 102,
 };
 
+const char *ImageGeometryString(MObjectImageGeometry mem);
+const char *ImageChannelTypeString(MObjectImageChannelType mem);
+const char *ImageChannelOrderString(MObjectImageChannelOrder mem);
+const char *ImageAccessString(MObjectImageAccess mem);
+const char *SamplerFilterString(MObjectSamplerFilter mem);
+const char *SamplerCoordsString(MObjectSamplerCoords mem);
+const char *SamplerAddressingString(MObjectSamplerAddressing mem);
+
 class MObject {
 public:
   MObject(unsigned id_, MObjectType type_, const std::string& name_) : id(id_), type(type_), name(name_) { }

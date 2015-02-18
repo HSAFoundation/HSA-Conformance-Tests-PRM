@@ -92,11 +92,12 @@ public:
     be.EmitMov(result, be.Immed(ResultType(), 0));
     SRef s_label_exit = "@exit";
     auto reg_c = be.AddTReg(BRIG_TYPE_B1);
-    // x > nx
-    be.EmitCmp(reg_c->Reg(), x, nxReg, BRIG_COMPARE_GT);
-    be.EmitCbr(reg_c, s_label_exit);
-    // y > ny
-    be.EmitCmp(reg_c->Reg(), y, nyReg, BRIG_COMPARE_GT);
+    auto reg_mul1 = be.AddTReg(BRIG_TYPE_U32);
+    auto reg_mul2 = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitArith(BRIG_OPCODE_MUL, reg_mul1, x->Reg(), y->Reg());
+    be.EmitArith(BRIG_OPCODE_MUL, reg_mul2, nxReg->Reg(), nyReg->Reg());
+    // x*y > nx*ny
+    be.EmitCmp(reg_c->Reg(), reg_mul1, reg_mul2, BRIG_COMPARE_GT);
     be.EmitCbr(reg_c, s_label_exit);
    // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
