@@ -99,8 +99,9 @@ namespace hexl {
         hexl::VectorSequence<uint32_t> dimensions;
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
-        hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32, 
-          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup;
+        hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
+          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup, *atomic;
+
       public:
         GridsConfig(CoreConfig* cc);
 
@@ -122,7 +123,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* WorkGroupsSize256() { return workgroup256; }
         hexl::Sequence<hexl::Grid>* LimitGridSet() { return limitGrids; }
         hexl::Sequence<hexl::Grid>* SingleGroupSet() { return singleGroup; }
-
+        hexl::Sequence<hexl::Grid>* AtomicSet() { return atomic; }
       };
 
       class SegmentsConfig : public ConfigBase {
@@ -150,7 +151,7 @@ namespace hexl {
 
       class TypesConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigTypeX> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128;
+        hexl::Sequence<Brig::BrigTypeX> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128, *atomic;
         hexl::Sequence<size_t>* registerSizes;
 
       public:
@@ -159,6 +160,7 @@ namespace hexl {
         hexl::Sequence<Brig::BrigTypeX>* Compound() { return compound; }
         hexl::Sequence<Brig::BrigTypeX>* Packed() { return packed; }
         hexl::Sequence<Brig::BrigTypeX>* Packed128Bit() { return packed128; }
+        hexl::Sequence<Brig::BrigTypeX>* Atomic() { return atomic; }
         const hexl::Sequence<Brig::BrigTypeX>* CompoundIntegral() { return compoundIntegral; }
         const hexl::Sequence<Brig::BrigTypeX>* CompoundFloating() { return compoundFloating; }
         hexl::Sequence<size_t>* RegisterSizes() { return registerSizes; }
@@ -315,41 +317,6 @@ namespace hexl {
         hexl::Sequence<Condition>* SwitchConditions() { return switchConditions; }
       };
 
-      class ImageConfig : public ConfigBase {
-      private:
-        hexl::ImageGeometry defaultImageGeometry;
-        hexl::Sequence<hexl::ImageGeometry* > *defaultImageGeometrySet;
-        hexl::Sequence<Brig::BrigImageGeometry>* imageGeometryProps, *imageDepthGeometryProp, *imageRdGeometryProp;
-        hexl::Sequence<Brig::BrigImageChannelOrder>* imageChannelOrders;
-        hexl::Sequence<Brig::BrigImageChannelType>* imageChannelTypes;
-        hexl::Sequence<Brig::BrigImageAccess>* imageAccessTypes;
-
-      public:
-        ImageConfig(CoreConfig* cc);
-        
-        hexl::ImageGeometry* DefaultImageGeometry() { return &defaultImageGeometry; }
-        hexl::Sequence<hexl::ImageGeometry* >* DefaultImageGeometrySet() { return defaultImageGeometrySet; }
-        hexl::Sequence<Brig::BrigImageGeometry>* ImageGeometryProps() { return imageGeometryProps; }
-        hexl::Sequence<Brig::BrigImageGeometry>* ImageRdGeometryProp() { return imageRdGeometryProp; }
-        hexl::Sequence<Brig::BrigImageGeometry>* ImageDepthGeometryProp() { return imageDepthGeometryProp; }
-        hexl::Sequence<Brig::BrigImageChannelOrder>* ImageChannelOrders() { return imageChannelOrders; }
-        hexl::Sequence<Brig::BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
-        hexl::Sequence<Brig::BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
-      };
-
-      class SamplerConfig : public ConfigBase {
-      private:
-        hexl::Sequence<Brig::BrigSamplerCoordNormalization>* samplerCoords;
-        hexl::Sequence<Brig::BrigSamplerFilter>* samplerFilters;
-        hexl::Sequence<Brig::BrigSamplerAddressing>* samplerAddressings;
-      public:
-        SamplerConfig(CoreConfig* cc);
-
-        hexl::Sequence<Brig::BrigSamplerCoordNormalization>* SamplerCoords() { return samplerCoords; }
-        hexl::Sequence<Brig::BrigSamplerFilter>* SamplerFilters() { return samplerFilters; }
-        hexl::Sequence<Brig::BrigSamplerAddressing>* SamplerAddressings() { return samplerAddressings; }
-      };
-
       GridsConfig& Grids() { return grids; }
       SegmentsConfig& Segments() { return segments; }
       TypesConfig& Types() { return types; }
@@ -358,8 +325,6 @@ namespace hexl {
       MemoryConfig& Memory() { return memory; }
       ControlDirectivesConfig& Directives() { return directives; }
       ControlFlowConfig& ControlFlow() { return controlFlow; }
-      ImageConfig& Images() { return images; }
-      SamplerConfig& Sampler() { return samplers; }
 
     private:
       GridsConfig grids;
@@ -370,8 +335,6 @@ namespace hexl {
       MemoryConfig memory;
       ControlDirectivesConfig directives;
       ControlFlowConfig controlFlow;
-      ImageConfig images;
-      SamplerConfig samplers;
     };
 
   }
