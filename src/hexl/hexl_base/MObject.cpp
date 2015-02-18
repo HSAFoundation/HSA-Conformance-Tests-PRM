@@ -239,7 +239,7 @@ const char *ImageChannelTypeString(MObjectImageChannelType mem)
   case IMG_UNORM_INT24: return "unorm_int24";
   case IMG_UNORM_SHORT_555: return "unorm_short_555";
   case IMG_UNORM_SHORT_565: return "unorm_short_565";
-  case IMG_UNORM_SHORT_101010: return "unorm_short_101010";
+  case IMG_UNORM_INT_101010: return "unorm_int_101010";
   case IMG_SIGNED_INT8: return "signed_int8";
   case IMG_SIGNED_INT16: return "signed_int16";
   case IMG_SIGNED_INT32: return "signed_int32";

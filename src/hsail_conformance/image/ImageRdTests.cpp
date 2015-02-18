@@ -39,7 +39,6 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
-  BrigImageAccess imageAccess;
   BrigSamplerCoordNormalization samplerCoord;
   BrigSamplerFilter samplerFilter;
   BrigSamplerAddressing samplerAddressing;
@@ -47,10 +46,9 @@ private:
 public:
   ImageRdTestBase(Location codeLocation, 
       Grid geometry, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): 
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): Test(codeLocation, geometry), 
       imageGeometry(imageGeometry_), imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_), 
-      samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_), 
-      Test(codeLocation, geometry)
+      samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_)
   {
   }
   
@@ -75,81 +73,12 @@ public:
     be.EmitExtensionDirective("IMAGE");
   }
 
-  //bool IsValid() const {
-  //  return (codeLocation != FUNCTION);
-  //}
+  bool IsValid() const {
+    return (codeLocation != FUNCTION);
+  }
 
   BrigTypeX ResultType() const {
     return BRIG_TYPE_U32; 
-  }
-
-  BrigTypeX ChannelComponentType() const {
-    switch (imageChannelType)
-    {
-    case BRIG_CHANNEL_TYPE_SNORM_INT8:
-    case BRIG_CHANNEL_TYPE_SNORM_INT16:
-    case BRIG_CHANNEL_TYPE_UNORM_INT8 :
-    case BRIG_CHANNEL_TYPE_UNORM_INT16:
-    case BRIG_CHANNEL_TYPE_UNORM_INT24 :
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    case BRIG_CHANNEL_TYPE_FLOAT:
-      return BRIG_TYPE_F32;
-    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-      return BRIG_TYPE_U32;
-    }
-    
-    assert(0);
-    return BRIG_TYPE_U32;
-  }
-
-  
-  int ChannelComponentLen() const {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return 1;
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-        return 2;
-      case BRIG_CHANNEL_TYPE_UNORM_INT24 :
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_FLOAT:
-        return 4;
-    }
-    assert(0);
-    return 1;
-  }
-
-  Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
-    return Value(MV_UINT32, 0xFF);
   }
 
   size_t OutputBufferSize() const override {
@@ -187,13 +116,13 @@ public:
     auto coord = be.AddTReg(BRIG_TYPE_F32, 1);
     switch (imageGeometryProp)
     {
-    case IMG_1D:
+    case BRIG_GEOMETRY_1D:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       be.EmitMov(coord, be.Immed(BRIG_TYPE_F32, 0));
       imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, coord);
       break;
-    case IMG_1DA:
-    case IMG_2D:
+    case BRIG_GEOMETRY_1DA:
+    case BRIG_GEOMETRY_2D:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       coords = be.AddVec(BRIG_TYPE_F32, 2);
       for (unsigned i = 0; i < coords.elementCount(); i++)
@@ -202,7 +131,7 @@ public:
       }
       imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, coords, BRIG_TYPE_F32);
       break;
-    case IMG_2DDEPTH:
+    case BRIG_GEOMETRY_2DDEPTH:
       coords = be.AddVec(BRIG_TYPE_F32, 2);
       for (unsigned i = 0; i < coords.elementCount(); i++)
       {
@@ -210,8 +139,8 @@ public:
       }
       imgobj->EmitImageRd(reg_dest, imageaddr, sampleraddr, coords, BRIG_TYPE_F32);
       break;
-    case IMG_3D:
-    case IMG_2DA:
+    case BRIG_GEOMETRY_3D:
+    case BRIG_GEOMETRY_2DA:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       coords = be.AddVec(BRIG_TYPE_F32, 3);
       for (unsigned i = 0; i < coords.elementCount(); i++)
@@ -220,7 +149,7 @@ public:
       }
       imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, coords, BRIG_TYPE_F32);
       break;
-    case IMG_2DADEPTH:
+    case BRIG_GEOMETRY_2DADEPTH:
       coords = be.AddVec(BRIG_TYPE_F32, 3);
       for (unsigned i = 0; i < coords.elementCount(); i++)
       {
@@ -232,11 +161,11 @@ public:
       assert(0);
     }
 
-    if ((imageGeometryProp == IMG_2DDEPTH) || (imageGeometryProp == IMG_2DADEPTH)) {
+    if ((imageGeometryProp == BRIG_GEOMETRY_2DDEPTH) || (imageGeometryProp == BRIG_GEOMETRY_2DADEPTH)) {
       be.EmitMov(result, reg_dest);
     }
     else {
-      if (imageChannelOrder == IMG_ORDER_A)
+      if (imageChannelOrder == BRIG_CHANNEL_ORDER_A)
       {
         be.EmitMov(result, regs_dest.elements(3));
       }
@@ -261,8 +190,9 @@ private:
 public:
   ImageRdTestA(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageGeometryProp(imageGeometryProp_), imageChannelType(imageChannelType_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): 
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_A, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_), 
+      imageGeometryProp(imageGeometryProp_), imageChannelType(imageChannelType_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_)
   {
   }
 
@@ -285,13 +215,13 @@ public:
             {
               switch (imageGeometryProp)
               {
-              case IMG_1D:
-              case IMG_1DA:
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
                 return Value(MV_UINT32, 0xBB810204);
-              case IMG_2D:
-              case IMG_2DA:
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
                 return Value(MV_UINT32, 0xBB010204);
-              case IMG_3D:
+              case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0xBA810204);
               }
               return Value(MV_UINT32, 0xBB810204);
@@ -306,13 +236,13 @@ public:
             {
               switch (imageGeometryProp)
               {
-              case IMG_1D:
-              case IMG_1DA:
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
                 return Value(MV_UINT32, 0xB7800100);
-              case IMG_2D:
-              case IMG_2DA:
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
                 return Value(MV_UINT32, 0xB7000100);
-              case IMG_3D:
+              case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0xB7000100);
               }
               return Value(MV_UINT32, 0xBB810204);
@@ -326,13 +256,13 @@ public:
             {
               switch (imageGeometryProp)
               {
-              case IMG_1D:
-              case IMG_1DA:
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
                 return Value(MV_UINT32, 0x3F000000);
-              case IMG_2D:
-              case IMG_2DA:
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
                 return Value(MV_UINT32, 0x3E800000);
-              case IMG_3D:
+              case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0x3E000000);
               }
               return Value(MV_UINT32, 0x3E800000);
@@ -346,13 +276,13 @@ public:
             {
               switch (imageGeometryProp)
               {
-              case IMG_1D:
-              case IMG_1DA:
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
                 return Value(MV_UINT32, 0x3F000000);
-              case IMG_2D:
-              case IMG_2DA:
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
                 return Value(MV_UINT32, 0x3E800000);
-              case IMG_3D:
+              case BRIG_GEOMETRY_3D:
                 return Value(MV_UINT32, 0x3E000080);
               }
               return Value(MV_UINT32, 0x3F000000);
@@ -371,14 +301,14 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
     }
 
-    return (codeLocation != FUNCTION);
+    return ImageRdTestBase::IsValid();
   }
 
 };
@@ -390,22 +320,13 @@ private:
 public:
   ImageRdTestR(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_R, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -413,14 +334,14 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
     }
 
-    return (codeLocation != FUNCTION);
+    return ImageRdTestBase::IsValid();
   }
 
 };
@@ -433,22 +354,13 @@ private:
 public:
   ImageRdTestRX(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RX, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -456,13 +368,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -477,22 +387,13 @@ private:
 public:
   ImageRdTestRG(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RG, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -500,13 +401,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -521,22 +420,13 @@ private:
 public:
   ImageRdTestRGX(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGX, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -544,13 +434,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -565,22 +453,13 @@ private:
 public:
   ImageRdTestRA(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RA, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -588,13 +467,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -609,22 +486,13 @@ private:
 public:
   ImageRdTestRGB(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGB, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -632,10 +500,10 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+      break;
     default:
       return false;
     }
@@ -651,22 +519,13 @@ private:
 public:
   ImageRdTestRGBX(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGBX, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -674,13 +533,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -695,22 +552,13 @@ private:
 public:
   ImageRdTestRGBA(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGBA, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -718,13 +566,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -739,22 +585,13 @@ private:
 public:
   ImageRdTestBGRA(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_BGRA, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -762,11 +599,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_INT8:
-    case IMG_SNORM_INT8:
-    case IMG_SIGNED_INT8:
-    case IMG_UNSIGNED_INT8:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      break;
     default:
       return false;
     }
@@ -783,22 +620,13 @@ private:
 public:
   ImageRdTestARGB(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_ARGB, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -806,11 +634,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_INT8:
-    case IMG_SNORM_INT8:
-    case IMG_SIGNED_INT8:
-    case IMG_UNSIGNED_INT8:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      break;
     default:
       return false;
     }
@@ -828,22 +656,13 @@ private:
 public:
   ImageRdTestABGR(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_ABGR, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -851,11 +670,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_INT8:
-    case IMG_SNORM_INT8:
-    case IMG_SIGNED_INT8:
-    case IMG_UNSIGNED_INT8:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      break;
     default:
       return false;
     }
@@ -873,22 +692,13 @@ private:
 public:
   ImageRdTestSRGB(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGB, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -896,13 +706,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -918,22 +726,13 @@ private:
 public:
   ImageRdTestSRGBX(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGBX, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -941,13 +740,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -962,22 +759,13 @@ private:
 public:
   ImageRdTestSRGBA(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGBA, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -985,13 +773,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -1006,22 +792,13 @@ private:
 public:
   ImageRdTestSBGRA(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SBGRA, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -1029,13 +806,11 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_SHORT_555:
-    case IMG_UNORM_SHORT_565:
-    case IMG_UNORM_SHORT_101010:
-    case IMG_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
       return false;
-    default:
-      return true;
     }
 
     return ImageRdTestBase::IsValid();
@@ -1051,22 +826,13 @@ private:
 public:
   ImageRdTestINTENSITY(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_INTENSITY, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -1074,13 +840,13 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_INT8:
-    case IMG_UNORM_INT16:
-    case IMG_SNORM_INT8:
-    case IMG_SNORM_INT16:
-    case IMG_HALF_FLOAT:
-    case IMG_FLOAT:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      break;
     default:
       return false;
     }
@@ -1097,22 +863,13 @@ private:
 public:
   ImageRdTestLUMINANCE(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_LUMINANCE, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -1120,13 +877,13 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_INT8:
-    case IMG_UNORM_INT16:
-    case IMG_SNORM_INT8:
-    case IMG_SNORM_INT16:
-    case IMG_HALF_FLOAT:
-    case IMG_FLOAT:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      break;
     default:
       return false;
     }
@@ -1143,22 +900,13 @@ private:
 public:
   ImageRdTestDEPTH(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_DEPTH, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -1166,10 +914,10 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_INT16:
-    case IMG_UNORM_INT24:
-    case IMG_FLOAT:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      break;
     default:
       return false;
     }
@@ -1186,22 +934,13 @@ private:
 public:
   ImageRdTestDEPTHSTENCIL(Location codeLocation_, 
       Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_): imageChannelType(imageChannelType_),
-      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BrigImageChannelOrder(IMG_ORDER_A), imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_)
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_):
+      ImageRdTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_DEPTH_STENCIL, imageChannelType_, samplerCoord_, samplerFilter_, samplerAddressing_),
+      imageChannelType(imageChannelType_)
   {
   }
 
   Value ExpectedResult() const {
-    switch (ChannelComponentLen())
-    {
-    case 1:
-      return Value(MV_UINT32, 0xFF);
-    case 2:
-      return Value(MV_UINT32, 0xFFFF);
-    case 4:
-      return Value(MV_UINT32, 0xFFFFFFFF);
-    }
-    assert(0);
     return Value(MV_UINT32, 0xFF);
   }
 
@@ -1209,15 +948,15 @@ public:
   {
     switch (imageChannelType)
     {
-    case IMG_UNORM_INT16:
-    case IMG_UNORM_INT24:
-    case IMG_FLOAT:
-      return true;
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      break;
     default:
       return false;
     }
 
-    return (codeLocation != FUNCTION);
+    return ImageRdTestBase::IsValid();
   }
 
 };
