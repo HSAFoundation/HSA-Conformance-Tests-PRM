@@ -145,6 +145,7 @@ public:
   //void EmitStore(TypedReg src, HSAIL_ASM::DirectiveVariable v, int64_t offset = 0, bool useVectorInstructions = false);
   void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false, uint8_t equiv = 0);
   void EmitStore(Brig::BrigSegment8_t segment, Brig::BrigTypeX type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
+  void EmitStore(Brig::BrigTypeX type, HSAIL_ASM::Operand src, PointerReg addr, uint8_t equiv = 0);
   void EmitStores(TypedRegList src, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   // Buffer memory operations.
@@ -215,6 +216,14 @@ public:
   void EmitLeavefbar(HSAIL_ASM::DirectiveFbarrier fb);
   void EmitReleasefbar(HSAIL_ASM::DirectiveFbarrier fb);
   void EmitReleasefbarInFirstWI(HSAIL_ASM::DirectiveFbarrier fb);
+  void EmitInitfbar(TypedReg fb);
+  void EmitInitfbarInFirstWI(TypedReg fb);
+  void EmitJoinfbar(TypedReg fb);
+  void EmitWaitfbar(TypedReg fb);
+  void EmitArrivefbar(TypedReg fb);
+  void EmitLeavefbar(TypedReg fb);
+  void EmitReleasefbar(TypedReg fb);
+  void EmitReleasefbarInFirstWI(TypedReg fb);
   void EmitLdf(TypedReg dest, HSAIL_ASM::DirectiveFbarrier fb);
 
   // Atomics

@@ -466,6 +466,11 @@ void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigTypeX type, Operand src,
   mem.operands() = Operands(src, addr) ;
 }
 
+void BrigEmitter::EmitStore(BrigTypeX type, Operand src, PointerReg addr, uint8_t equiv) 
+{
+  EmitStore(addr->Segment(), type, src, Address(addr), equiv);
+}
+
 void BrigEmitter::EmitStores(TypedRegList srcs, ItemList vars, bool useVectorInstructions)
 {
   assert(srcs->Count() == vars.size());
@@ -877,7 +882,7 @@ void BrigEmitter::EmitInitfbar(DirectiveFbarrier fb)
   inst.operands() = Operands(brigantine.createCodeRef(fb));
 }
 
-void BrigEmitter::EmitInitfbarInFirstWI(HSAIL_ASM::DirectiveFbarrier fb) 
+void BrigEmitter::EmitInitfbarInFirstWI(DirectiveFbarrier fb) 
 {
   std::string label = AddLabel();
   TypedReg wiId = EmitWorkitemFlatId();
@@ -923,8 +928,81 @@ void BrigEmitter::EmitReleasefbar(DirectiveFbarrier fb)
   inst.operands() = Operands(brigantine.createCodeRef(fb));
 }
 
-void BrigEmitter::EmitReleasefbarInFirstWI(HSAIL_ASM::DirectiveFbarrier fb) 
+void BrigEmitter::EmitReleasefbarInFirstWI(DirectiveFbarrier fb) 
 {
+  std::string label = AddLabel();
+  TypedReg wiId = EmitWorkitemFlatId();
+  TypedReg cmp = AddCTReg();
+  EmitCmp(cmp->Reg(), wiId, Immed(wiId->Type(), 0), BRIG_COMPARE_NE);
+  EmitCbr(cmp->Reg(), label);
+  EmitReleasefbar(fb);
+  EmitLabel(label);
+  EmitBarrier();
+}
+
+
+void BrigEmitter::EmitInitfbar(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_INITFBAR, BRIG_TYPE_NONE);
+  inst.operands() = Operands(fb->Reg());
+}
+
+void BrigEmitter::EmitInitfbarInFirstWI(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
+  std::string label = AddLabel();
+  TypedReg wiId = EmitWorkitemFlatId();
+  TypedReg cmp = AddCTReg();
+  EmitCmp(cmp->Reg(), wiId, Immed(wiId->Type(), 0), BRIG_COMPARE_NE);
+  EmitCbr(cmp->Reg(), label);
+  EmitInitfbar(fb);
+  EmitLabel(label);
+  EmitBarrier();
+}
+
+void BrigEmitter::EmitJoinfbar(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
+  InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_JOINFBAR, BRIG_TYPE_NONE);
+  inst.width() = BRIG_WIDTH_WAVESIZE;
+  inst.operands() = Operands(fb->Reg());
+}
+
+void BrigEmitter::EmitWaitfbar(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
+  InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_WAITFBAR, BRIG_TYPE_NONE);
+  inst.width() = BRIG_WIDTH_WAVESIZE;
+  inst.operands() = Operands(fb->Reg());
+}
+
+void BrigEmitter::EmitArrivefbar(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
+  InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_ARRIVEFBAR, BRIG_TYPE_NONE);
+  inst.width() = BRIG_WIDTH_WAVESIZE;
+  inst.operands() = Operands(fb->Reg());
+}
+
+void BrigEmitter::EmitLeavefbar(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
+  InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_LEAVEFBAR, BRIG_TYPE_NONE);
+  inst.width() = BRIG_WIDTH_WAVESIZE;
+  inst.operands() = Operands(fb->Reg());
+}
+
+void BrigEmitter::EmitReleasefbar(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_RELEASEFBAR, BRIG_TYPE_NONE);
+  inst.operands() = Operands(fb->Reg());
+}
+
+void BrigEmitter::EmitReleasefbarInFirstWI(TypedReg fb) 
+{
+  assert(fb->Type() == BRIG_TYPE_U32);
   std::string label = AddLabel();
   TypedReg wiId = EmitWorkitemFlatId();
   TypedReg cmp = AddCTReg();
