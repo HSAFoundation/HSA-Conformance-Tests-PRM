@@ -14,21 +14,24 @@ add_definitions( -DENABLE_HEXL_HSAILTESTGEN=1 )
 #set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 #set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-if(UNIX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++0x -pthread")
-endif()
-
-set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build/${HSAIL-Tools-Subdir}/libHSAIL/debug)
 
 if(UNIX)
   set(LIB_EXT .a)
+  set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build/${HSAIL-Tools-Subdir}/libHSAIL)
 else()
   set(LIB_EXT .lib)
+  set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build/${HSAIL-Tools-Subdir}/libHSAIL/debug)
 endif()
 
 if(MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
+endif()
+
+if(UNIX)
+  set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${EXTRA_CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${EXTRA_CFLAGS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -pthread -D __STDC_LIMIT_MACROS -D __STDC_CONSTANT_MACROS  -D __STDC_FORMAT_MACROS")
 endif()
 
 include_directories(${HSAIL-Tools-PATH}/libHSAIL/libHSAIL)
