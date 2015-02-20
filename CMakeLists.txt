@@ -2,9 +2,9 @@ cmake_minimum_required (VERSION 2.6)
 
 project (HSA-Conformance-Tests-PRM)
 
-set (HSAIL-Tools-PATH "NOT-DEFINED" CACHE PATH "docstring")
-set (HSA-Runtime-Inc-PATH "NOT_DEFINED" CACHE PATH "docstring")
-set (HSA-Runtime-Ext-PATH "NOT_DEFINED" CACHE PATH "docstring")
+set(HSAIL-Tools-PATH "NOT-DEFINED" CACHE PATH "docstring")
+set(HSA-Runtime-Inc-PATH "NOT_DEFINED" CACHE PATH "docstring")
+set(HSA-Runtime-Ext-Inc-PATH "NOT_DEFINED" CACHE PATH "docstring")
 
 add_definitions( -DENABLE_HEXL_HSARUNTIME=1 )
 add_definitions( -DENABLE_HEXL_HSAILTESTGEN=1 )
@@ -18,11 +18,11 @@ if(UNIX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=gnu++0x -pthread")
 endif()
 
+set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build/${HSAIL-Tools-Subdir}/libHSAIL/debug)
+
 if(UNIX)
-  set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build_linux)
   set(LIB_EXT .a)
 else()
-  set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/build)
   set(LIB_EXT .lib)
 endif()
 
@@ -31,9 +31,10 @@ if(MSVC)
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
 endif()
 
-include_directories(${HSAIL-Tools-PATH}/libHSAIL/libHSAIL ${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/generated)
+include_directories(${HSAIL-Tools-PATH}/libHSAIL/libHSAIL)
+include_directories(${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/generated)
 include_directories(${HSA-Runtime-Inc-PATH})
-include_directories(${HSA-Runtime-Ext-PATH})
+include_directories(${HSA-Runtime-Ext-Inc-PATH})
 
 add_subdirectory(src/libTestGen)
 add_subdirectory(src/hexl)
