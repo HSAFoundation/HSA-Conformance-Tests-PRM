@@ -40,7 +40,9 @@ CoreConfig::CoreConfig(
     queues(this),
     memory(this),
     directives(this),
-    controlFlow(this)
+    controlFlow(this),
+    images(this),
+    samplers(this)
 {
 }
 
@@ -61,7 +63,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     severalwavesingroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     workgroup256(NEWA hexl::VectorSequence<hexl::Grid>()),
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
-    singleGroup(NEWA hexl::VectorSequence<hexl::Grid>())
+    singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
+    atomic(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -116,7 +119,128 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   singleGroup->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
   singleGroup->Add(NEWA GridGeometry(2, 16, 16, 1, 16, 16, 1));
   singleGroup->Add(NEWA GridGeometry(3, 8, 8, 4, 8, 8, 4));
+  atomic->Add(NEWA GridGeometry(1,  cc->Wavesize(),  1,   1,  cc->Wavesize(),  1,   1));
+  atomic->Add(NEWA GridGeometry(1,  256,             1,   1,  cc->Wavesize(),  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              32,  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
+  atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
 }
+
+
+static const BrigImageChannelOrder allChannelOrder[] = {
+    BRIG_CHANNEL_ORDER_A,
+    BRIG_CHANNEL_ORDER_R,
+    BRIG_CHANNEL_ORDER_RX,
+    BRIG_CHANNEL_ORDER_RG,
+    BRIG_CHANNEL_ORDER_RGX,
+    BRIG_CHANNEL_ORDER_RA,
+    BRIG_CHANNEL_ORDER_RGB,
+    BRIG_CHANNEL_ORDER_RGBX,
+    BRIG_CHANNEL_ORDER_RGBA,
+    BRIG_CHANNEL_ORDER_BGRA,
+    BRIG_CHANNEL_ORDER_ARGB,
+    BRIG_CHANNEL_ORDER_ABGR,
+    BRIG_CHANNEL_ORDER_SRGB,
+    BRIG_CHANNEL_ORDER_SRGBX,
+    BRIG_CHANNEL_ORDER_SRGBA,
+    BRIG_CHANNEL_ORDER_SBGRA,
+    BRIG_CHANNEL_ORDER_INTENSITY,
+    BRIG_CHANNEL_ORDER_LUMINANCE,
+    BRIG_CHANNEL_ORDER_DEPTH,
+    BRIG_CHANNEL_ORDER_DEPTH_STENCIL,
+};
+
+static const  BrigImageChannelType allChannelType[] = {
+    BRIG_CHANNEL_TYPE_SNORM_INT8,
+    BRIG_CHANNEL_TYPE_SNORM_INT16,
+    BRIG_CHANNEL_TYPE_UNORM_INT8,
+    BRIG_CHANNEL_TYPE_UNORM_INT16,
+    BRIG_CHANNEL_TYPE_UNORM_INT24,
+    BRIG_CHANNEL_TYPE_UNORM_SHORT_555,
+    BRIG_CHANNEL_TYPE_UNORM_SHORT_565,
+    BRIG_CHANNEL_TYPE_UNORM_INT_101010,
+    BRIG_CHANNEL_TYPE_SIGNED_INT8,
+    BRIG_CHANNEL_TYPE_SIGNED_INT16,
+    BRIG_CHANNEL_TYPE_SIGNED_INT32,
+    BRIG_CHANNEL_TYPE_UNSIGNED_INT8,
+    BRIG_CHANNEL_TYPE_UNSIGNED_INT16,
+    BRIG_CHANNEL_TYPE_UNSIGNED_INT32,
+    BRIG_CHANNEL_TYPE_HALF_FLOAT,
+    BRIG_CHANNEL_TYPE_FLOAT,
+};
+
+static const BrigImageGeometry allGeometry[] = {
+    BRIG_GEOMETRY_1D,
+    BRIG_GEOMETRY_2D,
+    BRIG_GEOMETRY_3D,
+    BRIG_GEOMETRY_1DA,
+    BRIG_GEOMETRY_2DA,
+    BRIG_GEOMETRY_1DB,
+};
+
+static const BrigImageGeometry rdGeometry[] = {
+    BRIG_GEOMETRY_1D,
+    BRIG_GEOMETRY_2D,
+    BRIG_GEOMETRY_3D,
+    BRIG_GEOMETRY_1DA,
+    BRIG_GEOMETRY_2DA,
+};
+
+static const BrigImageGeometry DepthGeometry[] = {
+    BRIG_GEOMETRY_2DDEPTH,
+    BRIG_GEOMETRY_2DADEPTH,
+};
+
+static const BrigImageAccess allAccess[] = {
+    BRIG_ACCESS_PERMISSION_RO,
+    BRIG_ACCESS_PERMISSION_WO,
+    BRIG_ACCESS_PERMISSION_RW,
+};
+
+
+
+CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
+  : ConfigBase(cc),
+    defaultImageGeometry(1000, 1, 1, 1, 1),
+    defaultImageGeometrySet(NEWA OneValueSequence<ImageGeometry*>(&defaultImageGeometry)),
+    imageGeometryProps(NEWA ArraySequence<BrigImageGeometry>(allGeometry, NELEM(allGeometry))),
+    imageRdGeometryProp(NEWA ArraySequence<BrigImageGeometry>(rdGeometry, NELEM(rdGeometry))),
+    imageDepthGeometryProp(NEWA ArraySequence<BrigImageGeometry>(DepthGeometry, NELEM(DepthGeometry))),
+    imageChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(allChannelOrder, NELEM(allChannelOrder))),
+    imageChannelTypes(NEWA ArraySequence<BrigImageChannelType>(allChannelType, NELEM(allChannelType))),
+    imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess)))
+{
+
+}
+
+static const BrigSamplerAddressing allAddressing[] = {
+    BRIG_ADDRESSING_UNDEFINED,
+    BRIG_ADDRESSING_CLAMP_TO_EDGE,
+    BRIG_ADDRESSING_CLAMP_TO_BORDER ,
+    BRIG_ADDRESSING_REPEAT,
+    BRIG_ADDRESSING_MIRRORED_REPEAT,
+};
+
+static const BrigSamplerCoordNormalization allCoords[] = {
+    BRIG_COORD_UNNORMALIZED,
+    BRIG_COORD_NORMALIZED,
+};
+
+static const BrigSamplerFilter allFilters[] = {
+    BRIG_FILTER_NEAREST,
+    BRIG_FILTER_LINEAR,
+};
+
+CoreConfig::SamplerConfig::SamplerConfig(CoreConfig* cc)
+  : ConfigBase(cc),
+    samplerCoords(NEWA ArraySequence<BrigSamplerCoordNormalization>(allCoords, NELEM(allCoords))),
+    samplerFilters(NEWA ArraySequence<BrigSamplerFilter>(allFilters, NELEM(allFilters))),
+    samplerAddressings(NEWA ArraySequence<BrigSamplerAddressing>(allAddressing, NELEM(allAddressing)))
+{
+
+}
+
 
 static const BrigSegment allSegments[] = {
   BRIG_SEGMENT_FLAT,
@@ -300,6 +424,15 @@ static const BrigTypeX packed128BitTypes[] = {
   BRIG_TYPE_F64X2
 };
 
+static const BrigTypeX atomicTypes[] = {
+  BRIG_TYPE_U32,
+  BRIG_TYPE_U64,
+  BRIG_TYPE_S32,
+  BRIG_TYPE_S64,
+  BRIG_TYPE_B32,
+  BRIG_TYPE_B64
+};
+
 static const size_t registerSizesArr[] = {
   32, 64, 128
 };
@@ -311,6 +444,7 @@ CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
     compoundFloating(NEWA ArraySequence<BrigTypeX>(compoundFloatingTypes, NELEM(compoundFloatingTypes))),
     packed(NEWA ArraySequence<BrigTypeX>(packedTypes, NELEM(packedTypes))),
     packed128(NEWA ArraySequence<BrigTypeX>(packed128BitTypes, NELEM(packed128BitTypes))),
+    atomic(NEWA ArraySequence<BrigTypeX>(atomicTypes, NELEM(atomicTypes))),
     registerSizes(NEWA ArraySequence<size_t>(registerSizesArr, NELEM(registerSizesArr)))
 {
 }
@@ -378,13 +512,13 @@ static const BrigAtomicOperation allAtomicsValues[] = {
 // TODO: initial & expected values for the rest atomics in barrier tests
   BRIG_ATOMIC_ADD,
   BRIG_ATOMIC_AND,
-//      BRIG_ATOMIC_CAS,
-//      BRIG_ATOMIC_EXCH,
-//      BRIG_ATOMIC_LD,
+  BRIG_ATOMIC_CAS,
+  BRIG_ATOMIC_EXCH,
+  BRIG_ATOMIC_LD,
   BRIG_ATOMIC_MAX,
   BRIG_ATOMIC_MIN,
   BRIG_ATOMIC_OR,
-//      BRIG_ATOMIC_ST,
+  BRIG_ATOMIC_ST,
   BRIG_ATOMIC_SUB,
   BRIG_ATOMIC_WRAPDEC,
   BRIG_ATOMIC_WRAPINC,

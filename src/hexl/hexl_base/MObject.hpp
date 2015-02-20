@@ -83,7 +83,7 @@ enum MObjectImageChannelType {
   IMG_UNORM_INT24,
   IMG_UNORM_SHORT_555,
   IMG_UNORM_SHORT_565,
-  IMG_UNORM_SHORT_101010,
+  IMG_UNORM_INT_101010,
   IMG_SIGNED_INT8,
   IMG_SIGNED_INT16,
   IMG_SIGNED_INT32,
@@ -147,6 +147,14 @@ enum SpecialValues {
   RV_QUEUEID = 101,
   RV_QUEUEPTR = 102,
 };
+
+const char *ImageGeometryString(MObjectImageGeometry mem);
+const char *ImageChannelTypeString(MObjectImageChannelType mem);
+const char *ImageChannelOrderString(MObjectImageChannelOrder mem);
+const char *ImageAccessString(MObjectImageAccess mem);
+const char *SamplerFilterString(MObjectSamplerFilter mem);
+const char *SamplerCoordsString(MObjectSamplerCoords mem);
+const char *SamplerAddressingString(MObjectSamplerAddressing mem);
 
 class MObject {
 public:

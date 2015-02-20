@@ -304,9 +304,53 @@ namespace hexl {
     SequenceProduct2<P6, P7> product2;
 
   public:
-    SequenceProduct7(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P6>* p7s_)
+    SequenceProduct7(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P7>* p7s_)
       : SequenceProduct6<P1, P2, P3, P4, P5, Pair<P6, P7>>(p1s_, p2s_, p3s_, p4s_, p5s_, &product2),
         product2(p6s_, p7s_) { }
+  };
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8>
+  class SequenceProduct8 : public SequenceProduct7<P1, P2, P3, P4, P5, P6, Pair<P7, P8>> {
+  private:
+    SequenceProduct2<P7, P8> product2;
+
+  public:
+    SequenceProduct8(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P7>* p7s_, Sequence<P8>* p8s_)
+      : SequenceProduct7<P1, P2, P3, P4, P5, P6, Pair<P7, P8>>(p1s_, p2s_, p3s_, p4s_, p5s_, p6s_, &product2),
+        product2(p7s_, p8s_) { }
+  };
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9>
+  class SequenceProduct9 : public SequenceProduct8<P1, P2, P3, P4, P5, P6, P7, Pair<P8, P9>> {
+  private:
+    SequenceProduct2<P8, P9> product2;
+
+  public:
+    SequenceProduct9(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P7>* p7s_, Sequence<P8>* p8s_, Sequence<P9>* p9s_)
+      : SequenceProduct8<P1, P2, P3, P4, P5, P6, P7, Pair<P8, P9>>(p1s_, p2s_, p3s_, p4s_, p5s_, p6s_, p7s_, &product2),
+        product2(p8s_, p9s_) { }
+  };
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10>
+  class SequenceProduct10 : public SequenceProduct9<P1, P2, P3, P4, P5, P6, P7, P8, Pair<P9, P10>> {
+  private:
+    SequenceProduct2<P9, P10> product2;
+
+  public:
+    SequenceProduct10(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P7>* p7s_, Sequence<P8>* p8s_, Sequence<P9>* p9s_, Sequence<P10>* p10s_)
+      : SequenceProduct9<P1, P2, P3, P4, P5, P6, P7, P8, Pair<P9, P10>>(p1s_, p2s_, p3s_, p4s_, p5s_, p6s_, p7s_, p8s_, &product2),
+        product2(p9s_, p10s_) { }
+  };
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10, typename P11>
+  class SequenceProduct11 : public SequenceProduct10<P1, P2, P3, P4, P5, P6, P7, P8, P9, Pair<P10, P11>> {
+  private:
+    SequenceProduct2<P10, P11> product2;
+
+  public:
+    SequenceProduct11(Sequence<P1>* p1s_, Sequence<P2>* p2s_, Sequence<P3>* p3s_, Sequence<P4>* p4s_, Sequence<P5>* p5s_, Sequence<P6>* p6s_, Sequence<P7>* p7s_, Sequence<P8>* p8s_, Sequence<P9>* p9s_, Sequence<P10>* p10s_, Sequence<P10>* p11s_)
+      : SequenceProduct10<P1, P2, P3, P4, P5, P6, P7, P8, P9, Pair<P10, P11>>(p1s_, p2s_, p3s_, p4s_, p5s_, p6s_, p7s_, p8s_, p9s_, &product2),
+        product2(p10s_, p11s_) { }
   };
 
   template <typename P1, typename P2>
@@ -348,6 +392,34 @@ namespace hexl {
   SequenceProduct(Arena* ap, Sequence<P1>* p1s, Sequence<P2>* p2s, Sequence<P3>* p3s, Sequence<P4>* p4s, Sequence<P5>* p5s, Sequence<P6>* p6s, Sequence<P7>* p7s)
   {
     return NEWA SequenceProduct7<P1, P2, P3, P4, P5, P6, P7>(p1s, p2s, p3s, p4s, p5s, p6s, p7s);
+  }
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8>
+  inline SequenceProduct8<P1, P2, P3, P4, P5, P6, P7, P8>*
+  SequenceProduct(Arena* ap, Sequence<P1>* p1s, Sequence<P2>* p2s, Sequence<P3>* p3s, Sequence<P4>* p4s, Sequence<P5>* p5s, Sequence<P6>* p6s, Sequence<P7>* p7s, Sequence<P8>* p8s)
+  {
+    return NEWA SequenceProduct8<P1, P2, P3, P4, P5, P6, P7, P8>(p1s, p2s, p3s, p4s, p5s, p6s, p7s, p8s);
+  }
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9>
+  inline SequenceProduct9<P1, P2, P3, P4, P5, P6, P7, P8, P9>*
+  SequenceProduct(Arena* ap, Sequence<P1>* p1s, Sequence<P2>* p2s, Sequence<P3>* p3s, Sequence<P4>* p4s, Sequence<P5>* p5s, Sequence<P6>* p6s, Sequence<P7>* p7s, Sequence<P8>* p8s, Sequence<P9>* p9s)
+  {
+    return NEWA SequenceProduct9<P1, P2, P3, P4, P5, P6, P7, P8, P9>(p1s, p2s, p3s, p4s, p5s, p6s, p7s, p8s, p9s);
+  }
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10>
+  inline SequenceProduct10<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10>*
+  SequenceProduct(Arena* ap, Sequence<P1>* p1s, Sequence<P2>* p2s, Sequence<P3>* p3s, Sequence<P4>* p4s, Sequence<P5>* p5s, Sequence<P6>* p6s, Sequence<P7>* p7s, Sequence<P8>* p8s, Sequence<P9>* p9s, Sequence<P10>* p10s)
+  {
+    return NEWA SequenceProduct10<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10>(p1s, p2s, p3s, p4s, p5s, p6s, p7s, p8s, p9s, p10s);
+  }
+
+  template <typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10, typename P11>
+  inline SequenceProduct11<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11>*
+  SequenceProduct(Arena* ap, Sequence<P1>* p1s, Sequence<P2>* p2s, Sequence<P3>* p3s, Sequence<P4>* p4s, Sequence<P5>* p5s, Sequence<P6>* p6s, Sequence<P7>* p7s, Sequence<P8>* p8s, Sequence<P9>* p9s, Sequence<P10>* p10s, Sequence<P11>* p11s)
+  {
+    return NEWA SequenceProduct11<P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11>(p1s, p2s, p3s, p4s, p5s, p6s, p7s, p8s, p9s, p10s, p11s);
   }
 
   template<typename T>
