@@ -8,7 +8,7 @@ set BASIC_OPTS=-DHSAIL-Tools-PATH=%HSAIL_TOOLS% -DHSA-Runtime-Inc-PATH=%HSA_RUNT
 
 md build\win32
 cd build\win32
-cmake -G "Visual Studio 11 2012" %BASIC_OPTS% %* ..\..
+cmake -G "Visual Studio 11 2012" %BASIC_OPTS% %* -DHSAIL-Tools-Subdir=win32 ..\..
 cd ..\..
 
 md build\win64
