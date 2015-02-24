@@ -291,6 +291,20 @@ const char *ImageAccessString(MObjectImageAccess mem)
   }
 };
 
+const char *ImageQueryString(MObjectImageQuery mem)
+{
+  switch (mem)
+  {
+  case IMG_QUERY_WIDTH: return "query_width";
+  case IMG_QUERY_HEIGHT: return "query_height";
+  case IMG_QUERY_DEPTH: return "query_depth";
+  case IMG_QUERY_ARRAY: return "query_array";
+  case IMG_QUERY_CHANNELORDER: return "query_channel_order";
+  case IMG_QUERY_CHANNELTYPE: return "query_channel_type";
+  default: assert(false); return "<unknown image query type>";
+  }
+};
+
 const char *SamplerFilterString(MObjectSamplerFilter mem)
 {
   switch (mem) {
@@ -319,6 +333,18 @@ const char *SamplerAddressingString(MObjectSamplerAddressing mem)
   case SMP_MIRRORED_REPEAT: return "mirrored_repeat";
   default: assert(false); return "<unknown addressing>";
   }
+}
+
+const char *SamplerQueryString(MObjectSamplerQuery mem)
+{
+  switch (mem)
+  {
+  case SMP_QUERY_ADDRESSING: return "query_addressing";
+  case SMP_QUERY_COORD: return "query_coord";
+  case SMP_QUERY_FILTER: return "query_filter"; 
+  default: assert(false); return "<unknown sampler query type>";
+  }
+
 }
 
 const char *ValueTypeString(ValueType type)

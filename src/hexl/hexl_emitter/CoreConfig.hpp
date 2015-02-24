@@ -322,8 +322,9 @@ namespace hexl {
         hexl::ImageGeometry defaultImageGeometry;
         hexl::Sequence<hexl::ImageGeometry* > *defaultImageGeometrySet;
         hexl::Sequence<Brig::BrigImageGeometry>* imageGeometryProps, *imageRdGeometryProp, *imageDepthGeometryProp;
-        hexl::Sequence<Brig::BrigImageChannelOrder>* imageChannelOrders;
+        hexl::Sequence<Brig::BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
         hexl::Sequence<Brig::BrigImageChannelType>* imageChannelTypes;
+        hexl::Sequence<Brig::BrigImageQuery>* imageQueryTypes;
         hexl::Sequence<Brig::BrigImageAccess>* imageAccessTypes;
 
       public:
@@ -335,7 +336,9 @@ namespace hexl {
         hexl::Sequence<Brig::BrigImageGeometry>* ImageRdGeometryProp() { return imageRdGeometryProp; }
         hexl::Sequence<Brig::BrigImageGeometry>* ImageDepthGeometryProp() { return imageDepthGeometryProp; }
         hexl::Sequence<Brig::BrigImageChannelOrder>* ImageChannelOrders() { return imageChannelOrders; }
+        hexl::Sequence<Brig::BrigImageChannelOrder>* ImageSupportedChannelOrders() { return imageSupportedChannelOrders; }
         hexl::Sequence<Brig::BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
+        hexl::Sequence<Brig::BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
         hexl::Sequence<Brig::BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
       };
 
@@ -344,12 +347,15 @@ namespace hexl {
         hexl::Sequence<Brig::BrigSamplerCoordNormalization>* samplerCoords;
         hexl::Sequence<Brig::BrigSamplerFilter>* samplerFilters;
         hexl::Sequence<Brig::BrigSamplerAddressing>* samplerAddressings;
+        hexl::Sequence<Brig::BrigSamplerQuery>* samplerQueryTypes;
+        
       public:
         SamplerConfig(CoreConfig* cc);
 
         hexl::Sequence<Brig::BrigSamplerCoordNormalization>* SamplerCoords() { return samplerCoords; }
         hexl::Sequence<Brig::BrigSamplerFilter>* SamplerFilters() { return samplerFilters; }
         hexl::Sequence<Brig::BrigSamplerAddressing>* SamplerAddressings() { return samplerAddressings; }
+        hexl::Sequence<Brig::BrigSamplerQuery>* SamplerQueryTypes() { return samplerQueryTypes; }
       };
 
       GridsConfig& Grids() { return grids; }
