@@ -46,15 +46,8 @@ public:
 
   void Init() {
    Test::Init();
-   unsigned access = 0;
 
-  // access = 1; //HSA_ACCESS_PERMISSION_RO
-
-  // access = 2; //HSA_ACCESS_PERMISSION_WO
-
-   access = 3; //HSA_ACCESS_PERMISSION_RW
-
-   imgobj = kernel->NewImage("%rwimage", BRIG_SEGMENT_KERNARG, BRIG_GEOMETRY_1D, BRIG_CHANNEL_ORDER_A, BRIG_CHANNEL_TYPE_UNSIGNED_INT8, access, 1000,1,1,1,1);
+   imgobj = kernel->NewImage("%rwimage", BRIG_SEGMENT_KERNARG, BRIG_GEOMETRY_1D, BRIG_CHANNEL_ORDER_A, BRIG_CHANNEL_TYPE_UNSIGNED_INT8, BRIG_ACCESS_PERMISSION_RW, 1000,1,1,1,1);
    
    nx = kernel->NewVariable("nx", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
    nx->PushBack(Value(MV_UINT32, 1000));
@@ -111,7 +104,7 @@ public:
     be.EmitMov(reg_dest.elements(3), be.Immed(coord->Type(), 0xAA), 32);
 
     imgobj->EmitImageSt(reg_dest, imageaddr, coord);
-    imgobj->EmitImageLd(reg_dest, imageaddr, coord);
+    imgobj->EmitImageLd(reg_dest, BRIG_TYPE_U32, imageaddr, coord);
     
     be.EmitMov(result, reg_dest.elements(3));
 
