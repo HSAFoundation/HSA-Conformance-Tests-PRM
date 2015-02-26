@@ -805,8 +805,9 @@ public:
     fb->EmitLdf(ldf);
     be.EmitInitfbarInFirstWI(ldf);
     be.EmitJoinfbar(ldf);
-    be.EmitWaitfbar(ldf);
     be.EmitArrivefbar(ldf);
+    be.EmitBarrier();
+    be.EmitWaitfbar(ldf);
     be.EmitBarrier();
     be.EmitLeavefbar(ldf);
     be.EmitReleasefbarInFirstWI(ldf);
@@ -833,12 +834,13 @@ protected:
     // loop
     auto loopLabel = "@loop1";
     be.EmitLabel(loopLabel);
+
     // wait on addition fbarrier
     Fb1()->EmitWaitfbar();
-
+    
     // wait fbarrier
     Fb()->EmitWaitfbar();
-
+    
     // iterate
     auto cmp = be.AddCTReg();
     be.EmitArith(BRIG_OPCODE_ADD, counter, counter, be.Immed(counter->Type(), 1));
@@ -852,9 +854,10 @@ protected:
     // loop
     auto loopLabel = "@loop2";
     be.EmitLabel(loopLabel);
+
     // wait on addition fbarrier
     Fb1()->EmitWaitfbar();
-
+    
     // arrive fbarrier
     Fb()->EmitArrivefbar();
 
