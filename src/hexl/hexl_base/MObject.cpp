@@ -968,6 +968,17 @@ void MRBuffer::DeserializeData(std::istream& in)
   ReadData(in, data);
 }
 
+size_t MImage::GetDim(size_t pos, unsigned d) const
+{
+  switch (d) {
+  case 0: return pos % width;
+  case 1: return (pos / width) % height;
+  case 2: return ((pos / width) / height) % depth;
+  default:
+    assert(false); return 0;
+  }
+}
+
 void MImage::Print(std::ostream& out) const
 {
   MObject::Print(out);
@@ -975,6 +986,40 @@ void MImage::Print(std::ostream& out) const
     ", " << ImageChannelTypeString(MObjectImageChannelType(channelType)) <<  ", " << ImageChannelOrderString(MObjectImageChannelOrder(channelOrder)) << ", " << ImageAccessString(MObjectImageAccess(accessPermission));
   out << " (" << "Image dim: [" << Width() << "x" << Height() << "x" << Depth() << "])";
 }
+
+std::string MImage::GetPosStr(size_t pos) const
+{
+  std::stringstream ss;
+  ss << "[" << std::setw(2) << pos << "]";
+  if (height > 1)
+  {
+    ss << "[" << GetDim(pos, 0) << "," << GetDim(pos, 1) << "]";
+  }
+  if (depth > 1)
+  {
+    ss << "[" << GetDim(pos, 0) << "," << GetDim(pos, 1) << "," << GetDim(pos, 2) << "]";
+  }
+
+  return ss.str();
+}
+
+void MImage::PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const
+{
+  out << "Failure at " << pos << ": ";
+  comparison.PrintLong(out);
+  out << std::endl;
+}
+
+void MImage::PrintComparisonSummary(std::ostream& out, Comparison& comparison) const
+{
+  if (comparison.IsFailed()) {
+    out << "Error: failed " << comparison.GetFailed() << " / " << comparison.GetChecks() << " comparisons, "
+      << "max " << comparison.GetMethodDescription() << " error " << comparison.GetMaxError() << " at index " << comparison.GetMaxErrorIndex() << "." << std::endl;
+  } else {
+    out << "Successful " << comparison.GetChecks() << " comparisons." << std::endl;
+  }
+}
+
 
 void MImage::SerializeData(std::ostream& out) const
 {
@@ -1027,23 +1072,6 @@ ValueType ImageValueType(unsigned geometry)
 {
   assert(false);
   return MV_LAST;
-}
-
-void MImage::PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const
-{
-  out << "Failure at " << pos << ": ";
-  comparison.PrintLong(out);
-  out << std::endl;
-}
-
-void MImage::PrintComparisonSummary(std::ostream& out, Comparison& comparison) const
-{
-  if (comparison.IsFailed()) {
-    out << "Error: failed " << comparison.GetFailed() << " / " << comparison.GetChecks() << " comparisons, "
-      << "max " << comparison.GetMethodDescription() << " error " << comparison.GetMaxError() << " at index " << comparison.GetMaxErrorIndex() << "." << std::endl;
-  } else {
-    out << "Successful " << comparison.GetChecks() << " comparisons." << std::endl;
-  }
 }
 
 const uint32_t Comparison::F_DEFAULT_ULPS_PRECISION = 0;

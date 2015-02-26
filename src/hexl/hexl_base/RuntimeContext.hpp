@@ -248,6 +248,7 @@ public:
   }
 
   bool ValidateRBuffer(MBuffer* mb, MRBuffer* mr, Values actual, const Options* options);
+  bool ValidateRImage(MImage* mi, MRImage* mr, Values actual, const Options* options);
 };
 
 class Options;
@@ -280,6 +281,31 @@ bool MemoryStateBase<MState>::ValidateRBuffer(MBuffer* mb, MRBuffer* mr, Values 
   return !comparison.IsFailed();
 }
 
+template <class MState>
+bool MemoryStateBase<MState>::ValidateRImage(MImage* mi, MRImage* mr, Values actual, const Options* options)
+{
+  Comparison& comparison = mr->GetComparison();
+  assert(mr->Data().size() == actual.size());
+  comparison.Reset(MV_UINT8);
+  unsigned maxShownFailures = options->GetUnsigned("hexl.max_shown_failures", MAX_SHOWN_FAILURES);
+  bool verboseData = context->IsVerbose("data");
+  unsigned shownFailures = 0;
+  for (unsigned i = 0; i < actual.size(); ++i) {
+    Value expected = GetValue(mr->Data()[i]);
+    bool passed = comparison.Compare(expected, actual[i]);
+    if ((!passed && comparison.GetFailed() < maxShownFailures) || verboseData) {
+      context->Info() << "  " << mi->GetPosStr(i) << ": ";
+      mi->PrintComparisonInfo(context->Info(), i, comparison);
+      context->Info() << std::endl;
+      if (!passed) { shownFailures++; }
+    }
+  }
+  if (comparison.GetFailed() > shownFailures) {
+    context->Info() << "  ... (" << (comparison.GetFailed() - shownFailures) << " more failures not shown)" << std::endl;
+  }
+  context->Info() << "  "; mi->PrintComparisonSummary(context->Info(), comparison);
+  return !comparison.IsFailed();
+}
 
 //bool ValidateRBuffer(MBuffer* mb, MRBuffer* mr, Values actual, const Options* options);
 

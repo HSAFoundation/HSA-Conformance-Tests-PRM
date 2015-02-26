@@ -543,7 +543,14 @@ HImage::~HImage()
 
 bool HImage::Push()
 {
-   return true;
+  assert(mi && state && ptr);
+  char *p = (char *) ptr;
+  for (size_t i = 0; i < mi->ContentData().size(); ++i) {
+    Value value = state->GetValue(mi->ContentData()[i]);
+    value.WriteTo(p);
+    p += value.Size();
+  }
+  return true;
 }
 
 bool HImage::Pull()
@@ -583,13 +590,23 @@ bool HRImage::Pull()
 
 bool HRImage::Validate()
 {
-  // Do nothing.
-  return true;
+  Values actual;
+  MImage* mi = hi->Mi();
+  assert(mi);
+  ReadFrom(hi->Ptr(), MV_UINT8, mr->Data().size(), actual);
+  state->GetContext()->Info() << "Validating: "; hi->Print(state->GetContext()->Info());
+  state->GetContext()->Info() << ", " << mr->GetComparison() << std::endl;
+  return state->ValidateRImage(mi, mr, actual, state->Runtime()->Opts());
 }
 
 void HRImage::Print(std::ostream& out) const
 {
-  // Do nothing.
+  MImage* mi = hi->Mi();
+  out << "buffer check at " << hi->Ptr() << ", size " << Size();
+  if (mi->Size() == 1) {
+    Value v = state->GetValue(mr->Data()[0]);
+    out << ", expected value " << v;
+  }
   return;
 }
 
@@ -777,7 +794,8 @@ HObject* HsailMemoryState::AllocateRBuffer(MRBuffer* mr)
 
 HObject* HsailMemoryState::AllocateImage(MImage* mi)
 {
-  
+  assert(mi && state);
+
   class ImageRegionMatcher {
   private:
     hsa_ext_image_data_info_t image_info;
@@ -820,11 +838,10 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
   status = Runtime()->Hsa()->hsa_memory_allocate(Runtime()->GetRegion(ImageRegionMatcher(image_info)), image_info.size, &ptr);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate failed", status); return 0; }
 
-  memset(ptr, 0xFF, image_info.size);
-
   status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, ptr, access_permission, &image);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); free(ptr); return 0; }
 
+  //Write image handle
   mi->Data() = Value(MV_IMAGE, image.handle);
 
   return new HImage(this, mi, ptr, image);
@@ -839,6 +856,8 @@ HObject* HsailMemoryState::AllocateRImage(MRImage* mr)
 
 HObject* HsailMemoryState::AllocateSampler(MSampler* ms)
 {
+  assert(ms);
+
   hsa_ext_sampler_descriptor_t samp_descriptor;
   samp_descriptor.coordinate_mode = (hsa_ext_sampler_coordinate_mode_t)ms->Coords();
   samp_descriptor.filter_mode = (hsa_ext_sampler_filter_mode_t)ms->Filter();

@@ -475,6 +475,7 @@ private:
   size_t rowPitch;
   size_t slicePitch;
   MImage* image;
+  std::unique_ptr<Values> data;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
 
@@ -485,7 +486,7 @@ public:
     unsigned access_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
   : Emittable(te), id(id_), segment(brigseg_), geometry(geometry_), chanel_order(chanel_order_),
     channel_type(channel_type_), access(access_), width(width_), height(height_), depth(depth_),
-    rowPitch(rowPitch_), slicePitch(slicePitch_)
+    rowPitch(rowPitch_), slicePitch(slicePitch_), data(new Values())
   {}
 
   const std::string& Id() const { return id; }
@@ -504,8 +505,10 @@ public:
 
   Brig::BrigSegment Segment() { return segment; }
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
-  PointerReg AddAReg();
-  TypedReg AddValueReg();
+
+  void AddData(Value v) { data->push_back(v); }
+  void SetData(Values* values) { data.reset(values); }
+  Values* ReleaseData() { return data.release(); }
 };
 
 class ESampler : public Emittable {

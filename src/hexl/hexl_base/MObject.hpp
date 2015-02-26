@@ -944,13 +944,19 @@ public:
   size_t RowPitch() const { return rowPitch; }
   size_t SlicePitch() const { return slicePitch; }
   size_t Size() const { return height * width * depth; }
-  Value GetRaw(size_t i) { assert(false); }
+  Value GetRaw(size_t i) {return contentData[i]; }
+  size_t GetDim(size_t pos, unsigned d) const;
 
+  //For Handle 
   Value& Data() { return data; }
   const Value& Data() const { return data; }
+  //for image content
+  Values& ContentData() { return contentData; }
+  const Values& ContentData() const { return contentData; }
 
   ValueType GetValueType() const { return ImageValueType(geometry); }
   void Print(std::ostream& out) const;
+  std::string GetPosStr(size_t pos) const;
   void PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const;
   void PrintComparisonSummary(std::ostream& out, Comparison& comparison) const;
   virtual void SerializeData(std::ostream& out) const;
@@ -963,26 +969,27 @@ private:
   unsigned accessPermission;
   size_t width, height, depth, rowPitch, slicePitch;
   Value data;
+  Values contentData;
   void DeserializeData(std::istream& in);
 };
 
 class MRImage : public MObject {
 public:
-  MRImage(unsigned id, const std::string& name, unsigned geometry_, unsigned refid_, const Comparison& comparison_) :
-    MObject(id, MRIMAGE, name), geometry(geometry_), refid(refid_), comparison(comparison_) { }
+  MRImage(unsigned id, const std::string& name, unsigned geometry_, unsigned refid_, const Values& data_ = Values(), const Comparison& comparison_ = Comparison()) :
+    MObject(id, MRIMAGE, name), geometry(geometry_), refid(refid_), data(data_), comparison(comparison_) { }
   MRImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MRIMAGE, name) { DeserializeData(in); }
 
   unsigned Geometry() const { return geometry; }
   unsigned RefId() const { return refid; }
-  Value& Data() { return data; }
-  const Value& Data() const { return data; }
+  Values& Data() { return data; }
+  const Values& Data() const { return data; }
   Comparison& GetComparison() { return comparison; }
   virtual void SerializeData(std::ostream& out) const;
 
 private:
   unsigned geometry;
   unsigned refid;
-  Value data;
+  Values data;
   Comparison comparison;
   void DeserializeData(std::istream& in);
 };
@@ -994,9 +1001,14 @@ inline MImage* NewMValue(unsigned id, const std::string& name, unsigned segment,
   return mi;
 }
 
-inline MRImage* NewMRValue(unsigned id, MImage* mi, const Comparison& comparison = Comparison()) {
-  MRImage* mr = new MRImage(id, mi->Name() + " (check)", mi->Geometry(), mi->Id(), comparison);
+inline MRImage* NewMRValue(unsigned id, MImage* mi, Value data, const Comparison& comparison = Comparison()) {
+  MRImage* mr = new MRImage(id, mi->Name() + " (check)", mi->Geometry(), mi->Id(), Values(), comparison);
+  mr->Data().push_back(data);
   return mr;
+}
+
+inline MRImage* NewMRValue(unsigned id, MImage* mi, ValueData data, const Comparison& comparison = Comparison()) {
+  return NewMRValue(id, mi, Value(MV_UINT8, data), comparison);
 }
 
 class MSampler : public MObject {

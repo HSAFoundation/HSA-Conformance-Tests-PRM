@@ -122,6 +122,8 @@ public:
    Test::Init();
 
    imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_ACCESS_PERMISSION_RO, imageGeometry->ImageSize(0),imageGeometry->ImageSize(1),imageGeometry->ImageSize(2),imageGeometry->ImageSize(3),imageGeometry->ImageSize(4));
+   for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT8, 0xFF)); }
+
   }
 
   void ModuleDirectives() override {
