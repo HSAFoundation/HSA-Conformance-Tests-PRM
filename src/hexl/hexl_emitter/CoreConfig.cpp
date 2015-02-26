@@ -151,6 +151,20 @@ static const BrigImageChannelOrder allChannelOrder[] = {
     BRIG_CHANNEL_ORDER_DEPTH_STENCIL,
 };
 
+static const BrigImageChannelOrder supportedChannelOrder[] = {
+    BRIG_CHANNEL_ORDER_A,
+    BRIG_CHANNEL_ORDER_R,
+    BRIG_CHANNEL_ORDER_RG,
+    BRIG_CHANNEL_ORDER_RA,
+    BRIG_CHANNEL_ORDER_RGB,
+    BRIG_CHANNEL_ORDER_RGBA,
+    BRIG_CHANNEL_ORDER_BGRA,
+    BRIG_CHANNEL_ORDER_ARGB,
+    BRIG_CHANNEL_ORDER_ABGR,
+    BRIG_CHANNEL_ORDER_INTENSITY,
+    BRIG_CHANNEL_ORDER_LUMINANCE,
+};
+
 static const  BrigImageChannelType allChannelType[] = {
     BRIG_CHANNEL_TYPE_SNORM_INT8,
     BRIG_CHANNEL_TYPE_SNORM_INT16,
@@ -198,7 +212,14 @@ static const BrigImageAccess allAccess[] = {
     BRIG_ACCESS_PERMISSION_RW,
 };
 
-
+static const BrigImageQuery allImgQueries[] = {
+    BRIG_IMAGE_QUERY_WIDTH,
+    BRIG_IMAGE_QUERY_HEIGHT,
+    BRIG_IMAGE_QUERY_DEPTH,
+    BRIG_IMAGE_QUERY_ARRAY,
+    BRIG_IMAGE_QUERY_CHANNELORDER,
+    BRIG_IMAGE_QUERY_CHANNELTYPE,
+};
 
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
@@ -208,7 +229,9 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageRdGeometryProp(NEWA ArraySequence<BrigImageGeometry>(rdGeometry, NELEM(rdGeometry))),
     imageDepthGeometryProp(NEWA ArraySequence<BrigImageGeometry>(DepthGeometry, NELEM(DepthGeometry))),
     imageChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(allChannelOrder, NELEM(allChannelOrder))),
+    imageSupportedChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(supportedChannelOrder, NELEM(supportedChannelOrder))),
     imageChannelTypes(NEWA ArraySequence<BrigImageChannelType>(allChannelType, NELEM(allChannelType))),
+    imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess)))
 {
 
@@ -217,7 +240,7 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
 static const BrigSamplerAddressing allAddressing[] = {
     BRIG_ADDRESSING_UNDEFINED,
     BRIG_ADDRESSING_CLAMP_TO_EDGE,
-    BRIG_ADDRESSING_CLAMP_TO_BORDER ,
+    BRIG_ADDRESSING_CLAMP_TO_BORDER,
     BRIG_ADDRESSING_REPEAT,
     BRIG_ADDRESSING_MIRRORED_REPEAT,
 };
@@ -232,11 +255,18 @@ static const BrigSamplerFilter allFilters[] = {
     BRIG_FILTER_LINEAR,
 };
 
+static const BrigSamplerQuery allSmpQueries[] = {
+  BRIG_SAMPLER_QUERY_ADDRESSING,
+  BRIG_SAMPLER_QUERY_COORD,
+  BRIG_SAMPLER_QUERY_FILTER,
+};
+
 CoreConfig::SamplerConfig::SamplerConfig(CoreConfig* cc)
   : ConfigBase(cc),
     samplerCoords(NEWA ArraySequence<BrigSamplerCoordNormalization>(allCoords, NELEM(allCoords))),
     samplerFilters(NEWA ArraySequence<BrigSamplerFilter>(allFilters, NELEM(allFilters))),
-    samplerAddressings(NEWA ArraySequence<BrigSamplerAddressing>(allAddressing, NELEM(allAddressing)))
+    samplerAddressings(NEWA ArraySequence<BrigSamplerAddressing>(allAddressing, NELEM(allAddressing))),
+    samplerQueryTypes(NEWA ArraySequence<BrigSamplerQuery>(allSmpQueries, NELEM(allSmpQueries)))
 {
 
 }
