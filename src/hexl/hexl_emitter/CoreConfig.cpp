@@ -102,6 +102,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   boundary32->Add(NEWA GridGeometry(3,          2,          2, 0x40000020,   1,   1, 256));
   severalwaves->Add(NEWA GridGeometry(1,  256,  1,   1,  cc->Wavesize(),  1,   1));
   severalwavesingroup->Add(NEWA GridGeometry(1,  1024,  1,   1,  cc->Wavesize()*4,  1,   1));
+  severalwavesingroup->Add(NEWA GridGeometry(2,  16, 16, 1,  16, 16, 1));
+  severalwavesingroup->Add(NEWA GridGeometry(3,  5,  7,  12, 3,  5,  7));
   workgroup256->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
   workgroup256->Add(NEWA GridGeometry(2, 16, 16, 1, 16, 16, 1));
   workgroup256->Add(NEWA GridGeometry(2, 64, 4, 1, 64, 4, 1));

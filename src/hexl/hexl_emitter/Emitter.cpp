@@ -130,6 +130,13 @@ Variable EmittableContainer::NewVariable(const std::string& id, VariableSpec var
   return var;
 }
 
+FBarrier EmittableContainer::NewFBarrier(const std::string& id, Location location, bool output) 
+{
+  FBarrier fb = te->NewFBarrier(id, location, output);
+  Add(fb);
+  return fb;
+}
+
 Buffer EmittableContainer::NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count)
 {
   Buffer buffer = te->NewBuffer(id, type, vtype, count);
@@ -378,6 +385,113 @@ void EVariable::SetupDispatch(DispatchSetup* setup) {
     marg->Data() = data;
     setup->MSetup().Add(marg);
   }
+}
+
+
+EFBarrier::EFBarrier(TestEmitter* te_, const std::string& id_, Location location_, bool output_)
+    : Emittable(te_), id(id_), location(location_), output(output_) 
+{
+  switch(location) {
+  case MODULE:
+  case KERNEL:
+  case FUNCTION:
+  case ARGSCOPE:
+    return;
+  default:
+    assert(false);
+  }
+}
+
+std::string EFBarrier::FBarrierName() const {
+  if (location == Location::MODULE) {
+    return "&" + id;
+  } else {
+    return "%" + id;
+  }
+}
+
+void EFBarrier::Name(std::ostream& out) const {
+  out << id << "_" << LocationString(location);
+}
+
+void EFBarrier::EmitDefinition() {
+  assert(!fb);
+  fb = te->Brig()->EmitFbarrierDefinition(id);
+}
+
+void EFBarrier::ModuleVariables() {
+  if (location == Location::MODULE) {
+    EmitDefinition();
+  }
+}
+
+void EFBarrier::KernelVariables() {
+  if (location == Location::KERNEL) {
+    EmitDefinition();
+  }
+}
+
+void EFBarrier::FunctionVariables() {
+  if (location == Location::FUNCTION) {
+    EmitDefinition();
+  }
+}
+
+void EFBarrier::FunctionFormalOutputArguments() {
+  if (location == Location::ARGSCOPE && output) {
+    EmitDefinition();
+  }
+}
+
+void EFBarrier::FunctionFormalInputArguments() {
+  if (location == Location::ARGSCOPE && !output) {
+    EmitDefinition();
+  }
+}
+
+void EFBarrier::EmitInitfbar() {
+  assert(fb);
+  te->Brig()->EmitInitfbar(fb);
+}
+
+void EFBarrier::EmitInitfbarInFirstWI() {
+  assert(fb);
+  te->Brig()->EmitInitfbarInFirstWI(fb);
+}
+
+void EFBarrier::EmitJoinfbar() {
+  assert(fb);
+  te->Brig()->EmitJoinfbar(fb);
+}
+
+void EFBarrier::EmitWaitfbar() {
+  assert(fb);
+  te->Brig()->EmitWaitfbar(fb);
+}
+
+void EFBarrier::EmitArrivefbar() {
+  assert(fb);
+  te->Brig()->EmitArrivefbar(fb);
+}
+
+void EFBarrier::EmitLeavefbar() {
+  assert(fb);
+  te->Brig()->EmitLeavefbar(fb);
+}
+
+void EFBarrier::EmitReleasefbar() {
+  assert(fb);
+  te->Brig()->EmitReleasefbar(fb);
+}
+
+void EFBarrier::EmitReleasefbarInFirstWI() {
+  assert(fb);
+  te->Brig()->EmitReleasefbarInFirstWI(fb);
+}
+
+void EFBarrier::EmitLdf(TypedReg dest) {
+  assert(fb);
+  te->Brig()->EmitLdf(dest, fb);
 }
 
 void EControlDirectives::Name(std::ostream& out) const
@@ -1342,6 +1456,11 @@ Variable TestEmitter::NewVariable(const std::string& id, VariableSpec varSpec)
 Variable TestEmitter::NewVariable(const std::string& id, VariableSpec varSpec, bool output)
 {
   return new(Ap()) EVariable(this, id, varSpec, output);
+}
+
+FBarrier TestEmitter::NewFBarrier(const std::string& id, Location location, bool output) 
+{
+  return new(Ap()) EFBarrier(this, id, location, output);
 }
 
 Buffer TestEmitter::NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count)
