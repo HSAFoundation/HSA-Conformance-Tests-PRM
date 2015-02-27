@@ -130,10 +130,12 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   fbarrier->Add(NEWA GridGeometry(1, 1024, 1, 1, cc->Wavesize()*4, 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
   fbarrier->Add(NEWA GridGeometry(2, 16, 16, 1, 16, 16, 1));
-  fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
   fbarrier->Add(NEWA GridGeometry(2, 64, 4, 1, 64, 4, 1));
+  fbarrier->Add(NEWA GridGeometry(3, 6, 14, 5, 4, 13, 4));
   fbarrier->Add(NEWA GridGeometry(3, 8, 8, 4, 8, 8, 4));
   fbarrier->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
+  fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
+  fbarrier->Add(NEWA GridGeometry(3, 3, 9, 13, 2, 7, 11));
 }
 
 

@@ -797,7 +797,7 @@ private:
 
   static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE = 123456789;
-  static const uint32_t ITERATION_NUMBER = 8;
+  static const uint32_t ITERATION_NUMBER = 32;
 
 protected:
   FBarrier Fb1() const { return fb1; }
@@ -983,7 +983,7 @@ class FBarrierWaitRaceTest: public utils::SkipTest {
 private:
   FBarrier fb;
 
-  static const uint32_t ITERATION_NUMBER = 128;
+  static const uint32_t ITERATION_NUMBER = 256;
 
 public:
   explicit FBarrierWaitRaceTest(Grid geometry): SkipTest(Location::KERNEL, geometry) {}
