@@ -64,7 +64,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     workgroup256(NEWA hexl::VectorSequence<hexl::Grid>()),
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
-    atomic(NEWA hexl::VectorSequence<hexl::Grid>())
+    atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
+    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -125,6 +126,14 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
+  fbarrier->Add(NEWA GridGeometry(1, cc->Wavesize(), 1, 1, cc->Wavesize(), 1, 1));
+  fbarrier->Add(NEWA GridGeometry(1, 1024, 1, 1, cc->Wavesize()*4, 1, 1));
+  fbarrier->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
+  fbarrier->Add(NEWA GridGeometry(2, 16, 16, 1, 16, 16, 1));
+  fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
+  fbarrier->Add(NEWA GridGeometry(2, 64, 4, 1, 64, 4, 1));
+  fbarrier->Add(NEWA GridGeometry(3, 8, 8, 4, 8, 8, 4));
+  fbarrier->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
 }
 
 

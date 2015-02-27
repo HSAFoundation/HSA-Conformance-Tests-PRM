@@ -298,94 +298,6 @@ public:
 };
 
 
-class FBarrierBasicTest: public Test {
-private:
-  FBarrier fb;
-
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
-  static const uint32_t VALUE1 = 123;
-  static const uint32_t VALUE2 = 456;
-
-public:
-  explicit FBarrierBasicTest(Grid geometry): Test(Location::KERNEL, geometry) {}
-
-  void Name(std::ostream& out) const override {
-    out << geometry;
-  }
-
-  bool IsValid() const override {
-    uint32_t wavesize = 64;
-    return Test::IsValid() 
-        && !geometry->isPartial() // no partial work-groups
-        && (geometry->WorkgroupSize() % (2 * wavesize)) == 0; // group size is multiple of WAVESIZE and there are even number of waves in work-group
-  }
-
-  void Init() override {
-    Test::Init();
-    fb = kernel->NewFBarrier("fb");
-  }
-
-  BrigTypeX ResultType() const override { return VALUE_TYPE; }
-  Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE2); }
-
-  void KernelCode() override {
-    // init and join fbarrier
-    fb->EmitInitfbarInFirstWI();
-    fb->EmitJoinfbar();
-    be.EmitBarrier();
-
-    // is wave - odd
-    auto wiId = be.EmitWorkitemFlatId();
-    auto waveId = be.AddTReg(wiId->Type());
-    be.EmitArith(BRIG_OPCODE_DIV, waveId, wiId, be.Wavesize());
-    auto arith = be.AddTReg(wiId->Type());
-    be.EmitArith(BRIG_OPCODE_AND, arith, waveId, be.Immed(arith->Type(), 1));
-    auto isOdd = be.AddCTReg();
-    be.EmitCmp(isOdd->Reg(), arith, be.Immed(arith->Type(), 1), BRIG_COMPARE_EQ);
-
-    // global offset
-    auto wiAbsId = be.EmitWorkitemFlatAbsId(true);
-    auto globalOffset = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    be.EmitArith(BRIG_OPCODE_MAD, globalOffset, wiAbsId, be.Immed(globalOffset->Type(), getBrigTypeNumBytes(VALUE_TYPE)), output->Address());
-    
-    // even
-    auto oddLabel = "@odd";
-    be.EmitCbr(isOdd->Reg(), oddLabel);
-    // wait on fbarrrier
-    fb->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
-    // store data in output
-    auto data = be.AddTReg(VALUE_TYPE);
-    be.EmitMov(data, be.Immed(data->Type(), VALUE2));
-    be.EmitStore(data, globalOffset);
-    // store data in neighbours wave output memory region
-    auto outputAddr = be.AddAReg(globalOffset->Segment());
-    auto typeSize = be.AddTReg(outputAddr->Type());
-    be.EmitMov(typeSize, be.Immed(outputAddr->Type(), getBrigTypeNumBytes(VALUE_TYPE)));
-    be.EmitArith(BRIG_OPCODE_MAD, outputAddr, typeSize, be.Wavesize(), globalOffset);
-    be.EmitStore(data, outputAddr);
-    auto endLabel = "@end";
-    be.EmitBr(endLabel);
-        
-    // odd
-    be.EmitLabel(oddLabel);
-    // store data in output
-    be.EmitMov(data, be.Immed(data->Type(), VALUE1));
-    be.EmitStore(data, globalOffset);
-    // wait on fbarrrier
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
-    fb->EmitWaitfbar();
-    be.EmitLabel(endLabel);
-
-    // leave fbarrier
-    be.EmitBarrier();
-    fb->EmitLeavefbar();
-    be.EmitBarrier();
-    fb->EmitReleasefbarInFirstWI();
-  }
-};
-
-
 class FBarrierDoubleBranchTest: public Test {
 private:
   FBarrier fb;
@@ -465,6 +377,68 @@ public:
     EmitRelease();
   }
 
+};
+
+
+class FBarrierBasicTest: public FBarrierDoubleBranchTest {
+private:
+  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE1 = 123;
+  static const uint32_t VALUE2 = 456;
+
+protected:
+
+  TypedReg EmitWorkitemId() override {
+    return be.EmitWorkitemFlatId();
+  }
+
+  TypedReg EmitBranchCondition(TypedReg wiId) override {
+    // is work-item - odd or even
+    auto waveId = be.AddTReg(wiId->Type());
+    be.EmitArith(BRIG_OPCODE_DIV, waveId, wiId, be.Wavesize());
+    auto arith = be.AddTReg(wiId->Type());
+    be.EmitArith(BRIG_OPCODE_AND, arith, waveId, be.Immed(arith->Type(), 1));
+    auto isOdd = be.AddCTReg();
+    be.EmitCmp(isOdd->Reg(), arith, be.Immed(arith->Type(), 1), BRIG_COMPARE_EQ);
+    return isOdd;
+  }
+
+  void EmitFirstBranch(TypedReg wiId, PointerReg globalOffset) override {
+    // odd
+    // store data in output
+    be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
+    // wait on fbarrrier
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    Fb()->EmitWaitfbar();
+  }
+
+  void EmitSecondBranch(TypedReg wiId, PointerReg globalOffset) override {
+    // even
+    // wait on fbarrrier
+    Fb()->EmitWaitfbar();
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    // store data in output
+    be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), globalOffset);
+    // store data in neighbours wave output memory region
+    auto outputAddr = be.AddAReg(globalOffset->Segment());
+    auto typeSize = be.AddTReg(outputAddr->Type());
+    be.EmitMov(typeSize, be.Immed(outputAddr->Type(), getBrigTypeNumBytes(VALUE_TYPE)));
+    be.EmitArith(BRIG_OPCODE_MAD, outputAddr, typeSize, be.Wavesize(), globalOffset);
+    be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), outputAddr);
+  }
+
+public:
+  explicit FBarrierBasicTest(Grid geometry): FBarrierDoubleBranchTest(geometry) {}
+
+  bool IsValid() const override {
+    uint32_t wavesize = 64;
+    return FBarrierDoubleBranchTest::IsValid() 
+        && !geometry->isPartial() // no partial work-groups
+        && (geometry->WorkgroupSize() % (2 * wavesize)) == 0; // group size is multiple of WAVESIZE and there are even number of waves in work-group
+  }
+
+  BrigTypeX ResultType() const override { return VALUE_TYPE; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE2); }
 };
 
 
@@ -817,7 +791,7 @@ public:
 };
 
 
-class FBarrierWaitArriveTest: public FBarrierDoubleBranchTest {
+class FBarrierPairOperationTest: public FBarrierDoubleBranchTest {
 private:
   FBarrier fb1; // addition fbarrier that ensures simultaneous pair operations in different waves
 
@@ -825,47 +799,43 @@ private:
   static const uint32_t VALUE = 123456789;
   static const uint32_t ITERATION_NUMBER = 8;
 
+protected:
   FBarrier Fb1() const { return fb1; }
 
-protected:
   void EmitFirstBranch(TypedReg wiId, PointerReg globalOffset) override {
+    EmitPreFirstLoop();
     auto counter = be.AddTReg(BRIG_TYPE_U32);
     be.EmitMov(counter, be.Immed(counter->Type(), 0));
     // loop
     auto loopLabel = "@loop1";
     be.EmitLabel(loopLabel);
 
-    // wait on addition fbarrier
-    Fb1()->EmitWaitfbar();
-    
-    // wait fbarrier
-    Fb()->EmitWaitfbar();
+    EmitFirstLoop();
     
     // iterate
     auto cmp = be.AddCTReg();
     be.EmitArith(BRIG_OPCODE_ADD, counter, counter, be.Immed(counter->Type(), 1));
     be.EmitCmp(cmp->Reg(), counter, be.Immed(counter->Type(), ITERATION_NUMBER), BRIG_COMPARE_LT);
     be.EmitCbr(cmp->Reg(), loopLabel);
+    EmitPostFirstLoop();
   }
 
   void EmitSecondBranch(TypedReg wiId, PointerReg globalOffset) override {
+    EmitPreSecondLoop();
     auto counter = be.AddTReg(BRIG_TYPE_U32);
     be.EmitMov(counter, be.Immed(counter->Type(), 0));
     // loop
     auto loopLabel = "@loop2";
     be.EmitLabel(loopLabel);
 
-    // wait on addition fbarrier
-    Fb1()->EmitWaitfbar();
-    
-    // arrive fbarrier
-    Fb()->EmitArrivefbar();
+    EmitSecondLoop();
 
     // iterate
     auto cmp = be.AddCTReg();
     be.EmitArith(BRIG_OPCODE_ADD, counter, counter, be.Immed(counter->Type(), 1));
     be.EmitCmp(cmp->Reg(), counter, be.Immed(counter->Type(), ITERATION_NUMBER), BRIG_COMPARE_LT);
     be.EmitCbr(cmp->Reg(), loopLabel);
+    EmitPostSecondLoop();
   }
 
   void EmitInit() override {
@@ -884,8 +854,15 @@ protected:
     output->EmitStoreData(result);
   }  
 
+  virtual void EmitFirstLoop() = 0;
+  virtual void EmitSecondLoop() = 0;
+  virtual void EmitPreFirstLoop() {}
+  virtual void EmitPreSecondLoop() {}
+  virtual void EmitPostFirstLoop() {}
+  virtual void EmitPostSecondLoop() {}
+
 public:
-  explicit FBarrierWaitArriveTest(Grid geometry): FBarrierDoubleBranchTest(geometry) {}
+  explicit FBarrierPairOperationTest(Grid geometry): FBarrierDoubleBranchTest(geometry) {}
 
   void Init() override {
     FBarrierDoubleBranchTest::Init();
@@ -894,6 +871,111 @@ public:
 
   BrigTypeX ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
+};
+
+class FBarrierJoinLeaveWaitTest: public FBarrierPairOperationTest {
+protected:
+  void EmitFirstLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // wait fbarrier
+    Fb()->EmitWaitfbar();
+  }
+
+  void EmitPreSecondLoop() override {
+    // leave from fbarrier before loop
+    Fb()->EmitLeavefbar();
+  }
+
+  void EmitSecondLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // join fbarrier
+    Fb()->EmitJoinfbar();
+    Fb()->EmitLeavefbar();
+  }
+  
+  void EmitPostSecondLoop() override {
+    // join to fbarrier after loop to satisfy leave at the end of kernel
+    Fb()->EmitJoinfbar();
+  }
+
+public:
+  explicit FBarrierJoinLeaveWaitTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
+};
+
+class FBarrierWaitArriveTest: public FBarrierPairOperationTest {
+protected:
+  void EmitFirstLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // wait fbarrier
+    Fb()->EmitWaitfbar();
+  }
+
+  void EmitSecondLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // arrive fbarrier
+    Fb()->EmitArrivefbar();
+  }
+  
+public:
+  explicit FBarrierWaitArriveTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
+};
+
+
+class FBarrierWaitLeaveTest: public FBarrierPairOperationTest {
+protected:
+  void EmitFirstLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // wait fbarrier
+    Fb()->EmitWaitfbar();
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+  }
+
+  void EmitSecondLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // leave fbarrier
+    Fb()->EmitLeavefbar();
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // join to fbarrier
+    Fb()->EmitJoinfbar();
+  }
+  
+public:
+  explicit FBarrierWaitLeaveTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
+};
+
+
+class FBarrierArriveLeaveTest: public FBarrierPairOperationTest {
+protected:
+  void EmitFirstLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // arrive fbarrier
+    Fb()->EmitArrivefbar();
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+  }
+
+  void EmitSecondLoop() override {
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // leave fbarrier
+    Fb()->EmitLeavefbar();
+    // wait on addition fbarrier
+    Fb1()->EmitWaitfbar();
+    // join to fbarrier
+    Fb()->EmitJoinfbar();
+  }
+  
+public:
+  explicit FBarrierArriveLeaveTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
 };
 
 
@@ -949,27 +1031,56 @@ public:
 };
 
 
+class FBarrierJoinLeaveJoinTest: public utils::SkipTest {
+private:
+  FBarrier fb;
+
+public:
+  explicit FBarrierJoinLeaveJoinTest(bool): utils::SkipTest() {}
+
+  void Name(std::ostream& out) const override {}
+
+  void Init() override {
+    utils::SkipTest::Init();
+    fb = kernel->NewFBarrier("fb");
+  }
+
+  TypedReg Result() override {
+    fb->EmitInitfbarInFirstWI();
+    be.EmitBarrier();
+    fb->EmitJoinfbar();
+    fb->EmitLeavefbar();
+    fb->EmitJoinfbar();
+    be.EmitBarrier();
+    fb->EmitWaitfbar();
+    be.EmitBarrier();
+    fb->EmitLeavefbar();
+    be.EmitBarrier();
+    fb->EmitReleasefbarInFirstWI();
+    return utils::SkipTest::Result();
+  }
+};
+
+
 void BarrierTests::Iterate(hexl::TestSpecIterator& it) {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<BarrierTest>(ap, it, "barrier/atomics", cc->Grids().SeveralWavesInGroupSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), Bools::All(), Bools::All());
   
-  TestForEach<FBarrierBasicTest>(ap, it, "fbarrier/basic", cc->Grids().WorkGroupsSize256());
-  TestForEach<FBarrierBasicTest>(ap, it, "fbarrier/basic", cc->Grids().SeveralWavesInGroupSet());
-  TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().WorkGroupsSize256());
-  TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().SeveralWavesInGroupSet());
-  TestForEach<FBarrierSecondExampleTest>(ap, it, "fbarrier/example2", cc->Grids().WorkGroupsSize256());
-  TestForEach<FBarrierSecondExampleTest>(ap, it, "fbarrier/example2", cc->Grids().SeveralWavesInGroupSet());
-  TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().WorkGroupsSize256());
-  TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().SeveralWavesInGroupSet());
+  TestForEach<FBarrierBasicTest>(ap, it, "fbarrier/basic", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierSecondExampleTest>(ap, it, "fbarrier/example2", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().FBarrierSet());
 
   TestForEach<LdfTest>(ap, it, "fbarrier/ldf", Bools::Value(true));
+  TestForEach<FBarrierJoinLeaveJoinTest>(ap, it, "fbarrier/join_leave_join", Bools::Value(true));
 
-  TestForEach<FBarrierWaitArriveTest>(ap, it, "fbarrier/wait_arrive", cc->Grids().WorkGroupsSize256());
-  TestForEach<FBarrierWaitArriveTest>(ap, it, "fbarrier/wait_arrive", cc->Grids().SeveralWavesInGroupSet());
+  TestForEach<FBarrierJoinLeaveWaitTest>(ap, it, "fbarrier/joinleave_wait", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierWaitArriveTest>(ap, it, "fbarrier/wait_arrive", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierWaitLeaveTest>(ap, it, "fbarrier/wait_leave", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierArriveLeaveTest>(ap, it, "fbarrier/arrive_leave", cc->Grids().FBarrierSet());
 
-  TestForEach<FBarrierWaitRaceTest>(ap, it, "fbarrier/wait_race", cc->Grids().WorkGroupsSize256());
-  TestForEach<FBarrierWaitRaceTest>(ap, it, "fbarrier/wait_race", cc->Grids().SeveralWavesInGroupSet());
+  TestForEach<FBarrierWaitRaceTest>(ap, it, "fbarrier/wait_race", cc->Grids().FBarrierSet());
 }
 
 }
