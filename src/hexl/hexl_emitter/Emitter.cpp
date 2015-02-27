@@ -873,9 +873,11 @@ void EImage::SetupDispatch(DispatchSetup* dispatch) {
   
   unsigned i = dispatch->MSetup().Count();
   image = new MImage(i++, id, segment, geometry, chanel_order, channel_type, access, 
-                         width, height, depth, rowPitch, slicePitch);
+          width, height, depth, rowPitch, slicePitch);
   dispatch->MSetup().Add(image);
   dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
+
+  if (data) { image->ContentData() = *data; }
 }
 
 void EImage::EmitImageRd(OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord)

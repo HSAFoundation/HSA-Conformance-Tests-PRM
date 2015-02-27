@@ -54,7 +54,8 @@ public:
    Test::Init();
 
    imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, ImageGeometryProps, imageChannelOrder, imageChannelType, BRIG_ACCESS_PERMISSION_RO, imageGeometry->ImageSize(0),imageGeometry->ImageSize(1),imageGeometry->ImageSize(2),imageGeometry->ImageSize(3),imageGeometry->ImageSize(4));
-   
+   for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT8, 0xFF)); }
+
    nx = kernel->NewVariable("nx", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
    nx->PushBack(Value(MV_UINT32, 1000));
    ny = kernel->NewVariable("ny", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
