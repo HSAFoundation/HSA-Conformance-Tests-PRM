@@ -878,6 +878,8 @@ void EImage::SetupDispatch(DispatchSetup* dispatch) {
   dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
 
   if (data) { image->ContentData() = *data; }
+  Value value = image->ContentData()[0];
+  image->VType() = value.Type();
 }
 
 void EImage::EmitImageRd(OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord)

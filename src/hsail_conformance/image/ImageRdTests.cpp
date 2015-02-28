@@ -61,7 +61,7 @@ public:
    Test::Init();
 
    imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_ACCESS_PERMISSION_RO, imageGeometry->ImageSize(0),imageGeometry->ImageSize(1),imageGeometry->ImageSize(2),imageGeometry->ImageSize(3),imageGeometry->ImageSize(4));
-   for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT8, 0xFF)); }
+   for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF)); }
  
    smpobj = kernel->NewSampler("%sampler", BRIG_SEGMENT_KERNARG, samplerCoord, samplerFilter, samplerAddressing);
 
@@ -85,6 +85,117 @@ public:
 
   size_t OutputBufferSize() const override {
     return imageGeometry->ImageSize();
+  }
+
+  Value CalculateValue()
+  {
+    switch (imageChannelType)
+    {
+      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+        return Value(MV_UINT32, 0xFF);
+      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+        return Value(MV_UINT32, 0xFFFF);
+      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+        return Value(MV_UINT32, 0xFFFFFFFF);
+      case BRIG_CHANNEL_TYPE_SNORM_INT8:
+        if (samplerFilter == BRIG_FILTER_LINEAR)
+        {
+            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
+            {
+              switch (imageGeometryProp)
+              {
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
+                return Value(MV_UINT32, 0xBB810204);
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
+                return Value(MV_UINT32, 0xBB010204);
+              case BRIG_GEOMETRY_3D:
+                return Value(MV_UINT32, 0xBA810204);
+              default:
+                break;
+              }
+              return Value(MV_UINT32, 0xBB810204);
+            }
+        }
+        return Value(MV_UINT32, 0xBC010204);
+
+      case BRIG_CHANNEL_TYPE_SNORM_INT16:
+        if (samplerFilter == BRIG_FILTER_LINEAR)
+        {
+            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
+            {
+              switch (imageGeometryProp)
+              {
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
+                return Value(MV_UINT32, 0xB7800100);
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
+                return Value(MV_UINT32, 0xB7000100);
+              case BRIG_GEOMETRY_3D:
+                //TODO: check this value
+                return Value(MV_UINT32, 0);
+                //return Value(MV_UINT32, 0xB7000100);
+              default:
+                break;
+              }
+              return Value(MV_UINT32, 0xBB810204);
+            }
+        }
+        return Value(MV_UINT32, 0xB8000100);
+      case BRIG_CHANNEL_TYPE_UNORM_INT8:
+        if (samplerFilter == BRIG_FILTER_LINEAR)
+        {
+            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
+            {
+              switch (imageGeometryProp)
+              {
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
+                return Value(MV_UINT32, 0x3F000000);
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
+                return Value(MV_UINT32, 0x3E800000);
+              case BRIG_GEOMETRY_3D:
+                return Value(MV_UINT32, 0x3E000000);
+              default:
+                break;
+              }
+              return Value(MV_UINT32, 0x3E800000);
+            }
+        }
+        return Value(MV_UINT32, 0x3F800000);
+      case BRIG_CHANNEL_TYPE_UNORM_INT16:
+       if (samplerFilter == BRIG_FILTER_LINEAR) {
+            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
+            {
+              switch (imageGeometryProp)
+              {
+              case BRIG_GEOMETRY_1D:
+              case BRIG_GEOMETRY_1DA:
+                return Value(MV_UINT32, 0x3F000000);
+              case BRIG_GEOMETRY_2D:
+              case BRIG_GEOMETRY_2DA:
+                return Value(MV_UINT32, 0x3E800000);
+              case BRIG_GEOMETRY_3D:
+                return Value(MV_UINT32, 0x3E000080);
+              default:
+                break;
+              }
+              return Value(MV_UINT32, 0x3F000000);
+            }
+        }
+        return Value(MV_UINT32, 0x3F800000);
+      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+      case BRIG_CHANNEL_TYPE_FLOAT:
+        return Value(MV_UINT32, 0xFFC00000);
+      default:
+        break;
+    }
   }
 
   TypedReg Result() {

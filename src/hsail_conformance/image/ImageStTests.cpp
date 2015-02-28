@@ -48,7 +48,7 @@ public:
    Test::Init();
 
    imgobj = kernel->NewImage("%rwimage", BRIG_SEGMENT_KERNARG, BRIG_GEOMETRY_1D, BRIG_CHANNEL_ORDER_A, BRIG_CHANNEL_TYPE_UNSIGNED_INT8, BRIG_ACCESS_PERMISSION_RW, 1000,1,1,1,1);
-   for (unsigned i = 0; i < 1000; ++i) { imgobj->AddData(Value(MV_UINT8, 0xFF)); }
+   for (unsigned i = 0; i < 1000; ++i) { imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF)); }
 
    nx = kernel->NewVariable("nx", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
    nx->PushBack(Value(MV_UINT32, 1000));

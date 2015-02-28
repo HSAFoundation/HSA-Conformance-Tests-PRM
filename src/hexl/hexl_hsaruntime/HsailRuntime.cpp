@@ -593,7 +593,7 @@ bool HRImage::Validate()
   Values actual;
   MImage* mi = hi->Mi();
   assert(mi);
-  ReadFrom(hi->Ptr(), MV_UINT8, mr->Data().size(), actual);
+  ReadFrom(hi->Ptr(), mr->VType(), mr->Data().size(), actual);
   state->GetContext()->Info() << "Validating: "; hi->Print(state->GetContext()->Info());
   state->GetContext()->Info() << ", " << mr->GetComparison() << std::endl;
   return state->ValidateRImage(mi, mr, actual, state->Runtime()->Opts());

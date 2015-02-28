@@ -286,7 +286,7 @@ bool MemoryStateBase<MState>::ValidateRImage(MImage* mi, MRImage* mr, Values act
 {
   Comparison& comparison = mr->GetComparison();
   assert(mr->Data().size() == actual.size());
-  comparison.Reset(MV_UINT8);
+  comparison.Reset(mr->VType());
   unsigned maxShownFailures = options->GetUnsigned("hexl.max_shown_failures", MAX_SHOWN_FAILURES);
   bool verboseData = context->IsVerbose("data");
   unsigned shownFailures = 0;
