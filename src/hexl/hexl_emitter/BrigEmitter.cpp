@@ -1681,7 +1681,7 @@ void BrigEmitter::EmitWaveid(TypedReg dest) {
 }
 
 void BrigEmitter::EmitMemfence(BrigMemoryOrder memoryOrder, BrigMemoryScope globalScope, BrigMemoryScope groupScope, BrigMemoryScope imageScope) {
-  // TODO: ImageScope
+  // TODO: Change to 1.0 Final Spec
   assert(BRIG_MEMORY_SCOPE_NONE == imageScope);
   InstMemFence inst = brigantine.addInst<InstMemFence>(BRIG_OPCODE_MEMFENCE, BRIG_TYPE_NONE);
   inst.memoryOrder() = memoryOrder;

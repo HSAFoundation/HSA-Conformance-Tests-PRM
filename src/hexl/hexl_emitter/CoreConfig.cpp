@@ -592,7 +592,7 @@ static const BrigAtomicOperation signalWaitAtomicsValues[] = {
 
 static const BrigSegment memfenceSegmentsValues[] = {
   BRIG_SEGMENT_GLOBAL,
-  BRIG_SEGMENT_GROUP,
+  BRIG_SEGMENT_GROUP
 };
 
 static const BrigOpcode ldStOpcodesValues[] = {
@@ -633,8 +633,10 @@ CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
     memfenceSegments(new (ap) hexl::ArraySequence<BrigSegment>(memfenceSegmentsValues, NELEM(memfenceSegmentsValues))),
     ldStOpcodes(NEWA ArraySequence<BrigOpcode>(ldStOpcodesValues, NELEM(ldStOpcodesValues))),
     atomicOpcodes(NEWA ArraySequence<BrigOpcode>(atomicOpcodesValues, NELEM(atomicOpcodesValues))),
-    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues)))
-{    
+    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues))),
+    memfenceMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_ORDER_LAST)),
+    memfenceMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(BRIG_MEMORY_SCOPE_WAVEFRONT, BRIG_MEMORY_SCOPE_LAST))
+{
 }
 
 static const BrigControlDirective gridGroupRelatedValues[] = {
