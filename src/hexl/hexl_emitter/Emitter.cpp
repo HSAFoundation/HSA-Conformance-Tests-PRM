@@ -822,50 +822,56 @@ PointerReg EUserModeQueue::EmitLoadBaseAddress()
 
 void EUserModeQueue::EmitLdQueueReadIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest)
 {
+  PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_LDQUEUEREADINDEX, BRIG_TYPE_U64);
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
-  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(Address(segment)));
+  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(addr));
 }
 
 void EUserModeQueue::EmitLdQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest)
 {
+  PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_LDQUEUEWRITEINDEX, BRIG_TYPE_U64);
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
-  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(Address(segment)));
+  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(addr));
 }
 
 void EUserModeQueue::EmitStQueueReadIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg src)
 {
+  PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_STQUEUEREADINDEX, BRIG_TYPE_U64);
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
-  inst.operands() = te->Brig()->Operands(te->Brig()->Address(Address(segment)), src->Reg());
+  inst.operands() = te->Brig()->Operands(te->Brig()->Address(addr), src->Reg());
 }
 
 void EUserModeQueue::EmitStQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg src)
 {
+  PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_STQUEUEWRITEINDEX, BRIG_TYPE_U64);
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
-  inst.operands() = te->Brig()->Operands(te->Brig()->Address(Address(segment)), src->Reg());
+  inst.operands() = te->Brig()->Operands(te->Brig()->Address(addr), src->Reg());
 }
 
 void EUserModeQueue::EmitAddQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest, Operand src)
 {
+  PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_ADDQUEUEWRITEINDEX, BRIG_TYPE_U64);
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
-  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(Address(segment)), src);
+  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(addr), src);
 }
 
 void EUserModeQueue::EmitCasQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest, Operand src0, Operand src1)
 {
+  PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_CASQUEUEWRITEINDEX, BRIG_TYPE_U64);
   inst.segment() = segment;
   inst.memoryOrder() = memoryOrder;
-  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(Address(segment)), src0, src1);
+  inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(addr), src0, src1);
 }
 
 
