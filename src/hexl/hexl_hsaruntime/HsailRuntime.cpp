@@ -37,6 +37,7 @@ namespace hsail_runtime {
 
 const HsaApiTable* HsaApi::InitApiTable() {
   HsaApiTable* api = new HsaApiTable();
+  GET_FUNCTION(hsa_status_string);
   GET_FUNCTION(hsa_init);
   GET_FUNCTION(hsa_shut_down);
   GET_FUNCTION(hsa_iterate_agents);
@@ -53,13 +54,15 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_signal_destroy);
   GET_FUNCTION(hsa_ext_alt_program_create);
   GET_FUNCTION(hsa_ext_alt_program_destroy);
-  GET_FUNCTION(hsa_ext_alt_add_module);
+  GET_FUNCTION(hsa_ext_alt_program_add_module);
   GET_FUNCTION(hsa_ext_alt_program_finalize);
   GET_FUNCTION(hsa_ext_alt_program_get_info);
   
   GET_FUNCTION(hsa_executable_create);
+  GET_FUNCTION(hsa_code_object_destroy);
   GET_FUNCTION(hsa_executable_load_code_object);
   GET_FUNCTION(hsa_executable_symbol_get_info);
+  GET_FUNCTION(hsa_executable_get_symbol);
   GET_FUNCTION(hsa_executable_iterate_symbols);
   GET_FUNCTION(hsa_executable_freeze);
   GET_FUNCTION(hsa_executable_destroy);
@@ -104,7 +107,7 @@ public:
   HsailRuntimeContext* Runtime() { return runtime; }
   D* Data() { return data; }
   bool IsSet() { return data->handle != 0; }
-  void Set(D data) { *(this->data) = data; }
+  void Set(D data) { this->data->handle = data.handle; }
   P Param() { return param; }
 private:
   HsailRuntimeContext* runtime;
@@ -165,9 +168,10 @@ private:
 public:
   HsailCode(HsailRuntimeContextState* state_, hsa_code_object_t codeObject_)
     : state(state_), codeObject(codeObject_) { }
-  ~HsailCode() { }
+  ~HsailCode();
 
   hsa_code_object_t CodeObject() { return codeObject; }
+  HsailRuntimeContext* Runtime();
 };
 
 typedef IObject<HsailMemoryState> HObject;
@@ -313,6 +317,7 @@ public:
     : state(state_), executable(executable_), kernel(kernel_),
       mstate(state),
       dimensions(0), timeout(60 * CLOCKS_PER_SEC) { }
+  ~HsailDispatch();
 
   MemoryState* MState() { return &mstate; }
   HsailRuntimeContext* Runtime() { return mstate.Runtime(); }
@@ -371,7 +376,20 @@ HsailProgram::~HsailProgram()
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_destroy failed", status); }
 }
 
-HsailRuntimeContext* HsailProgram::Runtime() {
+HsailCode::~HsailCode()
+{
+  hsa_status_t status =
+    Runtime()->Hsa()->hsa_code_object_destroy(codeObject);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_code_object_destroy failed", status); }
+}
+
+HsailRuntimeContext* HsailCode::Runtime()
+{
+  return state->Runtime();
+}
+
+HsailRuntimeContext* HsailProgram::Runtime()
+{
   return state->Runtime();
 }
 
@@ -379,7 +397,7 @@ void HsailProgram::AddModule(Module* module)
 {
   HsailModule* hsailModule = static_cast<HsailModule*>(module);
 
-  hsa_status_t status = Runtime()->Hsa()->hsa_ext_alt_add_module(handle, hsailModule->Module());
+  hsa_status_t status = Runtime()->Hsa()->hsa_ext_alt_program_add_module(handle, hsailModule->Module());
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_add_module failed", status); return; }
   assert(!uniqueKernelOffset);
   uniqueKernelOffset = hsailModule->UniqueKernelOffset();
@@ -392,6 +410,12 @@ bool HsailProgram::Validate(std::string& errMsg)
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_validate_program failed", status); return false; }
 */
   return true;
+}
+
+HsailDispatch::~HsailDispatch()
+{
+  hsa_status_t status = Runtime()->Hsa()->hsa_executable_destroy(executable);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_destroy failed", status); }
 }
 
 bool HsailDispatch::Execute()
@@ -917,8 +941,8 @@ Program* HsailRuntimeContextState::NewProgram()
   hsa_profile_t profile = HSA_PROFILE_FULL;
   hsa_status_t status =
     Runtime()->Hsa()->hsa_ext_alt_program_create(
-    machineModel, profile, HSA_DEFAULT_FLOAT_ROUNDING_MODE_DEFAULT, "", &handle);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_create failed", status); return 0; }
+      machineModel, profile, HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &handle);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_alt_program_create failed", status); return 0; }
   return new HsailProgram(this, handle);
 }
 
@@ -970,10 +994,13 @@ Dispatch* HsailRuntimeContextState::NewDispatch(Code* code)
   status = Runtime()->Hsa()->hsa_executable_load_code_object(executable, Runtime()->Agent(), hsailCode->CodeObject(), "");
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_create failed", status); return 0; }
   hsa_executable_symbol_t kernel;
-  kernel.handle = 0;
+  status = Runtime()->Hsa()->hsa_executable_get_symbol(executable, "m", "&test_kernel", Runtime()->Agent(), 0, &kernel);
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_get_symbol failed", status); return 0; }
+/*
   IterateData<hsa_executable_symbol_t, int> idata(Runtime(), &kernel);
   status = Runtime()->Hsa()->hsa_executable_iterate_symbols(executable, IterateExecutableSymbolsGetKernel, &idata);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_iterate_symbols failed", status); return 0; }
+*/
   assert(kernel.handle);
   return new HsailDispatch(this, executable, kernel);
 }
@@ -1017,6 +1044,7 @@ hsa_status_t IterateExecutableSymbolsGetKernel(hsa_executable_t executable, hsa_
   status = idata.Runtime()->Hsa()->hsa_executable_symbol_get_info(symbol, HSA_EXECUTABLE_SYMBOL_INFO_TYPE, &type);
   if (status != HSA_STATUS_SUCCESS) { idata.Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_TYPE) failed", status); return status; }
   if (type == HSA_SYMBOL_KERNEL) {
+    std::cout << "symbol: " << symbol.handle << std::endl;
     if (idata.IsSet()) {
       idata.Runtime()->HsaError("Found more than one kernel", HSA_STATUS_ERROR);
       return HSA_STATUS_ERROR;
@@ -1058,7 +1086,6 @@ void HsailRuntimeContext::Dispose()
 hsa_region_t HsailRuntimeContext::GetRegion(RegionMatch match)
 {
   hsa_region_t region;
-  region.handle = 0;
   IterateData<hsa_region_t, RegionMatch> idata(this, &region, match);
   hsa_status_t status = Hsa()->hsa_agent_iterate_regions(Agent(), IterateRegionsGet, &idata);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_iterate_regions failed", status); return region; }

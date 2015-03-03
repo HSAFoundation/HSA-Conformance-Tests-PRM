@@ -34,6 +34,7 @@ RuntimeContext* CreateHsailRuntimeContext(Context* context);
 namespace hsail_runtime {
 
 struct HsaApiTable {
+  hsa_status_t (*hsa_status_string)(hsa_status_t status, const char **status_string);
   hsa_status_t (*hsa_init)();
   hsa_status_t (*hsa_shut_down)();
   hsa_status_t (*hsa_iterate_agents)(hsa_status_t(*callback)(hsa_agent_t agent, void *data), void *data);
@@ -62,7 +63,7 @@ struct HsaApiTable {
     hsa_ext_alt_program_t *program);
   hsa_status_t (*hsa_ext_alt_program_destroy)(
     hsa_ext_alt_program_t program);
-  hsa_status_t (*hsa_ext_alt_add_module)(
+  hsa_status_t (*hsa_ext_alt_program_add_module)(
     hsa_ext_alt_program_t program,
     hsa_ext_alt_module_t module);
   hsa_status_t (*hsa_ext_alt_program_finalize)(
@@ -88,10 +89,19 @@ struct HsaApiTable {
     hsa_agent_t agent,
     hsa_code_object_t code_object,
     const char *options);
+  hsa_status_t (*hsa_code_object_destroy)(
+    hsa_code_object_t code_object);
   hsa_status_t (*hsa_executable_symbol_get_info)(
     hsa_executable_symbol_t executable_symbol,
     hsa_executable_symbol_info_t attribute,
     void *value);
+  hsa_status_t (*hsa_executable_get_symbol)(
+    hsa_executable_t executable,
+    const char *module_name,
+    const char *symbol_name,
+    hsa_agent_t agent,
+    int32_t call_convention,
+    hsa_executable_symbol_t *symbol);
   hsa_status_t (*hsa_executable_iterate_symbols)(
     hsa_executable_t executable,
     hsa_status_t (*callback)(hsa_executable_t executable, hsa_executable_symbol_t symbol, void* data),
@@ -162,7 +172,11 @@ public:
 
   void HsaError(const char *msg, hsa_status_t err) {
     error = true;
-    context->Error() << msg << ": error " << err << std::endl;
+    const char *hsamsg = "";
+    if (Hsa()->hsa_status_string) {
+      Hsa()->hsa_status_string(err, &hsamsg);
+    }
+    context->Error() << msg << ": error " << err << ": " << hsamsg << std::endl;
   }
 
   void HsaError(const char *msg) {
