@@ -16,9 +16,11 @@ add_definitions( -DENABLE_HEXL_HSAILTESTGEN=1 )
 
 
 if(UNIX)
-  set(LIB_EXT .a)
+  set(LIB_PREFIX lib)
+  set(LIB_EXT .a)  
   set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build/${HSAIL-Tools-Subdir}/libHSAIL)
 else()
+  set(LIB_PREFIX)
   set(LIB_EXT .lib)
   set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/libHSAIL/build/${HSAIL-Tools-Subdir}/libHSAIL/debug)
 endif()
