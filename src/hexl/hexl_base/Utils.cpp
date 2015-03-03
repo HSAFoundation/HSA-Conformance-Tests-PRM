@@ -50,7 +50,7 @@ BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig)
 {
   BrigContainer* brigc = BrigC(brig);
   for (Code d = brigc->code().begin(), e = brigc->code().end(); d != e; ) {
-    if (DirectiveVersion v = d) {
+    if (DirectiveModule v = d) {
       BrigMachineModel8_t model = v.machineModel().enumValue();
       delete brigc;
       return model;

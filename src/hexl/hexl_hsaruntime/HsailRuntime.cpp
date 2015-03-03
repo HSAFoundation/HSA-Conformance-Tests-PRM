@@ -924,7 +924,7 @@ Module* HsailRuntimeContextState::NewModuleFromBrig(brig_container_t brig)
 Module* HsailRuntimeContextState::NewModuleFromHsailText(const std::string& hsailText)
 {
   brig_container_t brig = brig_container_create_empty();
-  int status = brig_container_assemble_from_memory(brig, hsailText.c_str(), hsailText.size());
+  int status = brig_container_assemble_from_memory(brig, hsailText.c_str(), hsailText.size(), NULL);
   if (status != 0) { Runtime()->hsailcError("brig_container_assemble_from_memory failed", brig, status); return 0; }
   return NewModuleFromBrig(brig);
 }

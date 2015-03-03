@@ -35,7 +35,7 @@ if(UNIX)
 endif()
 
 include_directories(${HSAIL-Tools-PATH}/libHSAIL/libHSAIL)
-include_directories(${HSAIL-Tools-PATH}/libHSAIL/libHSAIL/generated)
+include_directories(${HSAIL-Tools-PATH}/libHSAIL/build/${HSAIL-Tools-Subdir}/libHSAIL/generated)
 include_directories(${HSA-Runtime-Inc-PATH})
 include_directories(${HSA-Runtime-Ext-Inc-PATH})
 

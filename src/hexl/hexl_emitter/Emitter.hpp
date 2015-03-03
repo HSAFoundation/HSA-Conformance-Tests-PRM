@@ -138,18 +138,18 @@ public:
     : type(Brig::BRIG_TYPE_NONE) { }
   ETypedReg(Brig::BrigType16_t type_)
     : type(type_) { }
-  ETypedReg(HSAIL_ASM::OperandReg reg, Brig::BrigType16_t type_)
+  ETypedReg(HSAIL_ASM::OperandRegister reg, Brig::BrigType16_t type_)
     : type(type_) { Add(reg); }
 
-  HSAIL_ASM::OperandReg Reg() const { assert(Count() == 1); return regs[0]; }
-  HSAIL_ASM::OperandReg Reg(size_t i) const { return regs[(int) i]; }
+  HSAIL_ASM::OperandRegister Reg() const { assert(Count() == 1); return regs[0]; }
+  HSAIL_ASM::OperandRegister Reg(size_t i) const { return regs[(int) i]; }
   HSAIL_ASM::ItemList&  Regs() { return regs; }
   const HSAIL_ASM::ItemList& Regs() const { return regs; }
   Brig::BrigType16_t Type() const { return type; }
   unsigned TypeSizeBytes() const { return HSAIL_ASM::getBrigTypeNumBytes(type); }
   unsigned TypeSizeBits() const { return HSAIL_ASM::getBrigTypeNumBits(type); }
   size_t Count() const { return regs.size(); }
-  void Add(HSAIL_ASM::OperandReg reg) { regs.push_back(reg); }
+  void Add(HSAIL_ASM::OperandRegister reg) { regs.push_back(reg); }
 
 private:
   HSAIL_ASM::ItemList regs;
@@ -171,7 +171,7 @@ class EPointerReg : public ETypedReg {
 public:
   static Brig::BrigTypeX GetSegmentPointerType(Brig::BrigSegment8_t segment, bool large);
 
-  EPointerReg(HSAIL_ASM::OperandReg reg_, Brig::BrigType16_t type_, Brig::BrigSegment8_t segment_)
+  EPointerReg(HSAIL_ASM::OperandRegister reg_, Brig::BrigType16_t type_, Brig::BrigSegment8_t segment_)
     : ETypedReg(reg_, type_), segment(segment_) { }
 
   Brig::BrigSegment8_t Segment() const { return segment; }

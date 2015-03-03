@@ -45,8 +45,8 @@ protected:
   static const uint64_t success = 1; // expected value
   static const uint64_t error = 2; // error code
   TypedReg result;
-  OperandData immSuccess;
-  OperandData immError;
+  OperandConstantBytes immSuccess;
+  OperandConstantBytes immError;
 
   BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
 

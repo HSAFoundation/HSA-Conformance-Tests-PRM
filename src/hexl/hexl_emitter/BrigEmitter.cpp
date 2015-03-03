@@ -92,17 +92,17 @@ std::string BrigEmitter::AddName(const std::string& name, bool addZero)
   return ss.str();
 }
 
-OperandReg BrigEmitter::Reg(const std::string& name)
+OperandRegister BrigEmitter::Reg(const std::string& name)
 {
   return brigantine.createOperandReg(name);
 }
 
-OperandReg BrigEmitter::AddReg(const std::string& name)
+OperandRegister BrigEmitter::AddReg(const std::string& name)
 {
   return Reg(AddName(name, true));  
 }
 
-OperandReg BrigEmitter::AddReg(BrigType16_t type)
+OperandRegister BrigEmitter::AddReg(BrigType16_t type)
 {
   switch (getBrigTypeNumBits(type)) {
   case 1: return AddCReg();
@@ -111,7 +111,7 @@ OperandReg BrigEmitter::AddReg(BrigType16_t type)
   case 32: return AddSReg();
   case 64: return AddDReg();
   case 128: return AddQReg();
-  default: assert(false); return OperandReg();
+  default: assert(false); return OperandRegister();
   }
 }
 
@@ -133,7 +133,7 @@ TypedReg BrigEmitter::AddCTReg()
 PointerReg BrigEmitter::AddAReg(BrigSegment8_t segment)
 {
   BrigType16_t type;
-  OperandReg reg;
+  OperandRegister reg;
   switch (getSegAddrSize(segment, coreConfig->IsLarge())) {
   case 32: type = BRIG_TYPE_U32; reg = AddSReg(); break;
   case 64: type = BRIG_TYPE_U64; reg = AddDReg(); break;
@@ -186,7 +186,7 @@ void BrigEmitter::Start()
 {
   assert(coreConfig);
   brigantine.startProgram();
-  brigantine.version(coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile());
+  brigantine.module("sample", coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), Brig::BRIG_ROUND_NONE);
 }
 
 void BrigEmitter::End()
@@ -269,8 +269,8 @@ Operand BrigEmitter::Immed(BrigType16_t type, uint64_t imm)
   return brigantine.createImmed(imm, type);
 }
 
-Operand BrigEmitter::Immed(SRef data) {
-  return brigantine.createImmed(data);
+Operand BrigEmitter::Immed(BrigType16_t type, SRef data) {
+  return brigantine.createImmed(data, type);
 }
 
 Operand BrigEmitter::ImmedString(const std::string& str) 
@@ -480,7 +480,7 @@ void BrigEmitter::EmitStores(TypedRegList srcs, ItemList vars, bool useVectorIns
   }
 }
 
-OperandAddress BrigEmitter::Address(DirectiveVariable v, OperandReg reg, int64_t offset)
+OperandAddress BrigEmitter::Address(DirectiveVariable v, OperandRegister reg, int64_t offset)
 {
   return brigantine.createRef(v.name(), reg, offset);
 }
@@ -612,7 +612,7 @@ InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, Ope
   return inst;
 }
 
-InstCmp BrigEmitter::EmitCmp(OperandReg b, const TypedReg& src0, Operand src1, BrigCompareOperation8_t cmp)
+InstCmp BrigEmitter::EmitCmp(OperandRegister b, const TypedReg& src0, Operand src1, BrigCompareOperation8_t cmp)
 {
   InstCmp inst = brigantine.addInst<InstCmp>(BRIG_OPCODE_CMP, BRIG_TYPE_B1);
   BrigType16_t sourceType = src0->Type();
@@ -627,7 +627,7 @@ InstCmp BrigEmitter::EmitCmp(OperandReg b, const TypedReg& src0, Operand src1, B
   return inst;
 }
 
-InstCmp BrigEmitter::EmitCmp(OperandReg b, const TypedReg& src0, const TypedReg& src1, BrigCompareOperation8_t cmp)
+InstCmp BrigEmitter::EmitCmp(OperandRegister b, const TypedReg& src0, const TypedReg& src1, BrigCompareOperation8_t cmp)
 {
   assert(src0->Type() == src1->Type());
   return EmitCmp(b, src0, src1->Reg(), cmp);
@@ -697,13 +697,6 @@ InstSeg BrigEmitter::EmitNullPtr(PointerReg dst)
   return inst;
 }
 
-InstBasic BrigEmitter::EmitLdk(PointerReg dst, const std::string& kernelName)
-{
-  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_LDK, dst->Type());
-  inst.operands() = Operands(dst->Reg(), brigantine.createExecutableRef(kernelName));
-  return inst;
-}
-
 DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t type, BrigAlignment8_t align, uint64_t dim, bool isConst, bool output)
 {
   if (align == BRIG_ALIGNMENT_NONE) { align = getNaturalAlignment(type); }
@@ -728,7 +721,6 @@ DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, B
     v.allocation() = BRIG_ALLOCATION_NONE;
     break;
   }
-  v.modifier().isArray() = (dim > 0);
   v.modifier().isDefinition() = 1;
   v.modifier().isConst() = isConst;
   v.dim() = dim;
@@ -749,7 +741,7 @@ DirectiveVariable BrigEmitter::EmitPointerDefinition(const std::string& name, Br
 }
 
 void BrigEmitter::EmitVariableInitializer(HSAIL_ASM::DirectiveVariable var, HSAIL_ASM::SRef data) {
-  var.init() = brigantine.createOperandData(data);
+  var.init() = brigantine.createOperandConstantBytes(data, var.elementType(), var.isArray());
 }
 
 InstCvt BrigEmitter::EmitCvt(Operand dst, BrigType16_t dstType, Operand src, BrigType16_t srcType)
@@ -773,7 +765,7 @@ InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound
    InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dst->Type());
    inst.sourceType() = src->Type();
    inst.operands() = Operands(dst->Reg(), src->Reg());
-   inst.modifier().round() = round;
+   inst.round() = round;
    return inst;
 }
 
@@ -1175,7 +1167,7 @@ BrigMemoryScope BrigEmitter::AtomicMemoryScope(BrigMemoryScope initialMemoryScop
   case BRIG_SEGMENT_GROUP:
     switch (initialMemoryScope) {
       case BRIG_MEMORY_SCOPE_WORKITEM: return BRIG_MEMORY_SCOPE_WAVEFRONT;
-      case BRIG_MEMORY_SCOPE_COMPONENT:
+      case BRIG_MEMORY_SCOPE_AGENT:
       case BRIG_MEMORY_SCOPE_SYSTEM:   return BRIG_MEMORY_SCOPE_WORKGROUP;
       default:                         return initialMemoryScope;
     }
@@ -1530,12 +1522,6 @@ void BrigEmitter::EmitAgentId(TypedReg dest)
   InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_AGENTID, BRIG_TYPE_U32);
   inst.operands() = Operands(dest->Reg());
   */
-}
-
-void BrigEmitter::EmitQueuePtr(PointerReg dest)
-{
-  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_QUEUEPTR, dest->Type());
-  inst.operands() = Operands(dest->Reg());
 }
 
 TypedReg BrigEmitter::EmitWorkitemFlatId() {

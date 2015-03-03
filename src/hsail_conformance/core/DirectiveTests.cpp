@@ -340,7 +340,7 @@ private:
   HSAIL_ASM::Operand InitializeOperand(BrigKinds type) {
     switch (type) {
     case BRIG_KIND_OPERAND_CODE_REF: return HSAIL_ASM::Operand();
-    case BRIG_KIND_OPERAND_DATA: return be.Immed(BRIG_TYPE_U64, generator.GenerateNumber());
+    case BRIG_KIND_OPERAND_CONSTANT_BYTES: return be.Immed(BRIG_TYPE_U64, generator.GenerateNumber());
     case BRIG_KIND_OPERAND_STRING: return be.ImmedString(generator.GenerateString());
     default:
       assert(false); return HSAIL_ASM::Operand();
@@ -350,7 +350,7 @@ private:
   static std::string OperandType2String(BrigKinds type) {
     switch (type) {
     case BRIG_KIND_OPERAND_CODE_REF: return "identifier";
-    case BRIG_KIND_OPERAND_DATA: return "integer";
+    case BRIG_KIND_OPERAND_CONSTANT_BYTES: return "integer";
     case BRIG_KIND_OPERAND_STRING: return "string";
     default:
       assert(false); return "";
@@ -363,9 +363,9 @@ public:
 
   bool IsValid() const override {
     return SkipTest::IsValid() &&
-           (type1 == BRIG_KIND_OPERAND_DATA || type1 == BRIG_KIND_OPERAND_STRING || type1 == BRIG_KIND_OPERAND_CODE_REF) &&
-           (type2 == BRIG_KIND_OPERAND_DATA || type2 == BRIG_KIND_OPERAND_STRING || type2 == BRIG_KIND_OPERAND_CODE_REF) &&
-           (type3 == BRIG_KIND_OPERAND_DATA || type3 == BRIG_KIND_OPERAND_STRING || type3 == BRIG_KIND_OPERAND_CODE_REF);
+           (type1 == BRIG_KIND_OPERAND_CONSTANT_BYTES || type1 == BRIG_KIND_OPERAND_STRING || type1 == BRIG_KIND_OPERAND_CODE_REF) &&
+           (type2 == BRIG_KIND_OPERAND_CONSTANT_BYTES || type2 == BRIG_KIND_OPERAND_STRING || type2 == BRIG_KIND_OPERAND_CODE_REF) &&
+           (type3 == BRIG_KIND_OPERAND_CONSTANT_BYTES || type3 == BRIG_KIND_OPERAND_STRING || type3 == BRIG_KIND_OPERAND_CODE_REF);
   }
 
   void Init() override {

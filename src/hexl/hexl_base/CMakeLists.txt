@@ -5,7 +5,7 @@ Arena.hpp           DllApi.hpp          HexlResource.cpp  HexlTest.hpp         H
 BasicHexlTests.cpp  Grid.cpp            HexlResource.hpp  HexlTestFactory.cpp  HexlTestList.hpp     MObject.cpp         Options.hpp  Scenario.cpp        Utils.cpp
 )
 
-target_link_libraries(hexl_base ${HSAIL-Tools-LIBS}/libhsail${LIB_EXT})
+target_link_libraries(hexl_base ${HSAIL-Tools-LIBS}/hsail${LIB_EXT})
 if(UNIX)
 target_link_libraries(hexl_base dl)
 endif()

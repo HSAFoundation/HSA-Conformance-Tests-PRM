@@ -408,7 +408,7 @@ protected:
     // store data in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
     // wait on fbarrrier
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
     Fb()->EmitWaitfbar();
   }
 
@@ -416,7 +416,7 @@ protected:
     // even
     // wait on fbarrrier
     Fb()->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
     // store data in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), globalOffset);
     // store data in neighbours wave output memory region

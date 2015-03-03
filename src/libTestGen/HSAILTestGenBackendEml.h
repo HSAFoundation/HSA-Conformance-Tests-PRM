@@ -66,8 +66,8 @@ using HSAIL_ASM::InstBr;
 using HSAIL_ASM::OperandOperandList;
 using HSAIL_ASM::OperandCodeList;
 
-using HSAIL_ASM::OperandReg;
-using HSAIL_ASM::OperandData;
+using HSAIL_ASM::OperandRegister;
+using HSAIL_ASM::OperandConstantBytes;
 using HSAIL_ASM::OperandWavesize;
 using HSAIL_ASM::OperandAddress;
 using HSAIL_ASM::OperandCodeRef;
@@ -383,7 +383,7 @@ public:
             Operand operand = inst.operand(i);
             assert(operand);
 
-            if (OperandReg reg = operand)
+            if (OperandRegister reg = operand)
             {
                 assign(inst, i, getOperandReg(i));
             }
@@ -391,7 +391,7 @@ public:
             {
                 assign(inst, i, getOperandVector(tstIdx, i));
             }
-            else if (OperandData immed = operand)
+            else if (OperandConstantBytes immed = operand)
             {
                 assign(inst, i, getOperandImmed(tstIdx, i));
             }
@@ -444,7 +444,7 @@ private:
             Operand operand = testSample.operand(i);
             assert(operand);
 
-            if (OperandReg reg = operand)
+            if (OperandRegister reg = operand)
             {
                 emitCommentHeader("Initialization of input register " + getName(getOperandReg(i)));
                 initSrcVal(getOperandReg(i), getSrcArrayIdx(i));
@@ -489,9 +489,9 @@ private:
             assert(OPERAND_IDX_DST < getOperandsNum(testSample));
 
             Operand sampleDst = testSample.operand(OPERAND_IDX_DST);
-            if (OperandReg(sampleDst))
+            if (OperandRegister(sampleDst))
             {
-                OperandReg dst = getOperandReg(OPERAND_IDX_DST);
+                OperandRegister dst = getOperandReg(OPERAND_IDX_DST);
                 emitCommentHeader("Saving dst register " + getName(dst));
                 saveDstVal(dst, getDstArrayIdx());
             }
@@ -611,31 +611,31 @@ private:
     // Access to registers
 private:
 
-    OperandReg getTmpReg(unsigned size)  { return context->emitReg(size, REG_IDX_TMP); }
-    OperandReg getAddrReg()              { return context->emitReg(getModelSize(), REG_IDX_ADDR); }
-    OperandReg getIdReg(unsigned size)   { return context->emitReg(size, REG_IDX_ID); }
+    OperandRegister getTmpReg(unsigned size)  { return context->emitReg(size, REG_IDX_TMP); }
+    OperandRegister getAddrReg()              { return context->emitReg(getModelSize(), REG_IDX_ADDR); }
+    OperandRegister getIdReg(unsigned size)   { return context->emitReg(size, REG_IDX_ID); }
 
-    OperandReg getIdxReg(unsigned size, unsigned idx) { return context->emitReg(size == 0? getModelSize() : size, idx); }
-    OperandReg getIdxReg1(unsigned size = 0)          { return getIdxReg(size, REG_IDX_IDX1); }
-    OperandReg getIdxReg2(unsigned size = 0)          { return getIdxReg(size, REG_IDX_IDX2); }
+    OperandRegister getIdxReg(unsigned size, unsigned idx) { return context->emitReg(size == 0? getModelSize() : size, idx); }
+    OperandRegister getIdxReg1(unsigned size = 0)          { return getIdxReg(size, REG_IDX_IDX1); }
+    OperandRegister getIdxReg2(unsigned size = 0)          { return getIdxReg(size, REG_IDX_IDX2); }
 
-    OperandData getOperandImmed(unsigned tstIdx, unsigned idx) // Create i-th operand of test instruction
+    OperandConstantBytes getOperandImmed(unsigned tstIdx, unsigned idx) // Create i-th operand of test instruction
     {
         assert(idx < getOperandsNum(testSample));
 
-        OperandData immed = testSample.operand(idx);
+        OperandConstantBytes immed = testSample.operand(idx);
         assert(immed);
 
         Val val = testGroup->getData(0, tstIdx).src[idx];
         return context->emitImm(getImmSize(immed), val.getAsB64(0), val.getAsB64(1));
     }
 
-    OperandReg getOperandReg(unsigned idx) // Create register for i-th operand of test instruction.
+    OperandRegister getOperandReg(unsigned idx) // Create register for i-th operand of test instruction.
     {
         assert(0 <= idx && idx <= 4);
         assert(idx < getOperandsNum(testSample));
 
-        OperandReg reg = testSample.operand(idx); // NB: this register is read-only!
+        OperandRegister reg = testSample.operand(idx); // NB: this register is read-only!
 
         assert(reg);
         assert(getRegSize(reg) == 1  ||
@@ -667,11 +667,11 @@ private:
         {
             Operand opr;
 
-            if (OperandReg x = vec.elements(i))
+            if (OperandRegister x = vec.elements(i))
             {
                 opr = context->emitReg(regSize, REG_IDX_VEC + i);
             }
-            else if (OperandData x = vec.elements(i))
+            else if (OperandConstantBytes x = vec.elements(i))
             {
                 opr = context->emitImm(getImmSize(x), v[i].getAsB64(0), v[i].getAsB64(1));
             }
@@ -696,7 +696,7 @@ private:
 
         for (unsigned i = 0; i < dim; ++i)
         {
-            if (OperandReg x = vec.elements(i)) return getRegSize(x);
+            if (OperandRegister x = vec.elements(i)) return getRegSize(x);
         }
 
         return 0; // vector has no register elements
@@ -708,7 +708,7 @@ private:
         {
             unsigned dim = vec.elementCount();
 
-            for (unsigned i = 0; i < dim; ++i) if (!OperandReg(vec.elements(i))) return true;
+            for (unsigned i = 0; i < dim; ++i) if (!OperandRegister(vec.elements(i))) return true;
         }
 
         return false;
@@ -751,7 +751,7 @@ private:
         }
     }
 
-    OperandReg loadIndexReg(OperandReg idxReg, unsigned dim, unsigned elemSize)
+    OperandRegister loadIndexReg(OperandRegister idxReg, unsigned dim, unsigned elemSize)
     {
         unsigned addrSize = getRegSize(idxReg);
         if (elemSize == 1) elemSize = 32; // b1 is a special case, always stored as b32
@@ -759,7 +759,7 @@ private:
         return idxReg;
     }
 
-    OperandReg loadIndexReg(OperandReg idxReg, unsigned slotSize)
+    OperandRegister loadIndexReg(OperandRegister idxReg, unsigned slotSize)
     {
         assert(slotSize > 0);
         assert(slotSize % 8 == 0);
@@ -774,7 +774,7 @@ private:
     // - for tests working with private segment, indexReg = tstIdx * bundleSize
     // - for tests working with other segments,  indexReg = flatTstIdx * bundleSize
     //
-    OperandReg loadMemIndexReg(unsigned tstIdx, OperandReg idxReg, unsigned memBundleSize)
+    OperandRegister loadMemIndexReg(unsigned tstIdx, OperandRegister idxReg, unsigned memBundleSize)
     {
         assert(memBundleSize > 0);
         assert(memBundleSize % 8 == 0);
@@ -795,7 +795,7 @@ private:
     // Low-level operations with arrays
 private:
 
-    OperandReg loadGlobalArrayAddress(OperandReg addrReg, OperandReg indexReg, unsigned arrayIdx)
+    OperandRegister loadGlobalArrayAddress(OperandRegister addrReg, OperandRegister indexReg, unsigned arrayIdx)
     {
         assert(addrReg);
         assert(indexReg);
@@ -835,12 +835,12 @@ private:
     // Operations with src/dst arrays
 private:
 
-    void initSrcVal(OperandReg reg, unsigned arrayIdx)
+    void initSrcVal(OperandRegister reg, unsigned arrayIdx)
     {
         assert(reg);
 
-        OperandReg indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
-        OperandReg addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
+        OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
         OperandAddress addr = context->emitAddrRef(addrReg);
         ldReg(getRegSize(reg), reg, addr);
     }
@@ -854,12 +854,12 @@ private:
 
         assert(regSize == 32 || regSize == 64);
 
-        OperandReg indexReg = loadIndexReg(getIdxReg1(), dim, regSize);
-        OperandReg addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), dim, regSize);
+        OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
 
         for (unsigned i = 0; i < dim; ++i)
         {
-            if (OperandReg reg = vector.elements(i))
+            if (OperandRegister reg = vector.elements(i))
             {
                 OperandAddress addr = context->emitAddrRef(addrReg, getSlotSize(regSize) / 8 * i);
                 ldReg(regSize, context->emitReg(getRegSize(reg), reg.regNum()), addr);
@@ -867,19 +867,19 @@ private:
         }
     }
 
-    void clearDstVal(OperandReg reg)
+    void clearDstVal(OperandRegister reg)
     {
         assert(reg);
 
         context->emitMov(getBitType(getRegSize(reg)), reg, context->emitImm(getRegSize(reg), 0, 0));
     }
 
-    void saveDstVal(OperandReg reg, unsigned arrayIdx)
+    void saveDstVal(OperandRegister reg, unsigned arrayIdx)
     {
         assert(reg);
 
-        OperandReg indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
-        OperandReg addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
+        OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
         OperandAddress addr = context->emitAddrRef(addrReg);
         stReg(getRegSize(reg), reg, addr);
     }
@@ -893,27 +893,27 @@ private:
 
         assert(regSize == 32 || regSize == 64);
 
-        OperandReg indexReg = loadIndexReg(getIdxReg1(), dim, regSize);
-        OperandReg addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), dim, regSize);
+        OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
 
         for (unsigned i = 0; i < dim; ++i)
         {
             OperandAddress addr = context->emitAddrRef(addrReg, getSlotSize(regSize) / 8 * i);
-            OperandReg reg = vector.elements(i);
+            OperandRegister reg = vector.elements(i);
             assert(reg); // dst vectors cannot include imm elements
 
             stReg(regSize, context->emitReg(reg), addr);
         }
     }
 
-    void ldReg(unsigned elemSize, OperandReg reg, OperandAddress addr)
+    void ldReg(unsigned elemSize, OperandRegister reg, OperandAddress addr)
     {
         assert(reg);
         assert(addr);
 
         if (elemSize == 1)
         {
-            OperandReg tmpReg = getTmpReg(32);
+            OperandRegister tmpReg = getTmpReg(32);
             context->emitLd(BRIG_TYPE_B32, BRIG_SEGMENT_GLOBAL, tmpReg, addr);
             context->emitCvt(BRIG_TYPE_B1, BRIG_TYPE_U32, reg, tmpReg);
         }
@@ -923,14 +923,14 @@ private:
         }
     }
 
-    void stReg(unsigned elemSize, OperandReg reg, OperandAddress addr)
+    void stReg(unsigned elemSize, OperandRegister reg, OperandAddress addr)
     {
         assert(reg);
         assert(addr);
 
         if (elemSize == 1)
         {
-            OperandReg tmpReg = getTmpReg(32);
+            OperandRegister tmpReg = getTmpReg(32);
             context->emitCvt(BRIG_TYPE_U32, BRIG_TYPE_B1, tmpReg, reg);
             context->emitSt(BRIG_TYPE_B32, BRIG_SEGMENT_GLOBAL, tmpReg, addr);
         }
@@ -1002,25 +1002,25 @@ private:
         unsigned dataElemSize   = getMemDataElemSize();
         unsigned dataSlotSize   = getSlotSize(dataElemSize);
         unsigned dataBundleSize = dataSlotSize * getMaxDim();
-        OperandReg dataIndexReg = loadIndexReg(getIdxReg1(glbAddrSize), dataBundleSize);
+        OperandRegister dataIndexReg = loadIndexReg(getIdxReg1(glbAddrSize), dataBundleSize);
 
         // Initialize index register 'memIndexReg' to acess memory test array.
         // Test data are available at &var0[memIndexReg + alignOffset]
         unsigned memBundleSize   = getMemTestArrayBundleSize();
         unsigned memBundleOffset = getMemTestArrayBundleOffset() / 8;
-        OperandReg memIndexReg = dataIndexReg; // Reuse first index register if possible
+        OperandRegister memIndexReg = dataIndexReg; // Reuse first index register if possible
         if (isPrivateMemSeg() || glbAddrSize != memAddrSize || dataBundleSize != memBundleSize)
         {
             memIndexReg = loadMemIndexReg(tstIdx, getIdxReg2(memAddrSize), memBundleSize);
         }
 
         // Load address of test data in arguments array 
-        OperandReg addrReg = loadGlobalArrayAddress(getAddrReg(), dataIndexReg, arrayIdx);
+        OperandRegister addrReg = loadGlobalArrayAddress(getAddrReg(), dataIndexReg, arrayIdx);
 
         unsigned atomType = getMemTestArrayAtomType();
         unsigned atomSize = getMemDataAtomSize();
         unsigned memDim   = std::max(1U, dataElemSize / atomSize);
-        OperandReg reg    = getTmpReg(testLdSt()? 32 : dataSlotSize);
+        OperandRegister reg    = getTmpReg(testLdSt()? 32 : dataSlotSize);
 
         unsigned vectorDim = getMaxDim();
 
@@ -1081,7 +1081,7 @@ private:
     void initMemTestArray(unsigned tstIdx, unsigned arrayIdx) { copyMemTestArray(tstIdx, arrayIdx, true); }
     void saveMemTestArray(unsigned tstIdx, unsigned arrayIdx) { copyMemTestArray(tstIdx, arrayIdx, false); }
 
-    OperandAddress getMemTestArrayAddr(OperandReg idxReg, unsigned elemSize = 0, unsigned elemIdx = 0, unsigned offset = 0)
+    OperandAddress getMemTestArrayAddr(OperandRegister idxReg, unsigned elemSize = 0, unsigned elemIdx = 0, unsigned offset = 0)
     {
         assert(memTestArray);
         offset += ((elemSize + 7) / 8) * elemIdx; // account for B1 type (1 byte)
@@ -1304,18 +1304,18 @@ private:
     static unsigned getModelType() { return BrigSettings::getModelType(); }
     static unsigned getModelSize() { return BrigSettings::getModelSize(); }
 
-    static string   getName(OperandReg reg) { return getRegName(reg); }
+    static string   getName(OperandRegister reg) { return getRegName(reg); }
     static string   getName(OperandOperandList vector)
     {
         string res;
         for (unsigned i = 0; i < vector.elementCount(); ++i)
         {
             res += (i > 0? ", " : "");
-            if (OperandReg reg = vector.elements(i))
+            if (OperandRegister reg = vector.elements(i))
             {
                 res += getRegName(reg);
             }
-            else if (OperandData imm = vector.elements(i))
+            else if (OperandConstantBytes imm = vector.elements(i))
             {
                 res += "imm";
             }
@@ -1432,7 +1432,7 @@ private:
 
                 // NB: If there are vector operands, memory operands (if any) must be processed in similar way.
                 unsigned dim     = (OperandOperandList(opr) || OperandAddress(opr))? maxDim : 1;
-                bool     isConst = OperandData(opr) || OperandWavesize(opr) || isVectorWithImm(opr);
+                bool     isConst = OperandConstantBytes(opr) || OperandWavesize(opr) || isVectorWithImm(opr);
 
                 p->registerOperand(i, dim, isConst, lockConst);
             }
@@ -1472,7 +1472,7 @@ private:
             {
                 if (TestDataProvider::getWavesize() == 0 && isVectorWithWaveSize(operand)) return false;
             }
-            else if (!OperandOperandList(operand) && !OperandReg(operand) && !OperandData(operand))
+            else if (!OperandOperandList(operand) && !OperandRegister(operand) && !OperandConstantBytes(operand))
             {
                 return false;
             }

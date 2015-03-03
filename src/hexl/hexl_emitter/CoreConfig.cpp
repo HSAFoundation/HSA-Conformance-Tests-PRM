@@ -702,7 +702,7 @@ static const BrigControlDirective boundary24WorkitemFlatIdRelatedValues[] = {
 };
 
 static const BrigKinds pragmaOperandTypesValues[] = {
-  BRIG_KIND_OPERAND_DATA,
+  BRIG_KIND_OPERAND_CONSTANT_BYTES,
   BRIG_KIND_OPERAND_STRING,
   BRIG_KIND_OPERAND_CODE_REF
 };

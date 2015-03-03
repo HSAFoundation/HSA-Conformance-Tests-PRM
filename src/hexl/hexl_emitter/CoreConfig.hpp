@@ -26,7 +26,7 @@
 #include <sstream>
 #include <cassert>
 
-#define BRIG_SEGMENT_MAX Brig::BRIG_SEGMENT_EXTSPACE0
+#define BRIG_SEGMENT_MAX Brig::BRIG_SEGMENT_AMD_GCN
 
 namespace Brig {
 

@@ -715,7 +715,7 @@ public:
 
     Inst AtomicInst(unsigned t, BrigAtomicOperation op, BrigMemoryOrder order, BrigMemoryScope scope, BrigSegment segment, uint8_t eqclass, bool ret = true)
     {
-        if (op == BRIG_ATOMIC_LD || op == BRIG_ATOMIC_ST) t = convType2BitType(t);
+        if (op == BRIG_ATOMIC_LD || op == BRIG_ATOMIC_ST) t = type2bitType(t);
 
         InstAtomic inst = be.Brigantine().addInst<InstAtomic>(ret? BRIG_OPCODE_ATOMIC : BRIG_OPCODE_ATOMICNORET, t);
         inst.segment() = segment;
@@ -749,7 +749,7 @@ public:
     {
         TypedReg dst = be.AddTReg(BRIG_TYPE_U32);
         InstSourceType inst = be.Brigantine().addInst<InstSourceType>(BRIG_OPCODE_POPCOUNT, BRIG_TYPE_U32);
-        inst.sourceType() = convType2BitType(src->Type());
+        inst.sourceType() = type2bitType(src->Type());
         inst.operands() = be.Operands(dst->Reg(), src->Reg());
         return dst;
     }
@@ -810,7 +810,7 @@ public:
     {
         TypedReg cond = Condition(flag);
         TypedReg dst = be.AddTReg(ResultType());
-        InstBasic inst = be.Brigantine().addInst<InstBasic>(BRIG_OPCODE_CMOV, convType2BitType(ResultType()));
+        InstBasic inst = be.Brigantine().addInst<InstBasic>(BRIG_OPCODE_CMOV, type2bitType(ResultType()));
         inst.operands() = be.Operands(dst->Reg(), cond->Reg(), be.Immed(ResultType(), GetFlagVal(flag)), be.Immed(ResultType(), GetFlagVal(FLAG_NONE_VAL)));
         return dst;
     }
