@@ -14,34 +14,15 @@
    limitations under the License.
 */
 
-#include "ImagesTests.hpp"
-#include "ImageRdTests.hpp"
-#include "ImageQueryTests.hpp"
-#include "ImageLdTests.hpp"
-#include "ImageStTests.hpp"
-#include "ImageInitializerTests.hpp"
-#include "CoreConfig.hpp"
+#ifndef HC_IMAGE_INITIALIZER_TESTS_HPP
+#define HC_IMAGE_INITIALIZER_TESTS_HPP
 
-using namespace Brig;
-using namespace hexl;
+#include "HexlTest.hpp"
 
-namespace hsail_conformance { 
+namespace hsail_conformance {
 
-DECLARE_TESTSET_UNION(PrmImagesTests);
-
-PrmImagesTests::PrmImagesTests()
-  : TestSetUnion("image")
-{
-  Add(new ImageRdTestSet());
-  Add(new ImageQueryTestSet());
-  Add(new ImageLdTestSet());
-	Add(new ImageStTestSet());
-  Add(new ImageInitializerTestSet());
-}
-
-hexl::TestSet* NewPrmImagesTests()
-{
-  return new PrmImagesTests();
-}
+DECLARE_TESTSET(ImageInitializerTestSet, "image_initialzier");
 
 }
+
+#endif // HC_IMAGE_INITIALIZER_TESTS_HPP

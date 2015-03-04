@@ -174,9 +174,10 @@ Image EmittableContainer::NewImage(const std::string& id, Brig::BrigSegment brig
   return image;
 }
 
-Sampler EmittableContainer::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing)
+Sampler EmittableContainer::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
+                                       Location location_, uint64_t dim_, bool isConst, bool output_)
 {
-  Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing);
+  Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing, location_, dim_, isConst, output_);
   Add(sampler);
   return sampler;
 }
@@ -1018,7 +1019,9 @@ void EImage::EmitImageSt(TypedReg src, TypedReg image, TypedReg coord)
 
 void EImage::KernelArguments()
 {
-  var = EmitAddressDefinition(segment);
+  if (segment == BRIG_SEGMENT_KERNARG) {
+    var = EmitAddressDefinition(segment);
+  }
 }
 
 HSAIL_ASM::DirectiveVariable EImage::EmitAddressDefinition(BrigSegment segment)
@@ -1026,17 +1029,83 @@ HSAIL_ASM::DirectiveVariable EImage::EmitAddressDefinition(BrigSegment segment)
   return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->ImageType(access));
 }
 
-void ESampler::SetupDispatch(DispatchSetup* dispatch) {
-  
-  unsigned i = dispatch->MSetup().Count();
-  sampler = new MSampler(i++, id, segment, coord, filter, addressing);
-  dispatch->MSetup().Add(sampler);
-  dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_SAMPLERREF, U64(sampler->Id())));
+ESampler::ESampler(TestEmitter* te_, const std::string& id_,
+  Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
+  Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_,
+  Location location_, uint64_t dim_ , bool isConst, bool output_)
+: EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst, output_), 
+  id(id_), coord(coord_), filter(filter_), addressing(addressing_)
+{ 
+  assert(IsValidSegment());
+  te = te_;
+}
+
+ESampler::ESampler(TestEmitter* te_, const std::string& id_,
+  Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
+  Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_, const EVariableSpec* spec_)
+: EVariableSpec(*spec_), id(id_), coord(coord_), filter(filter_), addressing(addressing_)
+{ 
+  assert(IsValidSegment());
+  te = te_; 
+}
+
+void ESampler::SetupDispatch(DispatchSetup* dispatch) 
+{
+  if (segment == BRIG_SEGMENT_KERNARG) {
+    unsigned i = dispatch->MSetup().Count();
+    sampler = new MSampler(i++, id, segment, coord, filter, addressing);
+    dispatch->MSetup().Add(sampler);
+    dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_SAMPLERREF, U64(sampler->Id())));
+  }
+}
+
+void ESampler::KernelVariables()
+{
+  if (RealLocation() == KERNEL && segment != BRIG_SEGMENT_KERNARG) {
+    EmitDefinition();
+  }
+}
+
+void ESampler::FunctionFormalOutputArguments()
+{
+  if (RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && output) {
+    EmitDefinition();
+  }
+}
+
+void ESampler::FunctionFormalInputArguments()
+{
+  if (RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && !output) {
+    EmitDefinition();
+  }
 }
 
 void ESampler::KernelArguments()
 {
+  if (segment == BRIG_SEGMENT_KERNARG && RealLocation() == Location::KERNEL) {
+    EmitDefinition();
+  }
+}
+
+void ESampler::ModuleVariables()
+{
+  if (RealLocation() == Location::MODULE) {
+    EmitDefinition();
+  }
+}
+
+void ESampler::FunctionVariables()
+{
+  if (RealLocation() == FUNCTION && segment != BRIG_SEGMENT_ARG) {
+    EmitDefinition();
+  }
+}
+
+void ESampler::EmitDefinition() 
+{
+  assert(!var);
   var = EmitAddressDefinition(segment);
+  EmitInitializer();
 }
 
 void ESampler::EmitSamplerQuery(TypedReg dest, TypedReg sampler, BrigSamplerQuery query)
@@ -1052,7 +1121,60 @@ void ESampler::EmitSamplerQuery(TypedReg dest, TypedReg sampler, BrigSamplerQuer
 
 HSAIL_ASM::DirectiveVariable ESampler::EmitAddressDefinition(BrigSegment segment)
 {
-  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->SamplerType());
+  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->SamplerType(), align, dim, isConst, output);
+}
+
+void ESampler::EmitInitializer()
+{
+  assert(var);
+  if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) {
+    var.allocation() = BRIG_ALLOCATION_AGENT;
+    ItemList list;
+    for (uint64_t i = 0; i < std::max<uint64_t>(dim, (uint64_t)1); ++i) {
+      auto init = te->Brig()->Brigantine().append<OperandSamplerProperties>();
+      init.addressing() = addressing;
+      init.coord() = coord;
+      init.filter() = filter;
+      list.push_back(init);
+    }
+    if (dim == 0) {
+      var.init() = list[0];
+    } else {
+      var.init() = te->Brig()->Brigantine().createOperandList(list);
+    }
+  }
+}
+
+bool ESampler::IsValidSegment() const 
+{
+  switch (segment) {
+  case BRIG_SEGMENT_GLOBAL:
+  case BRIG_SEGMENT_READONLY:
+  case BRIG_SEGMENT_KERNARG:
+  case BRIG_SEGMENT_ARG:
+    return true;
+  default:
+    return false;
+  }
+}
+
+Location ESampler::RealLocation() const 
+{
+  if (location == AUTO) {
+    switch (segment) {
+    case BRIG_SEGMENT_GLOBAL:
+    case BRIG_SEGMENT_READONLY:
+      return MODULE;
+    case BRIG_SEGMENT_KERNARG:
+      return KERNEL;
+    case BRIG_SEGMENT_ARG:
+      return FUNCTION;
+    default:
+      return AUTO;
+    }
+  } else {
+    return location;
+  }
 }
 
 void ESignal::ScenarioInit()
@@ -1499,9 +1621,10 @@ Image TestEmitter::NewImage(const std::string& id, Brig::BrigSegment brigseg, Br
 
 
 
-Sampler TestEmitter::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing)
+Sampler TestEmitter::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
+                                Location location_, uint64_t dim_, bool isConst, bool output_)
 {
-  return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing);
+  return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing, location_, dim_, isConst, output_);
 }
 
 }

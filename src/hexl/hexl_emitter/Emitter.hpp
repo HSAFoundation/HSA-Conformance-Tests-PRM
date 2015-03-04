@@ -380,7 +380,8 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
                          size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch);
-  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing);
+  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
+                     Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
 };
 
 class EBuffer : public Emittable {
@@ -547,31 +548,43 @@ public:
   Values* ReleaseData() { return data.release(); }
 };
 
-class ESampler : public Emittable {
+class ESampler : public EVariableSpec {
 private:
   std::string id;
   HSAIL_ASM::DirectiveVariable var;
-  Brig::BrigSegment segment;
   Brig::BrigSamplerCoordNormalization coord;
   Brig::BrigSamplerFilter filter;
   Brig::BrigSamplerAddressing addressing;
   MSampler* sampler;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
+  void EmitInitializer();
+  void EmitDefinition();
+
+  Location RealLocation() const;
+  bool IsValidSegment() const;
 
 public:
-  ESampler(TestEmitter* te, const std::string& id_,
+  ESampler(TestEmitter* te_, const std::string& id_,
     Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
-    Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_)
-  : Emittable(te), id(id_), segment(brigseg_), coord(coord_), filter(filter_), addressing(addressing_)
-  {}
+    Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_,
+    Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
+
+  ESampler(TestEmitter* te_, const std::string& id_,
+    Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
+    Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_, const EVariableSpec* spec_);
 
   const std::string& Id() const { return id; }
 
   void KernelArguments();
+  void ModuleVariables();
+  void FunctionFormalOutputArguments();
+  void FunctionFormalInputArguments();
+  void FunctionVariables();
+  void KernelVariables();
+
   void SetupDispatch(DispatchSetup* dispatch);
   void EmitSamplerQuery(TypedReg dest, TypedReg sampler, Brig::BrigSamplerQuery query);
-  Brig::BrigSegment Segment() { return segment; }
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
   TypedReg AddReg();
   TypedReg AddValueReg();
@@ -722,7 +735,8 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
                          size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch);
-  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing);
+  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
+                     Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
 };
 
 }

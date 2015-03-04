@@ -31,4 +31,4 @@ prm/core/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_globa
 prm/core/special/misc/kernargbaseptr/identity/kernel
 prm/core/special/misc/kernargbaseptr/identity/function
 prm/core/limits/wgnumber
-
+prm/image/initializer/sampler
