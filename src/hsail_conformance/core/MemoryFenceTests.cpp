@@ -32,21 +32,13 @@ public:
   static const uint32_t workgroupSizeX = 256;
   static const BrigTypeX type = BRIG_TYPE_U64;
 
-  MemoryFenceTest(Grid geometry_, BrigOpcode opcode_, BrigMemoryOrder memoryOrder_, BrigSegment segment_,
-    BrigMemoryScope memoryScopeGlobal_, BrigMemoryScope memoryScopeGroup_, BrigMemoryScope memoryScopeImage_)
-  : Test(KERNEL, geometry_), opcode(opcode_), memoryOrder(memoryOrder_), segment(segment_),
-    memoryScopeGlobal(memoryScopeGlobal_), memoryScopeGroup(memoryScopeGroup_), memoryScopeImage(memoryScopeImage_),
+  MemoryFenceTest(Grid geometry_, BrigOpcode opcode_, BrigMemoryOrder memoryOrder_, BrigSegment segment_, BrigMemoryScope memoryScope_)
+  : Test(KERNEL, geometry_), opcode(opcode_), memoryOrder(memoryOrder_), segment(segment_), memoryScope(memoryScope_),
     initialValue(0), expectedValue(1) {}
 
   void Name(std::ostream& out) const {
     out << opcode2str(opcode) << "_" << segment2str(segment) << "_" << typeX2str(type) << "/"
-        << opcode2str(BRIG_OPCODE_MEMFENCE) << "_" << memoryOrder2str(memoryOrder);
-    if (BRIG_MEMORY_SCOPE_NONE != memoryScopeGlobal)
-      out << "_" << memoryFenceSegments2str(BRIG_MEMORY_FENCE_SEGMENT_GLOBAL) << "(" << memoryScope2str(memoryScopeGlobal) << ")";
-    if (BRIG_MEMORY_SCOPE_NONE != memoryScopeGroup)
-      out << "_" << memoryFenceSegments2str(BRIG_MEMORY_FENCE_SEGMENT_GROUP) << "(" << memoryScope2str(memoryScopeGroup) << ")";
-    if (BRIG_MEMORY_SCOPE_NONE != memoryScopeImage)
-      out << "_" << memoryFenceSegments2str(BRIG_MEMORY_FENCE_SEGMENT_IMAGE) << "(" << memoryScope2str(memoryScopeImage) << ")";
+        << opcode2str(BRIG_OPCODE_MEMFENCE) << "_" << memoryOrder2str(memoryOrder) << "_" << memoryScope2str(memoryScope);
   }
 
 protected:
@@ -54,9 +46,7 @@ protected:
   BrigOpcode opcode;
   BrigMemoryOrder memoryOrder;
   BrigSegment segment;
-  BrigMemoryScope memoryScopeGlobal;
-  BrigMemoryScope memoryScopeGroup;
-  BrigMemoryScope memoryScopeImage;
+  BrigMemoryScope memoryScope;
   int64_t initialValue;
   int64_t expectedValue;
   DirectiveVariable globalVar;
@@ -72,9 +62,6 @@ protected:
     // [Note] it looks from the first sight like at least 2 kernels are needed:
     // 1 stores, 2 loads and memfence for both.
     if (BRIG_OPCODE_LD == opcode) return false;
-    // TODO: image segment memfence
-    if (BRIG_MEMORY_SCOPE_NONE != memoryScopeImage) return false;
-    if (BRIG_MEMORY_SCOPE_NONE == memoryScopeGlobal && BRIG_MEMORY_SCOPE_NONE == memoryScopeGroup) return false;
     return true;
   }
 
@@ -112,12 +99,6 @@ protected:
       globalVar.init() = be.Immed(type, initialValue);
   }
 
-  BrigMemoryScope InitialScope() {
-    // TODO: image segment support
-    if (BRIG_MEMORY_SCOPE_NONE == memoryScopeGlobal) return memoryScopeGroup;
-    return memoryScopeGlobal;
-  }
-
   void EmitInstrToTest() {
     globalVarAddr = be.Address(globalVar);
     switch (opcode) {
@@ -138,10 +119,10 @@ protected:
     inputReg = be.AddTReg(type);
     input->EmitLoadData(inputReg);
     EmitInstrToTest();
-    be.EmitMemfence(memoryOrder, memoryScopeGlobal, memoryScopeGroup, memoryScopeImage);
+    be.EmitMemfence(memoryOrder, memoryScope, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
     TypedReg destReg = be.AddTReg(globalVar.type());
     if (opcode != BRIG_OPCODE_LD)
-      be.EmitAtomic(destReg, globalVarAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, be.AtomicMemoryScope(InitialScope(), segment), segment, false);
+      be.EmitAtomic(destReg, globalVarAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, be.AtomicMemoryScope(memoryScope, segment), segment, false);
 //    if (result->Type() != addrReg->Type())
     be.EmitCvt(result, destReg);
     return result;
@@ -151,8 +132,8 @@ protected:
 void MemoryFenceTests::Iterate(TestSpecIterator& it)
 {
 //  CoreConfig* cc = CoreConfig::Get(context);
-//  std::string base = "memfence";
-//  TestForEach<MemoryFenceTest>(it, base, cc->Grids().SeveralWavesSet(), MemfenceOperations::LoadStore(), MemoryOrder::MemFence(), cc->Memory().MemfenceSegments(), MemoryScope::Global(), MemoryScope::Group(), MemoryScope::Image());
+//  Arena* ap = cc->Ap();
+//  TestForEach<MemoryFenceTest>(ap, it, "memfence", cc->Grids().SeveralWavesSet(), cc->Memory().LdStOpcodes(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
 }
 
 }

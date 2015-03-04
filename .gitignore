@@ -7,5 +7,7 @@ install_manifest.txt
 *.bak
 build/
 cmake_linux.sh
+cmake_lnx.sh
 cmake_windows.bat
+cmake_win.bat
 src/hexl/hexl_orca
