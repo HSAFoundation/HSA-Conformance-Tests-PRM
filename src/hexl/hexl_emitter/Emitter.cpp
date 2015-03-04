@@ -165,19 +165,37 @@ Function EmittableContainer::NewFunction(const std::string& id)
   return function;
 }
 
-Image EmittableContainer::NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch)
+Image EmittableContainer::NewImage(const std::string& id, BrigSegment brigseg, BrigImageGeometry geometry, BrigImageChannelOrder chanel_order, BrigImageChannelType channel_type, BrigTypeX image_type, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, Location location_, uint64_t dim_, bool isConst, bool output_)
 {
-  Image image = te->NewImage(id, brigseg, geometry, chanel_order, channel_type, access, 
-                         width, height, depth, rowPitch, slicePitch);
+  Image image = te->NewImage(id, brigseg, geometry, chanel_order, channel_type, image_type, 
+                         width, height, depth, rowPitch, slicePitch,
+                         location_, dim_, isConst, output_);
   Add(image);
   return image;
 }
 
-Sampler EmittableContainer::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
+Image EmittableContainer::NewImage(const std::string& id, BrigSegment brigseg, BrigImageGeometry geometry, BrigImageChannelOrder chanel_order, BrigImageChannelType channel_type, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, VariableSpec spec)
+{
+  Image image = te->NewImage(id, brigseg, geometry, chanel_order, channel_type, 
+                         width, height, depth, rowPitch, slicePitch, spec);
+  Add(image);
+  return image;
+}
+
+Sampler EmittableContainer::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
                                        Location location_, uint64_t dim_, bool isConst, bool output_)
 {
   Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing, location_, dim_, isConst, output_);
+  Add(sampler);
+  return sampler;
+}
+
+Sampler EmittableContainer::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
+                                       VariableSpec spec) 
+{
+  Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing, spec);
   Add(sampler);
   return sampler;
 }
@@ -870,17 +888,76 @@ void EUserModeQueue::EmitCasQueueWriteIndex(Brig::BrigSegment segment, Brig::Bri
 }
 
 
-void EImage::SetupDispatch(DispatchSetup* dispatch) {
-  
-  unsigned i = dispatch->MSetup().Count();
-  image = new MImage(i++, id, segment, geometry, chanel_order, channel_type, access, 
-          width, height, depth, rowPitch, slicePitch);
-  dispatch->MSetup().Add(image);
-  dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
+EImage::EImage(TestEmitter* te_, const std::string& id_, BrigSegment brigseg_, BrigImageGeometry geometry_,
+  BrigImageChannelOrder chanel_order_, BrigImageChannelType channel_type_,
+  BrigTypeX imageType_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_,
+  Location location_, uint64_t dim_, bool isConst_, bool output_)
+: EVariableSpec(brigseg_, imageType_, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
+  id(id_), geometry(geometry_), chanel_order(chanel_order_),
+  channel_type(channel_type_), width(width_), height(height_), depth(depth_),
+  rowPitch(rowPitch_), slicePitch(slicePitch_), data(new Values())
+{
+  assert(IsValidSegment());
+  te = te_;
+}
 
-  if (data) { image->ContentData() = *data; }
-  Value value = image->ContentData()[0];
-  image->VType() = value.Type();
+EImage::EImage(TestEmitter* te_, const std::string& id_, BrigSegment brigseg_, BrigImageGeometry geometry_,
+  BrigImageChannelOrder chanel_order_, BrigImageChannelType channel_type_,
+  size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_,
+  const EVariableSpec* spec_)
+: EVariableSpec(*spec_), id(id_), geometry(geometry_), chanel_order(chanel_order_),
+  channel_type(channel_type_), width(width_), height(height_), depth(depth_),
+  rowPitch(rowPitch_), slicePitch(slicePitch_), data(new Values())
+{
+  assert(IsValidSegment());
+  te = te_;
+}
+
+bool EImage::IsValidSegment() const 
+{
+  switch (segment) {
+  case BRIG_SEGMENT_GLOBAL:
+  case BRIG_SEGMENT_READONLY:
+  case BRIG_SEGMENT_KERNARG:
+  case BRIG_SEGMENT_ARG:
+    return true;
+  default:
+    return false;
+  }
+}
+
+Location EImage::RealLocation() const 
+{
+  if (location == AUTO) {
+    switch (segment) {
+    case BRIG_SEGMENT_GLOBAL:
+    case BRIG_SEGMENT_READONLY:
+      return MODULE;
+    case BRIG_SEGMENT_KERNARG:
+      return KERNEL;
+    case BRIG_SEGMENT_ARG:
+      return FUNCTION;
+    default:
+      return AUTO;
+    }
+  } else {
+    return location;
+  }
+}
+
+void EImage::SetupDispatch(DispatchSetup* dispatch) 
+{
+  if (segment == BRIG_SEGMENT_KERNARG) {  
+    unsigned i = dispatch->MSetup().Count();
+    image = new MImage(i++, id, segment, geometry, chanel_order, channel_type, type, 
+            width, height, depth, rowPitch, slicePitch);
+    dispatch->MSetup().Add(image);
+    dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
+
+    if (data) { image->ContentData() = *data; }
+    Value value = image->ContentData()[0];
+    image->VType() = value.Type();
+  }
 }
 
 void EImage::EmitImageRd(OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord)
@@ -1017,23 +1094,99 @@ void EImage::EmitImageSt(TypedReg src, TypedReg image, TypedReg coord)
   inst.operands() = OptList;
 }
 
+void EImage::KernelVariables()
+{
+  if (RealLocation() == KERNEL && segment != BRIG_SEGMENT_KERNARG) {
+    EmitDefinition();
+  }
+}
+
+void EImage::FunctionFormalOutputArguments()
+{
+  if (RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && output) {
+    EmitDefinition();
+  }
+}
+
+void EImage::FunctionFormalInputArguments()
+{
+  if (RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && !output) {
+    EmitDefinition();
+  }
+}
+
 void EImage::KernelArguments()
 {
-  if (segment == BRIG_SEGMENT_KERNARG) {
-    var = EmitAddressDefinition(segment);
+  if (segment == BRIG_SEGMENT_KERNARG && RealLocation() == Location::KERNEL) {
+    EmitDefinition();
+  }
+}
+
+void EImage::ModuleVariables()
+{
+  if (RealLocation() == Location::MODULE) {
+    EmitDefinition();
+  }
+}
+
+void EImage::FunctionVariables()
+{
+  if (RealLocation() == FUNCTION && segment != BRIG_SEGMENT_ARG) {
+    EmitDefinition();
+  }
+}
+
+void EImage::EmitDefinition() 
+{
+  assert(!var);
+  var = EmitAddressDefinition(segment);
+  EmitInitializer();
+}
+
+void EImage::EmitInitializer()
+{
+  assert(var);
+  if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) {
+    var.allocation() = BRIG_ALLOCATION_AGENT;
+    ItemList list;
+    for (uint64_t i = 0; i < std::max<uint64_t>(dim, (uint64_t)1); ++i) {
+      auto init = te->Brig()->Brigantine().append<OperandImageProperties>();
+      init.width() = width;
+      init.height() = height;
+      init.depth() = depth;
+      switch (geometry){
+      case BRIG_GEOMETRY_1DA:
+        init.array() = height;
+      case BRIG_GEOMETRY_2DA:
+      case BRIG_GEOMETRY_2DADEPTH:
+        init.array() = depth;
+      default:
+        init.array() = 0;
+      }
+      if (geometry )
+      init.array();
+      init.geometry() = geometry;
+      init.channelOrder() = chanel_order;
+      init.channelType() = channel_type;
+    }
+    if (dim == 0) {
+      var.init() = list[0];
+    } else {
+      var.init() = te->Brig()->Brigantine().createOperandList(list);
+    }
   }
 }
 
 HSAIL_ASM::DirectiveVariable EImage::EmitAddressDefinition(BrigSegment segment)
 {
-  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->ImageType(access));
+  return te->Brig()->EmitVariableDefinition(id, segment, type);
 }
 
 ESampler::ESampler(TestEmitter* te_, const std::string& id_,
   Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
   Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_,
-  Location location_, uint64_t dim_ , bool isConst, bool output_)
-: EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst, output_), 
+  Location location_, uint64_t dim_ , bool isConst_, bool output_)
+: EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
   id(id_), coord(coord_), filter(filter_), addressing(addressing_)
 { 
   assert(IsValidSegment());
@@ -1612,19 +1765,30 @@ Function TestEmitter::NewFunction(const std::string& id)
   return new(Ap()) EFunction(this, id);
 }
 
-Image TestEmitter::NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, unsigned access, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch)
+Image TestEmitter::NewImage(const std::string& id, BrigSegment brigseg, BrigImageGeometry geometry, BrigImageChannelOrder chanel_order, BrigImageChannelType channel_type, BrigTypeX image_type, 
+                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, Location location_, uint64_t dim_, bool isConst, bool output_)
 {
-  return new(Ap()) EImage(this, id, brigseg, geometry, chanel_order, channel_type, access, 
-                         width, height, depth, rowPitch, slicePitch);
+  return new(Ap()) EImage(this, id, brigseg, geometry, chanel_order, channel_type, image_type,
+                         width, height, depth, rowPitch, slicePitch, location_, dim_, isConst, output_);
 }
 
+Image TestEmitter::NewImage(const std::string& id, BrigSegment brigseg, BrigImageGeometry geometry, BrigImageChannelOrder chanel_order, BrigImageChannelType channel_type, 
+                            size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, VariableSpec spec) 
+{
+  return new(Ap()) EImage(this, id, brigseg, geometry, chanel_order, channel_type, 
+                          width, height, depth, rowPitch, slicePitch, spec);
+}
 
-
-Sampler TestEmitter::NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
+Sampler TestEmitter::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
                                 Location location_, uint64_t dim_, bool isConst, bool output_)
 {
   return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing, location_, dim_, isConst, output_);
+}
+
+Sampler TestEmitter::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
+                                VariableSpec spec) 
+{
+  return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing, spec);
 }
 
 }

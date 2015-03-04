@@ -62,12 +62,12 @@ public:
   }
 
   void Name(std::ostream& out) const override {
-    out << LocationString(initializerLocation) << "_";
+    out << LocationString(initializerLocation) << "/"
+        << segment2str(segment) << "/";
     if (isConst) {
       out << "const_";
     }
-    out << segment2str(segment) << "_" 
-        << samplerCoordNormalization2str(coord) << "_" 
+    out << samplerCoordNormalization2str(coord) << "_" 
         << samplerFilter2str(filter) << "_"
         << samplerAddressing2str(addresing);
     if (dim != 0) {

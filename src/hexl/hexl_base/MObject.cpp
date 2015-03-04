@@ -968,6 +968,16 @@ void MRBuffer::DeserializeData(std::istream& in)
   ReadData(in, data);
 }
 
+unsigned MImage::AccessPermission() const 
+{
+  switch(imageType) {
+  case Brig::BRIG_TYPE_ROIMG: return 1;
+  case Brig::BRIG_TYPE_WOIMG: return 2;
+  case Brig::BRIG_TYPE_RWIMG: return 3;
+  default: assert(false); return 0;
+  }
+}
+
 size_t MImage::GetDim(size_t pos, unsigned d) const
 {
   switch (d) {
@@ -983,7 +993,7 @@ void MImage::Print(std::ostream& out) const
 {
   MObject::Print(out);
   out << ", MImage details: " << ImageGeometryString(MObjectImageGeometry(geometry)) << \
-    ", " << ImageChannelTypeString(MObjectImageChannelType(channelType)) <<  ", " << ImageChannelOrderString(MObjectImageChannelOrder(channelOrder)) << ", " << ImageAccessString(MObjectImageAccess(accessPermission));
+    ", " << ImageChannelTypeString(MObjectImageChannelType(channelType)) <<  ", " << ImageChannelOrderString(MObjectImageChannelOrder(channelOrder)) << ", " << ImageAccessString(MObjectImageAccess(AccessPermission()));
   out << " (" << "Image dim: [" << Width() << "x" << Height() << "x" << Depth() << "])";
 }
 
