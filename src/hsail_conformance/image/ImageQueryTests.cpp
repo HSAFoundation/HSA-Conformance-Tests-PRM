@@ -121,7 +121,15 @@ public:
   void Init() {
    Test::Init();
 
-   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageWidth(),imageGeometry->ImageHeight(),imageGeometry->ImageDepth(),imageGeometry->ImageArray());
+   EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
+   imageSpec.Geometry(imageGeometryProp);
+   imageSpec.ChannelOrder(imageChannelOrder);
+   imageSpec.ChannelType(imageChannelType);
+   imageSpec.Width(imageGeometry->ImageWidth());
+   imageSpec.Height(imageGeometry->ImageHeight());
+   imageSpec.Depth(imageGeometry->ImageDepth());
+   imageSpec.ArraySize(imageGeometry->ImageArray());
+   imgobj = kernel->NewImage("%roimage", &imageSpec);
    for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF)); }
   }
 
