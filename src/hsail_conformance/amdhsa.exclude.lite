@@ -21,6 +21,7 @@ prm/core/arithmetic/nativefp/nfma/nfma_f32_00003
 prm/core/arithmetic/nativefp/nfma/nfma_f64_00007
 prm/core/directive/loc/locations/before_version
 prm/core/directive/pragma/locations/before_version
+prm/core/parallel/fbarrier
 prm/core/special/misc/cuid/lessmax
 prm/core/special/misc/waveid/lessmax
 prm/core/special/misc/groupbaseptr
