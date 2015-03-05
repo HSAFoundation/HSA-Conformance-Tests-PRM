@@ -50,7 +50,11 @@ public:
 
   void Init() {
    Test::Init();
-   smpobj = kernel->NewSampler("%sampler", BRIG_SEGMENT_KERNARG, samplerCoord, samplerFilter, samplerAddressing);
+   ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
+   samplerSpec.CoordNormalization(samplerCoord);
+   samplerSpec.Filter(samplerFilter);
+   samplerSpec.Addresing(samplerAddressing);
+   smpobj = kernel->NewSampler("%sampler", &samplerSpec);
   }
 
   void ModuleDirectives() override {

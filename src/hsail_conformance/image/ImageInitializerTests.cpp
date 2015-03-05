@@ -58,7 +58,11 @@ public:
 
   void Init() override {
     Test::Init();
-    sampler = te->NewSampler("sampler", segment, coord, filter, addresing, initializerLocation, dim, isConst);
+    ESamplerSpec samplerSpec(segment, initializerLocation, dim, isConst);
+    samplerSpec.CoordNormalization(coord);
+    samplerSpec.Filter(filter);
+    samplerSpec.Addresing(addresing);
+    sampler = te->NewSampler("sampler", &samplerSpec);
   }
 
   void Name(std::ostream& out) const override {

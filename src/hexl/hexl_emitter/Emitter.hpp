@@ -379,10 +379,7 @@ public:
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
-  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
-                     Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
-  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
-                     VariableSpec spec);
+  Sampler NewSampler(const std::string& id, SamplerSpec spec);
 };
 
 class EBuffer : public Emittable {
@@ -596,13 +593,43 @@ public:
   Values* ReleaseData() { return data.release(); }
 };
 
-class ESampler : public EVariableSpec {
-private:
-  std::string id;
-  HSAIL_ASM::DirectiveVariable var;
+class ESamplerSpec : public EVariableSpec {
+protected:
   Brig::BrigSamplerCoordNormalization coord;
   Brig::BrigSamplerFilter filter;
   Brig::BrigSamplerAddressing addressing;
+
+  bool IsValidSegment() const;
+  
+public:
+  explicit ESamplerSpec(
+    Brig::BrigSegment brigseg_ = Brig::BRIG_SEGMENT_GLOBAL, 
+    Location location_ = Location::KERNEL, 
+    uint64_t dim_ = 0, 
+    bool isConst_ = false, 
+    bool output_ = false,
+    Brig::BrigSamplerCoordNormalization coord_ = Brig::BRIG_COORD_UNNORMALIZED,
+    Brig::BrigSamplerFilter filter_ = Brig::BRIG_FILTER_NEAREST,
+    Brig::BrigSamplerAddressing addressing_ = Brig::BRIG_ADDRESSING_UNDEFINED
+  ) 
+  : EVariableSpec(brigseg_, Brig::BRIG_TYPE_SAMP, location_, Brig::BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
+  coord(coord_), filter(filter_), addressing(addressing_) {}
+
+  bool IsValid() const;
+
+  Brig::BrigSamplerCoordNormalization CoordNormalization() { return coord; }
+  Brig::BrigSamplerFilter Filter() { return filter; }
+  Brig::BrigSamplerAddressing Addresing() { return addressing; }
+  
+  void CoordNormalization(Brig::BrigSamplerCoordNormalization coord_) { coord = coord_; }
+  void Filter(Brig::BrigSamplerFilter filter_) { filter = filter_; }
+  void Addresing(Brig::BrigSamplerAddressing addressing_) { addressing = addressing_; }
+};
+
+class ESampler : public ESamplerSpec {
+private:
+  std::string id;
+  HSAIL_ASM::DirectiveVariable var;
   MSampler* sampler;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
@@ -613,15 +640,8 @@ private:
   Location RealLocation() const;
 
 public:
-  ESampler(TestEmitter* te_, const std::string& id_,
-    Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
-    Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_,
-    Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false);
-
-  ESampler(TestEmitter* te_, const std::string& id_,
-    Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
-    Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_, const EVariableSpec* spec_);
-
+  ESampler(TestEmitter* te_, const std::string& id_, const ESamplerSpec* spec_): ESamplerSpec(*spec_), id(id_) { te = te_; }
+  
   const std::string& Id() const { return id; }
 
   void KernelArguments();
@@ -782,10 +802,7 @@ public:
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
-  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
-                     Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
-  Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
-                     VariableSpec spec);
+  Sampler NewSampler(const std::string& id, SamplerSpec spec);
 };
 
 }

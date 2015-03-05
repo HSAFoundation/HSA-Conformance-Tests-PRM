@@ -172,18 +172,9 @@ Image EmittableContainer::NewImage(const std::string& id, ImageSpec spec)
   return image;
 }
 
-Sampler EmittableContainer::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
-                                       Location location_, uint64_t dim_, bool isConst, bool output_)
+Sampler EmittableContainer::NewSampler(const std::string& id, SamplerSpec spec) 
 {
-  Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing, location_, dim_, isConst, output_);
-  Add(sampler);
-  return sampler;
-}
-
-Sampler EmittableContainer::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
-                                       VariableSpec spec) 
-{
-  Sampler sampler = te->NewSampler(id, brigseg, coord, filter, addressing, spec);
+  Sampler sampler = te->NewSampler(id, spec);
   Add(sampler);
   return sampler;
 }
@@ -1176,24 +1167,22 @@ HSAIL_ASM::DirectiveVariable EImage::EmitAddressDefinition(BrigSegment segment)
   return te->Brig()->EmitVariableDefinition(id, segment, type);
 }
 
-ESampler::ESampler(TestEmitter* te_, const std::string& id_,
-  Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
-  Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_,
-  Location location_, uint64_t dim_ , bool isConst_, bool output_)
-: EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
-  id(id_), coord(coord_), filter(filter_), addressing(addressing_)
-{ 
-  assert(IsValidSegment());
-  te = te_;
+bool ESamplerSpec::IsValidSegment() const 
+{
+  switch (segment) {
+  case BRIG_SEGMENT_GLOBAL:
+  case BRIG_SEGMENT_READONLY:
+  case BRIG_SEGMENT_KERNARG:
+  case BRIG_SEGMENT_ARG:
+    return true;
+  default:
+    return false;
+  }
 }
 
-ESampler::ESampler(TestEmitter* te_, const std::string& id_,
-  Brig::BrigSegment brigseg_, Brig::BrigSamplerCoordNormalization coord_,
-  Brig::BrigSamplerFilter filter_, Brig::BrigSamplerAddressing addressing_, const EVariableSpec* spec_)
-: EVariableSpec(*spec_), id(id_), coord(coord_), filter(filter_), addressing(addressing_)
-{ 
-  assert(IsValidSegment());
-  te = te_; 
+bool ESamplerSpec::IsValid() const
+{
+  return EVariableSpec::IsValid() && IsValidSegment();
 }
 
 void ESampler::SetupDispatch(DispatchSetup* dispatch) 
@@ -1764,16 +1753,9 @@ Image TestEmitter::NewImage(const std::string& id, ImageSpec spec)
   return new(Ap()) EImage(this, id, spec);
 }
 
-Sampler TestEmitter::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
-                                Location location_, uint64_t dim_, bool isConst, bool output_)
+Sampler TestEmitter::NewSampler(const std::string& id, SamplerSpec spec) 
 {
-  return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing, location_, dim_, isConst, output_);
-}
-
-Sampler TestEmitter::NewSampler(const std::string& id, BrigSegment brigseg, BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing,
-                                VariableSpec spec) 
-{
-  return new(Ap()) ESampler(this, id, brigseg, coord, filter, addressing, spec);
+  return new(Ap()) ESampler(this, id, spec);
 }
 
 }

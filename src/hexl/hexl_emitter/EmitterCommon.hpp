@@ -87,6 +87,7 @@ namespace hexl {
     class ECondition;
     class EImageSpec;
     class EImage;
+    class ESamplerSpec;
     class ESampler;
 
     typedef ETypedRegList* TypedRegList;
@@ -106,6 +107,7 @@ namespace hexl {
     typedef ECondition* Condition;
     typedef EImageSpec* ImageSpec;
     typedef EImage* Image;
+    typedef ESamplerSpec* SamplerSpec;
     typedef ESampler* Sampler;
   }
 }
