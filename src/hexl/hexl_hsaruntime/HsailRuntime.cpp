@@ -825,7 +825,7 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
   image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t)mi->ChannelOrder();
   image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t)mi->ChannelType();
   image_descriptor.depth = mi->Depth();
-  image_descriptor.array_size = image_descriptor.depth > 1 ? image_descriptor.depth : 0;
+  image_descriptor.array_size = mi->ArraySize(); //image_descriptor.depth > 1 ? image_descriptor.depth : 0;
   hsa_access_permission_t access_permission = (hsa_access_permission_t)mi->AccessPermission();
 
   hsa_ext_image_data_info_t image_info = {0};

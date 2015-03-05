@@ -379,9 +379,9 @@ public:
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, Brig::BrigTypeX image_type, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
+                         size_t width, size_t height, size_t depth, size_t array_size, Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
   Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, VariableSpec spec);
+                         size_t width, size_t height, size_t depth, size_t array_size, VariableSpec spec);
   Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
                      Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
   Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
@@ -513,6 +513,7 @@ private:
   size_t depth;
   size_t rowPitch;
   size_t slicePitch;
+  size_t array_size;
   MImage* image;
   std::unique_ptr<Values> data;
 
@@ -527,13 +528,13 @@ public:
   EImage(TestEmitter* te_, const std::string& id_,
     Brig::BrigSegment brigseg_, Brig::BrigImageGeometry geometry_,
     Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_,
-    Brig::BrigTypeX imageType_, size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_,
+    Brig::BrigTypeX imageType_, size_t width_, size_t height_, size_t depth_, size_t array_size_,
     Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false);
 
   EImage(TestEmitter* te_, const std::string& id_,
     Brig::BrigSegment brigseg_, Brig::BrigImageGeometry geometry_,
     Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_,
-    size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_,
+    size_t width_, size_t height_, size_t depth_, size_t array_size_,
     const EVariableSpec* spec);
 
   const std::string& Id() const { return id; }
@@ -750,9 +751,9 @@ public:
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, Brig::BrigTypeX image_type, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
+                         size_t width, size_t height, size_t depth, size_t array_size, Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
   Image NewImage(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch, VariableSpec spec);
+                         size_t width, size_t height, size_t depth, size_t array_size, VariableSpec spec);
   Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,
                      Location location_ = Location::KERNEL, uint64_t dim_ = 0, bool isConst = false, bool output_ = false);
   Sampler NewSampler(const std::string& id, Brig::BrigSegment brigseg, Brig::BrigSamplerCoordNormalization coord, Brig::BrigSamplerFilter filter, Brig::BrigSamplerAddressing addressing,

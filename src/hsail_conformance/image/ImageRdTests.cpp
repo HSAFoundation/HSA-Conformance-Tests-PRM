@@ -30,8 +30,6 @@ namespace hsail_conformance {
 
 class ImageRdTestBase:  public Test {
 private:
-  Variable nx;
-  Variable ny;
   Image imgobj;
   Sampler smpobj;
 
@@ -60,15 +58,10 @@ public:
   void Init() {
    Test::Init();
 
-   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageSize(0),imageGeometry->ImageSize(1),imageGeometry->ImageSize(2),imageGeometry->ImageSize(3),imageGeometry->ImageSize(4));
+   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageWidth(),imageGeometry->ImageHeight(),imageGeometry->ImageDepth(),imageGeometry->ImageArray());
    for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF)); }
  
    smpobj = kernel->NewSampler("%sampler", BRIG_SEGMENT_KERNARG, samplerCoord, samplerFilter, samplerAddressing);
-
-   nx = kernel->NewVariable("nx", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
-   nx->PushBack(Value(MV_UINT32, imageGeometry->ImageSize(0)));
-   ny = kernel->NewVariable("ny", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
-   ny->PushBack(Value(MV_UINT32,  imageGeometry->ImageSize(1)));
   }
 
   void ModuleDirectives() override {
@@ -76,6 +69,38 @@ public:
   }
 
   bool IsValid() const {
+    switch (imageGeometryProp)
+    {
+    case BRIG_GEOMETRY_1D:
+    case BRIG_GEOMETRY_1DB:
+      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_1DA:
+      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1))
+        return false;
+      break;
+     case BRIG_GEOMETRY_2D:
+     case BRIG_GEOMETRY_2DDEPTH:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_2DA:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_2DADEPTH:
+      if (imageGeometry->ImageDepth() > 1)
+        return false;
+      break;
+    case BRIG_GEOMETRY_3D:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() < 2) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    default:
+      if (imageGeometry->ImageArray() > 1)
+        return false;
+    }
     return (codeLocation != FUNCTION);
   }
 
@@ -84,7 +109,7 @@ public:
   }
 
   size_t OutputBufferSize() const override {
-    return imageGeometry->ImageSize();
+    return 1000;
   }
 
   Value CalculateValue()
@@ -199,23 +224,8 @@ public:
   }
 
   TypedReg Result() {
-    auto x = be.EmitWorkitemId(0);
-    auto y = be.EmitWorkitemId(1);
-    auto nxReg = nx->AddDataReg();
-    be.EmitLoad(nx->Segment(), nxReg->Type(), nxReg->Reg(), be.Address(nx->Variable())); 
-    auto nyReg = ny->AddDataReg();
-    be.EmitLoad(ny->Segment(), nyReg->Type(), nyReg->Reg(), be.Address(ny->Variable())); 
     auto result = be.AddTReg(BRIG_TYPE_U32);
     be.EmitMov(result, be.Immed(BRIG_TYPE_U32, 0));
-    SRef s_label_exit = "@exit";
-    auto reg_c = be.AddTReg(BRIG_TYPE_B1);
-    auto reg_mul1 = be.AddTReg(BRIG_TYPE_U32);
-    auto reg_mul2 = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitArith(BRIG_OPCODE_MUL, reg_mul1, x->Reg(), y->Reg());
-    be.EmitArith(BRIG_OPCODE_MUL, reg_mul2, nxReg->Reg(), nyReg->Reg());
-    // x*y > nx*ny
-    be.EmitCmp(reg_c->Reg(), reg_mul1, reg_mul2, BRIG_COMPARE_GT);
-    be.EmitCbr(reg_c, s_label_exit);
    // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
@@ -287,8 +297,6 @@ public:
         be.EmitMov(result, regs_dest.elements(0));
       }
     }
-
-    be.Brigantine().addLabel(s_label_exit);
     return result;
   }
 };

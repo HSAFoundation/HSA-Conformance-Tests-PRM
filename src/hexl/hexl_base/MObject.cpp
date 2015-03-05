@@ -994,7 +994,7 @@ void MImage::Print(std::ostream& out) const
   MObject::Print(out);
   out << ", MImage details: " << ImageGeometryString(MObjectImageGeometry(geometry)) << \
     ", " << ImageChannelTypeString(MObjectImageChannelType(channelType)) <<  ", " << ImageChannelOrderString(MObjectImageChannelOrder(channelOrder)) << ", " << ImageAccessString(MObjectImageAccess(AccessPermission()));
-  out << " (" << "Image dim: [" << Width() << "x" << Height() << "x" << Depth() << "])";
+  out << " (" << "Image dim: [" << Width() << "x" << Height() << "x" << Depth() <<  "x" << ArraySize() <<"])";
 }
 
 std::string MImage::GetPosStr(size_t pos) const

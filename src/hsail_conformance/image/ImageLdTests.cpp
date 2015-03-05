@@ -30,44 +30,68 @@ namespace hsail_conformance {
 
 class ImageLdTestBase:  public Test {
 private:
-  Variable nx;
-  Variable ny;
   Image imgobj;
 
   ImageGeometry* imageGeometry;
-  BrigImageGeometry ImageGeometryProps;
+  BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
 
 public:
   ImageLdTestBase(Location codeLocation, 
-      Grid geometry, ImageGeometry* imageGeometry_, BrigImageGeometry ImageGeometryProps_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_): Test(codeLocation, geometry), 
-      imageGeometry(imageGeometry_), ImageGeometryProps(ImageGeometryProps_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_)
+      Grid geometry, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_): Test(codeLocation, geometry), 
+      imageGeometry(imageGeometry_), imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_)
   {
   }
   
   void Name(std::ostream& out) const {
-    out << CodeLocationString() << '_' << geometry << '\\' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(ImageGeometryProps)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType));
+    out << CodeLocationString() << '_' << geometry << '\\' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType));
   }
   
   void Init() {
    Test::Init();
 
-   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, ImageGeometryProps, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageSize(0),imageGeometry->ImageSize(1),imageGeometry->ImageSize(2),imageGeometry->ImageSize(3),imageGeometry->ImageSize(4));
+   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageWidth(),imageGeometry->ImageHeight(),imageGeometry->ImageDepth(),imageGeometry->ImageArray());
    for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF)); }
-
-   nx = kernel->NewVariable("nx", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
-   nx->PushBack(Value(MV_UINT32, 1000));
-   ny = kernel->NewVariable("ny", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
-   ny->PushBack(Value(MV_UINT32, 1));
   }
 
   void ModuleDirectives() override {
     be.EmitExtensionDirective("IMAGE");
   }
 
-  bool IsValid() const
-  {
+  bool IsValid() const  {
+    switch (imageGeometryProp)
+    {
+    case BRIG_GEOMETRY_1D:
+    case BRIG_GEOMETRY_1DB:
+      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_1DA:
+      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1))
+        return false;
+      break;
+     case BRIG_GEOMETRY_2D:
+     case BRIG_GEOMETRY_2DDEPTH:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_2DA:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_2DADEPTH:
+      if (imageGeometry->ImageDepth() > 1)
+        return false;
+      break;
+    case BRIG_GEOMETRY_3D:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() < 2) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    default:
+      if (imageGeometry->ImageArray() > 1)
+        return false;
+    }
     return (codeLocation != FUNCTION);
   }
 
@@ -81,81 +105,84 @@ public:
     return 1000;
   }
 
-  TypedReg Result() {
+  
+  TypedReg Get1dCoord()
+  {
+    auto result = be.AddTReg(BRIG_TYPE_U32);
     auto x = be.EmitWorkitemId(0);
     auto y = be.EmitWorkitemId(1);
-    auto nxReg = nx->AddDataReg();
-    be.EmitLoad(nx->Segment(), nxReg->Type(), nxReg->Reg(), be.Address(nx->Variable())); 
-    auto nyReg = ny->AddDataReg();
-    be.EmitLoad(ny->Segment(), nyReg->Type(), nyReg->Reg(), be.Address(ny->Variable())); 
+    auto z = be.EmitWorkitemId(2);
+    auto size_x = be.EmitGridSize(0);
+    auto size_y = be.EmitGridSize(1);
+    
+    auto reg_mul = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitArith(BRIG_OPCODE_MUL, result, y->Reg(), size_x->Reg()); // A = y*size(x)
+    be.EmitArith(BRIG_OPCODE_MUL, reg_mul, z->Reg(), size_x->Reg()); // B = z*size(x)
+    be.EmitArith(BRIG_OPCODE_MUL, reg_mul, reg_mul, size_y->Reg()); // C =  B * size(y)
+    be.EmitArith(BRIG_OPCODE_ADD, result, result, reg_mul->Reg()); // C = C + A
+    be.EmitArith(BRIG_OPCODE_ADD, result, x->Reg(), result->Reg()); // Rez = x + C
+    return result;
+  }
+
+  OperandOperandList Get2dCoord()
+  {
+    auto result = be.AddVec(BRIG_TYPE_U32, 2);
+    auto x = be.EmitWorkitemId(0);
+    auto y = be.EmitWorkitemId(1);
+    be.EmitMov(result.elements(0), x->Reg(), 32);
+    be.EmitMov(result.elements(1), y->Reg(), 32);
+    return result;
+  }
+
+  OperandOperandList Get3dCoord()
+  {
+    auto result = be.AddVec(BRIG_TYPE_U32, 3);
+    auto x = be.EmitWorkitemId(0);
+    auto y = be.EmitWorkitemId(1);
+    auto z = be.EmitWorkitemId(2);
+    be.EmitMov(result.elements(0), x->Reg(), 32);
+    be.EmitMov(result.elements(1), y->Reg(), 32);
+    be.EmitMov(result.elements(2), z->Reg(), 32);
+    return result;
+  }
+
+  TypedReg Result() {
     auto result = be.AddTReg(ResultType());
     be.EmitMov(result, be.Immed(ResultType(), 0));
-    SRef s_label_exit = "@exit";
-    auto reg_c = be.AddTReg(BRIG_TYPE_B1);
-    auto reg_mul1 = be.AddTReg(BRIG_TYPE_U32);
-    auto reg_mul2 = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitArith(BRIG_OPCODE_MUL, reg_mul1, x->Reg(), y->Reg());
-    be.EmitArith(BRIG_OPCODE_MUL, reg_mul2, nxReg->Reg(), nyReg->Reg());
-    // x*y > nx*ny
-    be.EmitCmp(reg_c->Reg(), reg_mul1, reg_mul2, BRIG_COMPARE_GT);
-    be.EmitCbr(reg_c, s_label_exit);
    // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
 
     OperandOperandList regs_dest;
     auto reg_dest = be.AddTReg(BRIG_TYPE_U32, 1);
-    OperandOperandList coords;
-    auto coord = be.AddTReg(BRIG_TYPE_U32, 1);
-    switch (ImageGeometryProps)
+    switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
     case BRIG_GEOMETRY_1DB:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      be.EmitMov(coord, be.Immed(BRIG_TYPE_U32, 0));
-      imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, coord);
+      imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get1dCoord());
       break;
     case BRIG_GEOMETRY_1DA:
     case BRIG_GEOMETRY_2D:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      coords = be.AddVec(BRIG_TYPE_U32, 2);
-      for (unsigned i = 0; i < coords.elementCount(); i++)
-      {
-        be.EmitMov(coords.elements(i), be.Immed(BRIG_TYPE_U32, 0), 32);
-      }
-      imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, coords, BRIG_TYPE_U32);
+      imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get2dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_2DDEPTH:
-      coords = be.AddVec(BRIG_TYPE_U32, 2);
-      for (unsigned i = 0; i < coords.elementCount(); i++)
-      {
-        be.EmitMov(coords.elements(i), be.Immed(BRIG_TYPE_U32, 0), 32);
-      }
-      imgobj->EmitImageLd(reg_dest, imageaddr, coords, BRIG_TYPE_U32);
+      imgobj->EmitImageLd(reg_dest, imageaddr, Get2dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_3D:
     case BRIG_GEOMETRY_2DA:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      coords = be.AddVec(BRIG_TYPE_U32, 3);
-      for (unsigned i = 0; i < coords.elementCount(); i++)
-      {
-        be.EmitMov(coords.elements(i), be.Immed(BRIG_TYPE_U32, 0), 32);
-      }
-      imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, coords, BRIG_TYPE_U32);
+      imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get3dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_2DADEPTH:
-      coords = be.AddVec(BRIG_TYPE_U32, 3);
-      for (unsigned i = 0; i < coords.elementCount(); i++)
-      {
-        be.EmitMov(coords.elements(i), be.Immed(BRIG_TYPE_U32, 0), 32);
-      }
-      imgobj->EmitImageLd(reg_dest, imageaddr, coords, BRIG_TYPE_U32);
+      imgobj->EmitImageLd(reg_dest, imageaddr, Get3dCoord(), BRIG_TYPE_U32);
       break;
     default:
       assert(0);
     }
 
-    if ((ImageGeometryProps == BRIG_GEOMETRY_2DDEPTH) || (ImageGeometryProps == BRIG_GEOMETRY_2DADEPTH)) {
+    if ((imageGeometryProp == BRIG_GEOMETRY_2DDEPTH) || (imageGeometryProp == BRIG_GEOMETRY_2DADEPTH)) {
       be.EmitMov(result, reg_dest);
     }
     else {
@@ -168,10 +195,11 @@ public:
         be.EmitMov(result, regs_dest.elements(0));
       }
     }
-    be.Brigantine().addLabel(s_label_exit);
+   // be.Brigantine().addLabel(s_label_exit);
     return result;
   }
 };
+
 
 class ImageLdTestA:  public ImageLdTestBase {
 private:

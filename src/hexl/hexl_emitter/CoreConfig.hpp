@@ -322,8 +322,7 @@ namespace hexl {
 
       class ImageConfig : public ConfigBase {
       private:
-        hexl::ImageGeometry defaultImageGeometry;
-        hexl::Sequence<hexl::ImageGeometry* > *defaultImageGeometrySet;
+        hexl::VectorSequence<ImageGeometry*>* defaultImageGeometry;
         hexl::Sequence<Brig::BrigImageGeometry>* imageGeometryProps, *imageRdGeometryProp, *imageDepthGeometryProp;
         hexl::Sequence<Brig::BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
         hexl::Sequence<Brig::BrigImageChannelType>* imageChannelTypes;
@@ -332,9 +331,7 @@ namespace hexl {
 
       public:
         ImageConfig(CoreConfig* cc);
-        
-        hexl::ImageGeometry* DefaultImageGeometry() { return &defaultImageGeometry; }
-        hexl::Sequence<hexl::ImageGeometry* >* DefaultImageGeometrySet() { return defaultImageGeometrySet; }
+        hexl::VectorSequence<hexl::ImageGeometry*>* DefaultImageGeometrySet() { return defaultImageGeometry; }
         hexl::Sequence<Brig::BrigImageGeometry>* ImageGeometryProps() { return imageGeometryProps; }
         hexl::Sequence<Brig::BrigImageGeometry>* ImageRdGeometryProp() { return imageRdGeometryProp; }
         hexl::Sequence<Brig::BrigImageGeometry>* ImageDepthGeometryProp() { return imageDepthGeometryProp; }

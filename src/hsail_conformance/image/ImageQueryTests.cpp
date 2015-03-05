@@ -121,9 +121,8 @@ public:
   void Init() {
    Test::Init();
 
-   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageSize(0),imageGeometry->ImageSize(1),imageGeometry->ImageSize(2),imageGeometry->ImageSize(3),imageGeometry->ImageSize(4));
+   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageWidth(),imageGeometry->ImageHeight(),imageGeometry->ImageDepth(),imageGeometry->ImageArray());
    for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF)); }
-
   }
 
   void ModuleDirectives() override {
@@ -132,6 +131,41 @@ public:
 
   bool IsValid() const
   {
+    //check img size and geometry equal
+    switch (imageGeometryProp)
+    {
+    case BRIG_GEOMETRY_1D:
+    case BRIG_GEOMETRY_1DB:
+      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_1DA:
+      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1))
+        return false;
+      break;
+     case BRIG_GEOMETRY_2D:
+     case BRIG_GEOMETRY_2DDEPTH:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_2DA:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1))
+        return false;
+      break;
+    case BRIG_GEOMETRY_2DADEPTH:
+      if (imageGeometry->ImageDepth() > 1)
+        return false;
+      break;
+    case BRIG_GEOMETRY_3D:
+      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() < 2) || (imageGeometry->ImageArray() > 1))
+        return false;
+      break;
+    default:
+      if (imageGeometry->ImageArray() > 1)
+        return false;
+    }
+
+    //check query type and geometry equal
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
@@ -164,13 +198,13 @@ public:
     switch(imageQuery)
     {
     case BRIG_IMAGE_QUERY_WIDTH:
-      return Value(MV_UINT32, imageGeometry->ImageSize(0));
+      return Value(MV_UINT32, imageGeometry->ImageWidth());
     case BRIG_IMAGE_QUERY_HEIGHT:
-      return Value(MV_UINT32, imageGeometry->ImageSize(1));
+      return Value(MV_UINT32, imageGeometry->ImageHeight());
     case BRIG_IMAGE_QUERY_DEPTH:
-      return Value(MV_UINT32, imageGeometry->ImageSize(2));
+      return Value(MV_UINT32, imageGeometry->ImageDepth());
     case BRIG_IMAGE_QUERY_ARRAY:
-      return Value(MV_UINT32, imageGeometry->ImageSize(3));
+      return Value(MV_UINT32, imageGeometry->ImageArray());
     case BRIG_IMAGE_QUERY_CHANNELORDER:
       return Value(MV_UINT32, imageChannelOrder);
     case BRIG_IMAGE_QUERY_CHANNELTYPE:
@@ -182,7 +216,7 @@ public:
   }
 
   size_t OutputBufferSize() const override {
-    return imageGeometry->ImageSize();
+    return 1000;
   }
 
   TypedReg Result() {

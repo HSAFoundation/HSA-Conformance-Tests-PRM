@@ -234,8 +234,7 @@ static const BrigImageQuery allImgQueries[] = {
 
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    defaultImageGeometry(1000, 1, 1, 1, 1),
-    defaultImageGeometrySet(NEWA OneValueSequence<ImageGeometry*>(&defaultImageGeometry)),
+    defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>()),
     imageGeometryProps(NEWA ArraySequence<BrigImageGeometry>(allGeometry, NELEM(allGeometry))),
     imageRdGeometryProp(NEWA ArraySequence<BrigImageGeometry>(rdGeometry, NELEM(rdGeometry))),
     imageDepthGeometryProp(NEWA ArraySequence<BrigImageGeometry>(DepthGeometry, NELEM(DepthGeometry))),
@@ -245,7 +244,10 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess)))
 {
-
+   defaultImageGeometry->Add(NEWA ImageGeometry(1000));
+   defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
+   defaultImageGeometry->Add(NEWA ImageGeometry(10, 10, 10));
+   defaultImageGeometry->Add(NEWA ImageGeometry(10, 1, 1, 10));
 }
 
 static const BrigSamplerAddressing allAddressing[] = {
