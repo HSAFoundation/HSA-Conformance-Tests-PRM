@@ -31,6 +31,7 @@
 #include "Sequence.hpp"
 #include "CoreConfig.hpp"
 #include "Utils.hpp"
+#include "Image.hpp"
 
 namespace hexl {
 
@@ -548,6 +549,8 @@ public:
   void RowPitch(size_t rowPitch_) { rowPitch = rowPitch_; }
   void SlicePitch(size_t slicePitch_) { slicePitch = slicePitch_; }
   void ArraySize(size_t array_size_) { array_size = array_size_; }
+
+  hexl::ImageGeometry ImageGeometry() { return hexl::ImageGeometry((unsigned)width, (unsigned)height, (unsigned)depth, (unsigned)array_size); }
 };
 
 class EImage : public EImageSpec {

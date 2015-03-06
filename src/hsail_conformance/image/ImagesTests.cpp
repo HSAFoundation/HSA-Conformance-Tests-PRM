@@ -20,6 +20,7 @@
 #include "ImageLdTests.hpp"
 #include "ImageStTests.hpp"
 #include "ImageInitializerTests.hpp"
+#include "ImageLimitsTests.hpp"
 #include "CoreConfig.hpp"
 
 using namespace Brig;
@@ -37,6 +38,7 @@ PrmImagesTests::PrmImagesTests()
   Add(new ImageLdTestSet());
 	Add(new ImageStTestSet());
   Add(new ImageInitializerTestSet());
+  Add(new ImageLimitsTestSet());
 }
 
 hexl::TestSet* NewPrmImagesTests()

@@ -316,6 +316,15 @@ void BrigEmitter::EmitMov(TypedReg dst, Operand src)
   }
 }
 
+TypedReg BrigEmitter::AddInitialTReg(BrigType16_t type, uint64_t initialValue, unsigned count) 
+{
+  TypedReg reg = AddTReg(type, count);
+  for (uint32_t i = 0; i < count; ++i) {
+    EmitMov(reg->Reg(i), Immed(type, initialValue), reg->TypeSizeBits());
+  }
+  return reg;
+}
+
 OperandAddress BrigEmitter::IncrementAddress(OperandAddress addr, int64_t offset)
 {
   if (offset == 0) {
