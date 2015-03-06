@@ -61,7 +61,7 @@ public:
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
    imgobj = kernel->NewImage("%rwimage", &imageSpec);
-   for (unsigned i = 0; i < imageGeometry.ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT8, 0xFF)); }
+   imgobj->AddData(Value(MV_UINT8, 0xFF));
   }
 
   void ModuleDirectives() override {
@@ -171,31 +171,31 @@ public:
     case BRIG_GEOMETRY_1DB:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       imgobj->EmitImageSt(StoreValues(4), BRIG_TYPE_U32, imageaddr, Get1dCoord());
-      be.EmitBarrier();
+     // be.EmitBarrier();
       imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get1dCoord());
       break;
     case BRIG_GEOMETRY_1DA:
     case BRIG_GEOMETRY_2D:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       imgobj->EmitImageSt(StoreValues(4), BRIG_TYPE_U32, imageaddr, Get2dCoord(), BRIG_TYPE_U32);
-      be.EmitBarrier();
+    //  be.EmitBarrier();
       imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get2dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_2DDEPTH:
       imgobj->EmitImageSt(reg_dest, imageaddr, Get2dCoord(), BRIG_TYPE_U32);
-      be.EmitBarrier();
+   //   be.EmitBarrier();
       imgobj->EmitImageLd(reg_dest, imageaddr, Get2dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_3D:
     case BRIG_GEOMETRY_2DA:
       regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       imgobj->EmitImageSt(StoreValues(4), BRIG_TYPE_U32, imageaddr, Get3dCoord(), BRIG_TYPE_U32);
-      be.EmitBarrier();
+    //  be.EmitBarrier();
       imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get3dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_2DADEPTH:
       imgobj->EmitImageSt(reg_dest, imageaddr, Get3dCoord(), BRIG_TYPE_U32);
-      be.EmitBarrier();
+    //  be.EmitBarrier();
       imgobj->EmitImageLd(reg_dest, imageaddr, Get3dCoord(), BRIG_TYPE_U32);
       break;
     default:

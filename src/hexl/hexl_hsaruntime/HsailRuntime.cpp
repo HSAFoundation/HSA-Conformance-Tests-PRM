@@ -545,19 +545,15 @@ bool HImage::Push()
 {
   assert(mi && state && ptr);
   char *p = (char *) ptr;
-
-  //TODO (dirty hack)
-  size_t size =  mi->Size() - mi->ContentData().size(); 
-  if (size > 0)
-  {
-    for (size_t i = 0; i < size; i++)
-      mi->ContentData().push_back(mi->ContentData()[0]);
+  Value value = Value(MV_UINT8, 0);
+  if (mi->ContentData().size() > 0) {
+    value = state->GetValue(mi->ContentData()[0]);
   }
 
-  for (size_t i = 0; i < mi->Size(); ++i) {
-    Value value = state->GetValue(mi->ContentData()[i]);
+  int size_val = value.Size();
+  for (size_t i = 0; i < mi->Size()/size_val; ++i) {
     value.WriteTo(p);
-    p += value.Size();
+    p += size_val;
   }
   return true;
 }
