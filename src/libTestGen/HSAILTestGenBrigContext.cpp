@@ -77,7 +77,7 @@ bool     BrigSettings::gcnSubset    = false;
 
 void BrigContext::emitVersion()
 {
-    brigantine.module("sample", Brig::BRIG_VERSION_HSAIL_MAJOR, Brig::BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile(), Brig::BRIG_ROUND_NONE);
+    brigantine.module("sample", Brig::BRIG_VERSION_HSAIL_MAJOR, Brig::BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile(), Brig::BRIG_ROUND_FLOAT_NEAR_EVEN);
 }
 
 void BrigContext::emitExtension(const char* name)

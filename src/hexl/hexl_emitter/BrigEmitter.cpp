@@ -186,7 +186,7 @@ void BrigEmitter::Start()
 {
   assert(coreConfig);
   brigantine.startProgram();
-  brigantine.module("sample", coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), Brig::BRIG_ROUND_NONE);
+  brigantine.module("sample", coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), Brig::BRIG_ROUND_FLOAT_NEAR_EVEN);
 }
 
 void BrigEmitter::End()
