@@ -550,11 +550,12 @@ public:
   void EmitImageRd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord);
   void EmitImageRd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
   void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg coord); //color images
+  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg coord);
   void EmitImageLd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageLd(TypedReg dest, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType); //depth images
-  void EmitImageSt(TypedReg src,  TypedReg image, TypedReg coord); //depth images
-  void EmitImageSt(HSAIL_ASM::OperandOperandList src,  TypedReg image, TypedReg coord); //color images
+  void EmitImageLd(TypedReg dest, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
+  void EmitImageSt(HSAIL_ASM::OperandOperandList src, Brig::BrigTypeX srcType, TypedReg image, TypedReg coord);
+  void EmitImageSt(HSAIL_ASM::OperandOperandList src, Brig::BrigTypeX srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
+  void EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
   void EmitImageQuery(TypedReg dest, TypedReg image, Brig::BrigImageQuery query);
 
   Brig::BrigSegment Segment() { return segment; }

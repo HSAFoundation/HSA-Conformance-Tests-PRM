@@ -65,7 +65,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
-    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>())
+    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>()),
+    images(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -136,6 +137,9 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   fbarrier->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
   fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
   fbarrier->Add(NEWA GridGeometry(3, 3, 9, 13, 2, 7, 11));
+  images->Add(NEWA GridGeometry(1, 100, 1, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
 }
 
 
@@ -247,7 +251,7 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
    defaultImageGeometry->Add(NEWA ImageGeometry(1000));
    defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
    defaultImageGeometry->Add(NEWA ImageGeometry(10, 10, 10));
-   defaultImageGeometry->Add(NEWA ImageGeometry(10, 1, 1, 10));
+   defaultImageGeometry->Add(NEWA ImageGeometry(100, 1, 1, 10));
 }
 
 static const BrigSamplerAddressing allAddressing[] = {

@@ -545,7 +545,16 @@ bool HImage::Push()
 {
   assert(mi && state && ptr);
   char *p = (char *) ptr;
-  for (size_t i = 0; i < mi->ContentData().size(); ++i) {
+
+  //TODO (dirty hack)
+  size_t size =  mi->Size() - mi->ContentData().size(); 
+  if (size > 0)
+  {
+    for (size_t i = 0; i < size; i++)
+      mi->ContentData().push_back(mi->ContentData()[0]);
+  }
+
+  for (size_t i = 0; i < mi->Size(); ++i) {
     Value value = state->GetValue(mi->ContentData()[i]);
     value.WriteTo(p);
     p += value.Size();
@@ -843,6 +852,8 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
 
   //Write image handle
   mi->Data() = Value(MV_IMAGE, image.handle);
+
+  mi->Size() = image_info.size;
 
   return new HImage(this, mi, ptr, image);
 }

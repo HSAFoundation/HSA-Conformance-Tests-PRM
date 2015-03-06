@@ -1076,14 +1076,15 @@ void EImage::EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigTypeX destType,
   OptList.push_back(coord);
   inst.operands() = OptList;
 }
-void EImage::EmitImageSt(OperandOperandList src, TypedReg image, TypedReg coord)
+
+void EImage::EmitImageSt(OperandOperandList src, BrigTypeX srcType, TypedReg image, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
-  inst.type() = BRIG_TYPE_S32;
+  inst.type() = srcType;
   ItemList OptList;
   OptList.push_back(src);
   OptList.push_back(image->Reg());
@@ -1091,18 +1092,33 @@ void EImage::EmitImageSt(OperandOperandList src, TypedReg image, TypedReg coord)
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageSt(TypedReg src, TypedReg image, TypedReg coord)
+void EImage::EmitImageSt(HSAIL_ASM::OperandOperandList src, Brig::BrigTypeX srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
   inst.imageType() = image->Type();
-  inst.coordType() = coord->Type();
+  inst.coordType() = coordType;
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
-  inst.type() = BRIG_TYPE_S32;
+  inst.type() = srcType;
+  ItemList OptList;
+  OptList.push_back(src);
+  OptList.push_back(image->Reg());
+  OptList.push_back(coord);
+  inst.operands() = OptList;
+}
+
+void EImage::EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType)
+{
+  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
+  inst.imageType() = image->Type();
+  inst.coordType() = coordType;
+  inst.geometry() = geometry;
+  inst.equivClass() = 0;//12;
+  inst.type() = src->Type();
   ItemList OptList;
   OptList.push_back(src->Reg());
   OptList.push_back(image->Reg());
-  OptList.push_back(coord->Reg());
+  OptList.push_back(coord);
   inst.operands() = OptList;
 }
 

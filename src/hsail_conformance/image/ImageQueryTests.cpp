@@ -100,7 +100,7 @@ public:
 class ImageQueryTestBase:  public Test {
 private:
   Image imgobj;
-  ImageGeometry* imageGeometry;
+  ImageGeometry imageGeometry;
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
@@ -108,9 +108,10 @@ private:
 
 public:
   ImageQueryTestBase(Location codeLocation, Grid geometry, 
-    ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): Test(codeLocation, geometry),
-    imageGeometry(imageGeometry_), imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_), imageQuery(imageQuery_)
+    BrigImageGeometry imageGeometryProp_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): Test(codeLocation, geometry),
+    imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_), imageQuery(imageQuery_)
   {
+    imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2));
   }
   
   void Name(std::ostream& out) const {
@@ -120,48 +121,45 @@ public:
 
   void Init() {
    Test::Init();
-
-   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry->ImageWidth(),imageGeometry->ImageHeight(),imageGeometry->ImageDepth(),imageGeometry->ImageArray());
-   for (unsigned i = 0; i < imageGeometry->ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF)); }
+   imgobj = kernel->NewImage("%roimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG, imageGeometry.ImageWidth(),imageGeometry.ImageHeight(),imageGeometry.ImageDepth(),imageGeometry.ImageArray());
+   for (unsigned i = 0; i < imageGeometry.ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT8, 0xFF)); }
   }
 
   void ModuleDirectives() override {
     be.EmitExtensionDirective("IMAGE");
   }
 
-  bool IsValid() const
-  {
-    //check img size and geometry equal
+ bool IsValid() const  {
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
     case BRIG_GEOMETRY_1DB:
-      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+      if ((imageGeometry.ImageHeight() > 1) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() > 1))
         return false;
       break;
     case BRIG_GEOMETRY_1DA:
-      if ((imageGeometry->ImageHeight() > 1) || (imageGeometry->ImageDepth() > 1))
+      if ((imageGeometry.ImageHeight() > 1) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() < 2))
         return false;
       break;
      case BRIG_GEOMETRY_2D:
      case BRIG_GEOMETRY_2DDEPTH:
-      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1) || (imageGeometry->ImageArray() > 1))
+      if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() > 1))
         return false;
       break;
     case BRIG_GEOMETRY_2DA:
-      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() > 1))
+      if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() < 2))
         return false;
       break;
     case BRIG_GEOMETRY_2DADEPTH:
-      if (imageGeometry->ImageDepth() > 1)
+      if (imageGeometry.ImageDepth() > 1)
         return false;
       break;
     case BRIG_GEOMETRY_3D:
-      if ((imageGeometry->ImageHeight() < 2) || (imageGeometry->ImageDepth() < 2) || (imageGeometry->ImageArray() > 1))
+      if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() < 2) || (imageGeometry.ImageArray() > 1))
         return false;
       break;
     default:
-      if (imageGeometry->ImageArray() > 1)
+      if (imageGeometry.ImageArray() > 1)
         return false;
     }
 
@@ -198,13 +196,13 @@ public:
     switch(imageQuery)
     {
     case BRIG_IMAGE_QUERY_WIDTH:
-      return Value(MV_UINT32, imageGeometry->ImageWidth());
+      return Value(MV_UINT32, imageGeometry.ImageWidth());
     case BRIG_IMAGE_QUERY_HEIGHT:
-      return Value(MV_UINT32, imageGeometry->ImageHeight());
+      return Value(MV_UINT32, imageGeometry.ImageHeight());
     case BRIG_IMAGE_QUERY_DEPTH:
-      return Value(MV_UINT32, imageGeometry->ImageDepth());
+      return Value(MV_UINT32, imageGeometry.ImageDepth());
     case BRIG_IMAGE_QUERY_ARRAY:
-      return Value(MV_UINT32, imageGeometry->ImageArray());
+      return Value(MV_UINT32, imageGeometry.ImageArray());
     case BRIG_IMAGE_QUERY_CHANNELORDER:
       return Value(MV_UINT32, imageChannelOrder);
     case BRIG_IMAGE_QUERY_CHANNELTYPE:
@@ -216,7 +214,7 @@ public:
   }
 
   size_t OutputBufferSize() const override {
-    return 1000;
+    return imageGeometry.ImageSize()*4;
   }
 
   TypedReg Result() {
@@ -237,8 +235,8 @@ private:
 
 public:
   ImageQueryTestA(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_A, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_A, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -267,8 +265,8 @@ private:
 
 public:
   ImageQueryTestR(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_R, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_R, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -299,8 +297,8 @@ private:
 
 public:
   ImageQueryTestRX(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RX, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RX, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -329,8 +327,8 @@ private:
 
 public:
   ImageQueryTestRG(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RG, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RG, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -359,8 +357,8 @@ private:
 
 public:
   ImageQueryTestRGX(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGX, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGX, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -389,8 +387,8 @@ private:
 
 public:
   ImageQueryTestRA(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RA, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RA, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -419,8 +417,8 @@ private:
 
 public:
   ImageQueryTestRGB(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGB, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGB, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -448,8 +446,8 @@ private:
 
 public:
   ImageQueryTestRGBX(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGBX, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGBX, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -478,8 +476,8 @@ private:
 
 public:
   ImageQueryTestRGBA(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGBA, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_RGBA, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -508,8 +506,8 @@ private:
 
 public:
   ImageQueryTestBGRA(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_BGRA, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_BGRA, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -538,8 +536,8 @@ private:
 
 public:
   ImageQueryTestARGB(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_ARGB, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_ARGB, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -568,8 +566,8 @@ private:
 
 public:
   ImageQueryTestABGR(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_ABGR, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_ABGR, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -598,8 +596,8 @@ private:
 
 public:
   ImageQueryTestSRGB(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGB, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGB, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -629,8 +627,8 @@ private:
 
 public:
   ImageQueryTestSRGBX(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGBX, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGBX, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -659,8 +657,8 @@ private:
 
 public:
   ImageQueryTestSRGBA(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGBA, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SRGBA, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -689,8 +687,8 @@ private:
 
 public:
   ImageQueryTestSBGRA(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SBGRA, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_SBGRA, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -719,8 +717,8 @@ private:
 
 public:
   ImageQueryTestINTENSITY(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_INTENSITY, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_INTENSITY, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -751,8 +749,8 @@ private:
 
 public:
   ImageQueryTestLUMINANCE(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_LUMINANCE, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_LUMINANCE, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -783,8 +781,8 @@ private:
 
 public:
   ImageQueryTestDEPTH(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_DEPTH, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_DEPTH, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -812,8 +810,8 @@ private:
 
 public:
   ImageQueryTestDEPTHSTENCIL(Location codeLocation_, 
-      Grid geometry_, ImageGeometry* imageGeometry_, BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
-      ImageQueryTestBase(codeLocation_, geometry_, imageGeometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_DEPTH_STENCIL, imageChannelType_, imageQuery_), 
+      Grid geometry_,  BrigImageGeometry imageGeometryProp_, BrigImageChannelType imageChannelType_, BrigImageQuery imageQuery_): 
+      ImageQueryTestBase(codeLocation_, geometry_, imageGeometryProp_, BRIG_CHANNEL_ORDER_DEPTH_STENCIL, imageChannelType_, imageQuery_), 
       imageChannelType(imageChannelType_)
   {
   }
@@ -840,64 +838,64 @@ void ImageQueryTestSet::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<ImageQueryTestA>(ap, it, "image_query_a/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestA>(ap, it, "image_query_a/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestR>(ap, it, "image_query_r/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestR>(ap, it, "image_query_r/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  //TestForEach<ImageQueryTestRX>(ap, it, "image_query_rx/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  //TestForEach<ImageQueryTestRX>(ap, it, "image_query_rx/basic", CodeLocations(), cc->Grids().ImagesSet(),
   //  cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestRA>(ap, it, "image_query_ra/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestRA>(ap, it, "image_query_ra/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestRG>(ap, it, "image_query_rg/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestRG>(ap, it, "image_query_rg/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestRGB>(ap, it, "image_query_rgb/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestRGB>(ap, it, "image_query_rgb/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  //TestForEach<ImageQueryTestRGBX>(ap, it, "image_query_rgbx/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  //TestForEach<ImageQueryTestRGBX>(ap, it, "image_query_rgbx/basic", CodeLocations(), cc->Grids().ImagesSet(),
   //  cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestRGBA>(ap, it, "image_query_rgba/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestRGBA>(ap, it, "image_query_rgba/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestBGRA>(ap, it, "image_query_bgra/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestBGRA>(ap, it, "image_query_bgra/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestARGB>(ap, it, "image_query_argb/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestARGB>(ap, it, "image_query_argb/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestABGR>(ap, it, "image_query_abgr/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestABGR>(ap, it, "image_query_abgr/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
- // TestForEach<ImageQueryTestSRGB>(ap, it, "image_query_srgb/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+ // TestForEach<ImageQueryTestSRGB>(ap, it, "image_query_srgb/basic", CodeLocations(), cc->Grids().ImagesSet(),
  //   cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
- // TestForEach<ImageQueryTestSRGBX>(ap, it, "image_query_srgbx/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+ // TestForEach<ImageQueryTestSRGBX>(ap, it, "image_query_srgbx/basic", CodeLocations(), cc->Grids().ImagesSet(),
  //   cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
- // TestForEach<ImageQueryTestSRGBA>(ap, it, "image_query_srgba/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+ // TestForEach<ImageQueryTestSRGBA>(ap, it, "image_query_srgba/basic", CodeLocations(), cc->Grids().ImagesSet(),
  //   cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
- // TestForEach<ImageQueryTestSBGRA>(ap, it, "image_query_sbgra/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+ // TestForEach<ImageQueryTestSBGRA>(ap, it, "image_query_sbgra/basic", CodeLocations(), cc->Grids().ImagesSet(),
  //   cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQueryTestINTENSITY>(ap, it, "image_query_intensity/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestINTENSITY>(ap, it, "image_query_intensity/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
    
-  TestForEach<ImageQueryTestLUMINANCE>(ap, it, "image_query_luminance/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+  TestForEach<ImageQueryTestLUMINANCE>(ap, it, "image_query_luminance/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
- // TestForEach<ImageQueryTestDEPTH>(ap, it, "image_query_depth/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+ // TestForEach<ImageQueryTestDEPTH>(ap, it, "image_query_depth/basic", CodeLocations(), cc->Grids().ImagesSet(),
  //   cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
- // TestForEach<ImageQueryTestDEPTHSTENCIL>(ap, it, "image_query_depth_stencil/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Images().DefaultImageGeometrySet(),
+ // TestForEach<ImageQueryTestDEPTHSTENCIL>(ap, it, "image_query_depth_stencil/basic", CodeLocations(), cc->Grids().ImagesSet(),
  //   cc->Images().ImageGeometryProps(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes());
 
-  TestForEach<ImageQuerySamplerTest>(ap, it, "image_query_sampler/basic", CodeLocations(), cc->Grids().DimensionSet(), cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Sampler().SamplerQueryTypes());
+  TestForEach<ImageQuerySamplerTest>(ap, it, "image_query_sampler/basic", CodeLocations(), cc->Grids().ImagesSet(), cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Sampler().SamplerQueryTypes());
 }
 
 } // hsail_conformance
