@@ -97,7 +97,6 @@ private:
     case BRIG_GEOMETRY_1D: 
     case BRIG_GEOMETRY_1DB:
       coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, x)->Reg());
-      //coordList.push_back(be.Immed(BRIG_TYPE_U32, x));
       break;
     case BRIG_GEOMETRY_1DA:
       coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, x)->Reg());
@@ -150,7 +149,7 @@ public:
     imageSpec.Depth(std::max<uint32_t>(LimitDepth(), 1));
     imageSpec.ArraySize(std::max<uint32_t>(LimitArraySize(), 1));
     image = kernel->NewImage("image", &imageSpec);
-    image->AddData(Value(MV_UINT32, INITIAL_VALUE)); 
+    image->AddData(Value(MV_UINT8, INITIAL_VALUE)); 
   }
 
   BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
@@ -198,12 +197,12 @@ void ImageLimitsTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
 
-  auto geometry = new(ap) OneValueSequence<BrigImageGeometry>(BRIG_GEOMETRY_1D);
+  auto geometry = new(ap) OneValueSequence<BrigImageGeometry>(BRIG_GEOMETRY_2D);
   auto channelOrder = new(ap) OneValueSequence<BrigImageChannelOrder>(BRIG_CHANNEL_ORDER_A);
   auto channelType = new(ap) OneValueSequence<BrigImageChannelType>(BRIG_CHANNEL_TYPE_SIGNED_INT8);
   //TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), geometry, channelOrder, channelType);
 
-  TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
+  //TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
 }
 
 } // hsail_conformance
