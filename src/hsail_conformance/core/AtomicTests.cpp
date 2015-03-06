@@ -589,7 +589,6 @@ public:
             if (segment == BRIG_SEGMENT_FLAT)
             {
                 PointerReg flatAddr = be.AddAReg(segment);
-                be.EmitStof(flatAddr, atomicVarAddr);
                 atomicVarAddr = flatAddr;
             }
         }
