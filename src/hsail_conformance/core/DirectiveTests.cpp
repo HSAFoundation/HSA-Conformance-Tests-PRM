@@ -333,11 +333,11 @@ public:
 class PragmaOperandTypesTest : public SkipTest {
 private:
   PragmaGenerator generator;
-  BrigKinds type1, type2, type3;
+  BrigKind type1, type2, type3;
   HSAIL_ASM::Operand op1, op2, op3;
   Variable var1, var2, var3;
 
-  HSAIL_ASM::Operand InitializeOperand(BrigKinds type) {
+  HSAIL_ASM::Operand InitializeOperand(BrigKind type) {
     switch (type) {
     case BRIG_KIND_OPERAND_CODE_REF: return HSAIL_ASM::Operand();
     case BRIG_KIND_OPERAND_CONSTANT_BYTES: return be.Immed(BRIG_TYPE_U64, generator.GenerateNumber());
@@ -347,7 +347,7 @@ private:
     }
   }
 
-  static std::string OperandType2String(BrigKinds type) {
+  static std::string OperandType2String(BrigKind type) {
     switch (type) {
     case BRIG_KIND_OPERAND_CODE_REF: return "identifier";
     case BRIG_KIND_OPERAND_CONSTANT_BYTES: return "integer";
@@ -358,7 +358,7 @@ private:
   }
 
 public:
-  PragmaOperandTypesTest(BrigKinds type1_, BrigKinds type2_, BrigKinds type3_)
+  PragmaOperandTypesTest(BrigKind type1_, BrigKind type2_, BrigKind type3_)
     : SkipTest(Location::KERNEL), type1(type1_), type2(type2_), type3(type3_) { }
 
   bool IsValid() const override {

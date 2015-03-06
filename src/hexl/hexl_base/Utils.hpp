@@ -62,7 +62,7 @@ struct Serializer<brig_container_t> {
     const char *data = buffer + sizeof(size_t);
     const char *code = data + *((size_t *) data - 1) + sizeof(size_t);
     const char *operand = code + *((size_t *) code - 1) + sizeof(size_t);
-    brig = brig_container_create_view(data, code, operand, 0);
+    brig = brig_container_create_copy(data, code, operand, 0);
   }
 };
 
