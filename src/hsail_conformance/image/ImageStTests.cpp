@@ -52,7 +52,15 @@ public:
 
   void Init() {
    Test::Init();
-   imgobj = kernel->NewImage("%rwimage", BRIG_SEGMENT_KERNARG, imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_RWIMG, imageGeometry.ImageWidth(),imageGeometry.ImageHeight(),imageGeometry.ImageDepth(),imageGeometry.ImageArray());
+   EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_RWIMG);
+   imageSpec.Geometry(imageGeometryProp);
+   imageSpec.ChannelOrder(imageChannelOrder);
+   imageSpec.ChannelType(imageChannelType);
+   imageSpec.Width(imageGeometry.ImageWidth());
+   imageSpec.Height(imageGeometry.ImageHeight());
+   imageSpec.Depth(imageGeometry.ImageDepth());
+   imageSpec.ArraySize(imageGeometry.ImageArray());
+   imgobj = kernel->NewImage("%rwimage", &imageSpec);
    for (unsigned i = 0; i < imageGeometry.ImageSize(); ++i) { imgobj->AddData(Value(MV_UINT8, 0xFF)); }
   }
 

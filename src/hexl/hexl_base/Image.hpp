@@ -22,6 +22,7 @@
 #include <cassert>
 #include <cstdio>
 #include "Arena.hpp"
+#include "Brig.h"
 
 namespace hexl {
 

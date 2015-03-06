@@ -67,5 +67,4 @@ bool ImageIterator::operator!=(const ImageIterator& i)
 {
   return (geometry != i.geometry) || (point != i.point);
 }
-
 }

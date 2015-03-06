@@ -225,4 +225,29 @@ bool Is128Bit(BrigTypeX type) {
   return HSAIL_ASM::getBrigTypeNumBytes(type) == 16;
 }
 
+uint32_t ImageGeometryDims(BrigImageGeometry geometry) {
+  switch (geometry) {
+  case BRIG_GEOMETRY_1D:       return 1;
+  case BRIG_GEOMETRY_2D:       return 2;
+  case BRIG_GEOMETRY_3D:       return 3;
+  case BRIG_GEOMETRY_1DA:      return 1;
+  case BRIG_GEOMETRY_2DA:      return 2;
+  case BRIG_GEOMETRY_1DB:      return 1;
+  case BRIG_GEOMETRY_2DDEPTH:  return 2;
+  case BRIG_GEOMETRY_2DADEPTH: return 2;
+  default:  assert(false); return 0;
+  }
+}
+
+bool IsImageGeometryArray(BrigImageGeometry geometry) {
+  if (geometry == BRIG_GEOMETRY_1DA ||
+      geometry == BRIG_GEOMETRY_2DA ||
+      geometry == BRIG_GEOMETRY_2DADEPTH) 
+  {
+    return true;
+  } else {
+    return false;
+  }
+}
+
 }
