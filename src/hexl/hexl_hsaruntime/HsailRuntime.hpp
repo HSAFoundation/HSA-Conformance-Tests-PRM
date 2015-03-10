@@ -21,7 +21,7 @@
 #include "Options.hpp"
 #include "DllApi.hpp"
 #include "hsa.h"
-#include "hsa_ext_finalize.h"
+#include "hsa_ext_alt_finalize.h"
 #include "hsa_ext_image.h"
 #include <functional>
 
@@ -34,6 +34,7 @@ RuntimeContext* CreateHsailRuntimeContext(Context* context);
 namespace hsail_runtime {
 
 struct HsaApiTable {
+  hsa_status_t (*hsa_status_string)(hsa_status_t status, const char **status_string);
   hsa_status_t (*hsa_init)();
   hsa_status_t (*hsa_shut_down)();
   hsa_status_t (*hsa_iterate_agents)(hsa_status_t(*callback)(hsa_agent_t agent, void *data), void *data);
@@ -54,33 +55,63 @@ struct HsaApiTable {
   void (*hsa_signal_store_relaxed)(hsa_signal_t signal_handle, hsa_signal_value_t signal_value);
   void (*hsa_signal_store_release)(hsa_signal_t signal, hsa_signal_value_t value);
   hsa_signal_value_t (*hsa_signal_wait_acquire)(hsa_signal_t signal, hsa_signal_condition_t condition, hsa_signal_value_t compare_value, uint64_t timeout_hint, hsa_wait_state_t wait_expectancy_hint);
-  hsa_status_t (*hsa_ext_program_create)(
-    hsa_agent_t *agents,
-    uint32_t agent_count,
-    hsa_ext_brig_machine_model8_t machine_model,
-    hsa_ext_brig_profile8_t profile,
-    hsa_ext_program_handle_t *program);
-  hsa_status_t (*hsa_ext_program_destroy)(
-    hsa_ext_program_handle_t program);
-  hsa_status_t (*hsa_ext_add_module)(
-    hsa_ext_program_handle_t program,
-    hsa_ext_brig_module_t *brig_module,
-    hsa_ext_brig_module_handle_t *module);
-  hsa_status_t (*hsa_ext_finalize_program)(
-    hsa_ext_program_handle_t program,
-    hsa_agent_t agent,
-    size_t finalization_request_count,
-    hsa_ext_finalization_request_t *finalization_request_list,
-    hsa_ext_control_directives_t *control_directives,
-    hsa_ext_error_message_callback_t error_message_callback,
-    uint8_t optimization_level,
+  hsa_status_t (*hsa_ext_alt_program_create)(
+    hsa_machine_model_t machine_model,
+    hsa_profile_t profile,
+    hsa_default_float_rounding_mode_t default_float_rounding_mode,
     const char *options,
-    int debug_information);
-  hsa_status_t (*hsa_ext_query_kernel_descriptor_address)(
-    hsa_ext_program_handle_t program,
-    hsa_ext_brig_module_handle_t module,
-    hsa_ext_brig_code_section_offset32_t symbol,
-    hsa_ext_code_descriptor_t** kernel_descriptor);
+    hsa_ext_alt_program_t *program);
+  hsa_status_t (*hsa_ext_alt_program_destroy)(
+    hsa_ext_alt_program_t program);
+  hsa_status_t (*hsa_ext_alt_program_add_module)(
+    hsa_ext_alt_program_t program,
+    hsa_ext_alt_module_t module);
+  hsa_status_t (*hsa_ext_alt_program_finalize)(
+    hsa_ext_alt_program_t program,
+    hsa_isa_t isa,
+    int32_t call_convention,
+    hsa_ext_alt_control_directives_t control_directives,
+    const char *options,
+    hsa_code_object_type_t code_object_type,
+    hsa_code_object_t *code_object);
+  hsa_status_t (*hsa_ext_alt_program_get_info)(
+    hsa_ext_alt_program_t program,
+    hsa_ext_alt_program_info_t attribute,
+    void *value);
+
+  hsa_status_t (*hsa_executable_create)(
+    hsa_profile_t profile,
+    hsa_executable_state_t executable_state,
+    const char *options,
+    hsa_executable_t *executable);
+  hsa_status_t (*hsa_executable_load_code_object)(
+    hsa_executable_t executable,
+    hsa_agent_t agent,
+    hsa_code_object_t code_object,
+    const char *options);
+  hsa_status_t (*hsa_code_object_destroy)(
+    hsa_code_object_t code_object);
+  hsa_status_t (*hsa_executable_symbol_get_info)(
+    hsa_executable_symbol_t executable_symbol,
+    hsa_executable_symbol_info_t attribute,
+    void *value);
+  hsa_status_t (*hsa_executable_get_symbol)(
+    hsa_executable_t executable,
+    const char *module_name,
+    const char *symbol_name,
+    hsa_agent_t agent,
+    int32_t call_convention,
+    hsa_executable_symbol_t *symbol);
+  hsa_status_t (*hsa_executable_iterate_symbols)(
+    hsa_executable_t executable,
+    hsa_status_t (*callback)(hsa_executable_t executable, hsa_executable_symbol_t symbol, void* data),
+    void* data);
+  hsa_status_t (*hsa_executable_freeze)(
+    hsa_executable_t executable,
+    const char *options);
+  hsa_status_t (*hsa_executable_destroy)(
+    hsa_executable_t executable);
+
   hsa_status_t (*hsa_ext_image_data_get_info)(hsa_agent_t agent, 
     const hsa_ext_image_descriptor_t *image_descriptor,
     hsa_access_permission_t access_permission,
@@ -141,7 +172,11 @@ public:
 
   void HsaError(const char *msg, hsa_status_t err) {
     error = true;
-    context->Error() << msg << ": error " << err << std::endl;
+    const char *hsamsg = "";
+    if (Hsa()->hsa_status_string) {
+      Hsa()->hsa_status_string(err, &hsamsg);
+    }
+    context->Error() << msg << ": error " << err << ": " << hsamsg << std::endl;
   }
 
   void HsaError(const char *msg) {

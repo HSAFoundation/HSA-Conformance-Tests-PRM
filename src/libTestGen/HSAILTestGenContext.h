@@ -114,7 +114,7 @@ public:
 
 public:
 
-    void defineTestKernel()  { testKernel = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_KERNEL, "&Test"); }
+    void defineTestKernel()  { testKernel = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_KERNEL, "&test_kernel"); }
     void startKernelBody()   { startSbrBody(); }
 
     void finishKernelBody()
