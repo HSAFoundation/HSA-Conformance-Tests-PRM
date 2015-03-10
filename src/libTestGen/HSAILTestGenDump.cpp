@@ -68,10 +68,10 @@ private:
         return s.str();
     }
 
-    string operandData2str(OperandData o)
+    string operandData2str(OperandConstantBytes o)
     {
         ostringstream s;
-        SRef data = o.data();
+        SRef data = o.bytes();
 
         s << "IMM(" << static_cast<unsigned>(data[0]);
         for (unsigned i = 1; i < o.byteCount(); ++i)
@@ -90,8 +90,8 @@ private:
         for (unsigned i = 0; i < o.elementCount(); ++i)
         {
             if (i > 0) s << ", ";
-            if      (OperandReg r = o.elements(i))    s << getRegName(r);
-            else if (OperandData imm = o.elements(i)) s << operandData2str(imm);
+            if      (OperandRegister r = o.elements(i))    s << getRegName(r);
+            else if (OperandConstantBytes imm = o.elements(i)) s << operandData2str(imm);
             else if (OperandWavesize(o.elements(i)))  s <<  "wavesize";
             else                                      s << "***UNKNOWN***";
         }
@@ -146,13 +146,13 @@ private:
     void dumpOperand(unsigned idx, Operand opr)
     {
         if      (!opr)                       { s << "NULL";  }
-        else if (OperandReg         o = opr) { s << getRegName(o); }
+        else if (OperandRegister         o = opr) { s << getRegName(o); }
         else if (OperandOperandList o = opr) { s << operandVector2str(o); }
         else if (OperandAddress     o = opr) { s << operandAddress2str(o); }
         else if (OperandWavesize    o = opr) { s << "wavesize"; }
         else if (OperandCodeRef     o = opr) { s << operandCodeRef2str(o); }
         else if (OperandCodeList    o = opr) { s << operandList2str(o); }
-        else if (OperandData        o = opr) { s << operandData2str(o); }
+        else if (OperandConstantBytes        o = opr) { s << operandData2str(o); }
         else                                 { s << "*UNKNOWN*, kind = " << opr.kind(); }
 
         dumpProp(getOperandName(idx), s.str());

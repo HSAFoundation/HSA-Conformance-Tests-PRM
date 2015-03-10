@@ -26,7 +26,7 @@
 #include <sstream>
 #include <cassert>
 
-#define BRIG_SEGMENT_MAX Brig::BRIG_SEGMENT_EXTSPACE0
+#define BRIG_SEGMENT_MAX Brig::BRIG_SEGMENT_AMD_GCN
 
 namespace Brig {
 
@@ -253,7 +253,7 @@ namespace hexl {
           *gridSizeRelatedSets,
           *workitemIdRelatedSets, *workitemAbsIdRelatedSets, *workitemFlatIdRelatedSets, *workitemFlatAbsIdRelatedSets,
           *degenerateRelatedSets, *boundary24WorkitemAbsIdRelatedSets, *boundary24WorkitemFlatAbsIdRelatedSets, *boundary24WorkitemFlatIdRelatedSets;
-        hexl::Sequence<Brig::BrigKinds>* pragmaOperandTypes;
+        hexl::Sequence<Brig::BrigKind>* pragmaOperandTypes;
         hexl::Sequence<uint32_t>* validExceptionNumbers;
         hexl::Sequence<Brig::BrigControlDirective> *exceptionDirectives, *geometryDirectives;
         hexl::Sequence<std::string> *validExtensions;
@@ -292,7 +292,7 @@ namespace hexl {
         const ControlDirectives& Boundary24WorkitemFlatIdRelated()  { return boundary24WorkitemFlatIdRelated; }
         hexl::Sequence<ControlDirectives>* Boundary24WorkitemFlatIdRelatedSets()  { return boundary24WorkitemFlatIdRelatedSets; }
 
-        hexl::Sequence<Brig::BrigKinds>* PragmaOperandTypes() { return pragmaOperandTypes; }
+        hexl::Sequence<Brig::BrigKind>* PragmaOperandTypes() { return pragmaOperandTypes; }
         
         hexl::Sequence<uint32_t>* ValidExceptionNumbers() { return validExceptionNumbers; }
         hexl::Sequence<Brig::BrigControlDirective>* ExceptionDirectives() { return exceptionDirectives; }

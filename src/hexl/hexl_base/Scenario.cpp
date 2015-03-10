@@ -228,6 +228,7 @@ public:
     DispatchSetup* dsetup = context->Get<DispatchSetup*>(dispatchSetupId);
     if (!dsetup) { return false; }
     dispatch = context->State()->NewDispatch(code);
+    if (!dispatch) { return false; }
     {
       context->Info() << "Dispatch setup: " << std::endl;
       IndentStream indent(context->Info());

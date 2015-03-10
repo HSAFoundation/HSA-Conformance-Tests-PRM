@@ -219,7 +219,7 @@ Location EVariable::RealLocation() const
     case BRIG_SEGMENT_PRIVATE:
     case BRIG_SEGMENT_SPILL:
     case BRIG_SEGMENT_GROUP:
-    case BRIG_SEGMENT_EXTSPACE0:
+    case BRIG_SEGMENT_MAX:
     case BRIG_SEGMENT_KERNARG:
       return KERNEL;
     case BRIG_SEGMENT_ARG:
@@ -737,11 +737,11 @@ void EUserModeQueue::StartKernelBody()
     address = te->Brig()->AddAReg();
     te->Brig()->EmitLoad(BRIG_SEGMENT_KERNARG, address, te->Brig()->Address(queueKernelArg));
     break;
-  case DISPATCH_QUEUE:
-    assert(!address);
-    address = te->Brig()->AddAReg();
-    te->Brig()->EmitQueuePtr(address);
-    break;
+  ///case DISPATCH_QUEUE:
+  ///  assert(!address);
+  ///  address = te->Brig()->AddAReg();
+  ///  te->Brig()->EmitQueuePtr(address);
+  ///  break;
   default:
     break;
   }

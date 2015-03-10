@@ -39,12 +39,12 @@ string getOperandKind(Inst inst, unsigned operandIdx)
     assert(operandIdx < getOperandsNum(inst));
 
     Operand operand = inst.operand(operandIdx);
-    return HSAIL_ASM::OperandData(operand)         ? "imm" :
-           HSAIL_ASM::OperandReg(operand)          ? "reg" :
-           HSAIL_ASM::OperandOperandList(operand)  ? "vec" :
-           HSAIL_ASM::OperandAddress(operand)      ? "mem" :
-           HSAIL_ASM::OperandWavesize(operand)     ? "wsz" :
-                                                     "???" ;
+    return HSAIL_ASM::OperandConstantBytes(operand) ? "imm" :
+           HSAIL_ASM::OperandRegister(operand)      ? "reg" :
+           HSAIL_ASM::OperandOperandList(operand)   ? "vec" :
+           HSAIL_ASM::OperandAddress(operand)       ? "mem" :
+           HSAIL_ASM::OperandWavesize(operand)      ? "wsz" :
+                                                      "???" ;
 }
 
 

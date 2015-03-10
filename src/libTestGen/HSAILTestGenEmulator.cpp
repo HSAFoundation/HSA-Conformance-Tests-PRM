@@ -1940,7 +1940,7 @@ bool testableInst(Inst inst)
     else if (InstCvt instCvt = inst)
     {
         // Saturating signalign rounding is badly defined in spec; the behavior is unclear
-        unsigned rounding = instCvt.modifier().round();
+        unsigned rounding = instCvt.round();
         return !(isSatRounding(rounding) && isSignalingRounding(rounding));
     }
 

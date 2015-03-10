@@ -47,7 +47,7 @@ namespace hexl {
       SEPARATE_QUEUE = SOURCE_START, // Queue created on the host separate from dispatch.
       SOURCE_END,
       DISPATCH_SERVICE_QUEUE, // Queue created on the host and passed as service_queue of dispatch queue.
-      DISPATCH_QUEUE, // Dispatch queue.
+///      DISPATCH_QUEUE, // Dispatch queue.
       USER_PROVIDED = SOURCE_START,
     };
     

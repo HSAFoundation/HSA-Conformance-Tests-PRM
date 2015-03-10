@@ -18,7 +18,7 @@ using std::setfill;
 
 using HSAIL_ASM::Code;
 
-using HSAIL_ASM::DirectiveVersion;
+using HSAIL_ASM::DirectiveModule;
 using HSAIL_ASM::DirectiveKernel;
 using HSAIL_ASM::DirectiveFunction;
 using HSAIL_ASM::DirectiveExecutable;
@@ -40,9 +40,9 @@ using HSAIL_ASM::InstMod;
 using HSAIL_ASM::InstBr;
 using HSAIL_ASM::InstAddr;
 
-using HSAIL_ASM::OperandReg;
+using HSAIL_ASM::OperandRegister;
 using HSAIL_ASM::OperandOperandList;
-using HSAIL_ASM::OperandData;
+using HSAIL_ASM::OperandConstantBytes;
 using HSAIL_ASM::OperandWavesize;
 using HSAIL_ASM::OperandAddress;
 using HSAIL_ASM::OperandCodeRef;
@@ -55,6 +55,7 @@ using HSAIL_ASM::isFloatType;
 using HSAIL_ASM::isOpaqueType;
 using HSAIL_ASM::ArbitraryData;
 using HSAIL_ASM::getBrigTypeNumBits;
+using HSAIL_ASM::getBitType;
 
 namespace TESTGEN {
 
@@ -76,7 +77,7 @@ bool     BrigSettings::gcnSubset    = false;
 
 void BrigContext::emitVersion()
 {
-    brigantine.version(Brig::BRIG_VERSION_HSAIL_MAJOR, Brig::BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile());
+    brigantine.module("&sample", Brig::BRIG_VERSION_HSAIL_MAJOR, Brig::BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile(), Brig::BRIG_ROUND_FLOAT_NEAR_EVEN);
 }
 
 void BrigContext::emitExtension(const char* name)
@@ -228,7 +229,7 @@ void BrigContext::emitGetWorkItemId(Operand res, unsigned dim)
     append(inst, res, emitImm(32, dim));
 }
 
-void BrigContext::emitCvt(unsigned dstType, unsigned srcType, OperandReg to, OperandReg from)
+void BrigContext::emitCvt(unsigned dstType, unsigned srcType, OperandRegister to, OperandRegister from)
 {
     InstCvt cvt = brigantine.addInst<InstCvt>(Brig::BRIG_OPCODE_CVT, dstType);
     cvt.sourceType() = srcType;
@@ -236,7 +237,7 @@ void BrigContext::emitCvt(unsigned dstType, unsigned srcType, OperandReg to, Ope
     append(cvt, to, from);
 }
 
-void BrigContext::emitLda(OperandReg dst, DirectiveVariable var)
+void BrigContext::emitLda(OperandRegister dst, DirectiveVariable var)
 {
     assert(dst);
     assert(var);
@@ -254,7 +255,7 @@ void BrigContext::emitCmpEq(unsigned cRegIdx, unsigned sRegIdx, unsigned immVal)
 
     cmp.sourceType()        = Brig::BRIG_TYPE_U32;
     cmp.compare()           = Brig::BRIG_COMPARE_EQ;
-    cmp.modifier().round()  = Brig::BRIG_ROUND_NONE;
+///    cmp.modifier().round()  = Brig::BRIG_ROUND_NONE;
     cmp.modifier().ftz()    = 0;
     cmp.pack()              = Brig::BRIG_PACK_NONE;
 
@@ -303,7 +304,7 @@ string BrigContext::getRegName(unsigned size, unsigned idx)
     return name.str();
 }
 
-Operand BrigContext::emitReg(OperandReg reg)
+Operand BrigContext::emitReg(OperandRegister reg)
 {
     return brigantine.createOperandReg(HSAIL_ASM::getRegName(reg));
 }
@@ -363,7 +364,7 @@ Operand BrigContext::emitImm(unsigned size /*=32*/, uint64_t lVal /*=0*/, uint64
         assert(false);
     }
 
-    return brigantine.createImmed(data.toSRef());
+    return brigantine.createImmed(data.toSRef(), getBitType(size));
 }
 
 Operand BrigContext::emitOperandCodeRef(Code c)
@@ -371,24 +372,24 @@ Operand BrigContext::emitOperandCodeRef(Code c)
     return brigantine.createCodeRef(c);
 }
 
-Operand BrigContext::emitAddrRef(DirectiveVariable var, OperandReg reg, unsigned offset /*=0*/)
+Operand BrigContext::emitAddrRef(DirectiveVariable var, OperandRegister reg, unsigned offset /*=0*/)
 {
     return brigantine.createRef(var? SRef(var.name()) : SRef(), reg, offset);
 }
 
 Operand BrigContext::emitAddrRef(DirectiveVariable var, uint64_t offset /*=0*/)
 {
-    return brigantine.createRef(var? SRef(var.name()) : SRef(), OperandReg(), offset);
+    return brigantine.createRef(var? SRef(var.name()) : SRef(), OperandRegister(), offset);
 }
 
-Operand BrigContext::emitAddrRef(OperandReg reg, uint64_t offset)
+Operand BrigContext::emitAddrRef(OperandRegister reg, uint64_t offset)
 {
     return brigantine.createRef(SRef(), reg, offset);
 }
 
 Operand BrigContext::emitAddrRef(uint64_t offset)
 {
-    return brigantine.createRef(SRef(), OperandReg(), offset);
+    return brigantine.createRef(SRef(), OperandRegister(), offset);
 }
 
 //=============================================================================

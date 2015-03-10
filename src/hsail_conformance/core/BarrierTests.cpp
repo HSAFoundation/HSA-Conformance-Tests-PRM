@@ -193,7 +193,7 @@ public:
     TypedReg dest = NULL, src0 = be.AddTReg(vtype), src1 = NULL, wiID = NULL, idInWF = NULL, cReg = NULL, addrReg = NULL;
     if (!noret) dest = be.AddTReg(vtype);
     if (BRIG_ATOMIC_MIN != atomicOp && BRIG_ATOMIC_MAX != atomicOp && BRIG_ATOMIC_EXCH != atomicOp)
-      be.EmitMov(src0->Reg(), be.Immed(vtype, immSrc0), src0->TypeSizeBits());
+      be.EmitMov(src0->Reg(), be.Immed(be.AtomicValueBitType(), immSrc0), src0->TypeSizeBits());
     switch (atomicOp) {
       case BRIG_ATOMIC_AND:
       case BRIG_ATOMIC_EXCH:
@@ -235,7 +235,6 @@ public:
       case BRIG_SEGMENT_FLAT: {
         PointerReg flatAddr = be.AddAReg(globalVar.segment());
         be.EmitLda(flatAddr, addr);
-        be.EmitStof(flatAddr, flatAddr);
         addr = be.Address(flatAddr);
         break;
       }
@@ -408,7 +407,7 @@ protected:
     // store data in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
     // wait on fbarrrier
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
     Fb()->EmitWaitfbar();
   }
 
@@ -416,7 +415,7 @@ protected:
     // even
     // wait on fbarrrier
     Fb()->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_COMPONENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
     // store data in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), globalOffset);
     // store data in neighbours wave output memory region

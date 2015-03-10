@@ -27,70 +27,6 @@ using namespace HSAIL_ASM;
 
 namespace hsail_conformance {
 
-class QueueIdTest : public Test {
-public:
-  QueueIdTest(Location codeLocation)
-    : Test(codeLocation) { }
-
-  void Name(std::ostream& out) const {
-    out << "queueid/basic/" << CodeLocationString();
-  }
-
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
-
-  Value ExpectedResult() const { return Value(MV_EXPR, S("queueid")); }
-
-  TypedReg Result()
-  {
-    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    InstBasic inst = be.Brigantine().addInst<InstBasic>(BRIG_OPCODE_QUEUEID, BRIG_TYPE_U32);
-    inst.operands() = be.Operands(result->Reg());
-    return result;
-  }
-
-};
-
-class QueuePtrTest : public Test {
-public:
-  QueuePtrTest(Location codeLocation)
-    : Test(codeLocation) { }
-
-  void Name(std::ostream& out) const {
-    out << "queueptr/basic/" << CodeLocationString();
-  }
-
-  BrigTypeX ResultType() const { return be.PointerType(); }
-
-  Value ExpectedResult() const { return Value(MV_EXPR, S("queueptr")); }
-
-  TypedReg Result()
-  {
-    PointerReg result = be.AddAReg();
-    be.EmitQueuePtr(result);
-    return result;
-  }
-};
-
-class LdkBasicTest : public Test {
-public:
-  LdkBasicTest() { }
-
-  void Name(std::ostream& out) const {
-    out << "ldk/basic";
-  }
-
-  BrigTypeX ResultType() const { return be.PointerType(); }
-
-  Value ExpectedResult() const { return Value(MV_EXPR, S("kerneldesc")); }
-
-  TypedReg Result()
-  {
-    PointerReg ka = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    be.EmitLdk(ka, be.CurrentKernel().name().str());
-    return ka;
-  }
-};
-
 class UserModeQueueTest : public Test {
 protected:
   UserModeQueueType queueType;
@@ -397,12 +333,9 @@ void UserModeQueueTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<QueueIdTest>(ap, it, Path(), CodeLocations());
-  TestForEach<QueuePtrTest>(ap, it, Path(), CodeLocations());
   TestForEach<LdBasicIndexTest>(ap, it, Path(), cc->Queues().Types(), cc->Queues().LdOpcodes(), cc->Queues().Segments(), cc->Queues().LdMemoryOrders());
   TestForEach<AddCasBasicIndexTest>(ap, it, Path(), cc->Queues().Types(), cc->Queues().AddCasOpcodes(), cc->Queues().Segments(), cc->Queues().AddCasMemoryOrders());
   TestForEach<StBasicIndexTest>(ap, it, Path(), cc->Queues().Types(), cc->Queues().StOpcodes(), cc->Queues().Segments(), cc->Queues().StMemoryOrders());
-  it(Path(), new LdkBasicTest());
   //it(Path() + "/agentenqueue", new AgentEnqueueKernelDispatchTest());
 }
 

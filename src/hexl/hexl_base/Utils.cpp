@@ -28,11 +28,8 @@ namespace hexl {
 
 BrigContainer* BrigC(brig_container_t brig)
 {
-  return new BrigContainer(
-    (char *) brig_container_get_section_bytes(brig, BRIG_SECTION_INDEX_DATA),
-    (char *) brig_container_get_section_bytes(brig, BRIG_SECTION_INDEX_CODE),
-    (char *) brig_container_get_section_bytes(brig, BRIG_SECTION_INDEX_OPERAND),
-    0);
+  BrigModuleHeader* brigm = static_cast<Brig::BrigModuleHeader*>(brig_container_get_brig_module(brig));
+  return new BrigContainer(brigm);
 }
 
 brig_container_t CreateBrigFromContainer(HSAIL_ASM::BrigContainer* container)
@@ -50,7 +47,7 @@ BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig)
 {
   BrigContainer* brigc = BrigC(brig);
   for (Code d = brigc->code().begin(), e = brigc->code().end(); d != e; ) {
-    if (DirectiveVersion v = d) {
+    if (DirectiveModule v = d) {
       BrigMachineModel8_t model = v.machineModel().enumValue();
       delete brigc;
       return model;

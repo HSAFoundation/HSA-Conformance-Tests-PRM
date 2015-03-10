@@ -703,8 +703,8 @@ static const BrigControlDirective boundary24WorkitemFlatIdRelatedValues[] = {
   BRIG_CONTROL_MAXFLATWORKGROUPSIZE,
 };
 
-static const BrigKinds pragmaOperandTypesValues[] = {
-  BRIG_KIND_OPERAND_DATA,
+static const BrigKind pragmaOperandTypesValues[] = {
+  BRIG_KIND_OPERAND_CONSTANT_BYTES,
   BRIG_KIND_OPERAND_STRING,
   BRIG_KIND_OPERAND_CODE_REF
 };
@@ -760,7 +760,7 @@ CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
     boundary24WorkitemAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemAbsIdRelated)),
     boundary24WorkitemFlatAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatAbsIdRelated)),
     boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated)),
-    pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
+    pragmaOperandTypes(NEWA ArraySequence<BrigKind>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
     validExceptionNumbers(NEWA ArraySequence<uint32_t>(validExceptionNumbersValues, NELEM(validExceptionNumbersValues))),
     exceptionDirectives(NEWA ArraySequence<BrigControlDirective>(exceptionDirectivesValues, NELEM(exceptionDirectivesValues))),
     geometryDirectives(NEWA ArraySequence<BrigControlDirective>(geometryDirectivesValues, NELEM(geometryDirectivesValues))),

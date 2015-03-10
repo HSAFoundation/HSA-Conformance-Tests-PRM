@@ -240,8 +240,8 @@ static int f2i_round(Val val, unsigned rounding)
     {
     case Brig::BRIG_ROUND_INTEGER_NEAR_EVEN:
     case Brig::BRIG_ROUND_INTEGER_NEAR_EVEN_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN_SAT:
         if (val.getNormalizedFract() > Val(0.5f).getNormalizedFract())          // Rounds to the nearest representable value
         {
             round = val.isNegative() ? -1 : 1;
@@ -254,19 +254,19 @@ static int f2i_round(Val val, unsigned rounding)
         break;
     case Brig::BRIG_ROUND_INTEGER_ZERO:
     case Brig::BRIG_ROUND_INTEGER_ZERO_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_ZERO:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_ZERO_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO_SAT:
         break;
     case Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY:
     case Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY_SAT:
         if (val.isRegularPositive() && !val.isNatural()) round = 1;
         break;
     case Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY:
     case Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY_SAT:
         if (val.isRegularNegative() && !val.isNatural()) round = -1;
         break;
 
