@@ -140,6 +140,7 @@ namespace hexl {
         SegmentsConfig(CoreConfig* cc);
 
         bool CanStore(Brig::BrigSegment8_t segment);
+        bool HasNullptr(Brig::BrigSegment8_t segment);
         bool HasFlatAddress(Brig::BrigSegment8_t segment);
         bool HasAddress(Brig::BrigSegment8_t segment);
         bool CanPassAddressToKernel(Brig::BrigSegment8_t segment);

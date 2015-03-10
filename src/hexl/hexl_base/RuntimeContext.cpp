@@ -16,6 +16,7 @@
 
 #include "RuntimeContext.hpp"
 #include "Options.hpp"
+#include <stdlib.h>
 
 namespace hexl {
 
@@ -27,6 +28,28 @@ void Dispatch::Apply(const DispatchSetup& setup)
   for (size_t i = 0; i < setup.MSetup().Count(); ++i) {
     MState()->Add(setup.MSetup().Get(i));
   }
+}
+
+void *alignedMalloc(size_t size, size_t align)
+{
+  assert((align & (align-1)) == 0);
+  #if defined(_WIN32) || defined(_WIN64)
+    return _aligned_malloc(size, align);
+  #else
+    void *ptr;
+    int res = posix_memalign(&ptr, align, size);
+    assert(res == 0);
+    return ptr;
+  #endif // _WIN32 || _WIN64
+}
+
+void alignedFree(void *ptr)
+{
+  #if defined(_WIN32) || defined(_WIN64)
+    _aligned_free(ptr);
+  #else
+    free(ptr);
+  #endif
 }
 
 }

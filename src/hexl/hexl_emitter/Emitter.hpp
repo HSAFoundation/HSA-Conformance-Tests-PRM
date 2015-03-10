@@ -437,7 +437,6 @@ private:
   UserModeQueueType type;
   HSAIL_ASM::DirectiveVariable queueKernelArg;
   PointerReg address;
-  PointerReg flatAddress;
   PointerReg serviceQueue;
   TypedReg doorbellSignal;
   TypedReg size;
@@ -445,9 +444,9 @@ private:
 
 public:
   EUserModeQueue(TestEmitter* te, const std::string& id_, UserModeQueueType type_)
-    : Emittable(te), id(id_), type(type_), address(0), flatAddress(0), doorbellSignal(0), size(0), baseAddress(0) { }
+    : Emittable(te), id(id_), type(type_), address(0), doorbellSignal(0), size(0), baseAddress(0) { }
   EUserModeQueue(TestEmitter* te, const std::string& id_, PointerReg address_ = 0)
-    : Emittable(te), id(id_), type(USER_PROVIDED), address(address_), flatAddress(0), doorbellSignal(0), size(0), baseAddress(0) { }
+    : Emittable(te), id(id_), type(USER_PROVIDED), address(address_), doorbellSignal(0), size(0), baseAddress(0) { }
 
 //  void Name(std::ostream& out) { out << UserModeQueueType2Str(type); }
 

@@ -751,14 +751,9 @@ PointerReg EUserModeQueue::Address(Brig::BrigSegment segment)
 {
   switch (segment) {
   case BRIG_SEGMENT_GLOBAL:
+  case BRIG_SEGMENT_FLAT:
     assert(address);
     return address;
-  case BRIG_SEGMENT_FLAT:
-    if (!flatAddress) {
-      flatAddress = te->Brig()->AddAReg(BRIG_SEGMENT_FLAT);
-      te->Brig()->EmitStof(flatAddress, Address(BRIG_SEGMENT_GLOBAL));
-    }
-    return flatAddress;
   default:
     assert(0); return 0;
   }

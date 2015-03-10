@@ -740,7 +740,6 @@ DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, B
   }
   v.modifier().isDefinition() = 1;
   v.modifier().isConst() = isConst;
-  v.dim() = dim;
   v.align() = align;
   if (currentScope == ES_FUNCARG && (segment == BRIG_SEGMENT_ARG || segment == BRIG_SEGMENT_KERNARG)) {
     if (output && segment == BRIG_SEGMENT_ARG) {
@@ -815,14 +814,14 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
   DirectiveVariable fArg = f.next();
   for (unsigned j = 0; j < outRegs->Count(); ++j) {
     assert(fArg);
-    outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), fArg.dim()));
+    outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
   }
 //  assert(fArg = f.firstInArg());
   for (unsigned i = 0; i < inRegs->Count(); ++i) {
     assert(fArg);
     //assert(fArg.type == inRegs->Get(i)->Type());
-    ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), fArg.dim()));
+    ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
   }
   EmitStores(inRegs, ins, useVectorInstructions);

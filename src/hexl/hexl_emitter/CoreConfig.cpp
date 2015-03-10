@@ -370,6 +370,24 @@ bool CoreConfig::SegmentsConfig::HasAddress(BrigSegment8_t segment)
   }
 }
 
+bool CoreConfig::SegmentsConfig::HasNullptr(BrigSegment8_t segment)
+{
+  switch (segment) {
+  case BRIG_SEGMENT_ARG:
+  case BRIG_SEGMENT_SPILL:
+  case BRIG_SEGMENT_GLOBAL:
+  case BRIG_SEGMENT_READONLY:
+  case BRIG_SEGMENT_KERNARG:
+    return false;
+  case BRIG_SEGMENT_GROUP:
+  case BRIG_SEGMENT_PRIVATE:
+  case BRIG_SEGMENT_FLAT:
+    return true;
+  default:
+    assert(false); return true;
+  }
+}
+
 bool CoreConfig::SegmentsConfig::HasFlatAddress(BrigSegment8_t segment)
 {
   switch (segment) {
