@@ -926,30 +926,32 @@ ValueType ImageValueType(unsigned geometry);
 
 class MImage : public MObject {
 public:
-  MImage(unsigned id, const std::string& name, unsigned segment_, unsigned geometry_, unsigned chanel_order_, unsigned channel_type_, unsigned access_,
-    size_t width_, size_t height_, size_t depth_, size_t rowPitch_, size_t slicePitch_)
-    : MObject(id, MIMAGE, name), segment(segment_), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), accessPermission(access_),
-    width(width_), height(height_), depth(depth_), rowPitch(rowPitch_), slicePitch(slicePitch_), vtype(MV_UINT32)
+  MImage(unsigned id, const std::string& name, Brig::BrigSegment segment_, Brig::BrigImageGeometry geometry_, Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_, Brig::BrigTypeX image_type_,
+    size_t width_, size_t height_, size_t depth_, size_t array_size_)
+    : MObject(id, MIMAGE, name), segment(segment_), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), imageType(image_type_),
+    width(width_), height(height_), depth(depth_), array_size(array_size_), image_size(0), vtype(MV_UINT32)
       { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
 
-  unsigned Geometry() const { return geometry; }
-  unsigned ChannelOrder() const { return channelOrder; }
-  unsigned ChannelType() const { return channelType; }
-  unsigned AccessPermission() const { return accessPermission; } 
+  Brig::BrigImageGeometry Geometry() const { return geometry; }
+  Brig::BrigImageChannelOrder ChannelOrder() const { return channelOrder; }
+  Brig::BrigImageChannelType ChannelType() const { return channelType; }
+  Brig::BrigTypeX ImageType() const { return imageType; } 
+  unsigned AccessPermission() const;
     
   size_t Width() const { return width; }
   size_t Height() const { return height; }
   size_t Depth() const { return depth; }
-  size_t RowPitch() const { return rowPitch; }
-  size_t SlicePitch() const { return slicePitch; }
-  size_t Size() const { return height * width * depth; }
+  size_t ArraySize() const { return array_size; }
   Value GetRaw(size_t i) {return contentData[i]; }
   size_t GetDim(size_t pos, unsigned d) const;
 
   //For Handle 
   Value& Data() { return data; }
   const Value& Data() const { return data; }
+  //For Size Image in bytes
+  size_t& Size() { return image_size; }
+  const size_t& Size() const { return image_size; }
   //for image content
   ValueType& VType() { return vtype; }
   const ValueType& VType() const { return vtype; }
@@ -964,12 +966,12 @@ public:
   virtual void SerializeData(std::ostream& out) const;
 
 private:
-  unsigned segment;
-  unsigned geometry;
-  unsigned channelOrder;
-  unsigned channelType;
-  unsigned accessPermission;
-  size_t width, height, depth, rowPitch, slicePitch;
+  Brig::BrigSegment segment;
+  Brig::BrigImageGeometry geometry;
+  Brig::BrigImageChannelOrder channelOrder;
+  Brig::BrigImageChannelType channelType;
+  Brig::BrigTypeX imageType;
+  size_t width, height, depth, array_size, image_size;
   Value data;
   Values contentData;
   ValueType vtype;
@@ -999,10 +1001,10 @@ private:
   void DeserializeData(std::istream& in);
 };
 
-inline MImage* NewMValue(unsigned id, const std::string& name, unsigned segment, unsigned geometry, unsigned chanel_order, unsigned channel_type, unsigned access, 
-                         size_t width, size_t height, size_t depth, size_t rowPitch, size_t slicePitch) {
-  MImage* mi = new MImage(id, name, segment, geometry, chanel_order, channel_type, access, 
-                         width, height, depth, rowPitch, slicePitch);
+inline MImage* NewMValue(unsigned id, const std::string& name, Brig::BrigSegment segment, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, Brig::BrigTypeX image_type, 
+                         size_t width, size_t height, size_t depth, size_t array_size) {
+  MImage* mi = new MImage(id, name, segment, geometry, chanel_order, channel_type, image_type, 
+                         width, height, depth, array_size);
   return mi;
 }
 

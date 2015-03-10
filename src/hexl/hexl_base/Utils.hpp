@@ -34,6 +34,11 @@ std::string ExtractTestPath(const std::string& name, unsigned level);
 hexl::ValueType Brig2ValueType(Brig::BrigTypeX type);
 Brig::BrigTypeX Value2BrigType(hexl::ValueType type);
 bool Is128Bit(Brig::BrigTypeX type);
+uint32_t ImageGeometryDims(Brig::BrigImageGeometry geometry);
+bool IsImageGeometryArray(Brig::BrigImageGeometry geometry);
+bool IsImageDepth(Brig::BrigImageGeometry geometry);
+bool IsImageSupported(Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder channelOrder, 
+                      Brig::BrigImageChannelType channelType);
 
 template <>
 struct Serializer<brig_container_t> {

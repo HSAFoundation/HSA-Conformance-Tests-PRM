@@ -19,6 +19,8 @@
 #include "ImageQueryTests.hpp"
 #include "ImageLdTests.hpp"
 #include "ImageStTests.hpp"
+#include "ImageInitializerTests.hpp"
+#include "ImageLimitsTests.hpp"
 #include "CoreConfig.hpp"
 
 using namespace Brig;
@@ -31,10 +33,12 @@ DECLARE_TESTSET_UNION(PrmImagesTests);
 PrmImagesTests::PrmImagesTests()
   : TestSetUnion("image")
 {
-    Add(new ImageRdTestSet());
-    Add(new ImageQueryTestSet());
-    Add(new ImageLdTestSet());
+  Add(new ImageRdTestSet());
+  Add(new ImageQueryTestSet());
+  Add(new ImageLdTestSet());
 	Add(new ImageStTestSet());
+  Add(new ImageInitializerTestSet());
+  Add(new ImageLimitsTestSet());
 }
 
 hexl::TestSet* NewPrmImagesTests()

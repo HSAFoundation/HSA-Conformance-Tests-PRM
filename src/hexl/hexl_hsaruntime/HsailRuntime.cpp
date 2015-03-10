@@ -595,10 +595,15 @@ bool HImage::Push()
 {
   assert(mi && state && ptr);
   char *p = (char *) ptr;
-  for (size_t i = 0; i < mi->ContentData().size(); ++i) {
-    Value value = state->GetValue(mi->ContentData()[i]);
+  Value value = Value(MV_UINT8, 0);
+  if (mi->ContentData().size() > 0) {
+    value = state->GetValue(mi->ContentData()[0]);
+  }
+
+  int size_val = value.Size();
+  for (size_t i = 0; i < mi->Size()/size_val; ++i) {
     value.WriteTo(p);
-    p += value.Size();
+    p += size_val;
   }
   return true;
 }
@@ -875,7 +880,7 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
   image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t)mi->ChannelOrder();
   image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t)mi->ChannelType();
   image_descriptor.depth = mi->Depth();
-  image_descriptor.array_size = image_descriptor.depth > 1 ? image_descriptor.depth : 0;
+  image_descriptor.array_size = mi->ArraySize(); //image_descriptor.depth > 1 ? image_descriptor.depth : 0;
   hsa_access_permission_t access_permission = (hsa_access_permission_t)mi->AccessPermission();
 
   hsa_ext_image_data_info_t image_info = {0};
@@ -893,6 +898,8 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
 
   //Write image handle
   mi->Data() = Value(MV_IMAGE, image.handle);
+
+  mi->Size() = image_info.size;
 
   return new HImage(this, mi, ptr, image);
 }

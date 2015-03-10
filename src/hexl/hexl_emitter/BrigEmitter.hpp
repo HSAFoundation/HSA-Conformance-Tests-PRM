@@ -127,6 +127,7 @@ public:
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
   void EmitMov(TypedReg dst, HSAIL_ASM::Operand src);
   void EmitMov(TypedReg dst, TypedReg src);
+  TypedReg AddInitialTReg(Brig::BrigType16_t type, uint64_t initialValue, unsigned count = 1);
 
   // Memory operations
   HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset);

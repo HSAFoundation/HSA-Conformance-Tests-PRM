@@ -65,7 +65,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
-    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>())
+    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>()),
+    images(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -136,6 +137,9 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   fbarrier->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
   fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
   fbarrier->Add(NEWA GridGeometry(3, 3, 9, 13, 2, 7, 11));
+  images->Add(NEWA GridGeometry(1, 100, 1, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
 }
 
 
@@ -234,8 +238,7 @@ static const BrigImageQuery allImgQueries[] = {
 
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    defaultImageGeometry(1000, 1, 1, 1, 1),
-    defaultImageGeometrySet(NEWA OneValueSequence<ImageGeometry*>(&defaultImageGeometry)),
+    defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>()),
     imageGeometryProps(NEWA ArraySequence<BrigImageGeometry>(allGeometry, NELEM(allGeometry))),
     imageRdGeometryProp(NEWA ArraySequence<BrigImageGeometry>(rdGeometry, NELEM(rdGeometry))),
     imageDepthGeometryProp(NEWA ArraySequence<BrigImageGeometry>(DepthGeometry, NELEM(DepthGeometry))),
@@ -245,7 +248,10 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess)))
 {
-
+   defaultImageGeometry->Add(NEWA ImageGeometry(1000));
+   defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
+   defaultImageGeometry->Add(NEWA ImageGeometry(10, 10, 10));
+   defaultImageGeometry->Add(NEWA ImageGeometry(100, 1, 1, 10));
 }
 
 static const BrigSamplerAddressing allAddressing[] = {
