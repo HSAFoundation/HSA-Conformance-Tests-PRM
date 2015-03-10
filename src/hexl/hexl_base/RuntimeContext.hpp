@@ -309,6 +309,9 @@ bool MemoryStateBase<MState>::ValidateRImage(MImage* mi, MRImage* mr, Values act
 
 //bool ValidateRBuffer(MBuffer* mb, MRBuffer* mr, Values actual, const Options* options);
 
+void *alignedMalloc(size_t size, size_t align);
+void *alignedFree(void *ptr);
+
 };
 
 #endif // HEXL_RUNTIME_CONTEXT_HPP
