@@ -168,10 +168,11 @@ public:
   const Options* Opts() const { return context->Opts(); }
   virtual RuntimeContextState* NewState(Context* context);
 
+  void SetError() { error = true; }
+  void ClearError() { error = false; }
   bool IsError() const { return error; }
 
   void HsaError(const char *msg, hsa_status_t err) {
-    error = true;
     const char *hsamsg = "";
     if (Hsa()->hsa_status_string) {
       Hsa()->hsa_status_string(err, &hsamsg);
@@ -180,12 +181,10 @@ public:
   }
 
   void HsaError(const char *msg) {
-    error = true;
     context->Error() << msg << std::endl;
   }
 
   void hsailcError(const char *msg, brig_container_t brig, int status) {
-    error = true;
     context->Error() << msg << ": error " << status << ": " << brig_container_get_error_text(brig) << std::endl;
   }
 

@@ -127,6 +127,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 {
   HsailRuntimeContext* runtime = static_cast<HsailRuntimeContext*>(data);
   runtime->HsaError("Queue error", status);
+  runtime->SetError();
 }
 
 class HsailModule : public Module {
