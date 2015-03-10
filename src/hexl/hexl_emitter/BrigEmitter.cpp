@@ -818,7 +818,7 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
   for (unsigned i = 0; i < inRegs->Count(); ++i) {
     assert(fArg);
     //assert(fArg.type == inRegs->Get(i)->Type());
-    ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), fArg.dim()));
+    ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
   }
   EmitStores(inRegs, ins, useVectorInstructions);
