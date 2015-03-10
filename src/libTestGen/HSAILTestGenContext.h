@@ -77,7 +77,7 @@ public:
     // 2. To create special 'playground' context for generation of temporary samples (see description above).
     Context(bool isPlayground = false) : BrigContext(), playground(isPlayground)
     {
-        emitVersion();
+        emitModule();
         if (gcnInstEnabled()) emitExtension("amd:gcn");
         if (imgInstEnabled()) emitExtension("IMAGE");
         genSymbols(); // Generate all symbols which can potentially be used
@@ -86,7 +86,7 @@ public:
     // Used to create context for tests which include just one _test_ instruction specified by sample
     Context(const Sample s, bool isPositive) : BrigContext(), playground(false)
     {
-        emitVersion();
+        emitModule();
 
         // Generate required extensions based on instruction being tested
         if (HSAIL_ASM::isGcnInst(s.getOpcode()))
@@ -114,7 +114,7 @@ public:
 
 public:
 
-    void defineTestKernel()  { testKernel = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_KERNEL, "&test_kernel"); }
+    void defineTestKernel()  { testKernel = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_KERNEL, "&Test"); }
     void startKernelBody()   { startSbrBody(); }
 
     void finishKernelBody()

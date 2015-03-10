@@ -45,34 +45,93 @@ enum BrigOperandId
     O_VEC2_R64_SRC,
     O_VEC3_R64_SRC,
     O_VEC4_R64_SRC,
+    O_VEC2_R128_SRC,
+    O_VEC3_R128_SRC,
+    O_VEC4_R128_SRC,
 
-    O_VEC2_I8_SRC,
-    O_VEC3_I8_SRC,
-    O_VEC4_I8_SRC,
-    O_VEC2_M8_SRC,
-    O_VEC3_M8_SRC,
-    O_VEC4_M8_SRC,
+    O_VEC2_I_U8_SRC,
+    O_VEC3_I_U8_SRC,
+    O_VEC4_I_U8_SRC,
+    O_VEC2_M_U8_SRC,
+    O_VEC3_M_U8_SRC,
+    O_VEC4_M_U8_SRC,
 
-    O_VEC2_I16_SRC,
-    O_VEC3_I16_SRC,
-    O_VEC4_I16_SRC,
-    O_VEC2_M16_SRC,
-    O_VEC3_M16_SRC,
-    O_VEC4_M16_SRC,
+    O_VEC2_I_S8_SRC,
+    O_VEC3_I_S8_SRC,
+    O_VEC4_I_S8_SRC,
+    O_VEC2_M_S8_SRC,
+    O_VEC3_M_S8_SRC,
+    O_VEC4_M_S8_SRC,
 
-    O_VEC2_I32_SRC,
-    O_VEC3_I32_SRC,
-    O_VEC4_I32_SRC,
-    O_VEC2_M32_SRC,
-    O_VEC3_M32_SRC,
-    O_VEC4_M32_SRC,
+    O_VEC2_I_U16_SRC,
+    O_VEC3_I_U16_SRC,
+    O_VEC4_I_U16_SRC,
+    O_VEC2_M_U16_SRC,
+    O_VEC3_M_U16_SRC,
+    O_VEC4_M_U16_SRC,
 
-    O_VEC2_I64_SRC,
-    O_VEC3_I64_SRC,
-    O_VEC4_I64_SRC,
-    O_VEC2_M64_SRC,
-    O_VEC3_M64_SRC,
-    O_VEC4_M64_SRC,
+    O_VEC2_I_S16_SRC,
+    O_VEC3_I_S16_SRC,
+    O_VEC4_I_S16_SRC,
+    O_VEC2_M_S16_SRC,
+    O_VEC3_M_S16_SRC,
+    O_VEC4_M_S16_SRC,
+
+    O_VEC2_I_F16_SRC,
+    O_VEC3_I_F16_SRC,
+    O_VEC4_I_F16_SRC,
+    O_VEC2_M_F16_SRC,
+    O_VEC3_M_F16_SRC,
+    O_VEC4_M_F16_SRC,
+
+    O_VEC2_I_U32_SRC,
+    O_VEC3_I_U32_SRC,
+    O_VEC4_I_U32_SRC,
+    O_VEC2_M_U32_SRC,
+    O_VEC3_M_U32_SRC,
+    O_VEC4_M_U32_SRC,
+
+    O_VEC2_I_S32_SRC,
+    O_VEC3_I_S32_SRC,
+    O_VEC4_I_S32_SRC,
+    O_VEC2_M_S32_SRC,
+    O_VEC3_M_S32_SRC,
+    O_VEC4_M_S32_SRC,
+
+    O_VEC2_I_F32_SRC,
+    O_VEC3_I_F32_SRC,
+    O_VEC4_I_F32_SRC,
+    O_VEC2_M_F32_SRC,
+    O_VEC3_M_F32_SRC,
+    O_VEC4_M_F32_SRC,
+
+    O_VEC2_I_U64_SRC,
+    O_VEC3_I_U64_SRC,
+    O_VEC4_I_U64_SRC,
+    O_VEC2_M_U64_SRC,
+    O_VEC3_M_U64_SRC,
+    O_VEC4_M_U64_SRC,
+
+    O_VEC2_I_S64_SRC,
+    O_VEC3_I_S64_SRC,
+    O_VEC4_I_S64_SRC,
+    O_VEC2_M_S64_SRC,
+    O_VEC3_M_S64_SRC,
+    O_VEC4_M_S64_SRC,
+
+    O_VEC2_I_F64_SRC,
+    O_VEC3_I_F64_SRC,
+    O_VEC4_I_F64_SRC,
+    O_VEC2_M_F64_SRC,
+    O_VEC3_M_F64_SRC,
+    O_VEC4_M_F64_SRC,
+
+    O_VEC2_I_B128_SRC,
+    O_VEC3_I_B128_SRC,
+    O_VEC4_I_B128_SRC,
+    O_VEC2_M_B128_SRC,
+    O_VEC3_M_B128_SRC,
+    O_VEC4_M_B128_SRC,
 
     O_VEC2_R32_DST,
     O_VEC3_R32_DST,
@@ -80,17 +139,67 @@ enum BrigOperandId
     O_VEC2_R64_DST,
     O_VEC3_R64_DST,
     O_VEC4_R64_DST,
+    O_VEC2_R128_DST,
+    O_VEC3_R128_DST,
+    O_VEC4_R128_DST,
 
-    O_IMM8_X,
-    O_IMM16_X,
-    O_IMM32_X,
-    O_IMM64_X,
-    O_IMM128_X,
+    O_VEC2_SIG32_SRC,
+    O_VEC3_SIG32_SRC,
+    O_VEC4_SIG32_SRC,
 
-    O_IMM32_0,
-    O_IMM32_1,
-    O_IMM32_2,
-    O_IMM32_3,
+    O_VEC2_SIG64_SRC,
+    O_VEC3_SIG64_SRC,
+    O_VEC4_SIG64_SRC,
+
+    O_IMM_U8,
+    O_IMM_S8,
+
+    O_IMM_U16,
+    O_IMM_S16,
+    O_IMM_F16,
+
+    O_IMM_U32,
+    O_IMM_S32,
+    O_IMM_F32,
+
+    O_IMM_U64,
+    O_IMM_S64,
+    O_IMM_F64,
+
+    O_IMM_U8X4,
+    O_IMM_S8X4,
+    O_IMM_U16X2,
+    O_IMM_S16X2,
+    O_IMM_F16X2,
+
+    O_IMM_U8X8,
+    O_IMM_S8X8,
+    O_IMM_U16X4,
+    O_IMM_S16X4,
+    O_IMM_F16X4,
+    O_IMM_U32X2,
+    O_IMM_S32X2,
+    O_IMM_F32X2,
+
+    O_IMM_U8X16,
+    O_IMM_S8X16,
+    O_IMM_U16X8,
+    O_IMM_S16X8,
+    O_IMM_F16X8,
+    O_IMM_U32X4,
+    O_IMM_S32X4,
+    O_IMM_F32X4,
+    O_IMM_U64X2,
+    O_IMM_S64X2,
+    O_IMM_F64X2,
+
+    O_IMM_U32_0,
+    O_IMM_U32_1,
+    O_IMM_U32_2,
+    O_IMM_U32_3,
+
+    O_IMM_SIG32,
+    O_IMM_SIG64,
 
     O_WAVESIZE,
 
@@ -139,17 +248,59 @@ inline bool isImmOperandId(unsigned val)
 {
     switch(val)
     {
-    case O_IMM8_X:
-    case O_IMM16_X:
-    case O_IMM32_X:
-    case O_IMM64_X:
-    case O_IMM128_X:
+    case O_IMM_U8:
+    case O_IMM_S8:
+
+    case O_IMM_U16:
+    case O_IMM_S16:
+    case O_IMM_F16:
+
+    case O_IMM_U32:
+    case O_IMM_S32:
+    case O_IMM_F32:
+
+    case O_IMM_U64:
+    case O_IMM_S64:
+    case O_IMM_F64:
+
+    case O_IMM_U8X4: 
+    case O_IMM_S8X4: 
+    case O_IMM_U16X2:
+    case O_IMM_S16X2:
+    case O_IMM_F16X2:
+
+    case O_IMM_U8X8:
+    case O_IMM_S8X8:
+    case O_IMM_U16X4:
+    case O_IMM_S16X4:
+    case O_IMM_F16X4:
+    case O_IMM_U32X2:
+    case O_IMM_S32X2:
+    case O_IMM_F32X2:
+
+    case O_IMM_U8X16:
+    case O_IMM_S8X16:
+    case O_IMM_U16X8:
+    case O_IMM_S16X8:
+    case O_IMM_F16X8:
+    case O_IMM_U32X4:
+    case O_IMM_S32X4:
+    case O_IMM_F32X4:
+    case O_IMM_U64X2:
+    case O_IMM_S64X2:
+    case O_IMM_F64X2:
         return true;
-    case O_IMM32_0:
-    case O_IMM32_1:
-    case O_IMM32_2:
-    case O_IMM32_3:
+
+    case O_IMM_U32_0:
+    case O_IMM_U32_1:
+    case O_IMM_U32_2:
+    case O_IMM_U32_3:
         return true;
+
+    case O_IMM_SIG32:
+    case O_IMM_SIG64:
+        return true;
+
     case O_WAVESIZE:
         return true;
 

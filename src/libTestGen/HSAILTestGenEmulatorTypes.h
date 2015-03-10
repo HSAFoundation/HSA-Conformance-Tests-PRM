@@ -147,7 +147,7 @@ public:
 
                                                 // Natural = (fraction == 0)
                                                 // getNormalizedFract() return 0 for small numbers so there is exponent check for this case
-    bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANTISSA_WIDTH) >= EXPONENT_BIAS); }
+    bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANTISSA_WIDTH) >= EXPONENT_BIAS); } //F1.0 optimize old code using decodeExponent() etc
 
 public:
     static T getQuietNan()     { return EXPONENT_MASK | NAN_TYPE_MASK; }
@@ -167,7 +167,7 @@ public:
     static s64_t actualSubnormalExponent()  { return 1 - (s64_t)EXPONENT_BIAS; } // Actual decoded exponent value for subnormals
 
 public:
-    template<typename TargetType> typename TargetType::Type mapSpecialValues()
+    template<typename TargetType> u64_t mapSpecialValues()
     {
         assert(!isRegular());
 
@@ -201,7 +201,7 @@ public:
         {
             assert(isSubnormal());
 
-            // unused: unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
+            unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
 
             u64_t mantissa = getMantissa();
             mantissa <<= 64 - MANTISSA_WIDTH;
@@ -256,6 +256,7 @@ public:
     {
         if (isZero() || isInf() || isNan()) return 0;
 
+        //F1.0 "MANTISSA_MASK + 1" looks like a bug because there is no hidden bit for subnormals.
         u64_t mantissa = getMantissa() | (MANTISSA_MASK + 1); // Highest bit of mantissa is not encoded but assumed
         int exponent = static_cast<int>(getExponent() >> MANTISSA_WIDTH);
 
@@ -401,8 +402,6 @@ f16_t f16_todo();
 
 class f16_t
 {
-public:
-    typedef FloatProp16::Type bits_t;
 private:
     static const unsigned RND_NEAR = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN;
     static const unsigned RND_ZERO = Brig::BRIG_ROUND_FLOAT_ZERO;
@@ -410,13 +409,13 @@ private:
     static const unsigned RND_DOWN = Brig::BRIG_ROUND_FLOAT_MINUS_INFINITY;
 
 private:
-    bits_t bits;
+    u16_t bits;
 
 public:
     f16_t() {}
 
     explicit f16_t(f64_t x, unsigned rounding = RND_NEAR);
-    explicit f16_t(f32_t x, unsigned rounding = RND_NEAR);
+    explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) { f16_todo(); }
     explicit f16_t(s32_t x) { bits = f16_t((f64_t)x).bits; }
 
 public:
@@ -430,8 +429,8 @@ public:
     f16_t& operator+= (f16_t x) { bits = f16_t(f64() + x.f64()).bits; return *this; }
 
 public:
-    f32_t f32() const;
-    f64_t f64() const;
+    f32_t f32()      const { f16_todo(); return 0; };
+    f64_t f64()      const;
     operator f32_t() const { return f32(); }
     operator f64_t() const { return f64(); }
 
@@ -439,7 +438,7 @@ public:
     f16_t neg() const { return make(FloatProp16(bits).negate()); }
 
 public:
-    static f16_t make(bits_t bits) { f16_t res; res.bits = bits; return res; }
+    static f16_t make(u16_t bits) { f16_t res; res.bits = bits; return res; }
 
 public:
     static void sanityTests();
@@ -802,9 +801,9 @@ u64_t getIntBoundary(unsigned type, bool low);
 
 unsigned getRoundingTestsNum(unsigned dstType);
 
-const f16_t*  getF16RoundingTestsData(unsigned dstType, AluMod aluMod);
-const float*  getF32RoundingTestsData(unsigned dstType, AluMod aluMod);
-const double* getF64RoundingTestsData(unsigned dstType, AluMod aluMod);
+const f16_t* getF16RoundingTestsData(unsigned dstType, AluMod aluMod);
+const f32_t* getF32RoundingTestsData(unsigned dstType, AluMod aluMod);
+const f64_t* getF64RoundingTestsData(unsigned dstType, AluMod aluMod);
 
 //==============================================================================
 //==============================================================================

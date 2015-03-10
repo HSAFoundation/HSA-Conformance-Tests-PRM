@@ -68,7 +68,7 @@ private:
         return s.str();
     }
 
-    string operandData2str(OperandConstantBytes o)
+    string OperandConstantBytes2str(OperandConstantBytes o)
     {
         ostringstream s;
         SRef data = o.bytes();
@@ -90,10 +90,11 @@ private:
         for (unsigned i = 0; i < o.elementCount(); ++i)
         {
             if (i > 0) s << ", ";
-            if      (OperandRegister r = o.elements(i))    s << getRegName(r);
-            else if (OperandConstantBytes imm = o.elements(i)) s << operandData2str(imm);
-            else if (OperandWavesize(o.elements(i)))  s <<  "wavesize";
-            else                                      s << "***UNKNOWN***";
+
+            if      (OperandRegister r = o.elements(i))        s << getRegName(r);
+            else if (OperandConstantBytes imm = o.elements(i)) s << OperandConstantBytes2str(imm);
+            else if (OperandWavesize(o.elements(i)))           s <<  "wavesize";
+            else                                               s << "***UNKNOWN***";
         }
         s << ")";
 
@@ -145,15 +146,16 @@ private:
 
     void dumpOperand(unsigned idx, Operand opr)
     {
-        if      (!opr)                       { s << "NULL";  }
-        else if (OperandRegister         o = opr) { s << getRegName(o); }
-        else if (OperandOperandList o = opr) { s << operandVector2str(o); }
-        else if (OperandAddress     o = opr) { s << operandAddress2str(o); }
-        else if (OperandWavesize    o = opr) { s << "wavesize"; }
-        else if (OperandCodeRef     o = opr) { s << operandCodeRef2str(o); }
-        else if (OperandCodeList    o = opr) { s << operandList2str(o); }
-        else if (OperandConstantBytes        o = opr) { s << operandData2str(o); }
-        else                                 { s << "*UNKNOWN*, kind = " << opr.kind(); }
+        if      (!opr)                         { s << "NULL";  }
+        else if (OperandRegister      o = opr) { s << getRegName(o); }
+        else if (OperandOperandList   o = opr) { s << operandVector2str(o); }
+        else if (OperandAddress       o = opr) { s << operandAddress2str(o); }
+        else if (OperandWavesize      o = opr) { s << "wavesize"; }
+        else if (OperandCodeRef       o = opr) { s << operandCodeRef2str(o); }
+        else if (OperandCodeList      o = opr) { s << operandList2str(o); }
+        else if (OperandConstantBytes o = opr) { s << OperandConstantBytes2str(o); }
+        else if (OperandAlign         o = opr) { s << "align(" << o.align() << ")"; }
+        else                                   { s << "*UNKNOWN*, kind = " << opr.kind(); }
 
         dumpProp(getOperandName(idx), s.str());
     }

@@ -74,8 +74,9 @@ using HSAIL_ASM::OperandCodeRef;
 
 using HSAIL_ASM::isFloatType;
 using HSAIL_ASM::isSignedType;
-using HSAIL_ASM::getOperandType;
+using HSAIL_ASM::isOpaqueType;
 using HSAIL_ASM::isBitType;
+using HSAIL_ASM::getOperandType;
 using HSAIL_ASM::getPackedDstDim;
 using HSAIL_ASM::getUnsignedType;
 using HSAIL_ASM::getBitType;
@@ -627,7 +628,7 @@ private:
         assert(immed);
 
         Val val = testGroup->getData(0, tstIdx).src[idx];
-        return context->emitImm(getImmSize(immed), val.getAsB64(0), val.getAsB64(1));
+        return context->emitImm(immed.type(), val.getAsB64(0), val.getAsB64(1));
     }
 
     OperandRegister getOperandReg(unsigned idx) // Create register for i-th operand of test instruction.
@@ -673,7 +674,7 @@ private:
             }
             else if (OperandConstantBytes x = vec.elements(i))
             {
-                opr = context->emitImm(getImmSize(x), v[i].getAsB64(0), v[i].getAsB64(1));
+                opr = context->emitImm(x.type(), v[i].getAsB64(0), v[i].getAsB64(1));
             }
             else
             {
@@ -782,7 +783,8 @@ private:
         if (isPrivateMemSeg())
         {
             unsigned addrSize = getRegSize(idxReg);
-            context->emitMov(getUnsignedType(addrSize), idxReg, context->emitImm(addrSize, tstIdx * memBundleSize / 8));
+            unsigned type = getUnsignedType(addrSize);
+            context->emitMov(type, idxReg, context->emitImm(type, tstIdx * memBundleSize / 8));
             return idxReg;
         }
         else
@@ -841,7 +843,7 @@ private:
 
         OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
         OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
-        OperandAddress addr = context->emitAddrRef(addrReg);
+        OperandAddress addr      = context->emitAddrRef(addrReg);
         ldReg(getRegSize(reg), reg, addr);
     }
 
@@ -871,7 +873,8 @@ private:
     {
         assert(reg);
 
-        context->emitMov(getBitType(getRegSize(reg)), reg, context->emitImm(getRegSize(reg), 0, 0));
+        unsigned type = getBitType(getRegSize(reg));
+        context->emitMov(type, reg, context->emitImm(type, 0, 0));
     }
 
     void saveDstVal(OperandRegister reg, unsigned arrayIdx)
@@ -880,7 +883,7 @@ private:
 
         OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
         OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
-        OperandAddress addr = context->emitAddrRef(addrReg);
+        OperandAddress addr      = context->emitAddrRef(addrReg);
         stReg(getRegSize(reg), reg, addr);
     }
 
@@ -968,17 +971,17 @@ private:
         {
             assert(getMemTestArraySegment() != BRIG_SEGMENT_NONE);
     
-            unsigned type    = getMemTestArrayDeclType();
-            unsigned dim     = getMemTestArrayDeclDim();
-            unsigned align   = getMemTestArrayDeclAlign();
-            unsigned segment = getMemTestArraySegment();
-            const char* name = getTestArrayName();
+            unsigned elemType = getMemTestArrayDeclType();
+            unsigned dim      = getMemTestArrayDeclDim();
+            unsigned align    = getMemTestArrayDeclAlign();
+            unsigned segment  = getMemTestArraySegment();
+            const char* name  = getTestArrayName();
     
             emitComment();
             emitComment("Array for testing memory access");
             //dumpMemoryProperties();
 
-            memTestArray = context->emitSymbol(type, name, segment, dim);
+            memTestArray = context->emitSymbol(elemType, name, segment, dim);
             memTestArray.align() = align;
         }
     }
@@ -999,15 +1002,15 @@ private:
         // Note that these test values are not accessed directly by instruction being
         // tested; they have to be copied to a separate 'memory test array'
         //
-        unsigned dataElemSize   = getMemDataElemSize();
-        unsigned dataSlotSize   = getSlotSize(dataElemSize);
-        unsigned dataBundleSize = dataSlotSize * getMaxDim();
+        unsigned dataElemSize        = getMemDataElemSize();
+        unsigned dataSlotSize        = getSlotSize(dataElemSize);
+        unsigned dataBundleSize      = dataSlotSize * getMaxDim();
         OperandRegister dataIndexReg = loadIndexReg(getIdxReg1(glbAddrSize), dataBundleSize);
 
         // Initialize index register 'memIndexReg' to acess memory test array.
         // Test data are available at &var0[memIndexReg + alignOffset]
-        unsigned memBundleSize   = getMemTestArrayBundleSize();
-        unsigned memBundleOffset = getMemTestArrayBundleOffset() / 8;
+        unsigned memBundleSize      = getMemTestArrayBundleSize();
+        unsigned memBundleOffset    = getMemTestArrayBundleOffset() / 8;
         OperandRegister memIndexReg = dataIndexReg; // Reuse first index register if possible
         if (isPrivateMemSeg() || glbAddrSize != memAddrSize || dataBundleSize != memBundleSize)
         {
@@ -1017,10 +1020,10 @@ private:
         // Load address of test data in arguments array 
         OperandRegister addrReg = loadGlobalArrayAddress(getAddrReg(), dataIndexReg, arrayIdx);
 
-        unsigned atomType = getMemTestArrayAtomType();
-        unsigned atomSize = getMemDataAtomSize();
-        unsigned memDim   = std::max(1U, dataElemSize / atomSize);
-        OperandRegister reg    = getTmpReg(testLdSt()? 32 : dataSlotSize);
+        unsigned atomType   = getMemTestArrayAtomType();
+        unsigned atomSize   = getMemDataAtomSize();
+        unsigned memDim     = std::max(1U, dataElemSize / atomSize);
+        OperandRegister reg = getTmpReg(testLdSt()? 32 : dataSlotSize);
 
         unsigned vectorDim = getMaxDim();
 
@@ -1059,7 +1062,7 @@ private:
                     if (getMemDataElemType() == BRIG_TYPE_F16) // For F16 upper bits should be 0
                     {
                         assert(getRegSize(reg) == 32);
-                        context->emitMov(BRIG_TYPE_B32, reg, context->emitImm(getRegSize(reg), 0, 0));
+                        context->emitMov(BRIG_TYPE_B32, reg, context->emitImm(BRIG_TYPE_B32, 0, 0));
                     }
                     else
                     {
@@ -1231,7 +1234,7 @@ private:
             ostringstream s5;    s5 << getMemTestArrayBundleSize() / 8 << " bytes";
         
             emitComment();
-            emitComment("    -- elem type:     " + std::string(HSAIL_ASM::typeX2str(getMemDataElemType())));
+            emitComment("    -- elem type:     " + std::string(HSAIL_ASM::type2str(getMemDataElemType())));
             emitComment("    -- vec dim:       " + s1.str());
             emitComment("    -- num of tests:  " + s2.str());
             emitComment("    -- ld/st align:   " + s3.str());
@@ -1410,9 +1413,9 @@ private:
         {
         case BRIG_KIND_INST_BASIC:
         case BRIG_KIND_INST_MOD:         p = TestDataProvider::getProvider(inst.opcode(), inst.type(), inst.type());                        break;
-        case BRIG_KIND_INST_CVT:         p = TestDataProvider::getProvider(inst.opcode(), inst.type(), InstCvt(inst).sourceType(), AluMod(InstCvt(inst).modifier().allBits())); break;
+        case BRIG_KIND_INST_CVT:         p = TestDataProvider::getProvider(inst.opcode(), inst.type(), InstCvt(inst).sourceType(), AluMod(InstCvt(inst).round())); break;
         case BRIG_KIND_INST_CMP:         p = TestDataProvider::getProvider(inst.opcode(), inst.type(), InstCmp(inst).sourceType());         break;
-        case BRIG_KIND_INST_ATOMIC:      p = TestDataProvider::getProvider(inst.opcode(), inst.type(), inst.type(), AluMod(), getAtomicSrcNum(inst)); break;
+        case BRIG_KIND_INST_ATOMIC:      p = TestDataProvider::getProvider(inst.opcode(), inst.type(), inst.type(),                AluMod(), getAtomicSrcNum(inst)); break;
         case BRIG_KIND_INST_SOURCE_TYPE: p = TestDataProvider::getProvider(inst.opcode(), inst.type(), InstSourceType(inst).sourceType());  break;
         case BRIG_KIND_INST_MEM:         p = TestDataProvider::getProvider(inst.opcode(), inst.type(), InstMem(inst).type());               break;
         default:                         p = 0; /* other formats are not currently supported */                                             break;
@@ -1462,7 +1465,7 @@ private:
             if (OperandAddress addr = operand)
             {
                 DirectiveVariable var = addr.symbol();
-                return var && !isOpaqueType(addr.symbol().type()) && !addr.reg() && addr.offset() == 0;
+                return var && !isOpaqueType(addr.symbol().elementType()) && !addr.reg() && addr.offset() == 0;
             }
             else if (OperandWavesize(operand))
             {
@@ -1484,7 +1487,8 @@ private:
     static bool testableTypes(Inst inst)
     {
         assert(inst);
-        return (isF16(getType(inst)) || isF16(getSrcType(inst))) ? TestDataProvider::testF16() : true;
+        return TestDataProvider::testF16() || 
+               (!isF16(getType(inst)) && !isF16(getSrcType(inst)));
     }
 
     static bool isF16(unsigned type)
