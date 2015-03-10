@@ -1197,7 +1197,7 @@ void EImage::EmitInitializer()
     var.allocation() = BRIG_ALLOCATION_AGENT;
     ItemList list;
     for (uint64_t i = 0; i < std::max<uint64_t>(dim, (uint64_t)1); ++i) {
-      auto init = te->Brig()->Brigantine().append<OperandImageProperties>();
+      auto init = te->Brig()->Brigantine().append<OperandConstantImage>();
       init.width() = width;
       init.height() = height;
       init.depth() = depth;
@@ -1319,7 +1319,7 @@ void ESampler::EmitInitializer()
     var.allocation() = BRIG_ALLOCATION_AGENT;
     ItemList list;
     for (uint64_t i = 0; i < std::max<uint64_t>(dim, (uint64_t)1); ++i) {
-      auto init = te->Brig()->Brigantine().append<OperandSamplerProperties>();
+      auto init = te->Brig()->Brigantine().append<OperandConstantSampler>();
       init.addressing() = addressing;
       init.coord() = coord;
       init.filter() = filter;
