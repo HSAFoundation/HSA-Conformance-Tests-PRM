@@ -708,8 +708,16 @@ InstSeg BrigEmitter::EmitNullPtr(PointerReg dst)
 
 DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t type, BrigAlignment8_t align, uint64_t dim, bool isConst, bool output)
 {
+  if (isArrayType(type)) {
+    type = arrayType2elementType(type);
+  }
   if (align == BRIG_ALIGNMENT_NONE) { align = getNaturalAlignment(type); }
-  DirectiveVariable v = brigantine.addVariable(GetVariableNameHere(name), segment, type);
+  DirectiveVariable v;
+  if (dim == 0) {
+    v = brigantine.addVariable(GetVariableNameHere(name), segment, type);
+  } else {
+    v = brigantine.addArrayVariable(GetVariableNameHere(name), dim, segment, type);
+  }
   v.linkage() = GetVariableLinkageHere();
   switch (segment) {
   case BRIG_SEGMENT_GLOBAL:
