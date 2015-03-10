@@ -426,14 +426,14 @@ bool HsailDispatch::Execute()
   uint64_t kernelObject;
   hsa_status_t status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
     kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT, &kernelObject);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT) failed", status); }
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT) failed", status); return false; }
   uint32_t privateSize, groupSize;
   status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
     kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE, &privateSize);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE) failed", status); }
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE) failed", status); return false; }
   status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
     kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE, &groupSize);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE) failed", status); }
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE) failed", status); return false; }
 
   hsa_queue_t* queue = Runtime()->Queue();
   uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);
