@@ -709,7 +709,12 @@ InstSeg BrigEmitter::EmitNullPtr(PointerReg dst)
 DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t type, BrigAlignment8_t align, uint64_t dim, bool isConst, bool output)
 {
   if (align == BRIG_ALIGNMENT_NONE) { align = getNaturalAlignment(type); }
-  DirectiveVariable v = brigantine.addVariable(GetVariableNameHere(name), segment, type);
+  DirectiveVariable v;
+  if (dim > 0) {
+    v = brigantine.addArrayVariable(GetVariableNameHere(name), dim, segment, type);
+  } else {
+    v = brigantine.addVariable(GetVariableNameHere(name), segment, type);
+  }
   v.linkage() = GetVariableLinkageHere();
   switch (segment) {
   case BRIG_SEGMENT_GLOBAL:
@@ -732,7 +737,6 @@ DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, B
   }
   v.modifier().isDefinition() = 1;
   v.modifier().isConst() = isConst;
-  v.dim() = dim;
   v.align() = align;
   if (currentScope == ES_FUNCARG && (segment == BRIG_SEGMENT_ARG || segment == BRIG_SEGMENT_KERNARG)) {
     if (output && segment == BRIG_SEGMENT_ARG) {
@@ -807,7 +811,7 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
   DirectiveVariable fArg = f.next();
   for (unsigned j = 0; j < outRegs->Count(); ++j) {
     assert(fArg);
-    outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), fArg.dim()));
+    outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
   }
 //  assert(fArg = f.firstInArg());
