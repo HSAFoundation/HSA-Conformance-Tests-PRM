@@ -34,7 +34,7 @@ void *alignedMalloc(size_t size, size_t align)
 {
   assert((align & (align-1)) == 0);
   #if defined(_WIN32) || defined(_WIN64)
-    return _aligned_malloc(size, alignment);
+    return _aligned_malloc(size, align);
   #else
     void *ptr;
     int res = posix_memalign(&ptr, align, size);
@@ -43,7 +43,7 @@ void *alignedMalloc(size_t size, size_t align)
   #endif // _WIN32 || _WIN64
 }
 
-void *alignedFree(void *ptr)
+void alignedFree(void *ptr)
 {
   #if defined(_WIN32) || defined(_WIN64)
     _aligned_free(ptr);
