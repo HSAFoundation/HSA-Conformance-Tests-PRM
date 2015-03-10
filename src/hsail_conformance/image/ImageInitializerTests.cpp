@@ -125,7 +125,7 @@ public:
     be.EmitLabel(loopLabel);
 
     // load appropriate sampler from array
-    auto samplerAddr = be.AddTReg(sampler->Variable().type());
+    auto samplerAddr = be.AddTReg(BRIG_TYPE_SAMP);
     auto offset = be.AddAReg(segment);
     auto cvt = be.AddTReg(offset->Type());
     be.EmitCvtOrMov(cvt, counter);
@@ -174,7 +174,9 @@ void ImageInitializerTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
 
-  TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), cc->Variables().InitializerDims(), Bools::All());
+  auto seq = new(ap) OneValueSequence<uint32_t>(1);
+  TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), seq, Bools::All());
+  //TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 } // hsail_conformance

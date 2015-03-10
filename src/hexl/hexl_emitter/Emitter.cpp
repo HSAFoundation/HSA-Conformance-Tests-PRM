@@ -1193,6 +1193,7 @@ void EImage::EmitInitializer()
     ItemList list;
     for (uint64_t i = 0; i < std::max<uint64_t>(dim, (uint64_t)1); ++i) {
       auto init = te->Brig()->Brigantine().append<OperandConstantImage>();
+      init.type() = type;
       init.width() = width;
       init.height() = height;
       init.depth() = depth;
@@ -1315,6 +1316,7 @@ void ESampler::EmitInitializer()
     ItemList list;
     for (uint64_t i = 0; i < std::max<uint64_t>(dim, (uint64_t)1); ++i) {
       auto init = te->Brig()->Brigantine().append<OperandConstantSampler>();
+      init.type() = type;
       init.addressing() = addressing;
       init.coord() = coord;
       init.filter() = filter;
@@ -1323,7 +1325,7 @@ void ESampler::EmitInitializer()
     if (dim == 0) {
       var.init() = list[0];
     } else {
-      var.init() = te->Brig()->Brigantine().createOperandList(list);
+      var.init() = te->Brig()->Brigantine().createConstantOperandList(list, type);
     }
   }
 }
