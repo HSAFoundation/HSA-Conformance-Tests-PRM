@@ -40,7 +40,7 @@ public:
   }
 
   bool IsValid() const {
-    return segment != BRIG_SEGMENT_FLAT && cc->Segments().HasFlatAddress(segment);
+    return segment != BRIG_SEGMENT_FLAT && cc->Segments().HasNullptr(segment);
   }
 
 protected:
@@ -147,7 +147,7 @@ public:
   }
 
   bool IsValid() const {
-    return segment != BRIG_SEGMENT_FLAT && cc->Segments().HasFlatAddress(segment);
+    return segment != BRIG_SEGMENT_FLAT && cc->Segments().HasNullptr(segment);
   }
 
 protected:
