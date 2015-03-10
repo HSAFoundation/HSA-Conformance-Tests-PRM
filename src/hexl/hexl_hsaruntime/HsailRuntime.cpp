@@ -1001,13 +1001,9 @@ Dispatch* HsailRuntimeContextState::NewDispatch(Code* code)
   status = Runtime()->Hsa()->hsa_executable_load_code_object(executable, Runtime()->Agent(), hsailCode->CodeObject(), "");
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_create failed", status); return 0; }
   hsa_executable_symbol_t kernel;
-  status = Runtime()->Hsa()->hsa_executable_get_symbol(executable, "m", "&test_kernel", Runtime()->Agent(), 0, &kernel);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_get_symbol failed", status); return 0; }
-/*
   IterateData<hsa_executable_symbol_t, int> idata(Runtime(), &kernel);
   status = Runtime()->Hsa()->hsa_executable_iterate_symbols(executable, IterateExecutableSymbolsGetKernel, &idata);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_iterate_symbols failed", status); return 0; }
-*/
   assert(kernel.handle);
   return new HsailDispatch(this, executable, kernel);
 }
@@ -1051,7 +1047,6 @@ hsa_status_t IterateExecutableSymbolsGetKernel(hsa_executable_t executable, hsa_
   status = idata.Runtime()->Hsa()->hsa_executable_symbol_get_info(symbol, HSA_EXECUTABLE_SYMBOL_INFO_TYPE, &type);
   if (status != HSA_STATUS_SUCCESS) { idata.Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_TYPE) failed", status); return status; }
   if (type == HSA_SYMBOL_KERNEL) {
-    std::cout << "symbol: " << symbol.handle << std::endl;
     if (idata.IsSet()) {
       idata.Runtime()->HsaError("Found more than one kernel", HSA_STATUS_ERROR);
       return HSA_STATUS_ERROR;
