@@ -18,13 +18,13 @@
 #include "RuntimeContext.hpp"
 #include "HCTests.hpp"
 #include "MObject.hpp"
+#include <math.h>
 
 using namespace hexl::emitter;
 using namespace hexl::scenario;
 using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
-using namespace hexl::emitter;
 
 namespace hsail_conformance {
 
@@ -56,6 +56,8 @@ public:
       SamplerCoordsString(MObjectSamplerCoords(samplerCoord)) << "_" << SamplerFilterString(MObjectSamplerFilter(samplerFilter)) << "_" << SamplerAddressingString(MObjectSamplerAddressing(samplerAddressing));
   }
 
+  ImageCalc calc;
+
   void Init() {
    Test::Init();
 
@@ -75,6 +77,8 @@ public:
    samplerSpec.Filter(samplerFilter);
    samplerSpec.Addresing(samplerAddressing);
    smpobj = kernel->NewSampler("%sampler", &samplerSpec);
+
+   calc = kernel->NewImageCalc(imgobj, smpobj);
   }
 
   void ModuleDirectives() override {
@@ -114,6 +118,26 @@ public:
       if (imageGeometry.ImageArray() > 1)
         return false;
     }
+
+	if (samplerFilter == BRIG_FILTER_LINEAR) //only f32 access type is supported for linear filter
+	{
+		switch (imageChannelType)
+		{
+		case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
+		case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
+		case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
+		case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+		case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+		case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+		case Brig::BRIG_CHANNEL_TYPE_UNKNOWN:
+		case Brig::BRIG_CHANNEL_TYPE_FIRST_USER_DEFINED:
+			return false;
+			break;
+		default:
+			break;
+		}
+	}
+
     return (codeLocation != FUNCTION);
   }
 
@@ -123,117 +147,6 @@ public:
 
   size_t OutputBufferSize() const override {
     return imageGeometry.ImageSize()*4;
-  }
-
-  Value CalculateValue()
-  {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xB7800100);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xB7000100);
-              case BRIG_GEOMETRY_3D:
-                //TODO: check this value
-                return Value(MV_UINT32, 0);
-                //return Value(MV_UINT32, 0xB7000100);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
-       if (samplerFilter == BRIG_FILTER_LINEAR) {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000080);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F000000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      case BRIG_CHANNEL_TYPE_FLOAT:
-        return Value(MV_UINT32, 0xFFC00000);
-      default:
-        break;
-    }
   }
 
   TypedReg Get1dCoord()
@@ -339,41 +252,16 @@ public:
   }
 
   Value ExpectedResult() const {
+	Value color[4];
+	Value coords[3];
+	coords[0] = Value(0.0f);
+	coords[1] = Value(0.0f);
+	coords[2] = Value(0.0f);
+	calc->ReadColor(coords, color);
+
     switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
+		case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -387,39 +275,16 @@ public:
               case BRIG_GEOMETRY_2DA:
                 return Value(MV_UINT32, 0xB7000100);
               case BRIG_GEOMETRY_3D:
-                //TODO: check this value
                 return Value(MV_UINT32, 0);
-                //return Value(MV_UINT32, 0xB7000100);
               default:
                 break;
               }
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
+        return Value(MV_UINT32, color[3].U32());
+
+	  case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
             {
@@ -439,15 +304,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[3].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
-        break;
+		return Value(MV_UINT32, color[3].U32());
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+
   }
 
   bool IsValid() const
@@ -485,40 +349,15 @@ public:
   }
 
   Value ExpectedResult() const {
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+
     switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -540,30 +379,9 @@ public:
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
+        return Value(MV_UINT32, color[0].U32());
+
+	  case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
             {
@@ -583,15 +401,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -630,40 +447,15 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+    
+	switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -685,29 +477,8 @@ public:
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -728,15 +499,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -774,40 +544,15 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+    
+	switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -829,29 +574,8 @@ public:
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -872,15 +596,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -918,40 +641,15 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+    
+	switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -973,29 +671,8 @@ public:
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -1016,15 +693,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1062,40 +738,15 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+    
+	switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -1117,29 +768,8 @@ public:
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -1160,15 +790,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1206,78 +835,14 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-       if (samplerFilter == BRIG_FILTER_LINEAR) {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F000000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      default:
-        break;
-    }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1313,113 +878,14 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
 
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xB7800100);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xB7000100);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
-       if (samplerFilter == BRIG_FILTER_LINEAR) {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000080);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F000000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      case BRIG_CHANNEL_TYPE_FLOAT:
-        return Value(MV_UINT32, 0xFFC00000);
-      default:
-        break;
-    }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1456,41 +922,16 @@ public:
   {
   }
 
-  Value ExpectedResult() const {
+  Value ExpectedResult() const {	
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+
     switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -1513,28 +954,7 @@ public:
             }
         }
         return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -1562,8 +982,7 @@ public:
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1601,13 +1020,16 @@ public:
   }
 
   Value ExpectedResult() const {
+	Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+
     switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
+      case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -1616,22 +1038,22 @@ public:
               {
               case BRIG_GEOMETRY_1D:
               case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
+                return Value(MV_UINT32, 0xB7800100);
               case BRIG_GEOMETRY_2D:
               case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
+                return Value(MV_UINT32, 0xB7000100);
               case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
+                return Value(MV_UINT32, 0);
               default:
                 break;
               }
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xBC010204);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
+        return Value(MV_UINT32, 0xB8000100);
+      
+      case BRIG_CHANNEL_TYPE_UNORM_INT16:
+       if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
             {
               switch (imageGeometryProp)
@@ -1643,19 +1065,21 @@ public:
               case BRIG_GEOMETRY_2DA:
                 return Value(MV_UINT32, 0x3E800000);
               case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
+                return Value(MV_UINT32, 0x3E000080);
               default:
                 break;
               }
-              return Value(MV_UINT32, 0x3E800000);
+              return Value(MV_UINT32, 0x3F000000);
             }
         }
         return Value(MV_UINT32, 0x3F800000);
+      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+      case BRIG_CHANNEL_TYPE_FLOAT:
+        return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1693,13 +1117,16 @@ public:
   }
 
   Value ExpectedResult() const {
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+
     switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
+      case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -1708,22 +1135,22 @@ public:
               {
               case BRIG_GEOMETRY_1D:
               case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
+                return Value(MV_UINT32, 0xB7800100);
               case BRIG_GEOMETRY_2D:
               case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
+                return Value(MV_UINT32, 0xB7000100);
               case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
+                return Value(MV_UINT32, 0);
               default:
                 break;
               }
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xBC010204);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
+        return Value(MV_UINT32, 0xB8000100);
+      
+      case BRIG_CHANNEL_TYPE_UNORM_INT16:
+       if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
             {
               switch (imageGeometryProp)
@@ -1735,19 +1162,21 @@ public:
               case BRIG_GEOMETRY_2DA:
                 return Value(MV_UINT32, 0x3E800000);
               case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
+                return Value(MV_UINT32, 0x3E000080);
               default:
                 break;
               }
-              return Value(MV_UINT32, 0x3E800000);
+              return Value(MV_UINT32, 0x3F000000);
             }
         }
         return Value(MV_UINT32, 0x3F800000);
+      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+      case BRIG_CHANNEL_TYPE_FLOAT:
+        return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1786,40 +1215,15 @@ public:
   }
 
   Value ExpectedResult() const {
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+
     switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -1842,28 +1246,7 @@ public:
             }
         }
         return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -1891,8 +1274,7 @@ public:
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1931,127 +1313,19 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xB7800100);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xB7000100);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
-       if (samplerFilter == BRIG_FILTER_LINEAR) {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000080);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F000000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      case BRIG_CHANNEL_TYPE_FLOAT:
-        return Value(MV_UINT32, 0xFFC00000);
-      default:
-        break;
-    }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+	return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
   {
-    switch (imageChannelType)
-    {
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    if (imageChannelType != BRIG_CHANNEL_TYPE_UNORM_INT8)
       return false;
-    default:
-      break;
-    }
 
     return ImageRdTestBase::IsValid();
   }
@@ -2077,127 +1351,19 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xB7800100);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xB7000100);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
-       if (samplerFilter == BRIG_FILTER_LINEAR) {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000080);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F000000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      case BRIG_CHANNEL_TYPE_FLOAT:
-        return Value(MV_UINT32, 0xFFC00000);
-      default:
-        break;
-    }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+	return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
   {
-    switch (imageChannelType)
-    {
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    if (imageChannelType != BRIG_CHANNEL_TYPE_UNORM_INT8)
       return false;
-    default:
-      break;
-    }
 
     return ImageRdTestBase::IsValid();
   }
@@ -2221,127 +1387,19 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xB7800100);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xB7000100);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
-       if (samplerFilter == BRIG_FILTER_LINEAR) {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000080);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F000000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      case BRIG_CHANNEL_TYPE_FLOAT:
-        return Value(MV_UINT32, 0xFFC00000);
-      default:
-        break;
-    }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+	return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
   {
-    switch (imageChannelType)
-    {
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    if (imageChannelType != BRIG_CHANNEL_TYPE_UNORM_INT8)
       return false;
-    default:
-      break;
-    }
 
     return ImageRdTestBase::IsValid();
   }
@@ -2365,127 +1423,19 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
-    {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
-      case BRIG_CHANNEL_TYPE_SNORM_INT16:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xB7800100);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xB7000100);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_UNORM_INT16:
-       if (samplerFilter == BRIG_FILTER_LINEAR) {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000080);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3F000000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      case BRIG_CHANNEL_TYPE_FLOAT:
-        return Value(MV_UINT32, 0xFFC00000);
-      default:
-        break;
-    }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+	return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
   {
-    switch (imageChannelType)
-    {
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    if (imageChannelType != BRIG_CHANNEL_TYPE_UNORM_INT8)
       return false;
-    default:
-      break;
-    }
 
     return ImageRdTestBase::IsValid();
   }
@@ -2510,40 +1460,15 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+    
+	switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -2565,29 +1490,8 @@ public:
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -2608,15 +1512,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -2656,40 +1559,15 @@ public:
   }
 
   Value ExpectedResult() const {
-    switch (imageChannelType)
+    Value color[4];
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    calc->ReadColor(coords, color);
+    
+	switch (imageChannelType)
     {
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return Value(MV_UINT32, 0xFF);
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-        return Value(MV_UINT32, 0xFFFF);
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-        return Value(MV_UINT32, 0xFFFFFFFF);
-      case BRIG_CHANNEL_TYPE_SNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0xBB810204);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0xBB010204);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0xBA810204);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0xBB810204);
-            }
-        }
-        return Value(MV_UINT32, 0xBC010204);
-
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
@@ -2711,29 +1589,8 @@ public:
               return Value(MV_UINT32, 0xBB810204);
             }
         }
-        return Value(MV_UINT32, 0xB8000100);
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:
-        if (samplerFilter == BRIG_FILTER_LINEAR)
-        {
-            if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-            {
-              switch (imageGeometryProp)
-              {
-              case BRIG_GEOMETRY_1D:
-              case BRIG_GEOMETRY_1DA:
-                return Value(MV_UINT32, 0x3F000000);
-              case BRIG_GEOMETRY_2D:
-              case BRIG_GEOMETRY_2DA:
-                return Value(MV_UINT32, 0x3E800000);
-              case BRIG_GEOMETRY_3D:
-                return Value(MV_UINT32, 0x3E000000);
-              default:
-                break;
-              }
-              return Value(MV_UINT32, 0x3E800000);
-            }
-        }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
+      
       case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -2754,15 +1611,14 @@ public:
               return Value(MV_UINT32, 0x3F000000);
             }
         }
-        return Value(MV_UINT32, 0x3F800000);
+        return Value(MV_UINT32, color[0].U32());
       case BRIG_CHANNEL_TYPE_HALF_FLOAT:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
         break;
     }
-    assert(0);
-    return  Value(MV_UINT32, 0xFF);
+    return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const

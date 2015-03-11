@@ -381,6 +381,7 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
+  ImageCalc NewImageCalc(EImage * eimage, ESampler* esampler);
 };
 
 class EBuffer : public Emittable {
@@ -550,6 +551,48 @@ public:
   void ArraySize(size_t array_size_) { array_size = array_size_; }
 
   hexl::ImageGeometry ImageGeometry() { return hexl::ImageGeometry((unsigned)width, (unsigned)height, (unsigned)depth, (unsigned)array_size); }
+};
+
+class EImageCalc : public Emittable {
+private:
+	ImageGeometry imageGeometry;
+	Brig::BrigImageGeometry imageGeometryProp;
+	Brig::BrigImageChannelOrder imageChannelOrder;
+	Brig::BrigImageChannelType imageChannelType;
+	Brig::BrigSamplerCoordNormalization samplerCoord;
+	Brig::BrigSamplerFilter samplerFilter;
+	Brig::BrigSamplerAddressing samplerAddressing;
+
+	Value color_zero;
+	Value color_one;
+
+	void SetupDefaultColors();
+	float UnnormalizeCoord(Value* c, unsigned dimSize) const;
+	float UnnormalizeArrayCoord(Value* c) const;
+	int round_downi(float f) const;
+	int round_neari(float f) const;
+	int clamp_i(int a, int min, int max) const;
+	float clamp_f(float a, float min, float max) const;
+	int GetTexelIndex(float f, unsigned _dimSize) const;
+	int GetTexelArrayIndex(float f, unsigned dimSize) const;
+	void LoadBorderData(Value* _color) const;
+	uint32_t GetRawColorData(int x_ind, int y_ind, int z_ind, int channel) const;
+	uint32_t GetRawColorData(int x_ind, int y_ind, int z_ind) const;
+	int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
+	float ConvertionSignedNormalize(uint32_t c, unsigned int bit_size) const;
+	float ConvertionUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
+	int32_t ConvertionSignedClamp(uint32_t c, unsigned int bit_size) const;
+	uint32_t ConvertionUnsignedClamp(uint32_t c, unsigned int bit_size) const;
+	Value ConvertRawData(uint32_t data) const;
+	float GammaCorrection(float f) const;
+	void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
+	void LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const;
+	void LoadFloatTexel(int x, int y, int z, double* const f) const;
+	void EmulateReadColor(Value* _coords, Value* _color) const;
+
+public:
+	EImageCalc(EImage * eimage, ESampler* esampler);
+	void ReadColor(Value* _coords, Value* _color) const;
 };
 
 class EImage : public EImageSpec {
@@ -809,6 +852,7 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
+  ImageCalc NewImageCalc(EImage * eimage, ESampler* esampler);
 };
 
 }
