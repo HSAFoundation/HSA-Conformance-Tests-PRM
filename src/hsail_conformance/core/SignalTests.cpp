@@ -104,8 +104,8 @@ public:
       if (memoryOrder != BRIG_MEMORY_ORDER_RELAXED &&
           memoryOrder != BRIG_MEMORY_ORDER_SC_RELEASE) {return false;}
     }
-    // 6.8.1 noret mode is not applicable for EXCH
-    if (noret && BRIG_ATOMIC_EXCH == atomicOp) {return false;}
+    // 6.8.1 noret mode is not applicable for EXCH and CAS
+    if (noret && (BRIG_ATOMIC_EXCH == atomicOp || BRIG_ATOMIC_CAS == atomicOp)) {return false;}
     return true;
   }
 
