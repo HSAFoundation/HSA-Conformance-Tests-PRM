@@ -47,64 +47,181 @@ Operand Context::getOperand(unsigned oprId)
     case O_DREG:          opr = emitReg(64, 0);           break;
     case O_QREG:          opr = emitReg(128, 0);          break;
 
-    case O_IMM8_X:        opr = emitImm(8,   imm8_x );    break;
-    case O_IMM16_X:       opr = emitImm(16,  imm16_x);    break;
-    case O_IMM32_X:       opr = emitImm(32,  imm32_x);    break;
-    case O_IMM64_X:       opr = emitImm(64,  imm64_x);    break;
-    case O_IMM128_X:      opr = emitImm(128, imm128_l, imm128_h); break;
+    case O_IMM_U8:        opr = emitImm(BRIG_TYPE_U8,   imm8_x );    break;
+    case O_IMM_S8:        opr = emitImm(BRIG_TYPE_S8,   imm8_x );    break;
 
-    case O_IMM32_0:       opr = emitImm(32,  0);          break;
-    case O_IMM32_1:       opr = emitImm(32,  1);          break;
-    case O_IMM32_2:       opr = emitImm(32,  2);          break;
-    case O_IMM32_3:       opr = emitImm(32,  3);          break;
+    case O_IMM_U16:       opr = emitImm(BRIG_TYPE_U16,  imm16_x);    break;
+    case O_IMM_S16:       opr = emitImm(BRIG_TYPE_S16,  imm16_x);    break;
+    case O_IMM_F16:       opr = emitImm(BRIG_TYPE_F16,  imm16_x);    break;
 
-    case O_VEC2_R32_SRC:  opr = emitVector(2, 32, false);    break;
-    case O_VEC3_R32_SRC:  opr = emitVector(3, 32, false);    break;
-    case O_VEC4_R32_SRC:  opr = emitVector(4, 32, false);    break;
-    case O_VEC2_R64_SRC:  opr = emitVector(2, 64, false);    break;
-    case O_VEC3_R64_SRC:  opr = emitVector(3, 64, false);    break;
-    case O_VEC4_R64_SRC:  opr = emitVector(4, 64, false);    break;
+    case O_IMM_U32:       opr = emitImm(BRIG_TYPE_U32,  imm32_x);    break;
+    case O_IMM_S32:       opr = emitImm(BRIG_TYPE_S32,  imm32_x);    break;
+    case O_IMM_F32:       opr = emitImm(BRIG_TYPE_F32,  imm32_x);    break;
 
-    case O_VEC2_I8_SRC:   opr = emitVector(2, 8,  false, 2); break;
-    case O_VEC3_I8_SRC:   opr = emitVector(3, 8,  false, 3); break;
-    case O_VEC4_I8_SRC:   opr = emitVector(4, 8,  false, 4); break;
-    case O_VEC2_M8_SRC:   opr = emitVector(2, 8,  false, 1); break;
-    case O_VEC3_M8_SRC:   opr = emitVector(3, 8,  false, 2); break;
-    case O_VEC4_M8_SRC:   opr = emitVector(4, 8,  false, 2); break;
+    case O_IMM_U64:       opr = emitImm(BRIG_TYPE_U64,  imm64_x);    break;
+    case O_IMM_S64:       opr = emitImm(BRIG_TYPE_S64,  imm64_x);    break;
+    case O_IMM_F64:       opr = emitImm(BRIG_TYPE_F64,  imm64_x);    break;
 
-    case O_VEC2_I16_SRC:  opr = emitVector(2, 16, false, 2); break;
-    case O_VEC3_I16_SRC:  opr = emitVector(3, 16, false, 3); break;
-    case O_VEC4_I16_SRC:  opr = emitVector(4, 16, false, 4); break;
-    case O_VEC2_M16_SRC:  opr = emitVector(2, 16, false, 1); break;
-    case O_VEC3_M16_SRC:  opr = emitVector(3, 16, false, 2); break;
-    case O_VEC4_M16_SRC:  opr = emitVector(4, 16, false, 2); break;
+    case O_IMM_U8X4:      opr = emitImm(BRIG_TYPE_U8X4,  imm32_x);    break;
+    case O_IMM_S8X4:      opr = emitImm(BRIG_TYPE_S8X4,  imm32_x);    break;
+    case O_IMM_U16X2:     opr = emitImm(BRIG_TYPE_U16X2, imm32_x);    break;
+    case O_IMM_S16X2:     opr = emitImm(BRIG_TYPE_S16X2, imm32_x);    break;
+    case O_IMM_F16X2:     opr = emitImm(BRIG_TYPE_F16X2, imm32_x);    break;
 
-    case O_VEC2_I32_SRC:  opr = emitVector(2, 32, false, 2); break;
-    case O_VEC3_I32_SRC:  opr = emitVector(3, 32, false, 3); break;
-    case O_VEC4_I32_SRC:  opr = emitVector(4, 32, false, 4); break;
-    case O_VEC2_M32_SRC:  opr = emitVector(2, 32, false, 1); break;
-    case O_VEC3_M32_SRC:  opr = emitVector(3, 32, false, 2); break;
-    case O_VEC4_M32_SRC:  opr = emitVector(4, 32, false, 2); break;
+    case O_IMM_U8X8:      opr = emitImm(BRIG_TYPE_U8X8,  imm64_x);    break;
+    case O_IMM_S8X8:      opr = emitImm(BRIG_TYPE_S8X8,  imm64_x);    break;
+    case O_IMM_U16X4:     opr = emitImm(BRIG_TYPE_U16X4, imm64_x);    break;
+    case O_IMM_S16X4:     opr = emitImm(BRIG_TYPE_S16X4, imm64_x);    break;
+    case O_IMM_F16X4:     opr = emitImm(BRIG_TYPE_F16X4, imm64_x);    break;
+    case O_IMM_U32X2:     opr = emitImm(BRIG_TYPE_U32X2, imm64_x);    break;
+    case O_IMM_S32X2:     opr = emitImm(BRIG_TYPE_S32X2, imm64_x);    break;
+    case O_IMM_F32X2:     opr = emitImm(BRIG_TYPE_F32X2, imm64_x);    break;
 
-    case O_VEC2_I64_SRC:  opr = emitVector(2, 64, false, 2); break;
-    case O_VEC3_I64_SRC:  opr = emitVector(3, 64, false, 3); break;
-    case O_VEC4_I64_SRC:  opr = emitVector(4, 64, false, 4); break;
-    case O_VEC2_M64_SRC:  opr = emitVector(2, 64, false, 1); break;
-    case O_VEC3_M64_SRC:  opr = emitVector(3, 64, false, 2); break;
-    case O_VEC4_M64_SRC:  opr = emitVector(4, 64, false, 2); break;
+    case O_IMM_U8X16:     opr = emitImm(BRIG_TYPE_U8X16, imm128_l, imm128_h); break;
+    case O_IMM_S8X16:     opr = emitImm(BRIG_TYPE_S8X16, imm128_l, imm128_h); break;
+    case O_IMM_U16X8:     opr = emitImm(BRIG_TYPE_U16X8, imm128_l, imm128_h); break;
+    case O_IMM_S16X8:     opr = emitImm(BRIG_TYPE_S16X8, imm128_l, imm128_h); break;
+    case O_IMM_F16X8:     opr = emitImm(BRIG_TYPE_F16X8, imm128_l, imm128_h); break;
+    case O_IMM_U32X4:     opr = emitImm(BRIG_TYPE_U32X4, imm128_l, imm128_h); break;
+    case O_IMM_S32X4:     opr = emitImm(BRIG_TYPE_S32X4, imm128_l, imm128_h); break;
+    case O_IMM_F32X4:     opr = emitImm(BRIG_TYPE_F32X4, imm128_l, imm128_h); break;
+    case O_IMM_U64X2:     opr = emitImm(BRIG_TYPE_U64X2, imm128_l, imm128_h); break;
+    case O_IMM_S64X2:     opr = emitImm(BRIG_TYPE_S64X2, imm128_l, imm128_h); break;
+    case O_IMM_F64X2:     opr = emitImm(BRIG_TYPE_F64X2, imm128_l, imm128_h); break;
 
-    case O_VEC2_R32_DST:  opr = emitVector(2, 32);           break;
-    case O_VEC3_R32_DST:  opr = emitVector(3, 32);           break;
-    case O_VEC4_R32_DST:  opr = emitVector(4, 32);           break;
-    case O_VEC2_R64_DST:  opr = emitVector(2, 64);           break;
-    case O_VEC3_R64_DST:  opr = emitVector(3, 64);           break;
-    case O_VEC4_R64_DST:  opr = emitVector(4, 64);           break;
+    case O_IMM_U32_0:     opr = emitImm(BRIG_TYPE_U32,  0);          break;
+    case O_IMM_U32_1:     opr = emitImm(BRIG_TYPE_U32,  1);          break;
+    case O_IMM_U32_2:     opr = emitImm(BRIG_TYPE_U32,  2);          break;
+    case O_IMM_U32_3:     opr = emitImm(BRIG_TYPE_U32,  3);          break;
 
-    case O_WAVESIZE:      opr = emitWavesize();              break;
+    case O_IMM_SIG32:     opr = emitImm(BRIG_TYPE_SIG32, 0);         break;
+    case O_IMM_SIG64:     opr = emitImm(BRIG_TYPE_SIG64, 0);         break;
+
+
+    case O_VEC2_R32_SRC:  opr = emitVector(2, BRIG_TYPE_B32, false);    break;
+    case O_VEC3_R32_SRC:  opr = emitVector(3, BRIG_TYPE_B32, false);    break;
+    case O_VEC4_R32_SRC:  opr = emitVector(4, BRIG_TYPE_B32, false);    break;
+    case O_VEC2_R64_SRC:  opr = emitVector(2, BRIG_TYPE_B64, false);    break;
+    case O_VEC3_R64_SRC:  opr = emitVector(3, BRIG_TYPE_B64, false);    break;
+    case O_VEC4_R64_SRC:  opr = emitVector(4, BRIG_TYPE_B64, false);    break;
+    case O_VEC2_R128_SRC: opr = emitVector(2, BRIG_TYPE_B128, false);    break;
+    case O_VEC3_R128_SRC: opr = emitVector(3, BRIG_TYPE_B128, false);    break;
+    case O_VEC4_R128_SRC: opr = emitVector(4, BRIG_TYPE_B128, false);    break;
+
+    case O_VEC2_I_U8_SRC: opr = emitVector(2, BRIG_TYPE_U8,  false, 2); break;
+    case O_VEC3_I_U8_SRC: opr = emitVector(3, BRIG_TYPE_U8,  false, 3); break;
+    case O_VEC4_I_U8_SRC: opr = emitVector(4, BRIG_TYPE_U8,  false, 4); break;
+    case O_VEC2_M_U8_SRC: opr = emitVector(2, BRIG_TYPE_U8,  false, 1); break;
+    case O_VEC3_M_U8_SRC: opr = emitVector(3, BRIG_TYPE_U8,  false, 2); break;
+    case O_VEC4_M_U8_SRC: opr = emitVector(4, BRIG_TYPE_U8,  false, 2); break;
+
+    case O_VEC2_I_S8_SRC: opr = emitVector(2, BRIG_TYPE_S8,  false, 2); break;
+    case O_VEC3_I_S8_SRC: opr = emitVector(3, BRIG_TYPE_S8,  false, 3); break;
+    case O_VEC4_I_S8_SRC: opr = emitVector(4, BRIG_TYPE_S8,  false, 4); break;
+    case O_VEC2_M_S8_SRC: opr = emitVector(2, BRIG_TYPE_S8,  false, 1); break;
+    case O_VEC3_M_S8_SRC: opr = emitVector(3, BRIG_TYPE_S8,  false, 2); break;
+    case O_VEC4_M_S8_SRC: opr = emitVector(4, BRIG_TYPE_S8,  false, 2); break;
+
+
+    case O_VEC2_I_U16_SRC:  opr = emitVector(2, BRIG_TYPE_U16, false, 2); break;
+    case O_VEC3_I_U16_SRC:  opr = emitVector(3, BRIG_TYPE_U16, false, 3); break;
+    case O_VEC4_I_U16_SRC:  opr = emitVector(4, BRIG_TYPE_U16, false, 4); break;
+    case O_VEC2_M_U16_SRC:  opr = emitVector(2, BRIG_TYPE_U16, false, 1); break;
+    case O_VEC3_M_U16_SRC:  opr = emitVector(3, BRIG_TYPE_U16, false, 2); break;
+    case O_VEC4_M_U16_SRC:  opr = emitVector(4, BRIG_TYPE_U16, false, 2); break;
+
+    case O_VEC2_I_S16_SRC:  opr = emitVector(2, BRIG_TYPE_S16, false, 2); break;
+    case O_VEC3_I_S16_SRC:  opr = emitVector(3, BRIG_TYPE_S16, false, 3); break;
+    case O_VEC4_I_S16_SRC:  opr = emitVector(4, BRIG_TYPE_S16, false, 4); break;
+    case O_VEC2_M_S16_SRC:  opr = emitVector(2, BRIG_TYPE_S16, false, 1); break;
+    case O_VEC3_M_S16_SRC:  opr = emitVector(3, BRIG_TYPE_S16, false, 2); break;
+    case O_VEC4_M_S16_SRC:  opr = emitVector(4, BRIG_TYPE_S16, false, 2); break;
+
+    case O_VEC2_I_F16_SRC:  opr = emitVector(2, BRIG_TYPE_F16, false, 2); break;
+    case O_VEC3_I_F16_SRC:  opr = emitVector(3, BRIG_TYPE_F16, false, 3); break;
+    case O_VEC4_I_F16_SRC:  opr = emitVector(4, BRIG_TYPE_F16, false, 4); break;
+    case O_VEC2_M_F16_SRC:  opr = emitVector(2, BRIG_TYPE_F16, false, 1); break;
+    case O_VEC3_M_F16_SRC:  opr = emitVector(3, BRIG_TYPE_F16, false, 2); break;
+    case O_VEC4_M_F16_SRC:  opr = emitVector(4, BRIG_TYPE_F16, false, 2); break;
+
+
+    case O_VEC2_I_U32_SRC:  opr = emitVector(2, BRIG_TYPE_U32, false, 2); break;
+    case O_VEC3_I_U32_SRC:  opr = emitVector(3, BRIG_TYPE_U32, false, 3); break;
+    case O_VEC4_I_U32_SRC:  opr = emitVector(4, BRIG_TYPE_U32, false, 4); break;
+    case O_VEC2_M_U32_SRC:  opr = emitVector(2, BRIG_TYPE_U32, false, 1); break;
+    case O_VEC3_M_U32_SRC:  opr = emitVector(3, BRIG_TYPE_U32, false, 2); break;
+    case O_VEC4_M_U32_SRC:  opr = emitVector(4, BRIG_TYPE_U32, false, 2); break;
+
+    case O_VEC2_I_S32_SRC:  opr = emitVector(2, BRIG_TYPE_S32, false, 2); break;
+    case O_VEC3_I_S32_SRC:  opr = emitVector(3, BRIG_TYPE_S32, false, 3); break;
+    case O_VEC4_I_S32_SRC:  opr = emitVector(4, BRIG_TYPE_S32, false, 4); break;
+    case O_VEC2_M_S32_SRC:  opr = emitVector(2, BRIG_TYPE_S32, false, 1); break;
+    case O_VEC3_M_S32_SRC:  opr = emitVector(3, BRIG_TYPE_S32, false, 2); break;
+    case O_VEC4_M_S32_SRC:  opr = emitVector(4, BRIG_TYPE_S32, false, 2); break;
+
+    case O_VEC2_I_F32_SRC:  opr = emitVector(2, BRIG_TYPE_F32, false, 2); break;
+    case O_VEC3_I_F32_SRC:  opr = emitVector(3, BRIG_TYPE_F32, false, 3); break;
+    case O_VEC4_I_F32_SRC:  opr = emitVector(4, BRIG_TYPE_F32, false, 4); break;
+    case O_VEC2_M_F32_SRC:  opr = emitVector(2, BRIG_TYPE_F32, false, 1); break;
+    case O_VEC3_M_F32_SRC:  opr = emitVector(3, BRIG_TYPE_F32, false, 2); break;
+    case O_VEC4_M_F32_SRC:  opr = emitVector(4, BRIG_TYPE_F32, false, 2); break;
+
+
+    case O_VEC2_I_U64_SRC:  opr = emitVector(2, BRIG_TYPE_U64, false, 2); break;
+    case O_VEC3_I_U64_SRC:  opr = emitVector(3, BRIG_TYPE_U64, false, 3); break;
+    case O_VEC4_I_U64_SRC:  opr = emitVector(4, BRIG_TYPE_U64, false, 4); break;
+    case O_VEC2_M_U64_SRC:  opr = emitVector(2, BRIG_TYPE_U64, false, 1); break;
+    case O_VEC3_M_U64_SRC:  opr = emitVector(3, BRIG_TYPE_U64, false, 2); break;
+    case O_VEC4_M_U64_SRC:  opr = emitVector(4, BRIG_TYPE_U64, false, 2); break;
+
+    case O_VEC2_I_S64_SRC:  opr = emitVector(2, BRIG_TYPE_S64, false, 2); break;
+    case O_VEC3_I_S64_SRC:  opr = emitVector(3, BRIG_TYPE_S64, false, 3); break;
+    case O_VEC4_I_S64_SRC:  opr = emitVector(4, BRIG_TYPE_S64, false, 4); break;
+    case O_VEC2_M_S64_SRC:  opr = emitVector(2, BRIG_TYPE_S64, false, 1); break;
+    case O_VEC3_M_S64_SRC:  opr = emitVector(3, BRIG_TYPE_S64, false, 2); break;
+    case O_VEC4_M_S64_SRC:  opr = emitVector(4, BRIG_TYPE_S64, false, 2); break;
+
+    case O_VEC2_I_F64_SRC:  opr = emitVector(2, BRIG_TYPE_F64, false, 2); break;
+    case O_VEC3_I_F64_SRC:  opr = emitVector(3, BRIG_TYPE_F64, false, 3); break;
+    case O_VEC4_I_F64_SRC:  opr = emitVector(4, BRIG_TYPE_F64, false, 4); break;
+    case O_VEC2_M_F64_SRC:  opr = emitVector(2, BRIG_TYPE_F64, false, 1); break;
+    case O_VEC3_M_F64_SRC:  opr = emitVector(3, BRIG_TYPE_F64, false, 2); break;
+    case O_VEC4_M_F64_SRC:  opr = emitVector(4, BRIG_TYPE_F64, false, 2); break;
+
+
+    case O_VEC2_I_B128_SRC: opr = emitVector(2, BRIG_TYPE_B128, false, 2); break;
+    case O_VEC3_I_B128_SRC: opr = emitVector(3, BRIG_TYPE_B128, false, 3); break;
+    case O_VEC4_I_B128_SRC: opr = emitVector(4, BRIG_TYPE_B128, false, 4); break;
+    case O_VEC2_M_B128_SRC: opr = emitVector(2, BRIG_TYPE_B128, false, 1); break;
+    case O_VEC3_M_B128_SRC: opr = emitVector(3, BRIG_TYPE_B128, false, 2); break;
+    case O_VEC4_M_B128_SRC: opr = emitVector(4, BRIG_TYPE_B128, false, 2); break;
+
+
+    case O_VEC2_R32_DST:    opr = emitVector(2, BRIG_TYPE_B32);           break;
+    case O_VEC3_R32_DST:    opr = emitVector(3, BRIG_TYPE_B32);           break;
+    case O_VEC4_R32_DST:    opr = emitVector(4, BRIG_TYPE_B32);           break;
+    case O_VEC2_R64_DST:    opr = emitVector(2, BRIG_TYPE_B64);           break;
+    case O_VEC3_R64_DST:    opr = emitVector(3, BRIG_TYPE_B64);           break;
+    case O_VEC4_R64_DST:    opr = emitVector(4, BRIG_TYPE_B64);           break;
+    case O_VEC2_R128_DST:   opr = emitVector(2, BRIG_TYPE_B128);          break;
+    case O_VEC3_R128_DST:   opr = emitVector(3, BRIG_TYPE_B128);          break;
+    case O_VEC4_R128_DST:   opr = emitVector(4, BRIG_TYPE_B128);          break;
+
+
+    case O_VEC2_SIG32_SRC:  opr = emitVector(2, BRIG_TYPE_SIG32, false, 1); break;
+    case O_VEC3_SIG32_SRC:  opr = emitVector(3, BRIG_TYPE_SIG32, false, 2); break;
+    case O_VEC4_SIG32_SRC:  opr = emitVector(4, BRIG_TYPE_SIG32, false, 3); break;
+
+    case O_VEC2_SIG64_SRC:  opr = emitVector(2, BRIG_TYPE_SIG64, false, 1); break;
+    case O_VEC3_SIG64_SRC:  opr = emitVector(3, BRIG_TYPE_SIG64, false, 2); break;
+    case O_VEC4_SIG64_SRC:  opr = emitVector(4, BRIG_TYPE_SIG64, false, 3); break;
+
+
+    case O_WAVESIZE:        opr = emitWavesize();              break;
 
     case O_ADDRESS_FLAT_DREG: opr = emitAddrRef(DirectiveVariable(), emitReg(64, 0)); break;
     case O_ADDRESS_FLAT_SREG: opr = emitAddrRef(DirectiveVariable(), emitReg(32, 0)); break;
-    case O_ADDRESS_FLAT_OFF:  opr = emitAddrRef(DirectiveVariable());        break;
+    case O_ADDRESS_FLAT_OFF:  opr = emitAddrRef(0, true);                             break; // size does not matter because offset = 0
 
     case O_ADDRESS_GLOBAL_VAR:
     case O_ADDRESS_READONLY_VAR:

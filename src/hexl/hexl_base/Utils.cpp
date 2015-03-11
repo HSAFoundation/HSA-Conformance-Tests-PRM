@@ -28,11 +28,8 @@ namespace hexl {
 
 BrigContainer* BrigC(brig_container_t brig)
 {
-  return new BrigContainer(
-    (char *) brig_container_get_section_bytes(brig, BRIG_SECTION_INDEX_DATA),
-    (char *) brig_container_get_section_bytes(brig, BRIG_SECTION_INDEX_CODE),
-    (char *) brig_container_get_section_bytes(brig, BRIG_SECTION_INDEX_OPERAND),
-    0);
+  BrigModuleHeader* brigm = static_cast<Brig::BrigModuleHeader*>(brig_container_get_brig_module(brig));
+  return new BrigContainer(brigm);
 }
 
 brig_container_t CreateBrigFromContainer(HSAIL_ASM::BrigContainer* container)
@@ -50,7 +47,7 @@ BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig)
 {
   BrigContainer* brigc = BrigC(brig);
   for (Code d = brigc->code().begin(), e = brigc->code().end(); d != e; ) {
-    if (DirectiveVersion v = d) {
+    if (DirectiveModule v = d) {
       BrigMachineModel8_t model = v.machineModel().enumValue();
       delete brigc;
       return model;
@@ -223,6 +220,240 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
 
 bool Is128Bit(BrigTypeX type) {
   return HSAIL_ASM::getBrigTypeNumBytes(type) == 16;
+}
+
+uint32_t ImageGeometryDims(BrigImageGeometry geometry) {
+  switch (geometry) {
+  case BRIG_GEOMETRY_1D:       return 1;
+  case BRIG_GEOMETRY_2D:       return 2;
+  case BRIG_GEOMETRY_3D:       return 3;
+  case BRIG_GEOMETRY_1DA:      return 1;
+  case BRIG_GEOMETRY_2DA:      return 2;
+  case BRIG_GEOMETRY_1DB:      return 1;
+  case BRIG_GEOMETRY_2DDEPTH:  return 2;
+  case BRIG_GEOMETRY_2DADEPTH: return 2;
+  default:  assert(false); return 0;
+  }
+}
+
+bool IsImageGeometryArray(BrigImageGeometry geometry) {
+  if (geometry == BRIG_GEOMETRY_1DA ||
+      geometry == BRIG_GEOMETRY_2DA ||
+      geometry == BRIG_GEOMETRY_2DADEPTH) 
+  {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool IsImageDepth(BrigImageGeometry geometry) {
+  if (geometry == BRIG_GEOMETRY_2DDEPTH || geometry == BRIG_GEOMETRY_2DADEPTH) {
+    return true;
+  } else {
+    return false;
+  }
+}
+
+bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, 
+                      BrigImageChannelType channelType) {
+  switch (geometry) {
+  case BRIG_GEOMETRY_1D:  case BRIG_GEOMETRY_2D:
+  case BRIG_GEOMETRY_3D:  case BRIG_GEOMETRY_1DA:
+  case BRIG_GEOMETRY_2DA: case BRIG_GEOMETRY_1DB:
+    switch (channelOrder) {
+    case Brig::BRIG_CHANNEL_ORDER_A:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_R:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_RX:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_RG:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_RGX:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_RA:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_RGB:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+        return true;
+      default:
+        return false;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_RGBX:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_RGBA:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_BGRA:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+        return true;
+      default:
+        return false;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_ARGB:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+        return true;
+      default:
+        return false;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_ABGR:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+        return true;
+      default:
+        return false;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_SRGB:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_SRGBX:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_SRGBA:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_SBGRA:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+        return false;
+      default:
+        return true;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_INTENSITY:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNORM_INT16:
+      case BRIG_CHANNEL_TYPE_SNORM_INT8: case BRIG_CHANNEL_TYPE_SNORM_INT16:
+      case BRIG_CHANNEL_TYPE_HALF_FLOAT: case BRIG_CHANNEL_TYPE_FLOAT:
+        return true;
+      default:
+        return false;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_LUMINANCE:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNORM_INT16:
+      case BRIG_CHANNEL_TYPE_SNORM_INT8: case BRIG_CHANNEL_TYPE_SNORM_INT16:
+      case BRIG_CHANNEL_TYPE_HALF_FLOAT: case BRIG_CHANNEL_TYPE_FLOAT:
+        return true;
+      default:
+        return false;
+      }
+
+    default: return false;
+    }
+
+  case BRIG_GEOMETRY_2DDEPTH: case BRIG_GEOMETRY_2DADEPTH:
+    switch (channelOrder) {
+    case Brig::BRIG_CHANNEL_ORDER_DEPTH:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT16: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+      case BRIG_CHANNEL_TYPE_FLOAT:
+        return true;
+      default:
+        return false;
+      }
+
+    case Brig::BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT16: case BRIG_CHANNEL_TYPE_UNORM_INT24:
+      case BRIG_CHANNEL_TYPE_FLOAT:
+        return true;
+      default:
+        return false;
+      }
+
+    default: return false;
+    }
+
+  default: assert(false); return false;
+  }
 }
 
 }

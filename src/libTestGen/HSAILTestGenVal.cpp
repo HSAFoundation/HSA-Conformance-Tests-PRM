@@ -489,8 +489,19 @@ string Val::dump() const
 {
     assert(!empty());
 
-    if (isVector())
+    if (isVector() && getVecType() == Brig::BRIG_TYPE_B128)
     {
+        string val;
+        for (unsigned i = 0; i < vector->getDim(); ++i)
+        {
+            val += ((i > 0)? ", " : "") + (*vector)[i].b128().hexDump();
+        }
+        return "(" + val + ")";
+    }
+    else if (isVector())
+    {
+        assert(getVecType() != Brig::BRIG_TYPE_B128);
+
         string sval;
         string hval;
         for (unsigned i = 0; i < vector->getDim(); ++i)

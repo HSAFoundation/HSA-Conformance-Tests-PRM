@@ -72,14 +72,14 @@ public:
 
   std::string AddName(const std::string& name, bool addZero = false);
 
-  HSAIL_ASM::OperandReg Reg(const std::string& name);
+  HSAIL_ASM::OperandRegister Reg(const std::string& name);
 
-  HSAIL_ASM::OperandReg AddReg(const std::string& name);
-  HSAIL_ASM::OperandReg AddReg(Brig::BrigType16_t type);
-  HSAIL_ASM::OperandReg AddSReg() { return AddReg("$s"); }
-  HSAIL_ASM::OperandReg AddDReg() { return AddReg("$d"); }
-  HSAIL_ASM::OperandReg AddQReg() { return AddReg("$q"); }
-  HSAIL_ASM::OperandReg AddCReg() { return AddReg("$c"); }
+  HSAIL_ASM::OperandRegister AddReg(const std::string& name);
+  HSAIL_ASM::OperandRegister AddReg(Brig::BrigType16_t type);
+  HSAIL_ASM::OperandRegister AddSReg() { return AddReg("$s"); }
+  HSAIL_ASM::OperandRegister AddDReg() { return AddReg("$d"); }
+  HSAIL_ASM::OperandRegister AddQReg() { return AddReg("$q"); }
+  HSAIL_ASM::OperandRegister AddCReg() { return AddReg("$c"); }
 
   HSAIL_ASM::OperandOperandList AddVec(Brig::BrigType16_t type, unsigned count);
 
@@ -120,16 +120,17 @@ public:
 
   // Immediates
   HSAIL_ASM::Operand Immed(Brig::BrigType16_t type, uint64_t imm);
-  HSAIL_ASM::Operand Immed(HSAIL_ASM::SRef data);
+  HSAIL_ASM::Operand Immed(Brig::BrigType16_t type, HSAIL_ASM::SRef data);
   HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
 
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
   void EmitMov(TypedReg dst, HSAIL_ASM::Operand src);
   void EmitMov(TypedReg dst, TypedReg src);
+  TypedReg AddInitialTReg(Brig::BrigType16_t type, uint64_t initialValue, unsigned count = 1);
 
   // Memory operations
-  HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandReg reg, int64_t offset);
+  HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset);
   HSAIL_ASM::OperandAddress Address(PointerReg ptr, int64_t offset = 0);
   HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, int64_t offset = 0);
 
@@ -163,8 +164,8 @@ public:
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand o);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand op);
-  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandReg b, const TypedReg& src0, HSAIL_ASM::Operand src1, Brig::BrigCompareOperation8_t cmp);
-  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandReg b, const TypedReg& src0, const TypedReg& src1, Brig::BrigCompareOperation8_t cmp);
+  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, HSAIL_ASM::Operand src1, Brig::BrigCompareOperation8_t cmp);
+  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, const TypedReg& src1, Brig::BrigCompareOperation8_t cmp);
   void EmitCmpTo(TypedReg result, TypedReg src0, HSAIL_ASM::Operand src1, Brig::BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCvt EmitCvt(HSAIL_ASM::Operand dst, Brig::BrigType16_t dstType, HSAIL_ASM::Operand src, Brig::BrigType16_t srcType);
   HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src);
@@ -179,7 +180,6 @@ public:
   HSAIL_ASM::InstSegCvt EmitSegmentp(const TypedReg& dst, PointerReg src, Brig::BrigSegment8_t segment, bool nonull = false);
 
   HSAIL_ASM::InstSeg EmitNullPtr(PointerReg dst);
-  HSAIL_ASM::InstBasic EmitLdk(PointerReg dst, const std::string& kernelName);
 
   HSAIL_ASM::DirectiveVariable EmitVariableDefinition(const std::string& name, Brig::BrigSegment8_t segment, Brig::BrigType16_t type, Brig::BrigAlignment8_t align = Brig::BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   HSAIL_ASM::DirectiveVariable EmitPointerDefinition(const std::string& name, Brig::BrigSegment8_t segment, Brig::BrigSegment8_t asegment = Brig::BRIG_SEGMENT_GLOBAL);
@@ -257,7 +257,6 @@ public:
 
   // User mode queues.
   void EmitAgentId(TypedReg dest);
-  void EmitQueuePtr(PointerReg dest);
 
   // Images operations
   Brig::BrigTypeX ImageType(unsigned access) const;

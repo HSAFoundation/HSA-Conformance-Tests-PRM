@@ -3,6 +3,8 @@
 #include "HSAILTestGenUtilities.h"
 #include "HSAILTestGenVal.h"
 
+#include <cmath>
+
 using std::string;
 using std::ostringstream;
 
@@ -83,7 +85,7 @@ static float cos_precise_near_zero(const float x)
     const float distance_from_the_middle = (x >= middle) ? (x - middle) : (middle - x);
     const float compensation = errN * (1 - distance_from_the_middle / (half_pi));
 
-    return cos(x) + compensation;
+    return std::cos(x) + compensation;
 }
 
 static float ncos_impl(const float val, bool& isValidArg)
@@ -124,7 +126,7 @@ static float sin_precise_near_zero(const float x)
     const float distance_from_the_middle = (x >= middle) ? (x - middle) : (middle - x);
     const float compensation = errN * (1 - distance_from_the_middle / (half_pi));
 
-    return sin(x) + compensation;
+    return std::sin(x) + compensation;
 }
 
 static float nsin_impl(const float val, bool& isValidArg)
@@ -240,8 +242,8 @@ static int f2i_round(Val val, unsigned rounding)
     {
     case Brig::BRIG_ROUND_INTEGER_NEAR_EVEN:
     case Brig::BRIG_ROUND_INTEGER_NEAR_EVEN_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_NEAR_EVEN_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN_SAT:
         if (val.getNormalizedFract() > Val(0.5f).getNormalizedFract())          // Rounds to the nearest representable value
         {
             round = val.isNegative() ? -1 : 1;
@@ -254,19 +256,19 @@ static int f2i_round(Val val, unsigned rounding)
         break;
     case Brig::BRIG_ROUND_INTEGER_ZERO:
     case Brig::BRIG_ROUND_INTEGER_ZERO_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_ZERO:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_ZERO_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO_SAT:
         break;
     case Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY:
     case Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_PLUS_INFINITY_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY_SAT:
         if (val.isRegularPositive() && !val.isNatural()) round = 1;
         break;
     case Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY:
     case Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALLING_MINUS_INFINITY_SAT:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY:
+    case Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY_SAT:
         if (val.isRegularNegative() && !val.isNatural()) round = -1;
         break;
 
@@ -450,9 +452,9 @@ int emulate_cmp(f64_t val1, f64_t val2) { return val1 < val2 ? -1 : val1 > val2 
 //==============================================================================
 // Truncations
 
-f16_t emulate_fract(f16_t val) { return f16_todo(); }
-f32_t emulate_fract(f32_t val) { return fract_impl(val); }
-f64_t emulate_fract(f64_t val) { return fract_impl(val); }
+f16_t emulate_fract(f16_t val, unsigned rounding) { validateFpRounding(rounding); return f16_todo(); }      //TODO: add rounding support
+f32_t emulate_fract(f32_t val, unsigned rounding) { validateFpRounding(rounding); return fract_impl(val); } //TODO: add rounding support
+f64_t emulate_fract(f64_t val, unsigned rounding) { validateFpRounding(rounding); return fract_impl(val); } //TODO: add rounding support
 
 f16_t emulate_ceil(f16_t val) { return f16_todo(); }
 f32_t emulate_ceil(f32_t val) { return ceil_impl(val); }
@@ -519,6 +521,11 @@ f64_t emulate_min(f64_t val1, f64_t val2) { return Val(val1).isNan()? val2 : Val
 f16_t emulate_fma(f16_t val1, f16_t val2, f16_t val3, unsigned rounding) { validateFpRounding(rounding); return f16_t(val1.f64() * val2.f64() + val3.f64(), rounding); }
 f32_t emulate_fma(f32_t val1, f32_t val2, f32_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; } //TODO: not enough precision
 f64_t emulate_fma(f64_t val1, f64_t val2, f64_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; } //TODO: not enough precision
+
+//TODO: the way MAD is computed should be specified by option
+f16_t emulate_mad(f16_t val1, f16_t val2, f16_t val3, unsigned rounding) { validateFpRounding(rounding); return f16_t(val1.f64() * val2.f64() + val3.f64(), rounding); }
+f32_t emulate_mad(f32_t val1, f32_t val2, f32_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; }
+f64_t emulate_mad(f64_t val1, f64_t val2, f64_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; }
 
 f16_t emulate_sqrt(f16_t val, unsigned rounding)  { validateFpRounding(rounding); return f16_t(sqrt(val.f64()), rounding); }
 f32_t emulate_sqrt(f32_t val, unsigned rounding)  { validateFpRounding(rounding); return sqrt(val); }

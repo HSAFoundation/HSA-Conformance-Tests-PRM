@@ -65,7 +65,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
-    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>())
+    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>()),
+    images(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -136,6 +137,9 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   fbarrier->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
   fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
   fbarrier->Add(NEWA GridGeometry(3, 3, 9, 13, 2, 7, 11));
+  images->Add(NEWA GridGeometry(1, 100, 1, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
 }
 
 
@@ -234,8 +238,7 @@ static const BrigImageQuery allImgQueries[] = {
 
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    defaultImageGeometry(1000, 1, 1, 1, 1),
-    defaultImageGeometrySet(NEWA OneValueSequence<ImageGeometry*>(&defaultImageGeometry)),
+    defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>()),
     imageGeometryProps(NEWA ArraySequence<BrigImageGeometry>(allGeometry, NELEM(allGeometry))),
     imageRdGeometryProp(NEWA ArraySequence<BrigImageGeometry>(rdGeometry, NELEM(rdGeometry))),
     imageDepthGeometryProp(NEWA ArraySequence<BrigImageGeometry>(DepthGeometry, NELEM(DepthGeometry))),
@@ -245,7 +248,10 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess)))
 {
-
+   defaultImageGeometry->Add(NEWA ImageGeometry(1000));
+   defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
+   defaultImageGeometry->Add(NEWA ImageGeometry(10, 10, 10));
+   defaultImageGeometry->Add(NEWA ImageGeometry(100, 1, 1, 10));
 }
 
 static const BrigSamplerAddressing allAddressing[] = {
@@ -358,6 +364,24 @@ bool CoreConfig::SegmentsConfig::HasAddress(BrigSegment8_t segment)
   case BRIG_SEGMENT_READONLY:
   case BRIG_SEGMENT_GROUP:
   case BRIG_SEGMENT_PRIVATE:
+    return true;
+  default:
+    assert(false); return true;
+  }
+}
+
+bool CoreConfig::SegmentsConfig::HasNullptr(BrigSegment8_t segment)
+{
+  switch (segment) {
+  case BRIG_SEGMENT_ARG:
+  case BRIG_SEGMENT_SPILL:
+  case BRIG_SEGMENT_GLOBAL:
+  case BRIG_SEGMENT_READONLY:
+  case BRIG_SEGMENT_KERNARG:
+    return false;
+  case BRIG_SEGMENT_GROUP:
+  case BRIG_SEGMENT_PRIVATE:
+  case BRIG_SEGMENT_FLAT:
     return true;
   default:
     assert(false); return true;
@@ -592,7 +616,7 @@ static const BrigAtomicOperation signalWaitAtomicsValues[] = {
 
 static const BrigSegment memfenceSegmentsValues[] = {
   BRIG_SEGMENT_GLOBAL,
-  BRIG_SEGMENT_GROUP,
+  BRIG_SEGMENT_GROUP
 };
 
 static const BrigOpcode ldStOpcodesValues[] = {
@@ -633,8 +657,10 @@ CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
     memfenceSegments(new (ap) hexl::ArraySequence<BrigSegment>(memfenceSegmentsValues, NELEM(memfenceSegmentsValues))),
     ldStOpcodes(NEWA ArraySequence<BrigOpcode>(ldStOpcodesValues, NELEM(ldStOpcodesValues))),
     atomicOpcodes(NEWA ArraySequence<BrigOpcode>(atomicOpcodesValues, NELEM(atomicOpcodesValues))),
-    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues)))
-{    
+    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues))),
+    memfenceMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_ORDER_LAST)),
+    memfenceMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(BRIG_MEMORY_SCOPE_WAVEFRONT, BRIG_MEMORY_SCOPE_LAST))
+{
 }
 
 static const BrigControlDirective gridGroupRelatedValues[] = {
@@ -699,8 +725,8 @@ static const BrigControlDirective boundary24WorkitemFlatIdRelatedValues[] = {
   BRIG_CONTROL_MAXFLATWORKGROUPSIZE,
 };
 
-static const BrigKinds pragmaOperandTypesValues[] = {
-  BRIG_KIND_OPERAND_DATA,
+static const BrigKind pragmaOperandTypesValues[] = {
+  BRIG_KIND_OPERAND_CONSTANT_BYTES,
   BRIG_KIND_OPERAND_STRING,
   BRIG_KIND_OPERAND_CODE_REF
 };
@@ -756,7 +782,7 @@ CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
     boundary24WorkitemAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemAbsIdRelated)),
     boundary24WorkitemFlatAbsIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatAbsIdRelated)),
     boundary24WorkitemFlatIdRelatedSets(DSubsets(ap, boundary24WorkitemFlatIdRelated)),
-    pragmaOperandTypes(NEWA ArraySequence<BrigKinds>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
+    pragmaOperandTypes(NEWA ArraySequence<BrigKind>(pragmaOperandTypesValues, NELEM(pragmaOperandTypesValues))),
     validExceptionNumbers(NEWA ArraySequence<uint32_t>(validExceptionNumbersValues, NELEM(validExceptionNumbersValues))),
     exceptionDirectives(NEWA ArraySequence<BrigControlDirective>(exceptionDirectivesValues, NELEM(exceptionDirectivesValues))),
     geometryDirectives(NEWA ArraySequence<BrigControlDirective>(geometryDirectivesValues, NELEM(geometryDirectivesValues))),

@@ -43,6 +43,8 @@ using HSAIL_ASM::InstMem;
 using HSAIL_ASM::InstMod;
 using HSAIL_ASM::InstBr;
 
+using HSAIL_ASM::OperandOperandList;
+
 using HSAIL_ASM::isBitType;
 using HSAIL_ASM::isFloatType;
 using HSAIL_ASM::isPackedType;
@@ -57,6 +59,8 @@ using HSAIL_ASM::getPackedDstDim;
 using HSAIL_ASM::getPackedTypeDim;
 using HSAIL_ASM::packedType2elementType;
 using HSAIL_ASM::packedType2baseType;
+using HSAIL_ASM::isSignalingRounding;
+using HSAIL_ASM::isSatRounding;
 
 //=================================================================================================
 //=================================================================================================
@@ -422,6 +426,29 @@ static Val emulateTrnOpSU(unsigned type, Val arg1, Val arg2, Val arg3, T op)
 }
 
 template<class T>
+static Val emulateTrnOpSUF(unsigned type, unsigned rounding, Val arg1, Val arg2, Val arg3, T op)
+{
+    assert(arg1.getType() == type);
+    assert(arg2.getType() == type);
+    assert(arg3.getType() == type);
+
+    switch (type)
+    {
+    case BRIG_TYPE_S32: return op.ix(arg1.s32(), arg2.s32(), arg3.s32());
+    case BRIG_TYPE_S64: return op.ix(arg1.s64(), arg2.s64(), arg3.s64());
+
+    case BRIG_TYPE_U32: return op.ix(arg1.u32(), arg2.u32(), arg3.u32());
+    case BRIG_TYPE_U64: return op.ix(arg1.u64(), arg2.u64(), arg3.u64());
+
+    case BRIG_TYPE_F16: return op.fx(arg1.f16(), arg2.f16(), arg3.f16(), rounding);
+    case BRIG_TYPE_F32: return op.fx(arg1.f32(), arg2.f32(), arg3.f32(), rounding);
+    case BRIG_TYPE_F64: return op.fx(arg1.f64(), arg2.f64(), arg3.f64(), rounding);
+
+    default: return emulationFailed();
+    }
+}
+
+template<class T>
 static Val emulateTrnOpB(unsigned type, Val arg1, Val arg2, Val arg3, T op)
 {
     assert(arg1.getType() == type);
@@ -528,11 +555,11 @@ struct op_borrow {                      IX_BIN      { assert(!isSigned(val1)); r
 struct op_shl    {                      IU_BIN      { return val1 << (val2 & NumProps<T>::shiftMask()); }};
 struct op_shr    {                      IU_BIN      { return val1 >> (val2 & NumProps<T>::shiftMask()); }};
                                                      
-struct op_mad    {                      IX_TNR      { return val1 * val2 + val3; }};
+struct op_mad    { FX_RND_TRN(mad)      IX_TNR      { return val1 * val2 + val3; }};
 
 struct op_cpsgn  { FX_BIN(cpsgn)      };
 
-struct op_fract  { FX_UNR(fract)      }; 
+struct op_fract  { FX_RND_UNR(fract)  }; 
 struct op_ceil   { FX_UNR(ceil)       }; 
 struct op_floor  { FX_UNR(floor)      }; 
 struct op_trunc  { FX_UNR(trunc)      }; 
@@ -1010,7 +1037,7 @@ static Val emulate_expand(unsigned type, unsigned stype, Val arg)
 //=============================================================================
 // Emulation of cmp Instruction
 
-static Val emulateCmp(unsigned type, unsigned stype, AluMod aluMod, unsigned op, Val arg1, Val arg2)
+static Val emulateCmp(unsigned type, unsigned stype, unsigned op, Val arg1, Val arg2)
 {
     using namespace Brig;
 
@@ -1101,7 +1128,7 @@ static bool isIntegral(Val val)
 {
     //F Should check if exception policy is enabled for the inexact exception
 
-    Val fract = emulateUnrOpF(val.getType(), AluMod::ROUNDING_NONE, val, op_fract());
+    Val fract = emulateUnrOpF(val.getType(), AluMod::ROUNDING_NEAR, val, op_fract()); //F1.0 use isNatural instead of op_fract
     return fract.isZero();
 }
 
@@ -1119,7 +1146,8 @@ static Val cvt_f2i(unsigned type, unsigned rounding, Val val)
     case BRIG_TYPE_F64: res = emulate_f2i(val.f64(), type, rounding, isValid); break;
         
     default:
-        assert(false); res = 0; // -warn
+        assert(false);
+        res = 0;
         break;
     }
     
@@ -1570,7 +1598,7 @@ static Val emulateMod(unsigned opcode, unsigned type, AluMod aluMod, Val arg1, V
 
     case BRIG_OPCODE_FMA:       return emulateTrnOpF(type, rounding, arg1, arg2, arg3, op_fma());
 
-    case BRIG_OPCODE_MAD:       return emulateTrnOpSU(type, arg1, arg2, arg3, op_mad());
+    case BRIG_OPCODE_MAD:       return emulateTrnOpSUF(type, rounding, arg1, arg2, arg3, op_mad());
 
     case BRIG_OPCODE_MOV:       assert(arg1.getType() == type);         return arg1;
     case BRIG_OPCODE_CMOV:      assert(arg1.getType() == BRIG_TYPE_B1); return emulateTrnOpB(type, Val(type, arg1.getAsB32()), arg2, arg3, op_cmov());
@@ -1847,11 +1875,11 @@ static Val emulateDstValPackedRegular(Inst inst, Val arg0, Val arg1, Val arg2, V
             x2 = Val(BRIG_TYPE_U32, x2.u32() & getRangeMask(elementSize));
         }
 
-        if (opcode == BRIG_OPCODE_MULHI) res = emulateMulHiPacked(  type,        baseType,                                    x1, x2);
-        else if (isSatPacking(packing))  res = emulateSat(opcode,   type,                                                     x1, x2);
-        else if (InstBasic i = inst)     res = emulateMod(opcode,   baseType,    AluMod(i),                                   x1, x2);
-        else if (InstMod   i = inst)     res = emulateMod(opcode,   baseType,    AluMod(i.modifier().allBits()),              x1, x2);
-        else if (InstCmp   i = inst)     res = emulateCmp(baseType, baseSrcType, AluMod(i.modifier().allBits()), i.compare(), x1, x2);
+        if (opcode == BRIG_OPCODE_MULHI) res = emulateMulHiPacked(  type,        baseType,          x1, x2);
+        else if (isSatPacking(packing))  res = emulateSat(opcode,   type,                           x1, x2);
+        else if (InstBasic i = inst)     res = emulateMod(opcode,   baseType,    AluMod(i),         x1, x2);
+        else if (InstMod   i = inst)     res = emulateMod(opcode,   baseType,    AluMod(i.round()), x1, x2);
+        else if (InstCmp   i = inst)     res = emulateCmp(baseType, baseSrcType, i.compare(),       x1, x2);
         else                             { assert(false); }
 
         if (res.empty())
@@ -1900,10 +1928,10 @@ static Val emulateDstValPackedSpecial(Inst inst, Val arg0, Val arg1, Val arg2, V
 
 static Val emulateDstValCommon(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 {
-    if      (InstBasic      i = inst)  return emulateMod(i.opcode(), i.type(), AluMod(i),                      arg1, arg2, arg3, arg4);
-    else if (InstMod        i = inst)  return emulateMod(i.opcode(), i.type(), AluMod(i.modifier().allBits()), arg1, arg2, arg3, arg4);
-    else if (InstCmp        i = inst)  return emulateCmp(i.type(),   i.sourceType(), AluMod(i.modifier().allBits()), i.compare(), arg1, arg2);
-    else if (InstCvt        i = inst)  return emulateCvt(i.type(),   i.sourceType(), AluMod(i.modifier().allBits()), arg1);
+    if      (InstBasic      i = inst)  return emulateMod(i.opcode(),        i.type(), AluMod(i),         arg1, arg2, arg3, arg4);
+    else if (InstMod        i = inst)  return emulateMod(i.opcode(),        i.type(), AluMod(i.round()), arg1, arg2, arg3, arg4);
+    else if (InstCmp        i = inst)  return emulateCmp(                   i.type(), i.sourceType(), i.compare(), arg1, arg2);
+    else if (InstCvt        i = inst)  return emulateCvt(                   i.type(), i.sourceType(), AluMod(i.round()), arg1);
     else if (InstSourceType i = inst)  return emulateSourceType(i.opcode(), i.type(), i.sourceType(), arg1, arg2, arg3);
     else if (InstAtomic     i = inst)  return emulateAtomicDst(inst.opcode(), arg1);
     else if (InstMem        i = inst)  return emulateMemDst(i.segment(), i.opcode(), arg1);
@@ -1932,6 +1960,7 @@ bool testableInst(Inst inst)
     }
     else if (InstMem instMem = inst)
     {
+        if (instMem.type() == BRIG_TYPE_B128 && OperandOperandList(inst.operand(0))) return false; //F1.0
         if (!isSupportedSegment(instMem.segment())) return false;
         if (instMem.width() != BRIG_WIDTH_NONE && instMem.width() != BRIG_WIDTH_1) return false;
         if (instMem.modifier().isConst()) return false;
@@ -1940,7 +1969,7 @@ bool testableInst(Inst inst)
     else if (InstCvt instCvt = inst)
     {
         // Saturating signalign rounding is badly defined in spec; the behavior is unclear
-        unsigned rounding = instCvt.modifier().round();
+        unsigned rounding = instCvt.round();
         return !(isSatRounding(rounding) && isSignalingRounding(rounding));
     }
 

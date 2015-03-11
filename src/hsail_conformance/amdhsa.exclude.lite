@@ -21,6 +21,7 @@ prm/core/arithmetic/nativefp/nfma/nfma_f32_00003
 prm/core/arithmetic/nativefp/nfma/nfma_f64_00007
 prm/core/directive/loc/locations/before_version
 prm/core/directive/pragma/locations/before_version
+prm/core/parallel/fbarrier
 prm/core/special/misc/cuid/lessmax
 prm/core/special/misc/waveid/lessmax
 prm/core/special/misc/groupbaseptr
@@ -31,4 +32,4 @@ prm/core/special/usermodequeue/casqueuewriteindex/basic/casqueuewriteindex_globa
 prm/core/special/misc/kernargbaseptr/identity/kernel
 prm/core/special/misc/kernargbaseptr/identity/function
 prm/core/limits/wgnumber
-
+prm/image/initializer/sampler

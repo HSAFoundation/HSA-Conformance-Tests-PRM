@@ -47,7 +47,7 @@ namespace hexl {
       SEPARATE_QUEUE = SOURCE_START, // Queue created on the host separate from dispatch.
       SOURCE_END,
       DISPATCH_SERVICE_QUEUE, // Queue created on the host and passed as service_queue of dispatch queue.
-      DISPATCH_QUEUE, // Dispatch queue.
+///      DISPATCH_QUEUE, // Dispatch queue.
       USER_PROVIDED = SOURCE_START,
     };
     
@@ -85,7 +85,9 @@ namespace hexl {
     class EKernel;
     class EFunction;
     class ECondition;
+    class EImageSpec;
     class EImage;
+    class ESamplerSpec;
     class ESampler;
 
     typedef ETypedRegList* TypedRegList;
@@ -103,7 +105,9 @@ namespace hexl {
     typedef EKernel* Kernel;
     typedef EFunction* Function;
     typedef ECondition* Condition;
+    typedef EImageSpec* ImageSpec;
     typedef EImage* Image;
+    typedef ESamplerSpec* SamplerSpec;
     typedef ESampler* Sampler;
   }
 }

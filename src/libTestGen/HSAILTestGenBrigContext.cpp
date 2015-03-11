@@ -9,8 +9,6 @@
 #include <sstream>
 #include <iomanip>
 
-#define FIXME_UNUSED(var) (void)var
-
 using std::string;
 using std::ostringstream;
 using std::setw;
@@ -18,7 +16,7 @@ using std::setfill;
 
 using HSAIL_ASM::Code;
 
-using HSAIL_ASM::DirectiveVersion;
+using HSAIL_ASM::DirectiveModule;
 using HSAIL_ASM::DirectiveKernel;
 using HSAIL_ASM::DirectiveFunction;
 using HSAIL_ASM::DirectiveExecutable;
@@ -40,9 +38,9 @@ using HSAIL_ASM::InstMod;
 using HSAIL_ASM::InstBr;
 using HSAIL_ASM::InstAddr;
 
-using HSAIL_ASM::OperandReg;
+using HSAIL_ASM::OperandRegister;
 using HSAIL_ASM::OperandOperandList;
-using HSAIL_ASM::OperandData;
+using HSAIL_ASM::OperandConstantBytes;
 using HSAIL_ASM::OperandWavesize;
 using HSAIL_ASM::OperandAddress;
 using HSAIL_ASM::OperandCodeRef;
@@ -55,6 +53,9 @@ using HSAIL_ASM::isFloatType;
 using HSAIL_ASM::isOpaqueType;
 using HSAIL_ASM::ArbitraryData;
 using HSAIL_ASM::getBrigTypeNumBits;
+using HSAIL_ASM::type2immType;
+using HSAIL_ASM::typeX2str;
+using HSAIL_ASM::isSignalType;
 
 namespace TESTGEN {
 
@@ -74,15 +75,15 @@ bool     BrigSettings::gcnSubset    = false;
 //=============================================================================
 //=============================================================================
 
-void BrigContext::emitVersion()
+void BrigContext::emitModule()
 {
-    brigantine.version(Brig::BRIG_VERSION_HSAIL_MAJOR, Brig::BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile());
+    //F1.0: name + rounding + pass by option
+    brigantine.module("&module", Brig::BRIG_VERSION_HSAIL_MAJOR, Brig::BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile(), Brig::BRIG_ROUND_FLOAT_DEFAULT);
 }
 
 void BrigContext::emitExtension(const char* name)
 {
     DirectiveExtension ext = brigantine.addExtension(name);
-    FIXME_UNUSED(ext);
 }
 
 string BrigContext::getLabName(const char* name, unsigned idx, unsigned width /*=0*/)
@@ -108,7 +109,6 @@ Operand BrigContext::emitLabelRef(const char* name)
 Operand BrigContext::emitLabelAndRef(const char* name)
 {
     DirectiveLabel lbl = emitLabel(name);
-    FIXME_UNUSED(lbl);
     return emitLabelRef(name);
 }
 
@@ -176,21 +176,21 @@ void BrigContext::emitShl(unsigned type, Operand res, Operand src, unsigned shif
 {
     InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_SHL, type);
 
-    append(inst, res, src, emitImm(32, shift));
+    append(inst, res, src, emitImm(Brig::BRIG_TYPE_U32, shift));
 }
 
 void BrigContext::emitShr(unsigned type, Operand res, Operand src, unsigned shift)
 {
     InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_SHR, type);
 
-    append(inst, res, src, emitImm(32, shift));
+    append(inst, res, src, emitImm(Brig::BRIG_TYPE_U32, shift));
 }
 
 void BrigContext::emitMul(unsigned type, Operand res, Operand src, unsigned multiplier)
 {
     InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_MUL, type);
 
-    append(inst, res, src, emitImm(getBrigTypeNumBits(type), multiplier));
+    append(inst, res, src, emitImm(type, multiplier));
 }
 
 void BrigContext::emitMov(unsigned type, Operand to, Operand from)
@@ -211,7 +211,7 @@ void BrigContext::emitAdd(unsigned type, Operand res, Operand op1, unsigned n)
 {
     InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_ADD, type);
 
-    append(inst, res, op1, emitImm(getBrigTypeNumBits(type), n));
+    append(inst, res, op1, emitImm(type, n));
 }
 
 void BrigContext::emitSub(unsigned type, Operand res, Operand op1, Operand op2)
@@ -225,10 +225,10 @@ void BrigContext::emitGetWorkItemId(Operand res, unsigned dim)
 {
     InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_WORKITEMABSID, Brig::BRIG_TYPE_U32);
 
-    append(inst, res, emitImm(32, dim));
+    append(inst, res, emitImm(Brig::BRIG_TYPE_U32, dim));
 }
 
-void BrigContext::emitCvt(unsigned dstType, unsigned srcType, OperandReg to, OperandReg from)
+void BrigContext::emitCvt(unsigned dstType, unsigned srcType, OperandRegister to, OperandRegister from)
 {
     InstCvt cvt = brigantine.addInst<InstCvt>(Brig::BRIG_OPCODE_CVT, dstType);
     cvt.sourceType() = srcType;
@@ -236,7 +236,7 @@ void BrigContext::emitCvt(unsigned dstType, unsigned srcType, OperandReg to, Ope
     append(cvt, to, from);
 }
 
-void BrigContext::emitLda(OperandReg dst, DirectiveVariable var)
+void BrigContext::emitLda(OperandRegister dst, DirectiveVariable var)
 {
     assert(dst);
     assert(var);
@@ -254,11 +254,10 @@ void BrigContext::emitCmpEq(unsigned cRegIdx, unsigned sRegIdx, unsigned immVal)
 
     cmp.sourceType()        = Brig::BRIG_TYPE_U32;
     cmp.compare()           = Brig::BRIG_COMPARE_EQ;
-    cmp.modifier().round()  = Brig::BRIG_ROUND_NONE;
     cmp.modifier().ftz()    = 0;
     cmp.pack()              = Brig::BRIG_PACK_NONE;
 
-    append(cmp, emitReg(1, cRegIdx), emitReg(32, sRegIdx), emitImm(32, immVal));
+    append(cmp, emitReg(1, cRegIdx), emitReg(32, sRegIdx), emitImm(Brig::BRIG_TYPE_U32, immVal));
 }
 
 void BrigContext::emitCbr(unsigned cRegIdx, Operand label)
@@ -303,7 +302,7 @@ string BrigContext::getRegName(unsigned size, unsigned idx)
     return name.str();
 }
 
-Operand BrigContext::emitReg(OperandReg reg)
+Operand BrigContext::emitReg(OperandRegister reg)
 {
     return brigantine.createOperandReg(HSAIL_ASM::getRegName(reg));
 }
@@ -313,30 +312,37 @@ Operand BrigContext::emitReg(unsigned size, unsigned idx)
     return brigantine.createOperandReg(getRegName(size, idx));
 }
 
-Operand BrigContext::emitVector(unsigned cnt, unsigned size, unsigned idx0)
+Operand BrigContext::emitVector(unsigned cnt, unsigned type, unsigned idx0)
 {
     assert(2 <= cnt && cnt <= 4);
+    assert(typeX2str(type));
 
     ItemList opnds;
+    unsigned size = getBrigTypeNumBits(type);
     for(unsigned i = 0; i < cnt; ++i) opnds.push_back(emitReg(size, idx0 + i));
 
     return brigantine.createOperandList(opnds);
 }
 
-Operand BrigContext::emitVector(unsigned cnt, unsigned size, bool isDst /*=true*/, unsigned immCnt /*=0*/)
+Operand BrigContext::emitVector(unsigned cnt, unsigned type, bool isDst /*=true*/, unsigned immCnt /*=0*/)
 {
     assert(2 <= cnt && cnt <= 4);
-    assert(size == 8 || size == 16 || size == 32 || size == 64);
     assert(immCnt == 0 || !isDst);
     assert(immCnt <= cnt);
+    assert(typeX2str(type));
 
-    unsigned rsize = (size <= 32)? 32 : 64;
-    unsigned wsCnt = (immCnt == cnt)? 1 : 0;
+    unsigned size = getBrigTypeNumBits(type);
+    bool isSignal = isSignalType(type);
+
+    assert(size == 8 || size == 16 || size == 32 || size == 64 || size == 128);
+
+    unsigned rsize = (size <= 32)? 32 : size;
+    unsigned wsCnt = (immCnt == cnt && rsize != 128 && !isSignal)? 1 : 0;
 
     unsigned i = 0;
     ItemList opnds;
     for(; i <  wsCnt; ++i) opnds.push_back(emitWavesize());
-    for(; i < immCnt; ++i) opnds.push_back(emitImm(size, (i == 0)? 0 : -1));
+    for(; i < immCnt; ++i) opnds.push_back(emitImm(type, (i == 0 || isSignal)? 0 : -1));
     for(; i < cnt;    ++i) opnds.push_back(emitReg(rsize, isDst? i : 0));
 
     return brigantine.createOperandList(opnds);
@@ -347,23 +353,29 @@ Operand BrigContext::emitWavesize()
     return brigantine.createWaveSz();
 }
 
-Operand BrigContext::emitImm(unsigned size /*=32*/, uint64_t lVal /*=0*/, uint64_t hVal /*=0*/)
+Operand BrigContext::emitImm(unsigned type, uint64_t lVal /*=0*/, uint64_t hVal /*=0*/)
 {
+    assert(typeX2str(type));
+
     ArbitraryData data;
-    switch(size)
+
+    switch(getBrigTypeNumBits(type))
     {
-    case 1:      data.write((uint8_t)(lVal? 1 : 0), 0); break;
-    case 8:      data.write((uint8_t)lVal,          0); break;
-    case 16:     data.write((uint16_t)lVal,         0); break;
-    case 32:     data.write((uint32_t)lVal,         0); break;
-    case 64:     data.write((uint64_t)lVal,         0); break;
+    case 1:      data.write((uint8_t)(lVal? 1 : 0), 0);        break;
+    case 8:      data.write((uint8_t)lVal,          0);        break;
+    case 16:     data.write((uint16_t)lVal,         0);        break;
+    case 32:     data.write((uint32_t)lVal,         0);        break;
+    case 64:     data.write((uint64_t)lVal,         0);        break;
     case 128:    data.write((uint64_t)lVal,         0);
                  data.write((uint64_t)hVal, sizeof(uint64_t)); break;
     default:
         assert(false);
     }
 
-    return brigantine.createImmed(data.toSRef());
+    unsigned constType = type2immType(type, false);
+    assert(constType != Brig::BRIG_TYPE_NONE);
+
+    return brigantine.createImmed(data.toSRef(), constType);
 }
 
 Operand BrigContext::emitOperandCodeRef(Code c)
@@ -371,24 +383,36 @@ Operand BrigContext::emitOperandCodeRef(Code c)
     return brigantine.createCodeRef(c);
 }
 
-Operand BrigContext::emitAddrRef(DirectiveVariable var, OperandReg reg, unsigned offset /*=0*/)
+Operand BrigContext::emitAddrRef(DirectiveVariable var, OperandRegister reg, unsigned offset /*=0*/)
 {
-    return brigantine.createRef(var? SRef(var.name()) : SRef(), reg, offset);
+    assert(var || reg);
+
+    bool is32BitAddr = (var && getSegAddrSize(var.segment()) == 32) || (reg && reg.regKind() == Brig::BRIG_REGISTER_KIND_SINGLE);
+
+    return brigantine.createRef(var? SRef(var.name()) : SRef(), reg, offset, is32BitAddr);
 }
 
 Operand BrigContext::emitAddrRef(DirectiveVariable var, uint64_t offset /*=0*/)
 {
-    return brigantine.createRef(var? SRef(var.name()) : SRef(), OperandReg(), offset);
+    assert(var);
+
+    bool is32BitAddr = (var && getSegAddrSize(var.segment()) == 32);
+
+    return brigantine.createRef(var? SRef(var.name()) : SRef(), OperandRegister(), offset, is32BitAddr);
 }
 
-Operand BrigContext::emitAddrRef(OperandReg reg, uint64_t offset)
+Operand BrigContext::emitAddrRef(OperandRegister reg, uint64_t offset)
 {
-    return brigantine.createRef(SRef(), reg, offset);
+    assert(reg);
+
+    bool is32BitAddr = (reg && reg.regKind() == Brig::BRIG_REGISTER_KIND_SINGLE);
+
+    return brigantine.createRef(SRef(), reg, offset, is32BitAddr);
 }
 
-Operand BrigContext::emitAddrRef(uint64_t offset)
+Operand BrigContext::emitAddrRef(uint64_t offset, bool is32BitAddr)
 {
-    return brigantine.createRef(SRef(), OperandReg(), offset);
+    return brigantine.createRef(SRef(), OperandRegister(), offset, is32BitAddr);
 }
 
 //=============================================================================

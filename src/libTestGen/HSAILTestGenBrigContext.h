@@ -34,10 +34,12 @@ using HSAIL_ASM::DirectiveFbarrier;
 using HSAIL_ASM::DirectiveLabel;
 using HSAIL_ASM::Inst;
 using HSAIL_ASM::Operand;
-using HSAIL_ASM::OperandReg;
+using HSAIL_ASM::OperandRegister;
 using HSAIL_ASM::SRef;
 
 using HSAIL_ASM::getNaturalAlignment;
+using HSAIL_ASM::elementType2arrayType;
+using HSAIL_ASM::isArrayType;
 
 namespace TESTGEN {
 
@@ -117,7 +119,7 @@ public:
     BrigContainer& getContainer() { return container; }
 
 public: // Directives
-    void emitVersion();
+    void emitModule();
     void emitExtension(const char* name);
 
     DirectiveExecutable getCurrentSbr() { return currentSbr; }
@@ -145,39 +147,40 @@ public: // Instructions
     void emitShr(unsigned type, Operand res, Operand src, unsigned shift);
     void emitMul(unsigned type, Operand res, Operand op1, unsigned multiplier);
     void emitGetWorkItemId(Operand res, unsigned dim);
-    void emitCvt(unsigned dstType, unsigned srcType, OperandReg to, OperandReg from);
-    void emitLda(OperandReg dst, DirectiveVariable var);
+    void emitCvt(unsigned dstType, unsigned srcType, OperandRegister to, OperandRegister from);
+    void emitLda(OperandRegister dst, DirectiveVariable var);
     void emitCmpEq(unsigned cRegIdx, unsigned sRegIdx, unsigned immVal);
     void emitCbr(unsigned cRegIdx, Operand label);
     void emitBr(Operand label);
 
 public: // Operands
-    Operand emitReg(OperandReg reg);
+    Operand emitReg(OperandRegister reg);
     Operand emitReg(unsigned size, unsigned idx);
-    Operand emitVector(unsigned cnt, unsigned size, unsigned idx0);
-    Operand emitVector(unsigned cnt, unsigned size, bool isDst = true, unsigned immCnt = 0);
-    Operand emitImm(unsigned size = 32, uint64_t lVal = 0, uint64_t hVal = 0);
+    Operand emitVector(unsigned cnt, unsigned type, unsigned idx0);
+    Operand emitVector(unsigned cnt, unsigned type, bool isDst = true, unsigned immCnt = 0);
+    Operand emitImm(unsigned type, uint64_t lVal = 0, uint64_t hVal = 0);
     Operand emitWavesize();
 
     Operand emitOperandCodeRef(Code d);
 
-    Operand emitAddrRef(DirectiveVariable var, OperandReg reg, unsigned offset = 0);
+    Operand emitAddrRef(DirectiveVariable var, OperandRegister reg, unsigned offset = 0);
     Operand emitAddrRef(DirectiveVariable var, uint64_t offset = 0);
-    Operand emitAddrRef(OperandReg reg, uint64_t offset = 0);
-    Operand emitAddrRef(uint64_t offset = 0);
+    Operand emitAddrRef(OperandRegister reg, uint64_t offset = 0);
+    Operand emitAddrRef(uint64_t offset, bool is32BitAddr);
+
     Operand emitLabelAndRef(const char* name);
     Operand emitLabelRef(const char* name);
     Operand emitLabelRef(const char* name, unsigned idx, unsigned width = 0);
 
-    DirectiveVariable emitSymbol(unsigned type, string name, unsigned segment = Brig::BRIG_SEGMENT_GLOBAL, unsigned dim = 0)
+    DirectiveVariable emitSymbol(unsigned scalarType, string name, unsigned segment = Brig::BRIG_SEGMENT_GLOBAL, unsigned dim = 0)
     {
         assert(name.length() > 0);
+        assert(!isArrayType(scalarType));
 
-        DirectiveVariable sym = brigantine.addVariable(name, segment, type);
+        DirectiveVariable sym = (dim == 0)? brigantine.addVariable(name, segment, scalarType) :
+                                            brigantine.addArrayVariable(name, dim, segment, scalarType);
 
         sym.modifier().isConst() = false;
-        sym.modifier().isArray() = (dim > 0);
-        sym.modifier().isFlexArray() = false;
         sym.modifier().isDefinition() = true;
 
         sym.linkage() = (name[0] == '%')? Brig::BRIG_LINKAGE_FUNCTION : Brig::BRIG_LINKAGE_MODULE;
@@ -187,8 +190,7 @@ public: // Operands
         else if (segment == Brig::BRIG_SEGMENT_READONLY) sym.allocation() = Brig::BRIG_ALLOCATION_AGENT;
 
         sym.init() = Directive();
-        sym.align() = getNaturalAlignment(type);
-        sym.dim() = dim;
+        sym.align() = getNaturalAlignment(scalarType);
 
         return sym;
     }

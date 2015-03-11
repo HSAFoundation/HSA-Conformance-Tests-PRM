@@ -4,6 +4,7 @@
 #include "HSAILValidatorBase.h"
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenUtilities.h"
+#include "HSAILTestGenEmulatorTypes.h"
 
 #include <algorithm>
 
@@ -25,27 +26,75 @@ static const unsigned valMapDesc[] = // from HDL to TestGen
 
     OPERAND_VAL_REG,        O_CREG, O_SREG, O_DREG, O_QREG, 0,
 
-    OPERAND_VAL_VEC_2,      O_VEC2_R32_SRC, O_VEC2_R64_SRC,
-                            O_VEC2_I8_SRC,  O_VEC2_I16_SRC, O_VEC2_I32_SRC, O_VEC2_I64_SRC,
-                            O_VEC2_M8_SRC,  O_VEC2_M16_SRC, O_VEC2_M32_SRC, O_VEC2_M64_SRC,
-                            O_VEC2_R32_DST, O_VEC2_R64_DST,
+    OPERAND_VAL_VEC_2,      O_VEC2_R32_SRC,     O_VEC2_R64_SRC,     O_VEC2_R128_SRC,
+                            O_VEC2_I_U8_SRC,    O_VEC2_I_S8_SRC,  
+                            O_VEC2_M_U8_SRC,    O_VEC2_M_S8_SRC,  
+                            O_VEC2_I_U16_SRC,   O_VEC2_I_S16_SRC,   O_VEC2_I_F16_SRC,
+                            O_VEC2_M_U16_SRC,   O_VEC2_M_S16_SRC,   O_VEC2_M_F16_SRC,
+                            O_VEC2_I_U32_SRC,   O_VEC2_I_S32_SRC,   O_VEC2_I_F32_SRC,
+                            O_VEC2_M_U32_SRC,   O_VEC2_M_S32_SRC,   O_VEC2_M_F32_SRC,
+                            O_VEC2_I_U64_SRC,   O_VEC2_I_S64_SRC,   O_VEC2_I_F64_SRC,
+                            O_VEC2_M_U64_SRC,   O_VEC2_M_S64_SRC,   O_VEC2_M_F64_SRC,
+                            O_VEC2_I_B128_SRC,  O_VEC2_I_B128_SRC,  O_VEC2_I_B128_SRC,
+                            O_VEC2_M_B128_SRC,  O_VEC2_M_B128_SRC,  O_VEC2_M_B128_SRC,
+                            O_VEC2_R32_DST,     O_VEC2_R64_DST,     O_VEC2_R128_DST,
+                            O_VEC2_SIG32_SRC,
+                            O_VEC2_SIG64_SRC,
                             0,
 
-    OPERAND_VAL_VEC_3,      O_VEC3_R32_SRC, O_VEC3_R64_SRC,
-                            O_VEC3_I8_SRC,  O_VEC3_I16_SRC, O_VEC3_I32_SRC, O_VEC3_I64_SRC,
-                            O_VEC3_M8_SRC,  O_VEC3_M16_SRC, O_VEC3_M32_SRC, O_VEC3_M64_SRC,
-                            O_VEC3_R32_DST, O_VEC3_R64_DST,
+    OPERAND_VAL_VEC_3,      O_VEC3_R32_SRC,     O_VEC3_R64_SRC,     O_VEC3_R128_SRC,
+                            O_VEC3_I_U8_SRC,    O_VEC3_I_S8_SRC,  
+                            O_VEC3_M_U8_SRC,    O_VEC3_M_S8_SRC,  
+                            O_VEC3_I_U16_SRC,   O_VEC3_I_S16_SRC,   O_VEC3_I_F16_SRC,
+                            O_VEC3_M_U16_SRC,   O_VEC3_M_S16_SRC,   O_VEC3_M_F16_SRC,
+                            O_VEC3_I_U32_SRC,   O_VEC3_I_S32_SRC,   O_VEC3_I_F32_SRC,
+                            O_VEC3_M_U32_SRC,   O_VEC3_M_S32_SRC,   O_VEC3_M_F32_SRC,
+                            O_VEC3_I_U64_SRC,   O_VEC3_I_S64_SRC,   O_VEC3_I_F64_SRC,
+                            O_VEC3_M_U64_SRC,   O_VEC3_M_S64_SRC,   O_VEC3_M_F64_SRC,
+                            O_VEC3_I_B128_SRC,  O_VEC3_I_B128_SRC,  O_VEC3_I_B128_SRC,
+                            O_VEC3_M_B128_SRC,  O_VEC3_M_B128_SRC,  O_VEC3_M_B128_SRC,
+                            O_VEC3_R32_DST,     O_VEC3_R64_DST,     O_VEC3_R128_DST,
+                            O_VEC3_SIG32_SRC,
+                            O_VEC3_SIG64_SRC,
                             0,
 
-    OPERAND_VAL_VEC_4,      O_VEC4_R32_SRC, O_VEC4_R64_SRC,
-                            O_VEC4_I8_SRC,  O_VEC4_I16_SRC, O_VEC4_I32_SRC, O_VEC4_I64_SRC,
-                            O_VEC4_M8_SRC,  O_VEC4_M16_SRC, O_VEC4_M32_SRC, O_VEC4_M64_SRC,
-                            O_VEC4_R32_DST, O_VEC4_R64_DST,
+    OPERAND_VAL_VEC_4,      O_VEC4_R32_SRC,     O_VEC4_R64_SRC,     O_VEC4_R128_SRC,
+                            O_VEC4_I_U8_SRC,    O_VEC4_I_S8_SRC,  
+                            O_VEC4_M_U8_SRC,    O_VEC4_M_S8_SRC,  
+                            O_VEC4_I_U16_SRC,   O_VEC4_I_S16_SRC,   O_VEC4_I_F16_SRC,
+                            O_VEC4_M_U16_SRC,   O_VEC4_M_S16_SRC,   O_VEC4_M_F16_SRC,
+                            O_VEC4_I_U32_SRC,   O_VEC4_I_S32_SRC,   O_VEC4_I_F32_SRC,
+                            O_VEC4_M_U32_SRC,   O_VEC4_M_S32_SRC,   O_VEC4_M_F32_SRC,
+                            O_VEC4_I_U64_SRC,   O_VEC4_I_S64_SRC,   O_VEC4_I_F64_SRC,
+                            O_VEC4_M_U64_SRC,   O_VEC4_M_S64_SRC,   O_VEC4_M_F64_SRC,
+                            O_VEC4_I_B128_SRC,  O_VEC4_I_B128_SRC,  O_VEC4_I_B128_SRC,
+                            O_VEC4_M_B128_SRC,  O_VEC4_M_B128_SRC,  O_VEC4_M_B128_SRC,
+                            O_VEC4_R32_DST,     O_VEC4_R64_DST,     O_VEC4_R128_DST,
+                            O_VEC4_SIG32_SRC,
+                            O_VEC4_SIG64_SRC,
                             0,
 
-    OPERAND_VAL_IMM,        O_IMM8_X, O_IMM16_X, O_IMM32_X, O_IMM64_X, O_IMM128_X, O_WAVESIZE, 0,
+    OPERAND_VAL_IMM,        O_IMM_U8,       O_IMM_S8,
+                            O_IMM_U16,      O_IMM_S16,      O_IMM_F16, 
+                            O_IMM_U32,      O_IMM_S32,      O_IMM_F32, 
+                            O_IMM_U64,      O_IMM_S64,      O_IMM_F64, 
+                           
+                            O_IMM_U8X4,     O_IMM_S8X4,     O_IMM_U16X2,    O_IMM_S16X2,    O_IMM_F16X2,
+                            O_IMM_U8X8,     O_IMM_S8X8,     O_IMM_U16X4,    O_IMM_S16X4,    O_IMM_F16X4,    O_IMM_U32X2,    O_IMM_S32X2,    O_IMM_F32X2,
+                            O_IMM_U8X16,    O_IMM_S8X16,    O_IMM_U16X8,    O_IMM_S16X8,    O_IMM_F16X8,    O_IMM_U32X4,    O_IMM_S32X4,    O_IMM_F32X4,    O_IMM_U64X2,    O_IMM_S64X2,    O_IMM_F64X2,
 
-    OPERAND_VAL_CNST,       O_IMM8_X, O_IMM16_X, O_IMM32_X, O_IMM64_X, O_IMM128_X, 0,
+                            O_IMM_SIG32,    
+                            O_IMM_SIG64,
+                            
+                            O_WAVESIZE, 
+                            0,
+
+    OPERAND_VAL_CNST,       O_IMM_U8,       O_IMM_S8,
+                            O_IMM_U16,      O_IMM_S16,      O_IMM_F16, 
+                            O_IMM_U32,      O_IMM_S32,      O_IMM_F32, 
+                            O_IMM_U64,      O_IMM_S64,      O_IMM_F64, 
+                            
+                            0,
 
     OPERAND_VAL_LAB,        O_LABELREF, 0,
 
@@ -66,8 +115,8 @@ static const unsigned valMapDesc[] = // from HDL to TestGen
     OPERAND_VAL_CALLTAB,    0,
     OPERAND_VAL_FBARRIER,   O_FBARRIERREF, 0,
 
-    OPERAND_VAL_IMM0T2,     O_IMM32_0, O_IMM32_1, O_IMM32_2, 0,
-    OPERAND_VAL_IMM0T3,     O_IMM32_0, O_IMM32_1, O_IMM32_2, O_IMM32_3, 0,
+    OPERAND_VAL_IMM0T2,     O_IMM_U32_0, O_IMM_U32_1, O_IMM_U32_2, 0,
+    OPERAND_VAL_IMM0T3,     O_IMM_U32_0, O_IMM_U32_1, O_IMM_U32_2, O_IMM_U32_3, 0,
 
     OPERAND_VAL_INVALID,    0,
 
@@ -126,27 +175,27 @@ const SymDesc symDescTab[SYM_MAXID] =
 {
     {},
 
-    {SYM_FUNC,           "&TestFunc",      Brig::BRIG_TYPE_NONE,   0,                   Brig::BRIG_SEGMENT_NONE},
-    {SYM_IFUNC,          "&TestIndirFunc", Brig::BRIG_TYPE_NONE,   0,                   Brig::BRIG_SEGMENT_NONE},
-    {SYM_KERNEL,         "&TestKernel",    Brig::BRIG_TYPE_NONE,   0,                   Brig::BRIG_SEGMENT_NONE},
-    {SYM_SIGNATURE,      "&TestSignature", Brig::BRIG_TYPE_NONE,   0,                   Brig::BRIG_SEGMENT_NONE},
-    {SYM_GLOBAL_VAR,     "&GlobalVar",     Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / 4, Brig::BRIG_SEGMENT_GLOBAL},
-    {SYM_GROUP_VAR,      "&GroupVar",      Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / 4, Brig::BRIG_SEGMENT_GROUP},
-    {SYM_PRIVATE_VAR,    "&PrivateVar",    Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / 4, Brig::BRIG_SEGMENT_PRIVATE},
-    {SYM_READONLY_VAR,   "&ReadonlyVar",   Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / 4, Brig::BRIG_SEGMENT_READONLY},
-    {SYM_GLOBAL_ROIMG,   "&GlobalROImg",   Brig::BRIG_TYPE_ROIMG,  0,                   Brig::BRIG_SEGMENT_GLOBAL},
-    {SYM_GLOBAL_WOIMG,   "&GlobalWOImg",   Brig::BRIG_TYPE_WOIMG,  0,                   Brig::BRIG_SEGMENT_GLOBAL},
-    {SYM_GLOBAL_RWIMG,   "&GlobalRWImg",   Brig::BRIG_TYPE_RWIMG,  0,                   Brig::BRIG_SEGMENT_GLOBAL},
-    {SYM_READONLY_ROIMG, "&ReadonlyROImg", Brig::BRIG_TYPE_ROIMG,  0,                   Brig::BRIG_SEGMENT_READONLY},
-    {SYM_READONLY_RWIMG, "&ReadonlyRWImg", Brig::BRIG_TYPE_RWIMG,  0,                   Brig::BRIG_SEGMENT_READONLY},
-    {SYM_GLOBAL_SAMP,    "&GlobalSamp",    Brig::BRIG_TYPE_SAMP,   0,                   Brig::BRIG_SEGMENT_GLOBAL},
-    {SYM_READONLY_SAMP,  "&ReadonlySamp",  Brig::BRIG_TYPE_SAMP,   0,                   Brig::BRIG_SEGMENT_READONLY},
-    {SYM_GLOBAL_SIG32,   "&GlobalSig32",   Brig::BRIG_TYPE_SIG32,  0,                   Brig::BRIG_SEGMENT_GLOBAL},
-    {SYM_READONLY_SIG32, "&ReadonlySig32", Brig::BRIG_TYPE_SIG32,  0,                   Brig::BRIG_SEGMENT_READONLY},
-    {SYM_GLOBAL_SIG64,   "&GlobalSig64",   Brig::BRIG_TYPE_SIG64,  0,                   Brig::BRIG_SEGMENT_GLOBAL},
-    {SYM_READONLY_SIG64, "&ReadonlySig64", Brig::BRIG_TYPE_SIG64,  0,                   Brig::BRIG_SEGMENT_READONLY},
-    {SYM_FBARRIER,       "&Fbarrier",      Brig::BRIG_TYPE_NONE,   0,                   Brig::BRIG_SEGMENT_NONE},
-    {SYM_LABEL,          "@TestLabel",     Brig::BRIG_TYPE_NONE,   0,                   Brig::BRIG_SEGMENT_NONE},
+    {SYM_FUNC,           "&TestFunc",      Brig::BRIG_TYPE_NONE,   0,                               Brig::BRIG_SEGMENT_NONE},
+    {SYM_IFUNC,          "&TestIndirFunc", Brig::BRIG_TYPE_NONE,   0,                               Brig::BRIG_SEGMENT_NONE},
+    {SYM_KERNEL,         "&TestKernel",    Brig::BRIG_TYPE_NONE,   0,                               Brig::BRIG_SEGMENT_NONE},
+    {SYM_SIGNATURE,      "&TestSignature", Brig::BRIG_TYPE_NONE,   0,                               Brig::BRIG_SEGMENT_NONE},
+    {SYM_GLOBAL_VAR,     "&GlobalVar",     Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), Brig::BRIG_SEGMENT_GLOBAL},
+    {SYM_GROUP_VAR,      "&GroupVar",      Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), Brig::BRIG_SEGMENT_GROUP},
+    {SYM_PRIVATE_VAR,    "&PrivateVar",    Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), Brig::BRIG_SEGMENT_PRIVATE},
+    {SYM_READONLY_VAR,   "&ReadonlyVar",   Brig::BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), Brig::BRIG_SEGMENT_READONLY},
+    {SYM_GLOBAL_ROIMG,   "&GlobalROImg",   Brig::BRIG_TYPE_ROIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_GLOBAL},
+    {SYM_GLOBAL_WOIMG,   "&GlobalWOImg",   Brig::BRIG_TYPE_WOIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_GLOBAL},
+    {SYM_GLOBAL_RWIMG,   "&GlobalRWImg",   Brig::BRIG_TYPE_RWIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_GLOBAL},
+    {SYM_READONLY_ROIMG, "&ReadonlyROImg", Brig::BRIG_TYPE_ROIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_READONLY},
+    {SYM_READONLY_RWIMG, "&ReadonlyRWImg", Brig::BRIG_TYPE_RWIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_READONLY},
+    {SYM_GLOBAL_SAMP,    "&GlobalSamp",    Brig::BRIG_TYPE_SAMP,   TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_GLOBAL},
+    {SYM_READONLY_SAMP,  "&ReadonlySamp",  Brig::BRIG_TYPE_SAMP,   TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_READONLY},
+    {SYM_GLOBAL_SIG32,   "&GlobalSig32",   Brig::BRIG_TYPE_SIG32,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_GLOBAL},
+    {SYM_READONLY_SIG32, "&ReadonlySig32", Brig::BRIG_TYPE_SIG32,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_READONLY},
+    {SYM_GLOBAL_SIG64,   "&GlobalSig64",   Brig::BRIG_TYPE_SIG64,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_GLOBAL},
+    {SYM_READONLY_SIG64, "&ReadonlySig64", Brig::BRIG_TYPE_SIG64,  TEST_ARRAY_SIZE / sizeof(u64_t), Brig::BRIG_SEGMENT_READONLY},
+    {SYM_FBARRIER,       "&Fbarrier",      Brig::BRIG_TYPE_NONE,   0,                               Brig::BRIG_SEGMENT_NONE},
+    {SYM_LABEL,          "@TestLabel",     Brig::BRIG_TYPE_NONE,   0,                               Brig::BRIG_SEGMENT_NONE},
 
 };
 
@@ -187,47 +236,166 @@ string operand2str(unsigned operandId)
     case O_VEC2_R64_SRC:  return "($d0, $d0)";
     case O_VEC3_R64_SRC:  return "($d0, $d0, $d0)";
     case O_VEC4_R64_SRC:  return "($d0, $d0, $d0, $d0)";
-    case O_VEC2_I8_SRC:   return "(WS, IMM8)";
-    case O_VEC3_I8_SRC:   return "(WS, IMM8, IMM8)";
-    case O_VEC4_I8_SRC:   return "(WS, IMM8, IMM8, IMM8)";
-    case O_VEC2_M8_SRC:   return "(IMM8, $s0)";
-    case O_VEC3_M8_SRC:   return "(IMM8, IMM8, $s0)";
-    case O_VEC4_M8_SRC:   return "(IMM8, IMM8, $s0, $s0)";
-    case O_VEC2_I16_SRC:  return "(WS, IMM16)";
-    case O_VEC3_I16_SRC:  return "(WS, IMM16, IMM16)";
-    case O_VEC4_I16_SRC:  return "(WS, IMM16, IMM16, IMM16)";
-    case O_VEC2_M16_SRC:  return "(IMM16, $s0)";
-    case O_VEC3_M16_SRC:  return "(IMM16, IMM16, $s0)";
-    case O_VEC4_M16_SRC:  return "(IMM16, IMM16, $s0, $s0)";
-    case O_VEC2_I32_SRC:  return "(WS, IMM32)";
-    case O_VEC3_I32_SRC:  return "(WS, IMM32, IMM32)";
-    case O_VEC4_I32_SRC:  return "(WS, IMM32, IMM32, IMM32)";
-    case O_VEC2_M32_SRC:  return "(IMM32, $s0)";
-    case O_VEC3_M32_SRC:  return "(IMM32, IMM32, $s0)";
-    case O_VEC4_M32_SRC:  return "(IMM32, IMM32, $s0, $s0)";
-    case O_VEC2_I64_SRC:  return "(WS, IMM64)";
-    case O_VEC3_I64_SRC:  return "(WS, IMM64, IMM64)";
-    case O_VEC4_I64_SRC:  return "(WS, IMM64, IMM64, IMM64)";
-    case O_VEC2_M64_SRC:  return "(IMM64, $d0)";
-    case O_VEC3_M64_SRC:  return "(IMM64, IMM64, $d0)";
-    case O_VEC4_M64_SRC:  return "(IMM64, IMM64, $d0, $d0)";
+    case O_VEC2_R128_SRC: return "($q0, $q0)";
+    case O_VEC3_R128_SRC: return "($q0, $q0, $q0)";
+    case O_VEC4_R128_SRC: return "($q0, $q0, $q0, $q0)";
+
+    case O_VEC2_I_U8_SRC: return "(WS, IMM#u8)";
+    case O_VEC3_I_U8_SRC: return "(WS, IMM#u8, IMM#u8)";
+    case O_VEC4_I_U8_SRC: return "(WS, IMM#u8, IMM#u8, IMM#u8)";
+    case O_VEC2_M_U8_SRC: return "(IMM#u8, $s0)";
+    case O_VEC3_M_U8_SRC: return "(IMM#u8, IMM#u8, $s0)";
+    case O_VEC4_M_U8_SRC: return "(IMM#u8, IMM#u8, $s0, $s0)";
+
+    case O_VEC2_I_S8_SRC: return "(WS, IMM#s8)";
+    case O_VEC3_I_S8_SRC: return "(WS, IMM#s8, IMM#s8)";
+    case O_VEC4_I_S8_SRC: return "(WS, IMM#s8, IMM#s8, IMM#s8)";
+    case O_VEC2_M_S8_SRC: return "(IMM#s8, $s0)";
+    case O_VEC3_M_S8_SRC: return "(IMM#s8, IMM#s8, $s0)";
+    case O_VEC4_M_S8_SRC: return "(IMM#s8, IMM#s8, $s0, $s0)";
+
+
+    case O_VEC2_I_U16_SRC:  return "(WS, IMM#u16)";
+    case O_VEC3_I_U16_SRC:  return "(WS, IMM#u16, IMM#u16)";
+    case O_VEC4_I_U16_SRC:  return "(WS, IMM#u16, IMM#u16, IMM#u16)";
+    case O_VEC2_M_U16_SRC:  return "(IMM#u16, $s0)";
+    case O_VEC3_M_U16_SRC:  return "(IMM#u16, IMM#u16, $s0)";
+    case O_VEC4_M_U16_SRC:  return "(IMM#u16, IMM#u16, $s0, $s0)";
+
+    case O_VEC2_I_S16_SRC:  return "(WS, IMM#s16)";
+    case O_VEC3_I_S16_SRC:  return "(WS, IMM#s16, IMM#s16)";
+    case O_VEC4_I_S16_SRC:  return "(WS, IMM#s16, IMM#s16, IMM#s16)";
+    case O_VEC2_M_S16_SRC:  return "(IMM#s16, $s0)";
+    case O_VEC3_M_S16_SRC:  return "(IMM#s16, IMM#s16, $s0)";
+    case O_VEC4_M_S16_SRC:  return "(IMM#s16, IMM#s16, $s0, $s0)";
+
+    case O_VEC2_I_F16_SRC:  return "(WS, IMM#f16)";
+    case O_VEC3_I_F16_SRC:  return "(WS, IMM#f16, IMM#f16)";
+    case O_VEC4_I_F16_SRC:  return "(WS, IMM#f16, IMM#f16, IMM#f16)";
+    case O_VEC2_M_F16_SRC:  return "(IMM#f16, $s0)";
+    case O_VEC3_M_F16_SRC:  return "(IMM#f16, IMM#f16, $s0)";
+    case O_VEC4_M_F16_SRC:  return "(IMM#f16, IMM#f16, $s0, $s0)";
+
+
+    case O_VEC2_I_U32_SRC:  return "(WS, IMM#u32)";
+    case O_VEC3_I_U32_SRC:  return "(WS, IMM#u32, IMM#u32)";
+    case O_VEC4_I_U32_SRC:  return "(WS, IMM#u32, IMM#u32, IMM#u32)";
+    case O_VEC2_M_U32_SRC:  return "(IMM#u32, $s0)";
+    case O_VEC3_M_U32_SRC:  return "(IMM#u32, IMM#u32, $s0)";
+    case O_VEC4_M_U32_SRC:  return "(IMM#u32, IMM#u32, $s0, $s0)";
+
+    case O_VEC2_I_S32_SRC:  return "(WS, IMM#s32)";
+    case O_VEC3_I_S32_SRC:  return "(WS, IMM#s32, IMM#s32)";
+    case O_VEC4_I_S32_SRC:  return "(WS, IMM#s32, IMM#s32, IMM#s32)";
+    case O_VEC2_M_S32_SRC:  return "(IMM#s32, $s0)";
+    case O_VEC3_M_S32_SRC:  return "(IMM#s32, IMM#s32, $s0)";
+    case O_VEC4_M_S32_SRC:  return "(IMM#s32, IMM#s32, $s0, $s0)";
+
+    case O_VEC2_I_F32_SRC:  return "(WS, IMM#f32)";
+    case O_VEC3_I_F32_SRC:  return "(WS, IMM#f32, IMM#f32)";
+    case O_VEC4_I_F32_SRC:  return "(WS, IMM#f32, IMM#f32, IMM#f32)";
+    case O_VEC2_M_F32_SRC:  return "(IMM#f32, $s0)";
+    case O_VEC3_M_F32_SRC:  return "(IMM#f32, IMM#f32, $s0)";
+    case O_VEC4_M_F32_SRC:  return "(IMM#f32, IMM#f32, $s0, $s0)";
+
+
+    case O_VEC2_I_U64_SRC:  return "(WS, IMM#u64)";
+    case O_VEC3_I_U64_SRC:  return "(WS, IMM#u64, IMM#u64)";
+    case O_VEC4_I_U64_SRC:  return "(WS, IMM#u64, IMM#u64, IMM#u64)";
+    case O_VEC2_M_U64_SRC:  return "(IMM#u64, $d0)";
+    case O_VEC3_M_U64_SRC:  return "(IMM#u64, IMM#u64, $d0)";
+    case O_VEC4_M_U64_SRC:  return "(IMM#u64, IMM#u64, $d0, $d0)";
+
+    case O_VEC2_I_S64_SRC:  return "(WS, IMM#s64)";
+    case O_VEC3_I_S64_SRC:  return "(WS, IMM#s64, IMM#s64)";
+    case O_VEC4_I_S64_SRC:  return "(WS, IMM#s64, IMM#s64, IMM#s64)";
+    case O_VEC2_M_S64_SRC:  return "(IMM#s64, $d0)";
+    case O_VEC3_M_S64_SRC:  return "(IMM#s64, IMM#s64, $d0)";
+    case O_VEC4_M_S64_SRC:  return "(IMM#s64, IMM#s64, $d0, $d0)";
+
+    case O_VEC2_I_F64_SRC:  return "(WS, IMM#f64)";
+    case O_VEC3_I_F64_SRC:  return "(WS, IMM#f64, IMM#f64)";
+    case O_VEC4_I_F64_SRC:  return "(WS, IMM#f64, IMM#f64, IMM#f64)";
+    case O_VEC2_M_F64_SRC:  return "(IMM#f64, $d0)";
+    case O_VEC3_M_F64_SRC:  return "(IMM#f64, IMM#f64, $d0)";
+    case O_VEC4_M_F64_SRC:  return "(IMM#f64, IMM#f64, $d0, $d0)";
+
+
+    case O_VEC2_I_B128_SRC:  return "(IMM#b128, IMM#b128)";
+    case O_VEC3_I_B128_SRC:  return "(IMM#b128, IMM#b128, IMM#b128)";
+    case O_VEC4_I_B128_SRC:  return "(IMM#b128, IMM#b128, IMM#b128, IMM#b128)";
+    case O_VEC2_M_B128_SRC:  return "(IMM#b128, $d0)";
+    case O_VEC3_M_B128_SRC:  return "(IMM#b128, IMM#b128, $d0)";
+    case O_VEC4_M_B128_SRC:  return "(IMM#b128, IMM#b128, $d0, $d0)";
+
+
     case O_VEC2_R32_DST:  return "($s0, $s1)";
     case O_VEC3_R32_DST:  return "($s0, $s1, $s2)";
     case O_VEC4_R32_DST:  return "($s0, $s1, $s2, $s3)";
-    case O_VEC3_R64_DST:  return "($d0, $d1, $d2)";
     case O_VEC2_R64_DST:  return "($d0, $d1)";
+    case O_VEC3_R64_DST:  return "($d0, $d1, $d2)";
     case O_VEC4_R64_DST:  return "($d0, $d1, $d2, $d3)";
+    case O_VEC2_R128_DST: return "($q0, $q1)";
+    case O_VEC3_R128_DST: return "($q0, $q1, $q2)";
+    case O_VEC4_R128_DST: return "($q0, $q1, $q2, $q3)";
 
-    case O_IMM8_X:        return "IMM#b8";
-    case O_IMM16_X:       return "IMM#b16";
-    case O_IMM32_X:       return "IMM#b32";
-    case O_IMM64_X:       return "IMM#b64";
-    case O_IMM128_X:      return "IMM#b128";
+    case O_VEC2_SIG32_SRC:  return "(sig32(0), $d1)";
+    case O_VEC3_SIG32_SRC:  return "(sig32(0), sig32(0), $d2)";
+    case O_VEC4_SIG32_SRC:  return "(sig32(0), sig32(0), sig32(0), $d3)";
 
-    case O_IMM32_0:       return "0";
-    case O_IMM32_1:       return "1";
-    case O_IMM32_2:       return "2";
-    case O_IMM32_3:       return "3";
+    case O_VEC2_SIG64_SRC:  return "(sig64(0), $d1)";
+    case O_VEC3_SIG64_SRC:  return "(sig64(0), sig64(0), $d2)";
+    case O_VEC4_SIG64_SRC:  return "(sig64(0), sig64(0), sig64(0), $d3)";
+
+    case O_IMM_U8:        return "IMM#u8";
+    case O_IMM_S8:        return "IMM#s8";
+
+    case O_IMM_U16:       return "IMM#u16";
+    case O_IMM_S16:       return "IMM#s16";
+    case O_IMM_F16:       return "IMM#f16";
+
+    case O_IMM_U32:       return "IMM#u32";
+    case O_IMM_S32:       return "IMM#s32";
+    case O_IMM_F32:       return "IMM#f32";
+
+    case O_IMM_U64:       return "IMM#u64";
+    case O_IMM_S64:       return "IMM#s64";
+    case O_IMM_F64:       return "IMM#f64";
+
+    case O_IMM_U8X4:      return "IMM#u8x4";
+    case O_IMM_S8X4:      return "IMM#s8x4";
+    case O_IMM_U16X2:     return "IMM#u16x2";
+    case O_IMM_S16X2:     return "IMM#s16x2";
+    case O_IMM_F16X2:     return "IMM#f16x2";
+
+    case O_IMM_U8X8:      return "IMM#u8x8";
+    case O_IMM_S8X8:      return "IMM#s8x8";
+    case O_IMM_U16X4:     return "IMM#u16x4";
+    case O_IMM_S16X4:     return "IMM#s16x4";
+    case O_IMM_F16X4:     return "IMM#f16x4";
+    case O_IMM_U32X2:     return "IMM#u32x2";
+    case O_IMM_S32X2:     return "IMM#s32x2";
+    case O_IMM_F32X2:     return "IMM#f32x2";
+
+    case O_IMM_U8X16:     return "IMM#u8x16";
+    case O_IMM_S8X16:     return "IMM#s8x16";
+    case O_IMM_U16X8:     return "IMM#u16x8";
+    case O_IMM_S16X8:     return "IMM#s16x8";
+    case O_IMM_F16X8:     return "IMM#f16x8";
+    case O_IMM_U32X4:     return "IMM#u32x4";
+    case O_IMM_S32X4:     return "IMM#s32x4";
+    case O_IMM_F32X4:     return "IMM#f32x4";
+    case O_IMM_U64X2:     return "IMM#u64x2";
+    case O_IMM_S64X2:     return "IMM#s64x2";
+    case O_IMM_F64X2:     return "IMM#f64x2";
+
+    case O_IMM_U32_0:     return "0";
+    case O_IMM_U32_1:     return "1";
+    case O_IMM_U32_2:     return "2";
+    case O_IMM_U32_3:     return "3";
+
+    case O_IMM_SIG32:     return "IMM#SIG32";
+    case O_IMM_SIG64:     return "IMM#SIG64";
 
     case O_WAVESIZE:      return "WAVESIZE";
 

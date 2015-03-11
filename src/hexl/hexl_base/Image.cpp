@@ -20,7 +20,7 @@ namespace hexl {
 
 void ImageDim::Name(std::ostream& out) const
 {
-  out << data[0] << 'x' << data[1] << 'x' << data[2] << "x[p" << data[3] << "s" << data[4] << ']';
+  out << data[0] << 'x' << data[1] << 'x' << data[2] << "x[a" << data[3] << ']';
 }
 
 void ImageGeometry::Name(std::ostream& out) const
@@ -30,7 +30,7 @@ void ImageGeometry::Name(std::ostream& out) const
 
 void ImageGeometry::Print(std::ostream& out) const
 {
-    out << "Image:       " << "(" << imageSize[0] << ", " << imageSize[1] << ", " << imageSize[2] << ")" << " [pitch: " << imageSize[3] << ", slice: " << imageSize[4] << ']' << std::endl;
+    out << "Image:       " << "(" << imageSize[0] << ", " << imageSize[1] << ", " << imageSize[2] << ")" << " [array: " << imageSize[3] << ']' << std::endl;
 }
 
 ImageDim ImageIterator::operator*()
@@ -40,7 +40,7 @@ ImageDim ImageIterator::operator*()
 
 ImageIterator& ImageIterator::operator++()
 {
-  unsigned x = point.get(0), y = point.get(1), z = point.get(2), pitch = point.get(3), slice = point.get(4);
+  unsigned x = point.get(0), y = point.get(1), z = point.get(2), array = point.get(3);
   unsigned gsx = geometry->ImageSize(0), gsy = geometry->ImageSize(1);
   x++;
   if (x == gsx) {
@@ -49,7 +49,7 @@ ImageIterator& ImageIterator::operator++()
       z++; y = 0;
     }
   }
-  point = ImageDim(x, y, z, pitch, slice);
+  point = ImageDim(x, y, z, array);
   return *this;
 }
 
@@ -67,5 +67,4 @@ bool ImageIterator::operator!=(const ImageIterator& i)
 {
   return (geometry != i.geometry) || (point != i.point);
 }
-
 }

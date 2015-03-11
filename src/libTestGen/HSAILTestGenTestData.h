@@ -697,6 +697,9 @@ BEGIN_TEST_DATA
                       TYPE(S64)
                       TYPE(U32)
                       TYPE(U64) SRCN(3);
+                      TYPE(F16) SRCT( F16T.ADDL(dstFtzF16), F16T.ADDL(dstFtzF16), F16T );
+                      TYPE(F32) SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32), F32T );
+                      TYPE(F64) SRCT( F64T.ADDL(dstFtzF64), F64T.ADDL(dstFtzF64), F64T );
 
     INST(FMA)         TYPE(F16) SRCT( F16T.ADDL(dstFtzF16), F16T.ADDL(dstFtzF16), F16T );
                       TYPE(F32) SRCT( F32T.ADDL(dstFtzF32), F32T.ADDL(dstFtzF32), F32T );

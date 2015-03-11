@@ -136,8 +136,7 @@ public:
              atomicOperation == BRIG_ATOMIC_WRAPINC ||
              atomicOperation == BRIG_ATOMIC_WRAPDEC ||
              atomicOperation == BRIG_ATOMIC_MAX ||
-             atomicOperation == BRIG_ATOMIC_MIN ||
-             atomicOperation == BRIG_ATOMIC_CAS;
+             atomicOperation == BRIG_ATOMIC_MIN;
     } else {
       return false;
     }
@@ -560,14 +559,14 @@ protected:
     be.EmitBr(trueLabel);
   }
 
-  OperandData ImmedValue(uint32_t value, BrigType16_t type) {
+  OperandConstantBytes ImmedValue(uint32_t value, BrigType16_t type) {
     if (getBrigTypeNumBits(type) != 128) {
       return be.Immed(type, value);
     } else {
       std::vector<char> vect(16, '\0');
       memcpy(vect.data(), (const char*)&value, 8);
       memcpy(vect.data() + 8, (const char*)&value, 8);
-      return be.Immed(vect);      
+      return be.Immed(BRIG_TYPE_B128, vect);
     }
   }
 

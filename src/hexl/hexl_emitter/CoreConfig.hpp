@@ -26,7 +26,7 @@
 #include <sstream>
 #include <cassert>
 
-#define BRIG_SEGMENT_MAX Brig::BRIG_SEGMENT_EXTSPACE0
+#define BRIG_SEGMENT_MAX Brig::BRIG_SEGMENT_AMD_GCN
 
 namespace Brig {
 
@@ -100,7 +100,7 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup, *atomic, *fbarrier;
+          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup, *atomic, *fbarrier, *images;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -125,6 +125,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* LimitGridSet() { return limitGrids; }
         hexl::Sequence<hexl::Grid>* SingleGroupSet() { return singleGroup; }
         hexl::Sequence<hexl::Grid>* AtomicSet() { return atomic; }
+        hexl::Sequence<hexl::Grid>* ImagesSet() { return images; }
       };
 
       class SegmentsConfig : public ConfigBase {
@@ -139,6 +140,7 @@ namespace hexl {
         SegmentsConfig(CoreConfig* cc);
 
         bool CanStore(Brig::BrigSegment8_t segment);
+        bool HasNullptr(Brig::BrigSegment8_t segment);
         bool HasFlatAddress(Brig::BrigSegment8_t segment);
         bool HasAddress(Brig::BrigSegment8_t segment);
         bool CanPassAddressToKernel(Brig::BrigSegment8_t segment);
@@ -219,8 +221,8 @@ namespace hexl {
 
       class MemoryConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigMemoryOrder> *allMemoryOrders, *signalSendMemoryOrders, *signalWaitMemoryOrders;
-        hexl::Sequence<Brig::BrigMemoryScope> *allMemoryScopes; 
+        hexl::Sequence<Brig::BrigMemoryOrder> *allMemoryOrders, *signalSendMemoryOrders, *signalWaitMemoryOrders, *memfenceMemoryOrders;
+        hexl::Sequence<Brig::BrigMemoryScope> *allMemoryScopes, *memfenceMemoryScopes;
         hexl::Sequence<Brig::BrigAtomicOperation> *allAtomics, *signalSendAtomics, *signalWaitAtomics;
         hexl::Sequence<Brig::BrigSegment> *memfenceSegments;
         hexl::Sequence<Brig::BrigOpcode> *ldStOpcodes, *atomicOpcodes;
@@ -239,6 +241,8 @@ namespace hexl {
         hexl::Sequence<Brig::BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
         hexl::Sequence<Brig::BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
         hexl::Sequence<Brig::BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
+        hexl::Sequence<Brig::BrigMemoryOrder>* MemfenceMemoryOrders() { return memfenceMemoryOrders; }
+        hexl::Sequence<Brig::BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
       };
 
       class ControlDirectivesConfig : public ConfigBase {
@@ -251,7 +255,7 @@ namespace hexl {
           *gridSizeRelatedSets,
           *workitemIdRelatedSets, *workitemAbsIdRelatedSets, *workitemFlatIdRelatedSets, *workitemFlatAbsIdRelatedSets,
           *degenerateRelatedSets, *boundary24WorkitemAbsIdRelatedSets, *boundary24WorkitemFlatAbsIdRelatedSets, *boundary24WorkitemFlatIdRelatedSets;
-        hexl::Sequence<Brig::BrigKinds>* pragmaOperandTypes;
+        hexl::Sequence<Brig::BrigKind>* pragmaOperandTypes;
         hexl::Sequence<uint32_t>* validExceptionNumbers;
         hexl::Sequence<Brig::BrigControlDirective> *exceptionDirectives, *geometryDirectives;
         hexl::Sequence<std::string> *validExtensions;
@@ -290,7 +294,7 @@ namespace hexl {
         const ControlDirectives& Boundary24WorkitemFlatIdRelated()  { return boundary24WorkitemFlatIdRelated; }
         hexl::Sequence<ControlDirectives>* Boundary24WorkitemFlatIdRelatedSets()  { return boundary24WorkitemFlatIdRelatedSets; }
 
-        hexl::Sequence<Brig::BrigKinds>* PragmaOperandTypes() { return pragmaOperandTypes; }
+        hexl::Sequence<Brig::BrigKind>* PragmaOperandTypes() { return pragmaOperandTypes; }
         
         hexl::Sequence<uint32_t>* ValidExceptionNumbers() { return validExceptionNumbers; }
         hexl::Sequence<Brig::BrigControlDirective>* ExceptionDirectives() { return exceptionDirectives; }
@@ -320,8 +324,7 @@ namespace hexl {
 
       class ImageConfig : public ConfigBase {
       private:
-        hexl::ImageGeometry defaultImageGeometry;
-        hexl::Sequence<hexl::ImageGeometry* > *defaultImageGeometrySet;
+        hexl::VectorSequence<ImageGeometry*>* defaultImageGeometry;
         hexl::Sequence<Brig::BrigImageGeometry>* imageGeometryProps, *imageRdGeometryProp, *imageDepthGeometryProp;
         hexl::Sequence<Brig::BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
         hexl::Sequence<Brig::BrigImageChannelType>* imageChannelTypes;
@@ -330,9 +333,7 @@ namespace hexl {
 
       public:
         ImageConfig(CoreConfig* cc);
-        
-        hexl::ImageGeometry* DefaultImageGeometry() { return &defaultImageGeometry; }
-        hexl::Sequence<hexl::ImageGeometry* >* DefaultImageGeometrySet() { return defaultImageGeometrySet; }
+        hexl::VectorSequence<hexl::ImageGeometry*>* DefaultImageGeometrySet() { return defaultImageGeometry; }
         hexl::Sequence<Brig::BrigImageGeometry>* ImageGeometryProps() { return imageGeometryProps; }
         hexl::Sequence<Brig::BrigImageGeometry>* ImageRdGeometryProp() { return imageRdGeometryProp; }
         hexl::Sequence<Brig::BrigImageGeometry>* ImageDepthGeometryProp() { return imageDepthGeometryProp; }

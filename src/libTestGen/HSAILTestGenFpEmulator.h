@@ -76,9 +76,9 @@ int emulate_cmp(f64_t val1, f64_t val2);
 //==============================================================================
 // HSAIL Floating-Point Library: Truncations
 
-f16_t emulate_fract(f16_t val);
-f32_t emulate_fract(f32_t val);
-f64_t emulate_fract(f64_t val);
+f16_t emulate_fract(f16_t val, unsigned fpRounding);
+f32_t emulate_fract(f32_t val, unsigned fpRounding);
+f64_t emulate_fract(f64_t val, unsigned fpRounding);
 
 f16_t emulate_ceil(f16_t val);
 f32_t emulate_ceil(f32_t val);
@@ -145,6 +145,10 @@ f64_t emulate_min(f64_t val1, f64_t val2);
 f16_t emulate_fma(f16_t val1, f16_t val2, f16_t val3, unsigned fpRounding);
 f32_t emulate_fma(f32_t val1, f32_t val2, f32_t val3, unsigned fpRounding);
 f64_t emulate_fma(f64_t val1, f64_t val2, f64_t val3, unsigned fpRounding);
+
+f16_t emulate_mad(f16_t val1, f16_t val2, f16_t val3, unsigned fpRounding);
+f32_t emulate_mad(f32_t val1, f32_t val2, f32_t val3, unsigned fpRounding);
+f64_t emulate_mad(f64_t val1, f64_t val2, f64_t val3, unsigned fpRounding);
 
 f16_t emulate_sqrt(f16_t val, unsigned fpRounding);
 f32_t emulate_sqrt(f32_t val, unsigned fpRounding);
