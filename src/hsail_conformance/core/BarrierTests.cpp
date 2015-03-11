@@ -407,7 +407,7 @@ protected:
     // store data in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
     // wait on fbarrrier
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE);
     Fb()->EmitWaitfbar();
   }
 
@@ -415,7 +415,7 @@ protected:
     // even
     // wait on fbarrrier
     Fb()->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE);
     // store data in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), globalOffset);
     // store data in neighbours wave output memory region
@@ -493,9 +493,9 @@ protected:
     // store VALUE1 in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
     // wait fbar
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
     Fb()->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
     //leavefbar
     Fb()->EmitLeavefbar();
   }
@@ -565,9 +565,9 @@ protected:
     // store VALUE1 in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
     // wait fb1
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
     Fb1()->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
     //leave fb1
     Fb1()->EmitLeavefbar();
   }
@@ -682,7 +682,7 @@ protected:
     Cfb()->EmitWaitfbar();
     // fill group buffer with data and signal consumers
     be.EmitStore(counter, groupOffset);
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE);
     Pfb()->EmitArrivefbar();
     // producer store data in output
     auto outputAddr = be.AddAReg(globalOffset->Segment());
@@ -706,7 +706,7 @@ protected:
     be.EmitLabel(consumerLoopLabel);
     // wait on producer fbarrrier
     Pfb()->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE);
     // read produced data
     auto data = be.AddTReg(VALUE_TYPE);
     be.EmitLoad(data, groupOffset);
