@@ -52,11 +52,11 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_memory_deregister);
   GET_FUNCTION(hsa_signal_create);
   GET_FUNCTION(hsa_signal_destroy);
-  GET_FUNCTION(hsa_ext_alt_program_create);
-  GET_FUNCTION(hsa_ext_alt_program_destroy);
-  GET_FUNCTION(hsa_ext_alt_program_add_module);
-  GET_FUNCTION(hsa_ext_alt_program_finalize);
-  GET_FUNCTION(hsa_ext_alt_program_get_info);
+  GET_FUNCTION(hsa_ext_program_create);
+  GET_FUNCTION(hsa_ext_program_destroy);
+  GET_FUNCTION(hsa_ext_program_add_module);
+  GET_FUNCTION(hsa_ext_program_finalize);
+  GET_FUNCTION(hsa_ext_program_get_info);
   
   GET_FUNCTION(hsa_executable_create);
   GET_FUNCTION(hsa_code_object_destroy);
@@ -140,22 +140,22 @@ public:
   HsailModule(HsailRuntimeContextState* state_, brig_container_t brig_, BrigCodeOffset32_t uniqueKernelOffset_)
     : state(state_), brig(brig_), uniqueKernelOffset(uniqueKernelOffset_) { }
   ~HsailModule();
-  hsa_ext_alt_module_t Module();
+  hsa_ext_module_t Module();
   BrigCodeOffset32_t UniqueKernelOffset() const { return uniqueKernelOffset; }
 };
 
 class HsailProgram : public Program {
 private:
   HsailRuntimeContextState* state;
-  hsa_ext_alt_program_t handle;
+  hsa_ext_program_t handle;
   BrigCodeOffset32_t uniqueKernelOffset;
 
 public:
-  HsailProgram(HsailRuntimeContextState* state_, hsa_ext_alt_program_t handle_)
+  HsailProgram(HsailRuntimeContextState* state_, hsa_ext_program_t handle_)
     : state(state_), handle(handle_), uniqueKernelOffset(0) { }
   ~HsailProgram();
   void AddModule(Module* module);
-  hsa_ext_alt_program_t Handle() { return handle; }
+  hsa_ext_program_t Handle() { return handle; }
   BrigCodeOffset32_t UniqueKernelOffset() const { return uniqueKernelOffset; }
   bool Validate(std::string& errMsg);
   HsailRuntimeContext* Runtime();
@@ -363,9 +363,9 @@ HsailModule::~HsailModule()
   brig_container_destroy(brig);
 }
 
-hsa_ext_alt_module_t HsailModule::Module()
+hsa_ext_module_t HsailModule::Module()
 {
-  hsa_ext_alt_module_t module;
+  hsa_ext_module_t module;
   module.handle = (uint64_t) (uintptr_t) brig_container_get_brig_module(brig);
   return module;
 }
@@ -373,7 +373,7 @@ hsa_ext_alt_module_t HsailModule::Module()
 HsailProgram::~HsailProgram()
 {
   hsa_status_t status =
-    Runtime()->Hsa()->hsa_ext_alt_program_destroy(handle);
+    Runtime()->Hsa()->hsa_ext_program_destroy(handle);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_destroy failed", status); }
 }
 
@@ -398,7 +398,7 @@ void HsailProgram::AddModule(Module* module)
 {
   HsailModule* hsailModule = static_cast<HsailModule*>(module);
 
-  hsa_status_t status = Runtime()->Hsa()->hsa_ext_alt_program_add_module(handle, hsailModule->Module());
+  hsa_status_t status = Runtime()->Hsa()->hsa_ext_program_add_module(handle, hsailModule->Module());
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_add_module failed", status); return; }
   assert(!uniqueKernelOffset);
   uniqueKernelOffset = hsailModule->UniqueKernelOffset();
@@ -950,14 +950,14 @@ HsailRuntimeContext* HsailMemoryState::Runtime()
 
 Program* HsailRuntimeContextState::NewProgram()
 {
-  hsa_ext_alt_program_t handle;
+  hsa_ext_program_t handle;
   hsa_machine_model_t machineModel =
     sizeof(void *) == 4 ? HSA_MACHINE_MODEL_SMALL : HSA_MACHINE_MODEL_LARGE;
   hsa_profile_t profile = HSA_PROFILE_FULL;
   hsa_status_t status =
-    Runtime()->Hsa()->hsa_ext_alt_program_create(
+    Runtime()->Hsa()->hsa_ext_program_create(
       machineModel, profile, HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &handle);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_alt_program_create failed", status); return 0; }
+  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_create failed", status); return 0; }
   return new HsailProgram(this, handle);
 }
 
@@ -989,10 +989,10 @@ Code* HsailRuntimeContextState::Finalize(Program* program, BrigCodeOffset32_t ke
   hsa_isa_t isa;
   hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_info(Runtime()->Agent(), HSA_AGENT_INFO_ISA, &isa);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_agent_get_info(HSA_AGENT_INFO_ISA) failed", status); return 0; }
-  hsa_ext_alt_control_directives_t cd;
+  hsa_ext_control_directives_t cd;
   memset(&cd, 0, sizeof(cd));
   hsa_code_object_t codeObject;
-  status = Runtime()->Hsa()->hsa_ext_alt_program_finalize(
+  status = Runtime()->Hsa()->hsa_ext_program_finalize(
     hsailProgram->Handle(),
     isa, 0, cd, "", HSA_CODE_OBJECT_TYPE_PROGRAM, &codeObject);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_finalize_program failed", status); return 0; }

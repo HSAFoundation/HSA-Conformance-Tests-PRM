@@ -21,7 +21,7 @@
 #include "Options.hpp"
 #include "DllApi.hpp"
 #include "hsa.h"
-#include "hsa_ext_alt_finalize.h"
+#include "hsa_ext_finalize.h"
 #include "hsa_ext_image.h"
 #include <functional>
 
@@ -55,28 +55,28 @@ struct HsaApiTable {
   void (*hsa_signal_store_relaxed)(hsa_signal_t signal_handle, hsa_signal_value_t signal_value);
   void (*hsa_signal_store_release)(hsa_signal_t signal, hsa_signal_value_t value);
   hsa_signal_value_t (*hsa_signal_wait_acquire)(hsa_signal_t signal, hsa_signal_condition_t condition, hsa_signal_value_t compare_value, uint64_t timeout_hint, hsa_wait_state_t wait_expectancy_hint);
-  hsa_status_t (*hsa_ext_alt_program_create)(
+  hsa_status_t (*hsa_ext_program_create)(
     hsa_machine_model_t machine_model,
     hsa_profile_t profile,
     hsa_default_float_rounding_mode_t default_float_rounding_mode,
     const char *options,
-    hsa_ext_alt_program_t *program);
-  hsa_status_t (*hsa_ext_alt_program_destroy)(
-    hsa_ext_alt_program_t program);
-  hsa_status_t (*hsa_ext_alt_program_add_module)(
-    hsa_ext_alt_program_t program,
-    hsa_ext_alt_module_t module);
-  hsa_status_t (*hsa_ext_alt_program_finalize)(
-    hsa_ext_alt_program_t program,
+    hsa_ext_program_t *program);
+  hsa_status_t (*hsa_ext_program_destroy)(
+    hsa_ext_program_t program);
+  hsa_status_t (*hsa_ext_program_add_module)(
+    hsa_ext_program_t program,
+    hsa_ext_module_t module);
+  hsa_status_t (*hsa_ext_program_finalize)(
+    hsa_ext_program_t program,
     hsa_isa_t isa,
     int32_t call_convention,
-    hsa_ext_alt_control_directives_t control_directives,
+    hsa_ext_control_directives_t control_directives,
     const char *options,
     hsa_code_object_type_t code_object_type,
     hsa_code_object_t *code_object);
-  hsa_status_t (*hsa_ext_alt_program_get_info)(
-    hsa_ext_alt_program_t program,
-    hsa_ext_alt_program_info_t attribute,
+  hsa_status_t (*hsa_ext_program_get_info)(
+    hsa_ext_program_t program,
+    hsa_ext_program_info_t attribute,
     void *value);
 
   hsa_status_t (*hsa_executable_create)(
