@@ -947,6 +947,7 @@ void EImage::SetupDispatch(DispatchSetup* dispatch)
     if (data) { image->ContentData() = *data; }
     Value value = image->ContentData()[0];
     image->VType() = value.Type();
+    image->SetLimitTest(bLimitTestOn);
   }
 }
 

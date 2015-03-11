@@ -150,6 +150,7 @@ public:
     imageSpec.ArraySize(std::max<uint32_t>(LimitArraySize(), 1));
     image = kernel->NewImage("image", &imageSpec);
     image->AddData(Value(MV_UINT8, INITIAL_VALUE)); 
+    image->LimitEnable(true);
   }
 
   BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
@@ -200,7 +201,7 @@ void ImageLimitsTestSet::Iterate(hexl::TestSpecIterator& it)
   auto geometry = new(ap) OneValueSequence<BrigImageGeometry>(BRIG_GEOMETRY_2D);
   auto channelOrder = new(ap) OneValueSequence<BrigImageChannelOrder>(BRIG_CHANNEL_ORDER_A);
   auto channelType = new(ap) OneValueSequence<BrigImageChannelType>(BRIG_CHANNEL_TYPE_SIGNED_INT8);
-  //TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), geometry, channelOrder, channelType);
+  TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), geometry, channelOrder, channelType);
 
   //TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
 }
