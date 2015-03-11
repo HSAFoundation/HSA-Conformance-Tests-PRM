@@ -151,10 +151,10 @@ public:
     expectedValue = GetExpectedSignalValue(immDest, initialValue, immSrc0, immSrc1);
     if (BRIG_ATOMIC_CAS == atomicOp) {
       src1 = be.AddTReg(vtype);
-      be.EmitMov(src1->Reg(), be.Immed(vtype, expectedValue), src1->TypeSizeBits());
+      be.EmitMov(src1->Reg(), be.Immed(be.SignalValueBitType(), expectedValue), src1->TypeSizeBits());
     }
     // if register
-    be.EmitMov(src0->Reg(), be.Immed(vtype, immSrc0), src0->TypeSizeBits());
+    be.EmitMov(src0->Reg(), be.Immed(be.SignalValueBitType(), immSrc0), src0->TypeSizeBits());
     std::string passLabel = be.AddLabel();
     std::string failLabel = be.AddLabel();
     // main signal operation to test
@@ -213,7 +213,7 @@ public:
     default:
       immSrc0 = initialValue; break;
     }
-    be.EmitMov(src0->Reg(), be.Immed(vtype, immSrc0), src0->TypeSizeBits());
+    be.EmitMov(src0->Reg(), be.Immed(be.SignalValueBitType(), immSrc0), src0->TypeSizeBits());
     // main signal operation to test, wrapped into loop
     be.EmitSignalWaitLoop(dest, signal, src0->Reg(), atomicOp, memoryOrder, timeout);
     be.EmitSignalOp(acquired, signal, NULL, NULL, BRIG_ATOMIC_LD, memoryOrder);
