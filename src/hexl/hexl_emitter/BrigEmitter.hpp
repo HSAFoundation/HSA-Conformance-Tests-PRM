@@ -164,6 +164,7 @@ public:
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand o);
   HSAIL_ASM::InstBasic EmitArith(Brig::BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand op);
+  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, Brig::BrigType16_t type, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, Brig::BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, HSAIL_ASM::Operand src1, Brig::BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, const TypedReg& src1, Brig::BrigCompareOperation8_t cmp);
   void EmitCmpTo(TypedReg result, TypedReg src0, HSAIL_ASM::Operand src1, Brig::BrigCompareOperation8_t cmp);

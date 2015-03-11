@@ -40,12 +40,12 @@ private:
   uint32_t LimitWidth() const {
     switch (imageGeometry) {
     case BRIG_GEOMETRY_1D:        return 16384;
-    case BRIG_GEOMETRY_1DA:       return 16384;
+    case BRIG_GEOMETRY_1DA:       return 1;
     case BRIG_GEOMETRY_1DB:       return 65536;
     case BRIG_GEOMETRY_2D:        return 16384;
-    case BRIG_GEOMETRY_2DA:       return 16384;
+    case BRIG_GEOMETRY_2DA:       return 1;
     case BRIG_GEOMETRY_2DDEPTH:   return 16384;
-    case BRIG_GEOMETRY_2DADEPTH:  return 16384;
+    case BRIG_GEOMETRY_2DADEPTH:  return 1;
     case BRIG_GEOMETRY_3D:        return 2048;
     default: assert(false); return 0;
     }
@@ -57,9 +57,9 @@ private:
     case BRIG_GEOMETRY_1DA:       return 0;
     case BRIG_GEOMETRY_1DB:       return 0;
     case BRIG_GEOMETRY_2D:        return 16384;
-    case BRIG_GEOMETRY_2DA:       return 16384;
+    case BRIG_GEOMETRY_2DA:       return 1;
     case BRIG_GEOMETRY_2DDEPTH:   return 16384;
-    case BRIG_GEOMETRY_2DADEPTH:  return 16384;
+    case BRIG_GEOMETRY_2DADEPTH:  return 1;
     case BRIG_GEOMETRY_3D:        return 2048;
     default: assert(false); return 0;
     }
@@ -166,7 +166,11 @@ public:
     auto endLabel = "@end";
     
     auto firstCoord = CreateCoordList(0, 0, 0, 0);
-    auto lastCoord = CreateCoordList(LimitWidth(), LimitHeight(), LimitDepth(), LimitArraySize());
+    auto lastCoord = CreateCoordList(
+      LimitWidth() == 0 ? 0 : LimitWidth() - 1, 
+      LimitHeight() == 0 ? 0 : LimitHeight() - 1,
+      LimitDepth() == 0 ? 0 : LimitDepth() - 1,
+      LimitArraySize() == 0 ? 0 : LimitArraySize() - 1);
     auto imageElement = IsImageDepth(imageGeometry) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
 
@@ -175,9 +179,18 @@ public:
     
     // read from first element
     image->EmitImageLd(imageElementList, BRIG_TYPE_U32, imageAddr, firstCoord, BRIG_TYPE_U32);
+    auto cmp = be.AddCTReg();
+    for (size_t i = 0; i < imageElement->Count(); ++i) {
+      be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(i), be.Immed(imageElement->Type(), INITIAL_VALUE), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
     
     // read from last element
     image->EmitImageLd(imageElementList, BRIG_TYPE_U32, imageAddr, lastCoord, BRIG_TYPE_U32);
+    for (size_t i = 0; i < imageElement->Count(); ++i) {
+      be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(i), be.Immed(imageElement->Type(), INITIAL_VALUE), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
 
     // true
     be.EmitLabel(trueLabel);
@@ -198,12 +211,12 @@ void ImageLimitsTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
 
-  auto geometry = new(ap) OneValueSequence<BrigImageGeometry>(BRIG_GEOMETRY_2D);
-  auto channelOrder = new(ap) OneValueSequence<BrigImageChannelOrder>(BRIG_CHANNEL_ORDER_A);
-  auto channelType = new(ap) OneValueSequence<BrigImageChannelType>(BRIG_CHANNEL_TYPE_SIGNED_INT8);
-  TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), geometry, channelOrder, channelType);
+  //auto geometry = new(ap) OneValueSequence<BrigImageGeometry>(BRIG_GEOMETRY_3D);
+  //auto channelOrder = new(ap) OneValueSequence<BrigImageChannelOrder>(BRIG_CHANNEL_ORDER_A);
+  //auto channelType = new(ap) OneValueSequence<BrigImageChannelType>(BRIG_CHANNEL_TYPE_UNSIGNED_INT8);
+  //TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), geometry, channelOrder, channelType);
 
-  //TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
+  TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
 }
 
 } // hsail_conformance

@@ -174,9 +174,7 @@ void ImageInitializerTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
 
-  auto seq = new(ap) OneValueSequence<uint32_t>(1);
-  TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), seq, Bools::All());
-  //TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 } // hsail_conformance
