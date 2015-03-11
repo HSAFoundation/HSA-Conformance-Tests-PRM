@@ -621,19 +621,23 @@ InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, Ope
   return inst;
 }
 
-InstCmp BrigEmitter::EmitCmp(OperandRegister b, const TypedReg& src0, Operand src1, BrigCompareOperation8_t cmp)
+InstCmp BrigEmitter::EmitCmp(OperandRegister b, BrigType16_t type, Operand src0, Operand src1, BrigCompareOperation8_t cmp) 
 {
   InstCmp inst = brigantine.addInst<InstCmp>(BRIG_OPCODE_CMP, BRIG_TYPE_B1);
-  BrigType16_t sourceType = src0->Type();
-  switch (sourceType) {
-    case BRIG_TYPE_B32: sourceType = BRIG_TYPE_U32; break;
-    case BRIG_TYPE_B64: sourceType = BRIG_TYPE_U64; break;
+  switch (type) {
+    case BRIG_TYPE_B32: type = BRIG_TYPE_U32; break;
+    case BRIG_TYPE_B64: type = BRIG_TYPE_U64; break;
     default: break;
   }
-  inst.sourceType() = sourceType;
+  inst.sourceType() = type;
   inst.compare() = cmp;
-  inst.operands() = Operands(b, src0->Reg(), src1);
+  inst.operands() = Operands(b, src0, src1);
   return inst;
+}
+
+InstCmp BrigEmitter::EmitCmp(OperandRegister b, const TypedReg& src0, Operand src1, BrigCompareOperation8_t cmp)
+{
+  return EmitCmp(b, src0->Type(), src0->Reg(), src1, cmp);
 }
 
 InstCmp BrigEmitter::EmitCmp(OperandRegister b, const TypedReg& src0, const TypedReg& src1, BrigCompareOperation8_t cmp)

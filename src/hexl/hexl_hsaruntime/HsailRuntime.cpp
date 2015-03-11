@@ -603,11 +603,31 @@ bool HImage::Push()
   if (mi->ContentData().size() > 0) {
     value = state->GetValue(mi->ContentData()[0]);
   }
+  if (mi->IsLimitTest())
+  {
+    hsa_ext_image_region_t img_region;
 
-  int size_val = value.Size();
-  for (size_t i = 0; i < mi->Size()/size_val; ++i) {
-    value.WriteTo(p);
-    p += size_val;
+    img_region.offset.x = (uint32_t)mi->Width() - 1;
+    img_region.offset.y = (uint32_t)mi->Height() - 1;
+    img_region.offset.z = (uint32_t)mi->Depth() - 1;
+
+    img_region.range.x = 1;
+    img_region.range.y = 1;
+    img_region.range.z = 1;
+
+    char* pBuff = new char[value.Size()];
+    value.WriteTo(pBuff);
+    hsa_status_t status = State()->Runtime()->Hsa()->hsa_ext_image_import(State()->Runtime()->Agent(), pBuff, value.Size(), 1, imgh, &img_region);
+    delete[] pBuff;
+    if (status != HSA_STATUS_SUCCESS) { State()->Runtime()->HsaError("hsa_ext_image_import failed", status); return false; }
+  }
+  else
+  {
+    size_t size_val = value.Size();
+    for (size_t i = 0; i < mi->Size()/size_val; ++i) {
+      value.WriteTo(p);
+      p += size_val;
+    }
   }
   return true;
 }

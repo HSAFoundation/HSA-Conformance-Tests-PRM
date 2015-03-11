@@ -558,6 +558,7 @@ private:
   HSAIL_ASM::DirectiveVariable var;
   MImage* image;
   std::unique_ptr<Values> data;
+  bool bLimitTestOn;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
   void EmitInitializer();
@@ -566,7 +567,7 @@ private:
   Location RealLocation() const;
 
 public:
-  EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec) : EImageSpec(*spec), id(id_), data(new Values()) { te = te_; }
+  EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec) : EImageSpec(*spec), id(id_), data(new Values()), bLimitTestOn(false) { te = te_; }
 
   const std::string& Id() const { return id; }
 
@@ -594,6 +595,8 @@ public:
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
+
+  void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
 };
 
 class ESamplerSpec : public EVariableSpec {

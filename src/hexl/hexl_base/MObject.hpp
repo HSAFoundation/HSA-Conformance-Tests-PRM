@@ -929,7 +929,7 @@ public:
   MImage(unsigned id, const std::string& name, Brig::BrigSegment segment_, Brig::BrigImageGeometry geometry_, Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_, Brig::BrigTypeX image_type_,
     size_t width_, size_t height_, size_t depth_, size_t array_size_)
     : MObject(id, MIMAGE, name), segment(segment_), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), imageType(image_type_),
-    width(width_), height(height_), depth(depth_), array_size(array_size_), image_size(0), vtype(MV_UINT32)
+    width(width_), height(height_), depth(depth_), array_size(array_size_), image_size(0), vtype(MV_UINT32), bLimitTestOn(false)
       { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
 
@@ -964,6 +964,8 @@ public:
   void PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const;
   void PrintComparisonSummary(std::ostream& out, Comparison& comparison) const;
   virtual void SerializeData(std::ostream& out) const;
+  void SetLimitTest(bool bEnable) { bLimitTestOn = bEnable; }
+  bool IsLimitTest() { return bLimitTestOn; }
 
 private:
   Brig::BrigSegment segment;
@@ -975,6 +977,7 @@ private:
   Value data;
   Values contentData;
   ValueType vtype;
+  bool bLimitTestOn;
   void DeserializeData(std::istream& in);
 };
 
