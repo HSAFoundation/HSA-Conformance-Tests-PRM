@@ -607,15 +607,15 @@ bool HImage::Push()
   {
     hsa_ext_image_region_t img_region;
 
-    img_region.offset.x = mi->Width() - 1;
-    img_region.offset.y = mi->Height() - 1;
-    img_region.offset.z = mi->Depth() - 1;
+    img_region.offset.x = (uint32_t)mi->Width() - 1;
+    img_region.offset.y = (uint32_t)mi->Height() - 1;
+    img_region.offset.z = (uint32_t)mi->Depth() - 1;
 
     img_region.range.x = 1;
     img_region.range.y = 1;
     img_region.range.z = 1;
 
-    BYTE* pBuff = new BYTE[value.Size()];
+    char* pBuff = new char[value.Size()];
     value.WriteTo(pBuff);
     hsa_status_t status = State()->Runtime()->Hsa()->hsa_ext_image_import(State()->Runtime()->Agent(), pBuff, value.Size(), 1, imgh, &img_region);
     delete[] pBuff;
