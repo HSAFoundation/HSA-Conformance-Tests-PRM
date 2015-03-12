@@ -255,6 +255,76 @@ bool IsImageDepth(BrigImageGeometry geometry) {
   }
 }
 
+bool IsImageQueryGeometrySupport(BrigImageGeometry imageGeometryProp, BrigImageQuery imageQuery)
+{
+  switch (imageGeometryProp)
+  {
+  case BRIG_GEOMETRY_1D:
+  case BRIG_GEOMETRY_1DB:
+      if ((imageQuery == BRIG_IMAGE_QUERY_HEIGHT) || (imageQuery == BRIG_IMAGE_QUERY_DEPTH) || (imageQuery == BRIG_IMAGE_QUERY_ARRAY))
+        return false;
+      break;
+  case BRIG_GEOMETRY_1DA:
+    if ((imageQuery == BRIG_IMAGE_QUERY_HEIGHT) || (imageQuery == BRIG_IMAGE_QUERY_DEPTH))
+        return false;
+      break;
+  case BRIG_GEOMETRY_2D:
+  case BRIG_GEOMETRY_2DDEPTH:
+    if  ((imageQuery == BRIG_IMAGE_QUERY_DEPTH) || (imageQuery == BRIG_IMAGE_QUERY_ARRAY))
+      return false;
+    break;
+  case BRIG_GEOMETRY_2DA:
+  case BRIG_GEOMETRY_2DADEPTH:
+     if  (imageQuery == BRIG_IMAGE_QUERY_DEPTH)
+      return false;
+    break;
+  case BRIG_GEOMETRY_3D:
+    if  (imageQuery == BRIG_IMAGE_QUERY_ARRAY)
+      return false;
+    break;
+  default:
+    break;
+  }
+  return true;
+}
+
+bool IsImageGeometrySupported(BrigImageGeometry imageGeometryProp, ImageGeometry imageGeometry) 
+{
+  switch (imageGeometryProp)
+  {
+  case BRIG_GEOMETRY_1D:
+  case BRIG_GEOMETRY_1DB:
+    if ((imageGeometry.ImageHeight() > 1) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() > 1))
+      return false;
+    break;
+  case BRIG_GEOMETRY_1DA:
+    if ((imageGeometry.ImageHeight() > 1) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() < 2))
+      return false;
+    break;
+    case BRIG_GEOMETRY_2D:
+    case BRIG_GEOMETRY_2DDEPTH:
+    if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() > 1))
+      return false;
+    break;
+  case BRIG_GEOMETRY_2DA:
+    if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() < 2))
+      return false;
+    break;
+  case BRIG_GEOMETRY_2DADEPTH:
+    if (imageGeometry.ImageDepth() > 1)
+      return false;
+    break;
+  case BRIG_GEOMETRY_3D:
+    if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() < 2) || (imageGeometry.ImageArray() > 1))
+      return false;
+    break;
+  default:
+    if (imageGeometry.ImageArray() > 1)
+      return false;
+  }
+  return true;
+}
+
 bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, 
                       BrigImageChannelType channelType) {
   switch (geometry) {

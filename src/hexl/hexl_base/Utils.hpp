@@ -21,6 +21,7 @@
 #include "hsail_c.h"
 #include <string>
 #include "MObject.hpp"
+#include "Image.hpp"
 
 namespace HSAIL_ASM { class BrigContainer; }
 
@@ -37,6 +38,8 @@ bool Is128Bit(Brig::BrigTypeX type);
 uint32_t ImageGeometryDims(Brig::BrigImageGeometry geometry);
 bool IsImageGeometryArray(Brig::BrigImageGeometry geometry);
 bool IsImageDepth(Brig::BrigImageGeometry geometry);
+bool IsImageQueryGeometrySupport(Brig::BrigImageGeometry imageGeometryProp, Brig::BrigImageQuery imageQuery);
+bool IsImageGeometrySupported(Brig::BrigImageGeometry imageGeometryProp, ImageGeometry imageGeometry);
 bool IsImageSupported(Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder channelOrder, 
                       Brig::BrigImageChannelType channelType);
 
