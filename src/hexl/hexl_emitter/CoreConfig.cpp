@@ -128,7 +128,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
-  barrier->Add(NEWA GridGeometry(1,  1024,  1,   1,  cc->Wavesize()*4,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize(),  1,   1,  cc->Wavesize(),  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));
   fbarrier->Add(NEWA GridGeometry(1, cc->Wavesize(), 1, 1, cc->Wavesize(), 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 1024, 1, 1, cc->Wavesize()*4, 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
