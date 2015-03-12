@@ -287,7 +287,7 @@ InstBasic BrigEmitter::EmitMov(Operand dst, Operand src, unsigned sizeBits)
 {
   BrigType16_t movType;
   switch (sizeBits) {
-  case 1: movType = BRIG_TYPE_B1; break;  
+  case 1: movType = BRIG_TYPE_B1; break;
   case 8:
   case 16:
   case 32: movType = BRIG_TYPE_B32; break;

@@ -100,7 +100,7 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup, *atomic, *fbarrier, *images;
+          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, *images;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -119,6 +119,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* Boundary24Set() { return boundary24; }
         hexl::Sequence<hexl::Grid>* SeveralWavesSet() { return severalwaves; }
         hexl::Sequence<hexl::Grid>* SeveralWavesInGroupSet() { return severalwavesingroup; }
+        hexl::Sequence<hexl::Grid>* BarrierSet() { return barrier; }
         hexl::Sequence<hexl::Grid>* FBarrierSet() { return fbarrier; }
         hexl::Sequence<hexl::Grid>* AllWavesIdSet() { return allWavesIdSet; }
         hexl::Sequence<hexl::Grid>* WorkGroupsSize256() { return workgroup256; }
@@ -330,6 +331,7 @@ namespace hexl {
         hexl::Sequence<Brig::BrigImageChannelType>* imageChannelTypes;
         hexl::Sequence<Brig::BrigImageQuery>* imageQueryTypes;
         hexl::Sequence<Brig::BrigImageAccess>* imageAccessTypes;
+        hexl::Sequence<unsigned>* imageArray;
 
       public:
         ImageConfig(CoreConfig* cc);
@@ -342,6 +344,7 @@ namespace hexl {
         hexl::Sequence<Brig::BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
         hexl::Sequence<Brig::BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
         hexl::Sequence<Brig::BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
+        hexl::Sequence<unsigned>* ImageArraySets() { return imageArray; };
       };
 
       class SamplerConfig : public ConfigBase {

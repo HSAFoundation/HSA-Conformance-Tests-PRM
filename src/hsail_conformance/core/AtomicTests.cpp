@@ -142,7 +142,7 @@ public:
 
         testVar = be.EmitVariableDefinition(varName, varSeg, type);
 
-        if (segment != BRIG_SEGMENT_GROUP) testVar.init() = Initializer();
+        if (segment != BRIG_SEGMENT_GROUP) testVar.init() = Initializer(type);
     }
 
     // ========================================================================
@@ -169,7 +169,7 @@ public:
         if (Key() != 1)
         {
             TypedReg e = be.AddTReg(val->Type());
-            EmitArith(BRIG_OPCODE_MUL, e, val, be.Immed(val->Type(), Key()));
+            EmitArith(BRIG_OPCODE_MUL, e, val, be.Immed(ArithType(BRIG_OPCODE_MUL, val->Type()), Key()));
             return e;
         }
         return val;
@@ -180,7 +180,7 @@ public:
         if (Key() != 1)
         {
             TypedReg e = be.AddTReg(val->Type());
-            EmitArith(BRIG_OPCODE_DIV, e, val, be.Immed(val->Type(), Key()));
+            EmitArith(BRIG_OPCODE_DIV, e, val, be.Immed(ArithType(BRIG_OPCODE_DIV, val->Type()), Key()));
             return e;
         }
         return val;
@@ -191,17 +191,17 @@ public:
         if (Key() != 1)
         {
             TypedReg e = be.AddTReg(val->Type());
-            EmitArith(BRIG_OPCODE_REM, e, val, be.Immed(val->Type(), Key()));
+            EmitArith(BRIG_OPCODE_REM, e, val, be.Immed(ArithType(BRIG_OPCODE_REM, val->Type()), Key()));
             return e;
         }
         return val;
     }
 
-    Operand Initializer()
+    Operand Initializer(unsigned t)
     {
         uint64_t init = InitialValue();
         if (Encryptable()) init = Encode(init);
-        return be.Immed(type, init);
+        return be.Immed(t, init);
     }
 
     // ========================================================================
@@ -291,12 +291,12 @@ public:
         {
         case BRIG_ATOMIC_ADD:
         case BRIG_ATOMIC_SUB:
-            be.EmitMov(src0, be.Immed(type, 1));
+            be.EmitMov(src0, be.Immed(type2bitType(type), 1));
             break;
 
         case BRIG_ATOMIC_WRAPINC:
         case BRIG_ATOMIC_WRAPDEC:
-            be.EmitMov(src0, be.Immed(type, -1)); // max value
+            be.EmitMov(src0, be.Immed(type2bitType(type), -1)); // max value
             break;
 
         case BRIG_ATOMIC_OR:
@@ -319,7 +319,7 @@ public:
             break;
 
         case BRIG_ATOMIC_CAS:
-            be.EmitMov(src0, be.Immed(type, InitialValue())); // value which is being compared
+            be.EmitMov(src0, be.Immed(type2bitType(type), InitialValue())); // value which is being compared
             src1 = TestId(getBrigTypeNumBits(type) == 64);    // value to swap
             break;
 
@@ -327,7 +327,7 @@ public:
             src0 = TestId(getBrigTypeNumBits(type) == 64);
             break;
 
-        case BRIG_ATOMIC_LD: 
+        case BRIG_ATOMIC_LD:
             src0 = 0;
             break;
 
@@ -628,7 +628,7 @@ public:
             STARTIF(id, EQ, 0)
 
             InstAtomic inst = AtomicInst(type, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, segment, equivClass, false);
-            inst.operands() = be.Operands(be.Address(varAddr), Initializer());
+            inst.operands() = be.Operands(be.Address(varAddr), Initializer(type2bitType(type)));
 
             ENDIF
         }

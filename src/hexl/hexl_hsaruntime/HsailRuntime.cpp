@@ -366,7 +366,7 @@ HsailModule::~HsailModule()
 hsa_ext_module_t HsailModule::Module()
 {
   hsa_ext_module_t module;
-  module.handle = (uint64_t) (uintptr_t) brig_container_get_brig_module(brig);
+  module = (::BrigModule_t) brig_container_get_brig_module(brig);
   return module;
 }
 
@@ -1071,10 +1071,10 @@ hsa_status_t IterateExecutableSymbolsGetKernel(hsa_executable_t executable, hsa_
   assert(data);
   IterateData<hsa_executable_symbol_t, int> idata(data);
   hsa_status_t status;
-  hsa_symbol_t type;
+  hsa_symbol_kind_t type;
   status = idata.Runtime()->Hsa()->hsa_executable_symbol_get_info(symbol, HSA_EXECUTABLE_SYMBOL_INFO_TYPE, &type);
   if (status != HSA_STATUS_SUCCESS) { idata.Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_TYPE) failed", status); return status; }
-  if (type == HSA_SYMBOL_KERNEL) {
+  if (type == HSA_SYMBOL_KIND_KERNEL) {
     if (idata.IsSet()) {
       idata.Runtime()->HsaError("Found more than one kernel", HSA_STATUS_ERROR);
       return HSA_STATUS_ERROR;

@@ -65,6 +65,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
+    barrier(NEWA hexl::VectorSequence<hexl::Grid>()),
     fbarrier(NEWA hexl::VectorSequence<hexl::Grid>()),
     images(NEWA hexl::VectorSequence<hexl::Grid>())
 {
@@ -127,6 +128,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  1024,  1,   1,  cc->Wavesize()*4,  1,   1));
   fbarrier->Add(NEWA GridGeometry(1, cc->Wavesize(), 1, 1, cc->Wavesize(), 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 1024, 1, 1, cc->Wavesize()*4, 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
@@ -236,6 +238,8 @@ static const BrigImageQuery allImgQueries[] = {
     BRIG_IMAGE_QUERY_CHANNELTYPE,
 };
 
+static const unsigned arrayGeometry[] = { 1, 2, 10, };
+
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
     defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>()),
@@ -246,7 +250,8 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageSupportedChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(supportedChannelOrder, NELEM(supportedChannelOrder))),
     imageChannelTypes(NEWA ArraySequence<BrigImageChannelType>(allChannelType, NELEM(allChannelType))),
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
-    imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess)))
+    imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess))),
+    imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry)))
 {
    defaultImageGeometry->Add(NEWA ImageGeometry(1000));
    defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));

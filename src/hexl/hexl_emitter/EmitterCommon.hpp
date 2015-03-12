@@ -89,6 +89,7 @@ namespace hexl {
     class EImage;
     class ESamplerSpec;
     class ESampler;
+	class EImageCalc;
 
     typedef ETypedRegList* TypedRegList;
     typedef ETypedReg* TypedReg;
@@ -109,6 +110,7 @@ namespace hexl {
     typedef EImage* Image;
     typedef ESamplerSpec* SamplerSpec;
     typedef ESampler* Sampler;
+	typedef EImageCalc* ImageCalc;
   }
 }
 
