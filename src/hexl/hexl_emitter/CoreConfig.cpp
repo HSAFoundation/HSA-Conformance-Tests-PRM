@@ -65,6 +65,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
+    barrier(NEWA hexl::VectorSequence<hexl::Grid>()),
     fbarrier(NEWA hexl::VectorSequence<hexl::Grid>()),
     images(NEWA hexl::VectorSequence<hexl::Grid>())
 {
@@ -127,6 +128,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  1024,  1,   1,  cc->Wavesize()*4,  1,   1));
   fbarrier->Add(NEWA GridGeometry(1, cc->Wavesize(), 1, 1, cc->Wavesize(), 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 1024, 1, 1, cc->Wavesize()*4, 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
