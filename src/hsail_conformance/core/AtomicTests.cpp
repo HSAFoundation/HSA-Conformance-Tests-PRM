@@ -583,14 +583,8 @@ public:
         if (!atomicVarAddr)
         {
             Comment("Load variable address");
-
             atomicVarAddr = be.AddAReg(testVar.segment());
             InstAddr inst = be.EmitLda(atomicVarAddr, testVar);
-            if (segment == BRIG_SEGMENT_FLAT)
-            {
-                PointerReg flatAddr = be.AddAReg(segment);
-                atomicVarAddr = flatAddr;
-            }
         }
         return atomicVarAddr;
     }
