@@ -377,15 +377,16 @@ public:
     }
   }
 
-  unsigned GetCycles() const {  return geometry->GridSize(); }
+  uint64_t GetCycles() const {  return geometry->GridSize(); }
   
   void ExpectedResults(Values* result) const {
 
     for(uint16_t i = 0; i < GetCycles(); ++i) {
-      double val = 0;
+      long val = 0;
       //calculate value
       for (uint16_t l = 0; l < GetCycles(); ++l)
       {
+        //don`t change this. It`s correct test action emulate
         (val += long(sqrt((double)l)))++;
       }
       result->push_back(Value(MV_UINT64, val));
