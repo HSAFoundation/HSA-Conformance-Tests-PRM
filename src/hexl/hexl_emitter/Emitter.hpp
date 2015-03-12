@@ -638,7 +638,7 @@ public:
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
-
+  Value GetRawData(size_t i) { assert(image); return image->GetRaw(i); }
   void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
 };
 
