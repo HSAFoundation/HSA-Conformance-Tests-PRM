@@ -163,8 +163,8 @@ public:
     //for (uint64_t i = 0; i < uint64_t(geometry->GridSize()); ++i) {
     //  outDest->AddData(Value(MV_UINT32, i));
     //}
-    workgroupSizeX = geometry->WorkgroupSize(0);
-    gridSizeX = geometry->GridSize(0);
+    workgroupSizeX = geometry->WorkgroupSize();
+    gridSizeX = geometry->GridSize();
     sizeX = (BRIG_SEGMENT_GROUP == segment) ? workgroupSizeX : gridSizeX;
 
     EmulateAtomicOperation();
@@ -1064,7 +1064,7 @@ public:
 void BarrierTests::Iterate(hexl::TestSpecIterator& it) {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<BarrierTest>(ap, it, "barrier/atomics", cc->Grids().SeveralWavesInGroupSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), Bools::All(), Bools::All());
+  TestForEach<BarrierTest>(ap, it, "barrier/atomics", cc->Grids().BarrierSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), Bools::All(), Bools::All());
   
   TestForEach<FBarrierBasicTest>(ap, it, "fbarrier/basic", cc->Grids().FBarrierSet());
   TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().FBarrierSet());
