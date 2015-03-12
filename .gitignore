@@ -11,3 +11,4 @@ cmake_lnx.sh
 cmake_windows.bat
 cmake_win.bat
 src/hexl/hexl_orca
+*.swp
