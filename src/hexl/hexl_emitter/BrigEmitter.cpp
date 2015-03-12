@@ -1106,7 +1106,7 @@ BrigTypeX BrigEmitter::AtomicValueType(BrigAtomicOperation op, bool isSigned) co
   case BRIG_ATOMIC_WRAPINC:
   case BRIG_ATOMIC_WRAPDEC:
     // 6.6.1., 6.7.1. Explanation of Modifiers. Type (is always unsigned)
-    return SignalValueIntType(false);
+    return AtomicValueIntType(false);
   default:
     assert(false); return BRIG_TYPE_NONE;
   }

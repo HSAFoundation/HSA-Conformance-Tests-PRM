@@ -193,7 +193,7 @@ public:
     TypedReg dest = NULL, src0 = be.AddTReg(vtype), src1 = NULL, wiID = NULL, idInWF = NULL, cReg = NULL, addrReg = NULL;
     if (!noret) dest = be.AddTReg(vtype);
     if (BRIG_ATOMIC_MIN != atomicOp && BRIG_ATOMIC_MAX != atomicOp && BRIG_ATOMIC_EXCH != atomicOp)
-      be.EmitMov(src0->Reg(), be.Immed(be.AtomicValueBitType(), immSrc0), src0->TypeSizeBits());
+      be.EmitMov(src0->Reg(), be.Immed(type2bitType(vtype), immSrc0), src0->TypeSizeBits());
     switch (atomicOp) {
       case BRIG_ATOMIC_AND:
       case BRIG_ATOMIC_EXCH:
