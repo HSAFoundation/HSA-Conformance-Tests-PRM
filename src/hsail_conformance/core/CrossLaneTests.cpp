@@ -17,7 +17,6 @@
 #include "CrossLaneTests.hpp"
 #include "HCTests.hpp"
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -50,7 +49,7 @@ namespace hsail_conformance {
       specList.Add(src);
     }
 
-    BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+    BrigType ResultType() const { return BRIG_TYPE_U32; }
 
     const char *OperationName() const { return "activelanecount"; }
 
@@ -180,7 +179,7 @@ namespace hsail_conformance {
     ActiveLaneIdTest(Location codeLocation, Grid geometry)
       : CrossLaneTestBase(codeLocation, geometry) { }
 
-    BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+    BrigType ResultType() const { return BRIG_TYPE_U32; }
 
     const char *OperationName() const { return "activelaneid"; }
 
@@ -294,7 +293,7 @@ namespace hsail_conformance {
     ActiveLaneMaskTest(Location codeLocation, Grid geometry, Condition src_)
       : CrossLaneTestBase(codeLocation, geometry), src(src_) { specList.Add(src); }
 
-    BrigTypeX ResultType() const { return BRIG_TYPE_B64; }
+    BrigType ResultType() const { return BRIG_TYPE_B64; }
 
     uint64_t ResultDim() const { return 4; }
 

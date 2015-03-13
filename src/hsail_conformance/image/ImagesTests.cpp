@@ -23,7 +23,6 @@
 #include "ImageLimitsTests.hpp"
 #include "CoreConfig.hpp"
 
-using namespace Brig;
 using namespace hexl;
 
 namespace hsail_conformance { 

@@ -9,9 +9,6 @@ using std::string;
 using std::ostringstream;
 
 using namespace HSAIL_ASM;
-using Brig::BRIG_TYPE_F16;
-using Brig::BRIG_TYPE_F32;
-using Brig::BRIG_TYPE_F64;
 
 namespace TESTGEN {
 
@@ -240,10 +237,10 @@ static int f2i_round(Val val, unsigned rounding)
 
     switch (rounding)
     {
-    case Brig::BRIG_ROUND_INTEGER_NEAR_EVEN:
-    case Brig::BRIG_ROUND_INTEGER_NEAR_EVEN_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN_SAT:
+    case BRIG_ROUND_INTEGER_NEAR_EVEN:
+    case BRIG_ROUND_INTEGER_NEAR_EVEN_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN:
+    case BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN_SAT:
         if (val.getNormalizedFract() > Val(0.5f).getNormalizedFract())          // Rounds to the nearest representable value
         {
             round = val.isNegative() ? -1 : 1;
@@ -254,21 +251,21 @@ static int f2i_round(Val val, unsigned rounding)
             round = val.isNegative() ? -1 : 1;
         }
         break;
-    case Brig::BRIG_ROUND_INTEGER_ZERO:
-    case Brig::BRIG_ROUND_INTEGER_ZERO_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO_SAT:
+    case BRIG_ROUND_INTEGER_ZERO:
+    case BRIG_ROUND_INTEGER_ZERO_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALING_ZERO:
+    case BRIG_ROUND_INTEGER_SIGNALING_ZERO_SAT:
         break;
-    case Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_PLUS_INFINITY:
+    case BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY:
+    case BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY_SAT:
         if (val.isRegularPositive() && !val.isNatural()) round = 1;
         break;
-    case Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY:
-    case Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_MINUS_INFINITY:
+    case BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT:
+    case BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY:
+    case BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY_SAT:
         if (val.isRegularNegative() && !val.isNatural()) round = -1;
         break;
 
@@ -352,8 +349,6 @@ f64_t f64_unsupported()
 // This is a property of target HW, not emulator!
 double getNativeOpPrecision(unsigned opcode, unsigned type)
 {
-    using namespace Brig;
-
     switch(opcode)
     {
     case BRIG_OPCODE_NRCP:
@@ -387,8 +382,6 @@ double getNativeOpPrecision(unsigned opcode, unsigned type)
 
 bool isSupportedFpRounding(unsigned rounding) 
 { 
-    using namespace Brig;
-
     switch(rounding)
     {
     case BRIG_ROUND_NONE:
@@ -407,12 +400,12 @@ bool isSupportedFpRounding(unsigned rounding)
 
 void validateFpRounding(unsigned rounding)
 {
-    assert(isSupportedFpRounding(rounding) && rounding != Brig::BRIG_ROUND_NONE);
+    assert(isSupportedFpRounding(rounding) && rounding != BRIG_ROUND_NONE);
 }
 
 void validateRoundingNone(unsigned rounding)
 {
-    assert(rounding == Brig::BRIG_ROUND_NONE);
+    assert(rounding == BRIG_ROUND_NONE);
 }
 
 //==============================================================================

@@ -21,7 +21,6 @@
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenDataProvider.h"
 
-using namespace Brig;
 using namespace TESTGEN;
 using namespace HSAIL_ASM;
 
@@ -97,7 +96,7 @@ private:
   unsigned defSrcArray(DispatchSetup* dsetup, TestGroupArray* testGroup, unsigned id, unsigned operandIdx) {
     TestData& data = testGroup->getData(0);
     unsigned vecSize = data.src[operandIdx].getDim();
-    BrigTypeX type = (BrigTypeX) data.src[operandIdx].getValType();
+    BrigType type = (BrigType) data.src[operandIdx].getValType();
     uint32_t sizes[3] = { BufferArraySize(type, vecSize * testGroup->getFlatSize()), 1, 1 };
     MBuffer* mb = new MBuffer(id++, getSrcArrayName(operandIdx), MEM_GLOBAL,
                               BufferValueType(type), 1, sizes);
@@ -117,7 +116,7 @@ private:
   unsigned defResultArray(DispatchSetup* dsetup, TestGroupArray* testGroup, unsigned id, std::string name, bool isDst) {
     TestData& data = testGroup->getData(0);
     unsigned vecSize = isDst? data.dst.getDim() : data.mem.getDim();
-    BrigTypeX type = (BrigTypeX) (isDst? data.dst.getValType() : data.mem.getValType());
+    BrigType type = (BrigType) (isDst? data.dst.getValType() : data.mem.getValType());
     uint32_t sizes[3] = { BufferArraySize(type, vecSize * testGroup->getFlatSize()), 1, 1 };
     MBuffer* mb = new MBuffer(id++, name, MEM_GLOBAL,
                               BufferValueType(type),
@@ -137,11 +136,11 @@ private:
     return id;
   }
 
-  ValueType BufferValueType(BrigTypeX type) {
+  ValueType BufferValueType(BrigType type) {
     return Brig2ValueType(type);
   }
 
-  unsigned BufferArraySize(BrigTypeX type, unsigned size) {
+  unsigned BufferArraySize(BrigType type, unsigned size) {
     return size * Brig2ValueCount(type);
   }
 
@@ -212,7 +211,7 @@ private:
     }
   }
 
-  hexl::ValueType Brig2ValueType(BrigTypeX type)
+  hexl::ValueType Brig2ValueType(BrigType type)
   {
     switch (type) {
     case BRIG_TYPE_B1: return MV_UINT32;
@@ -246,7 +245,7 @@ private:
     }
   }
 
-  unsigned Brig2ValueCount(BrigTypeX type)
+  unsigned Brig2ValueCount(BrigType type)
   {
     switch (type) {
     case BRIG_TYPE_F16X2: return 2;

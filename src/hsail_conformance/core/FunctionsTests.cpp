@@ -24,7 +24,6 @@
 using namespace hexl;
 using namespace hexl::emitter;
 using namespace HSAIL_ASM;
-using namespace Brig;
 
 namespace hsail_conformance {
 
@@ -85,7 +84,7 @@ public:
     inputs->Add(indata);
   }
 
-  BrigTypeX ResultType() const {
+  BrigType ResultType() const {
     return argSpec->Type();
   }
 

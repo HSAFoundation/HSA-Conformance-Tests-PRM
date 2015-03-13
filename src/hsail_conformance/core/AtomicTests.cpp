@@ -24,7 +24,6 @@ using namespace hexl;
 using namespace hexl::scenario;
 using namespace hexl::emitter;
 using namespace HSAIL_ASM;
-using namespace Brig;
 
 namespace hsail_conformance {
 
@@ -56,7 +55,7 @@ protected:
     BrigSegment segment;
     BrigMemoryOrder memoryOrder;
     BrigMemoryScope memoryScope;
-    BrigTypeX type;
+    BrigType type;
     bool atomicNoRet;
     uint8_t equivClass;
     DirectiveVariable testVar;
@@ -76,7 +75,7 @@ public:
                 BrigSegment segment_,
                 BrigMemoryOrder memoryOrder_,
                 BrigMemoryScope memoryScope_,
-                BrigTypeX type_,
+                BrigType type_,
                 bool noret)
     : Test(KERNEL, geometry_),
         atomicOp(atomicOp_),
@@ -100,10 +99,10 @@ public:
                                              << (segment != BRIG_SEGMENT_FLAT ? "_" : "")
                                              << memoryOrder2str(be.AtomicMemoryOrder(atomicOp, memoryOrder))
                                              << "_" << memoryScope2str(memoryScope)
-                                             << "_" << typeX2str(type)
+                                             << "_" << type2str(type)
                                              << "/" << geometry; }
 
-    BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+    BrigType ResultType() const { return BRIG_TYPE_U32; }
 
 
 
@@ -872,7 +871,7 @@ public:
 
     // ========================================================================
 
-    BrigType16_t ArithType(Brig::BrigOpcode16_t opcode, BrigType16_t operandType) const
+    BrigType16_t ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const
     {
         switch (opcode) {
         case BRIG_OPCODE_SHL:

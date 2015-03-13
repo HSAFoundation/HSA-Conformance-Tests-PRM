@@ -19,7 +19,6 @@
 
 using namespace hexl;
 using namespace hexl::emitter;
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hsail_conformance::utils;
 

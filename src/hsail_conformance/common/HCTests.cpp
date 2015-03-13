@@ -21,7 +21,6 @@
 
 using namespace HSAIL_ASM;
 using namespace hexl;
-using namespace Brig;
 
 namespace hsail_conformance {
 

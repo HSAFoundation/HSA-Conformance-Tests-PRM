@@ -20,31 +20,6 @@ using std::string;
 using std::ostringstream;
 using std::setw;
 
-using Brig::BRIG_TYPE_NONE;
-using Brig::BRIG_TYPE_B1;
-using Brig::BRIG_TYPE_B8;
-using Brig::BRIG_TYPE_B16;
-using Brig::BRIG_TYPE_B32;
-using Brig::BRIG_TYPE_B64;
-using Brig::BRIG_TYPE_B128;
-using Brig::BRIG_TYPE_S8;
-using Brig::BRIG_TYPE_S16;
-using Brig::BRIG_TYPE_S32;
-using Brig::BRIG_TYPE_S64;
-using Brig::BRIG_TYPE_U8;
-using Brig::BRIG_TYPE_U16;
-using Brig::BRIG_TYPE_U32;
-using Brig::BRIG_TYPE_U64;
-using Brig::BRIG_TYPE_F16;
-using Brig::BRIG_TYPE_F32;
-using Brig::BRIG_TYPE_F64;
-
-using Brig::BRIG_PACK_NONE;
-using Brig::BRIG_SEGMENT_NONE;
-using Brig::BRIG_SEGMENT_KERNARG;
-using Brig::BRIG_SEGMENT_GLOBAL;
-using Brig::BRIG_SEGMENT_GROUP;
-
 using HSAIL_ASM::DirectiveKernel;
 using HSAIL_ASM::DirectiveFunction;
 using HSAIL_ASM::DirectiveIndirectFunction;
@@ -1126,16 +1101,16 @@ private:
     // For other instructions, atoms have the same type and size as elements.
     //
 
-    bool testLdSt() { return testSample.opcode() == Brig::BRIG_OPCODE_LD || testSample.opcode() == Brig::BRIG_OPCODE_ST; }
+    bool testLdSt() { return testSample.opcode() == BRIG_OPCODE_LD || testSample.opcode() == BRIG_OPCODE_ST; }
 
     unsigned getRequiredMemAlignNum()    { InstMem inst = testSample; return inst? HSAIL_ASM::align2num(inst.align()) * 8: 0; }
 
-    bool     isPrivateMemSeg()           { return getMemTestArraySegment() == Brig::BRIG_SEGMENT_PRIVATE; }
+    bool     isPrivateMemSeg()           { return getMemTestArraySegment() == BRIG_SEGMENT_PRIVATE; }
     unsigned getMemTestArraySegment()    { return HSAIL_ASM::getSegment(testSample); }
     unsigned getMemTestArraySizeInBytes(){ return (getMemTestArrayBundleOffset() - getFooterSize() + 
                                                    getMemTestArrayBundleSize() * getMemTestArrayBundlesNum()) / 8; } // size in bytes
 
-    unsigned getMemTestArrayDeclAlign()  { return testLdSt()? Brig::BRIG_ALIGNMENT_256 : getNaturalAlignment(getMemDataElemType()); } // array declaration alignment
+    unsigned getMemTestArrayDeclAlign()  { return testLdSt()? BRIG_ALIGNMENT_256 : getNaturalAlignment(getMemDataElemType()); } // array declaration alignment
     unsigned getMemTestArrayDeclDim()    { return getMemTestArraySizeInBytes() / (getMemTestArrayAtomSize() / 8); } // array declaration size (in atoms)
     unsigned getMemTestArrayDeclType()   { return getMemTestArrayAtomType(); }                                      // array declaration type
 
@@ -1182,8 +1157,8 @@ private:
     uint64_t getMinSegmentSize() 
     { 
         unsigned segment = getMemTestArraySegment();
-        if (segment == Brig::BRIG_SEGMENT_GROUP)   return MIN_GROUP_SEGMENT_SIZE;
-        if (segment == Brig::BRIG_SEGMENT_PRIVATE) return MIN_PRIVATE_SEGMENT_SIZE;
+        if (segment == BRIG_SEGMENT_GROUP)   return MIN_GROUP_SEGMENT_SIZE;
+        if (segment == BRIG_SEGMENT_PRIVATE) return MIN_PRIVATE_SEGMENT_SIZE;
         return MAX_SEGMENT_SIZE; // unlimited
     }
 
@@ -1352,7 +1327,7 @@ private:
         assert(inst);
 
         unsigned atmOp = inst.atomicOperation();
-        return (atmOp == Brig::BRIG_ATOMIC_CAS) ? 3 : (atmOp == Brig::BRIG_ATOMIC_LD) ? 1 : 2;
+        return (atmOp == BRIG_ATOMIC_CAS) ? 3 : (atmOp == BRIG_ATOMIC_LD) ? 1 : 2;
     }
 
     bool hasDstOperand()
@@ -1408,7 +1383,6 @@ private:
 
         TestDataProvider* p;
 
-        using namespace Brig;
         switch (inst.kind())
         {
         case BRIG_KIND_INST_BASIC:
@@ -1493,8 +1467,6 @@ private:
 
     static bool isF16(unsigned type)
     {
-        using namespace Brig;
-
         switch(type)
         {
         case BRIG_TYPE_F16:

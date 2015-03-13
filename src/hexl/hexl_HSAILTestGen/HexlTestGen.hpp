@@ -26,28 +26,28 @@ namespace TestGen {
 
 class TestGenConfig {
 private:
-  Brig::BrigMachineModel8_t model;
-  Brig::BrigProfile8_t profile;
+  BrigMachineModel8_t model;
+  BrigProfile8_t profile;
 
 public:
-  TestGenConfig(Brig::BrigMachineModel8_t model_, Brig::BrigProfile8_t profile_)
+  TestGenConfig(BrigMachineModel8_t model_, BrigProfile8_t profile_)
     : model(model_), profile(profile_) { }
 
   static const std::string ID;
 
-  Brig::BrigMachineModel8_t Model() const { return model; }
-  Brig::BrigProfile8_t Profile() const { return profile; }
+  BrigMachineModel8_t Model() const { return model; }
+  BrigProfile8_t Profile() const { return profile; }
 };
 
 class TestGenTestSet : public TestSet {
 private:
   std::string path;
   std::string prefix;
-  const Brig::BrigOpcode opcode;
+  const BrigOpcode opcode;
   Context* context;
 
 public:
-  TestGenTestSet(const std::string& path_, const std::string& prefix_, Brig::BrigOpcode opcode_)
+  TestGenTestSet(const std::string& path_, const std::string& prefix_, BrigOpcode opcode_)
     : path(path_), prefix(prefix_), opcode(opcode_) { }
 
   virtual void InitContext(Context* context) { assert(context); this->context = context; }

@@ -22,7 +22,6 @@
 
 using namespace hexl::emitter;
 using namespace hexl::scenario;
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 
@@ -152,14 +151,14 @@ public:
     {
       switch (imageChannelType)
       {
-      case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-      case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-      case Brig::BRIG_CHANNEL_TYPE_UNKNOWN:
-      case Brig::BRIG_CHANNEL_TYPE_FIRST_USER_DEFINED:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+      case BRIG_CHANNEL_TYPE_UNKNOWN:
+      case BRIG_CHANNEL_TYPE_FIRST_USER_DEFINED:
         return false;
         break;
       default:
@@ -169,7 +168,7 @@ public:
     return IsImageSupported(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
  
-  BrigTypeX ResultType() const {
+  BrigType ResultType() const {
     return BRIG_TYPE_U32; 
   }
 

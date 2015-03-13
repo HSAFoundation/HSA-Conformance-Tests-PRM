@@ -25,7 +25,6 @@ using namespace hexl;
 using namespace hexl::scenario;
 using namespace hexl::emitter;
 using namespace HSAIL_ASM;
-using namespace Brig;
 
 namespace hsail_conformance {
 class BarrierTest : public Test {
@@ -63,7 +62,7 @@ public:
                                            << (isSigned ? "/signed" : "")
                                            << "/" << geometry; }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const {
     switch (atomicOp) {
@@ -189,7 +188,7 @@ public:
   // to be sure of sequential intermediate result, in other words, atomic operation took place for all workitems
   TypedReg Result() {
     TypedReg result = be.AddTReg(ResultType());
-    BrigTypeX vtype = be.AtomicValueType(atomicOp, isSigned);
+    BrigType vtype = be.AtomicValueType(atomicOp, isSigned);
     TypedReg dest = NULL, src0 = be.AddTReg(vtype), src1 = NULL, wiID = NULL, idInWF = NULL, cReg = NULL, addrReg = NULL;
     if (!noret) dest = be.AddTReg(vtype);
     if (BRIG_ATOMIC_MIN != atomicOp && BRIG_ATOMIC_MAX != atomicOp && BRIG_ATOMIC_EXCH != atomicOp)
@@ -381,7 +380,7 @@ public:
 
 class FBarrierBasicTest: public FBarrierDoubleBranchTest {
 private:
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE1 = 123;
   static const uint32_t VALUE2 = 456;
 
@@ -436,7 +435,7 @@ public:
         && (geometry->WorkgroupSize() % (2 * wavesize)) == 0; // group size is multiple of WAVESIZE and there are even number of waves in work-group
   }
 
-  BrigTypeX ResultType() const override { return VALUE_TYPE; }
+  BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE2); }
 };
 
@@ -446,7 +445,7 @@ protected:
   static const uint32_t VALUE1 = 123;
   static const uint32_t VALUE2 = 456;
   static const uint32_t VALUE3 = 789;
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
 
   virtual TypedReg EmitSecondBranchCondition(TypedReg wiId) {
     // if wiId < 2 * WAVESIZE
@@ -462,7 +461,7 @@ protected:
 public:
   explicit FBarrierExampleTest(Grid geometry) : FBarrierDoubleBranchTest(geometry) {}
 
-  BrigTypeX ResultType() const override { return VALUE_TYPE; }
+  BrigType ResultType() const override { return VALUE_TYPE; }
 
   void ExpectedResults(Values* result) const override {
     result->reserve(geometry->GridSize());
@@ -616,7 +615,7 @@ private:
   TypedReg counter;
   PointerReg groupOffset;
 
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t DATA_ITEM_COUNT = 8;
 
   FBarrier Pfb() const { return Fb(); }
@@ -746,7 +745,7 @@ public:
     buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, VALUE_TYPE, Location::KERNEL, BRIG_ALIGNMENT_NONE, geometry->WorkgroupSize() / 2);
   }
 
-  BrigTypeX ResultType() const override { return VALUE_TYPE; }
+  BrigType ResultType() const override { return VALUE_TYPE; }
   uint64_t ResultDim() const override { return DATA_ITEM_COUNT; }
 
   void ExpectedResults(Values* result) const override {
@@ -794,7 +793,7 @@ class FBarrierPairOperationTest: public FBarrierDoubleBranchTest {
 private:
   FBarrier fb1; // addition fbarrier that ensures simultaneous pair operations in different waves
 
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE = 123456789;
   static const uint32_t ITERATION_NUMBER = 32;
 
@@ -868,7 +867,7 @@ public:
     fb1 = kernel->NewFBarrier("fb1");
   }
 
-  BrigTypeX ResultType() const override { return VALUE_TYPE; }
+  BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 };
 
