@@ -22,7 +22,7 @@
 #include <sstream>
 
 namespace hsail_conformance {
-using namespace Brig;
+
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -30,14 +30,14 @@ using namespace hexl::emitter;
 class MemoryFenceTest : public Test {
 public:
   static const uint32_t workgroupSizeX = 256;
-  static const BrigTypeX type = BRIG_TYPE_U64;
+  static const BrigType type = BRIG_TYPE_U64;
 
   MemoryFenceTest(Grid geometry_, BrigOpcode opcode_, BrigMemoryOrder memoryOrder_, BrigSegment segment_, BrigMemoryScope memoryScope_)
   : Test(KERNEL, geometry_), opcode(opcode_), memoryOrder(memoryOrder_), segment(segment_), memoryScope(memoryScope_),
     initialValue(0), expectedValue(1) {}
 
   void Name(std::ostream& out) const {
-    out << opcode2str(opcode) << "_" << segment2str(segment) << "_" << typeX2str(type) << "/"
+    out << opcode2str(opcode) << "_" << segment2str(segment) << "_" << type2str(type) << "/"
         << opcode2str(BRIG_OPCODE_MEMFENCE) << "_" << memoryOrder2str(memoryOrder) << "_" << memoryScope2str(memoryScope);
   }
 
@@ -55,7 +55,7 @@ protected:
   TypedReg inputReg;
   TypedReg destReg;
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   bool IsValid() const {
     // TODO: memfence on ld.

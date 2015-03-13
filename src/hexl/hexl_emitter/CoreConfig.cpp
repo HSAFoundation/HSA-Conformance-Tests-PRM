@@ -18,16 +18,14 @@
 #include "Emitter.hpp"
 #include "BrigEmitter.hpp"
 
-using namespace Brig;
-
 namespace hexl {
 
 namespace emitter {
 const char *CoreConfig::CONTEXT_KEY = "hsail_conformance.coreConfig";
 
 CoreConfig::CoreConfig(
-  Brig::BrigVersion32_t majorVersion_, Brig::BrigVersion32_t minorVersion_,
-  Brig::BrigMachineModel8_t model_, Brig::BrigProfile8_t profile_)
+  BrigVersion32_t majorVersion_, BrigVersion32_t minorVersion_,
+  BrigMachineModel8_t model_, BrigProfile8_t profile_)
   : ap(new Arena()),
     majorVersion(majorVersion_), minorVersion(minorVersion_),
     model(model_), profile(profile_),
@@ -434,13 +432,13 @@ bool CoreConfig::SegmentsConfig::CanPassAddressToKernel(BrigSegment8_t segment)
   }
 }
 
-hexl::Sequence<Brig::BrigSegment>*
-CoreConfig::SegmentsConfig::Single(Brig::BrigSegment segment)
+hexl::Sequence<BrigSegment>*
+CoreConfig::SegmentsConfig::Single(BrigSegment segment)
 {
   return singleList[segment];
 }
 
-static const BrigTypeX compoundTypes[] = {
+static const BrigType compoundTypes[] = {
   BRIG_TYPE_U8,
   BRIG_TYPE_U16,
   BRIG_TYPE_U32,
@@ -454,7 +452,7 @@ static const BrigTypeX compoundTypes[] = {
   BRIG_TYPE_F64,
 };
 
-static const BrigTypeX compoundIntegralTypes[] = {
+static const BrigType compoundIntegralTypes[] = {
   BRIG_TYPE_U8,
   BRIG_TYPE_U16,
   BRIG_TYPE_U32,
@@ -465,13 +463,13 @@ static const BrigTypeX compoundIntegralTypes[] = {
   BRIG_TYPE_S64
 };
 
-static const BrigTypeX compoundFloatingTypes[] = {
+static const BrigType compoundFloatingTypes[] = {
 //  BRIG_TYPE_F16,
   BRIG_TYPE_F32,
   BRIG_TYPE_F64
 };
 
-static const BrigTypeX packedTypes[] = {
+static const BrigType packedTypes[] = {
   BRIG_TYPE_U8X4,
   BRIG_TYPE_U8X8,
   BRIG_TYPE_S8X4,
@@ -485,7 +483,7 @@ static const BrigTypeX packedTypes[] = {
   BRIG_TYPE_F32X2
 };
 
-static const BrigTypeX packed128BitTypes[] = {
+static const BrigType packed128BitTypes[] = {
   BRIG_TYPE_U8X16,
   BRIG_TYPE_U16X8,
   BRIG_TYPE_U32X4,
@@ -498,7 +496,7 @@ static const BrigTypeX packed128BitTypes[] = {
   BRIG_TYPE_F64X2
 };
 
-static const BrigTypeX atomicTypes[] = {
+static const BrigType atomicTypes[] = {
   BRIG_TYPE_U32,
   BRIG_TYPE_U64,
   BRIG_TYPE_S32,
@@ -513,12 +511,12 @@ static const size_t registerSizesArr[] = {
 
 CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    compound(NEWA ArraySequence<BrigTypeX>(compoundTypes, NELEM(compoundTypes))),
-    compoundIntegral(NEWA ArraySequence<BrigTypeX>(compoundIntegralTypes, NELEM(compoundIntegralTypes))),
-    compoundFloating(NEWA ArraySequence<BrigTypeX>(compoundFloatingTypes, NELEM(compoundFloatingTypes))),
-    packed(NEWA ArraySequence<BrigTypeX>(packedTypes, NELEM(packedTypes))),
-    packed128(NEWA ArraySequence<BrigTypeX>(packed128BitTypes, NELEM(packed128BitTypes))),
-    atomic(NEWA ArraySequence<BrigTypeX>(atomicTypes, NELEM(atomicTypes))),
+    compound(NEWA ArraySequence<BrigType>(compoundTypes, NELEM(compoundTypes))),
+    compoundIntegral(NEWA ArraySequence<BrigType>(compoundIntegralTypes, NELEM(compoundIntegralTypes))),
+    compoundFloating(NEWA ArraySequence<BrigType>(compoundFloatingTypes, NELEM(compoundFloatingTypes))),
+    packed(NEWA ArraySequence<BrigType>(packedTypes, NELEM(packedTypes))),
+    packed128(NEWA ArraySequence<BrigType>(packed128BitTypes, NELEM(packed128BitTypes))),
+    atomic(NEWA ArraySequence<BrigType>(atomicTypes, NELEM(atomicTypes))),
     registerSizes(NEWA ArraySequence<size_t>(registerSizesArr, NELEM(registerSizesArr)))
 {
 }
@@ -767,7 +765,7 @@ static const std::string validExtensionsNames[] = {
 
 CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    none(NEWA EControlDirectives(NEWA EmptySequence<Brig::BrigControlDirective>())),
+    none(NEWA EControlDirectives(NEWA EmptySequence<BrigControlDirective>())),
     dimensionRelated(NEWA EControlDirectives(NEWA OneValueSequence<BrigControlDirective>(BRIG_CONTROL_REQUIREDDIM))),
     gridGroupRelated(Array(ap, gridGroupRelatedValues, NELEM(gridGroupRelatedValues))),
     gridSizeRelated(Array(ap, gridSizeRelatedValues, NELEM(gridSizeRelatedValues))),
@@ -815,7 +813,7 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
     workgroupWidths(NEWA VectorSequence<BrigWidth>()),
     conditionInputs(NEWA EnumSequence<ConditionInput>(COND_INPUT_START, COND_INPUT_END)),
     binaryConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), WorkgroupWidths()))),
-    sbrTypes(NEWA EnumSequence<BrigTypeX>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
+    sbrTypes(NEWA EnumSequence<BrigType>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
     switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths())))
 {
   for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {

@@ -25,13 +25,9 @@ namespace TESTGEN {
 // ============================================================================
 // ============================================================================
 
-string dumpInst(Inst inst)
-{
-    HSAIL_ASM::Disassembler disasm(*inst.container());
-    string res = disasm.get(inst, BrigSettings::getModel(), BrigSettings::getProfile());
-    string::size_type pos = res.find_first_of("\t");
-    if (pos != string::npos) res = res.substr(0, pos);
-    return res;
+string dumpInst(Inst inst) 
+{ 
+    return HSAIL_ASM::Disassembler::getInstMnemonic(inst, BrigSettings::getModel(), BrigSettings::getProfile()); 
 }
 
 string getOperandKind(Inst inst, unsigned operandIdx)

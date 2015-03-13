@@ -26,9 +26,6 @@ using std::setbase;
 using std::setw;
 using std::setfill;
 
-using Brig::BRIG_PACK_P;
-using Brig::BRIG_TYPE_NONE;
-
 using HSAIL_ASM::Directive;
 using HSAIL_ASM::Inst;
 using HSAIL_ASM::Operand;
@@ -70,46 +67,46 @@ private:
     }
 
 private:
-    void assign(u8_t  val) { setProps(Brig::BRIG_TYPE_U8);   num.set(val); }
-    void assign(u16_t val) { setProps(Brig::BRIG_TYPE_U16);  num.set(val); }
-    void assign(u32_t val) { setProps(Brig::BRIG_TYPE_U32);  num.set(val); }
-    void assign(u64_t val) { setProps(Brig::BRIG_TYPE_U64);  num.set(val); }
+    void assign(u8_t  val) { setProps(BRIG_TYPE_U8);   num.set(val); }
+    void assign(u16_t val) { setProps(BRIG_TYPE_U16);  num.set(val); }
+    void assign(u32_t val) { setProps(BRIG_TYPE_U32);  num.set(val); }
+    void assign(u64_t val) { setProps(BRIG_TYPE_U64);  num.set(val); }
 
-    void assign(s8_t  val) { setProps(Brig::BRIG_TYPE_S8);   num.set(val); }
-    void assign(s16_t val) { setProps(Brig::BRIG_TYPE_S16);  num.set(val); }
-    void assign(s32_t val) { setProps(Brig::BRIG_TYPE_S32);  num.set(val); }
-    void assign(s64_t val) { setProps(Brig::BRIG_TYPE_S64);  num.set(val); }
+    void assign(s8_t  val) { setProps(BRIG_TYPE_S8);   num.set(val); }
+    void assign(s16_t val) { setProps(BRIG_TYPE_S16);  num.set(val); }
+    void assign(s32_t val) { setProps(BRIG_TYPE_S32);  num.set(val); }
+    void assign(s64_t val) { setProps(BRIG_TYPE_S64);  num.set(val); }
 
-    void assign(f16_t val) { setProps(Brig::BRIG_TYPE_F16);  num.set(val); }
-    void assign(f32_t val) { setProps(Brig::BRIG_TYPE_F32);  num.set(val); }
-    void assign(f64_t val) { setProps(Brig::BRIG_TYPE_F64);  num.set(val); }
+    void assign(f16_t val) { setProps(BRIG_TYPE_F16);  num.set(val); }
+    void assign(f32_t val) { setProps(BRIG_TYPE_F32);  num.set(val); }
+    void assign(f64_t val) { setProps(BRIG_TYPE_F64);  num.set(val); }
 
-    void assign(b1_t   val){ setProps(Brig::BRIG_TYPE_B1);   num.set<b1_t>(val & 0x1); }
-    void assign(b128_t val){ setProps(Brig::BRIG_TYPE_B128); num = val; }
+    void assign(b1_t   val){ setProps(BRIG_TYPE_B1);   num.set<b1_t>(val & 0x1); }
+    void assign(b128_t val){ setProps(BRIG_TYPE_B128); num = val; }
 
     template<typename T> void assign(T val){ assign(val.get()); setProps(T::typeId); }
 
 private:
-    u8_t   get_u8()   const { assert(getType() == Brig::BRIG_TYPE_U8);   return num.get<u8_t>();  }
-    u16_t  get_u16()  const { assert(getType() == Brig::BRIG_TYPE_U16);  return num.get<u16_t>(); }
-    u32_t  get_u32()  const { assert(getType() == Brig::BRIG_TYPE_U32);  return num.get<u32_t>(); }
-    u64_t  get_u64()  const { assert(getType() == Brig::BRIG_TYPE_U64);  return num.get<u64_t>(); }
+    u8_t   get_u8()   const { assert(getType() == BRIG_TYPE_U8);   return num.get<u8_t>();  }
+    u16_t  get_u16()  const { assert(getType() == BRIG_TYPE_U16);  return num.get<u16_t>(); }
+    u32_t  get_u32()  const { assert(getType() == BRIG_TYPE_U32);  return num.get<u32_t>(); }
+    u64_t  get_u64()  const { assert(getType() == BRIG_TYPE_U64);  return num.get<u64_t>(); }
 
-    s8_t   get_s8()   const { assert(getType() == Brig::BRIG_TYPE_S8);   return num.get<s8_t>();  }
-    s16_t  get_s16()  const { assert(getType() == Brig::BRIG_TYPE_S16);  return num.get<s16_t>(); }
-    s32_t  get_s32()  const { assert(getType() == Brig::BRIG_TYPE_S32);  return num.get<s32_t>(); }
-    s64_t  get_s64()  const { assert(getType() == Brig::BRIG_TYPE_S64);  return num.get<s64_t>(); }
+    s8_t   get_s8()   const { assert(getType() == BRIG_TYPE_S8);   return num.get<s8_t>();  }
+    s16_t  get_s16()  const { assert(getType() == BRIG_TYPE_S16);  return num.get<s16_t>(); }
+    s32_t  get_s32()  const { assert(getType() == BRIG_TYPE_S32);  return num.get<s32_t>(); }
+    s64_t  get_s64()  const { assert(getType() == BRIG_TYPE_S64);  return num.get<s64_t>(); }
 
-    f16_t  get_f16()  const { assert(getType() == Brig::BRIG_TYPE_F16);  return num.get<f16_t>(); }
-    f32_t  get_f32()  const { assert(getType() == Brig::BRIG_TYPE_F32);  return num.get<f32_t>(); }
-    f64_t  get_f64()  const { assert(getType() == Brig::BRIG_TYPE_F64);  return num.get<f64_t>(); }
+    f16_t  get_f16()  const { assert(getType() == BRIG_TYPE_F16);  return num.get<f16_t>(); }
+    f32_t  get_f32()  const { assert(getType() == BRIG_TYPE_F32);  return num.get<f32_t>(); }
+    f64_t  get_f64()  const { assert(getType() == BRIG_TYPE_F64);  return num.get<f64_t>(); }
 
-    b1_t   get_b1()   const { assert(getType() == Brig::BRIG_TYPE_B1);   return num.get<b1_t>(); }
-    b8_t   get_b8()   const { assert(getType() == Brig::BRIG_TYPE_B8);   return num.get<b8_t>(); }
-    b16_t  get_b16()  const { assert(getType() == Brig::BRIG_TYPE_B16);  return num.get<b16_t>(); }
-    b32_t  get_b32()  const { assert(getType() == Brig::BRIG_TYPE_B32);  return num.get<b32_t>(); }
-    b64_t  get_b64()  const { assert(getType() == Brig::BRIG_TYPE_B64);  return num.get<b64_t>(); }
-    b128_t get_b128() const { assert(getType() == Brig::BRIG_TYPE_B128); return num; }
+    b1_t   get_b1()   const { assert(getType() == BRIG_TYPE_B1);   return num.get<b1_t>(); }
+    b8_t   get_b8()   const { assert(getType() == BRIG_TYPE_B8);   return num.get<b8_t>(); }
+    b16_t  get_b16()  const { assert(getType() == BRIG_TYPE_B16);  return num.get<b16_t>(); }
+    b32_t  get_b32()  const { assert(getType() == BRIG_TYPE_B32);  return num.get<b32_t>(); }
+    b64_t  get_b64()  const { assert(getType() == BRIG_TYPE_B64);  return num.get<b64_t>(); }
+    b128_t get_b128() const { assert(getType() == BRIG_TYPE_B128); return num; }
 
     //==========================================================================
 private:

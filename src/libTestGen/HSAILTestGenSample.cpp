@@ -36,8 +36,6 @@ void Sample::set(unsigned propId, unsigned val)
     assert(PROP_MINID < propId && propId < PROP_MAXID);
     assert(!isEmpty());
 
-    using namespace Brig;
-
     if (isOperandProp(propId))
     {
         int idx = getOperandIdx(propId);

@@ -54,7 +54,7 @@ private:
   hexl::emitter::Variable outputVar;
 
   static const int RESULT_VALUE = 1;
-  static const Brig::BrigTypeX RESULT_TYPE = Brig::BrigTypeX::BRIG_TYPE_U32;
+  static const BrigType RESULT_TYPE = BrigType::BRIG_TYPE_U32;
 
 public:
   explicit SkipTest(hexl::emitter::Location codeLocation_ = hexl::emitter::Location::KERNEL, hexl::Grid geometry_ = 0)
@@ -62,7 +62,7 @@ public:
 
   void Init() override;
 
-  Brig::BrigTypeX ResultType() const override { return RESULT_TYPE; }
+  BrigType ResultType() const override { return RESULT_TYPE; }
   hexl::Value ExpectedResult() const override { return hexl::Value(hexl::Brig2ValueType(ResultType()), RESULT_VALUE); }
 
   size_t OutputBufferSize() const override { return 0; }

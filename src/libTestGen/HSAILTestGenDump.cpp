@@ -11,7 +11,6 @@ using std::string;
 using std::ostringstream;
 using HSAIL_ASM::getRegName;
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace HSAIL_PROPS;
 

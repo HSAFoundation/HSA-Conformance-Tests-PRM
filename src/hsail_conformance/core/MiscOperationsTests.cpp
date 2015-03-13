@@ -21,7 +21,6 @@
 
 using namespace hexl;
 using namespace hexl::emitter;
-using namespace Brig;
 using namespace HSAIL_ASM;
 
 namespace hsail_conformance {
@@ -50,7 +49,7 @@ public:
     hexl::EmittedTest::KernelArguments();
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
   Value ExpectedResult() const { return Value(MV_UINT32, argValue); }
 
   TypedReg Result()
@@ -88,7 +87,7 @@ public:
     if (varSpec) { var = kernel->NewVariable("var", varSpec); }
   }
 
-  BrigTypeX ResultType() const { return be.PointerType(BRIG_SEGMENT_KERNARG); }
+  BrigType ResultType() const { return be.PointerType(BRIG_SEGMENT_KERNARG); }
   Value ExpectedResult() const { return Value(Brig2ValueType(ResultType()), U64(1)); }
 
   TypedReg Result()
@@ -128,7 +127,7 @@ public:
     out << CodeLocationString() << (emitControlDirective ? "_MDGS" : "_ND");
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(MV_UINT32, testValue); }
 
   void Init() override {
@@ -280,7 +279,7 @@ public:
     out << firstVarSpec << "__" << secondVarSpec;
   }
 
-  BrigTypeX ResultType() const override { return be.PointerType(BRIG_SEGMENT_GROUP); }
+  BrigType ResultType() const override { return be.PointerType(BRIG_SEGMENT_GROUP); }
   Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), U64(0)); }
 
   void Init() {
@@ -363,7 +362,7 @@ public:
   ClockMonotonicTest(Location codeLocation, Grid geometry)
     : Test(codeLocation, geometry) { }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U64; }
+  BrigType ResultType() const { return BRIG_TYPE_U64; }
 
   void Name(std::ostream& out) const {
     out << CodeLocationString() << '_' << geometry;
@@ -447,7 +446,7 @@ public:
 
 class LessEqMaximumText: public Test {
 private:
-  BrigTypeX type;
+  BrigType type;
 
 protected:
   virtual TypedReg EmitValue() = 0;
@@ -455,7 +454,7 @@ protected:
 
 public:
   LessEqMaximumText(
-    BrigTypeX type_,
+    BrigType type_,
     Location codeLocation_, 
     Grid geometry_) 
     : Test(codeLocation_, geometry_), type(type_)  { }
@@ -464,7 +463,7 @@ public:
     out << CodeLocationString() << "_" << geometry;
   }
 
-  BrigTypeX ResultType() const override { return type; }
+  BrigType ResultType() const override { return type; }
 
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
@@ -505,14 +504,14 @@ public:
 class BufferIdentityTest: public Test {
 protected:
   BrigSegment bufferSegment;
-  BrigTypeX compareType;
+  BrigType compareType;
   uint64_t size;
   Variable buffer;
 
   bool IsGlobal() const { return buffer->Segment() == BRIG_SEGMENT_GLOBAL; }
 
 protected:
-  BrigTypeX CompareType() { return buffer->Type(); }
+  BrigType CompareType() { return buffer->Type(); }
   virtual TypedReg EmitCompareValue() = 0;
   virtual TypedReg EmitWorkItemId() = 0;
 
@@ -539,7 +538,7 @@ public:
     Location codeLocation_, 
     Grid geometry_,
     BrigSegment bufferSegment_,
-    BrigTypeX compareType_,
+    BrigType compareType_,
     uint64_t size_)
     : Test(codeLocation_, geometry_),
       bufferSegment(bufferSegment_),
@@ -548,7 +547,7 @@ public:
   {
   }
 
-  BrigTypeX CompareType() const { return compareType; }
+  BrigType CompareType() const { return compareType; }
 
   void Name(std::ostream& out) const override {
     out << CodeLocationString() << "_" << geometry;
@@ -559,7 +558,7 @@ public:
     buffer = kernel->NewVariable("buffer", bufferSegment, compareType, MODULE, BRIG_ALIGNMENT_NONE, size);
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
@@ -636,7 +635,7 @@ public:
   GroupBufferIdentityTest(
     Location codeLocation_, 
     Grid geometry_,
-    BrigTypeX compareType_ = BRIG_TYPE_U32) 
+    BrigType compareType_ = BRIG_TYPE_U32) 
     : BufferIdentityTest(
         codeLocation_, 
         geometry_,
@@ -662,7 +661,7 @@ public:
   GlobalBufferIdentityTest(
     Location codeLocation_, 
     Grid geometry_,
-    BrigTypeX compareType_ = BRIG_TYPE_U32) 
+    BrigType compareType_ = BRIG_TYPE_U32) 
     : BufferIdentityTest(
         codeLocation_, 
         geometry_, 
@@ -792,7 +791,7 @@ public:
     out << CodeLocationString() << "_" << geometry;
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
 
   void ExpectedResults(Values* result) const override { 
     // number of work-groups

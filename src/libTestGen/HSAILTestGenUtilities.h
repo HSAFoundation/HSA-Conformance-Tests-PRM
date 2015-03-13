@@ -81,29 +81,29 @@ private:
     unsigned bits;
 
 public: //F get rid of these shortcuts or use them regularly
-    static const unsigned ROUNDING_NONE       = Brig::BRIG_ROUND_NONE;
-    static const unsigned ROUNDING_DEFAULT    = Brig::BRIG_ROUND_FLOAT_DEFAULT;
-    static const unsigned ROUNDING_NEARI      = Brig::BRIG_ROUND_INTEGER_NEAR_EVEN;
-    static const unsigned ROUNDING_NEAR       = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN;
-    static const unsigned ROUNDING_ZEROI      = Brig::BRIG_ROUND_INTEGER_ZERO;
-    static const unsigned ROUNDING_ZERO       = Brig::BRIG_ROUND_FLOAT_ZERO;
-    static const unsigned ROUNDING_UPI        = Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY;
-    static const unsigned ROUNDING_UP         = Brig::BRIG_ROUND_FLOAT_PLUS_INFINITY;
-    static const unsigned ROUNDING_DOWNI      = Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY;
-    static const unsigned ROUNDING_DOWN       = Brig::BRIG_ROUND_FLOAT_MINUS_INFINITY;
-    static const unsigned ROUNDING_NEARI_SAT  = Brig::BRIG_ROUND_INTEGER_NEAR_EVEN_SAT;
-    static const unsigned ROUNDING_ZEROI_SAT  = Brig::BRIG_ROUND_INTEGER_ZERO_SAT;
-    static const unsigned ROUNDING_UPI_SAT    = Brig::BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT;
-    static const unsigned ROUNDING_DOWNI_SAT  = Brig::BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT;
+    static const unsigned ROUNDING_NONE       = BRIG_ROUND_NONE;
+    static const unsigned ROUNDING_DEFAULT    = BRIG_ROUND_FLOAT_DEFAULT;
+    static const unsigned ROUNDING_NEARI      = BRIG_ROUND_INTEGER_NEAR_EVEN;
+    static const unsigned ROUNDING_NEAR       = BRIG_ROUND_FLOAT_NEAR_EVEN;
+    static const unsigned ROUNDING_ZEROI      = BRIG_ROUND_INTEGER_ZERO;
+    static const unsigned ROUNDING_ZERO       = BRIG_ROUND_FLOAT_ZERO;
+    static const unsigned ROUNDING_UPI        = BRIG_ROUND_INTEGER_PLUS_INFINITY;
+    static const unsigned ROUNDING_UP         = BRIG_ROUND_FLOAT_PLUS_INFINITY;
+    static const unsigned ROUNDING_DOWNI      = BRIG_ROUND_INTEGER_MINUS_INFINITY;
+    static const unsigned ROUNDING_DOWN       = BRIG_ROUND_FLOAT_MINUS_INFINITY;
+    static const unsigned ROUNDING_NEARI_SAT  = BRIG_ROUND_INTEGER_NEAR_EVEN_SAT;
+    static const unsigned ROUNDING_ZEROI_SAT  = BRIG_ROUND_INTEGER_ZERO_SAT;
+    static const unsigned ROUNDING_UPI_SAT    = BRIG_ROUND_INTEGER_PLUS_INFINITY_SAT;
+    static const unsigned ROUNDING_DOWNI_SAT  = BRIG_ROUND_INTEGER_MINUS_INFINITY_SAT;
 
-    static const unsigned ROUNDING_SNEARI     = Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN;
-    static const unsigned ROUNDING_SZEROI     = Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO;
-    static const unsigned ROUNDING_SUPI       = Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY;
-    static const unsigned ROUNDING_SDOWNI     = Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY;
-    static const unsigned ROUNDING_SNEARI_SAT = Brig::BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN_SAT;
-    static const unsigned ROUNDING_SZEROI_SAT = Brig::BRIG_ROUND_INTEGER_SIGNALING_ZERO_SAT;
-    static const unsigned ROUNDING_SUPI_SAT   = Brig::BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY_SAT;
-    static const unsigned ROUNDING_SDOWNI_SAT = Brig::BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY_SAT;
+    static const unsigned ROUNDING_SNEARI     = BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN;
+    static const unsigned ROUNDING_SZEROI     = BRIG_ROUND_INTEGER_SIGNALING_ZERO;
+    static const unsigned ROUNDING_SUPI       = BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY;
+    static const unsigned ROUNDING_SDOWNI     = BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY;
+    static const unsigned ROUNDING_SNEARI_SAT = BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN_SAT;
+    static const unsigned ROUNDING_SZEROI_SAT = BRIG_ROUND_INTEGER_SIGNALING_ZERO_SAT;
+    static const unsigned ROUNDING_SUPI_SAT   = BRIG_ROUND_INTEGER_SIGNALING_PLUS_INFINITY_SAT;
+    static const unsigned ROUNDING_SDOWNI_SAT = BRIG_ROUND_INTEGER_SIGNALING_MINUS_INFINITY_SAT;
 
 public:
     AluMod(unsigned val = ROUNDING_NONE) : bits(val) { mapDefaultRounding(); }

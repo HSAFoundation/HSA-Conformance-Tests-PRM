@@ -22,7 +22,6 @@
 #include <sstream>
 
 namespace hsail_conformance {
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -48,7 +47,7 @@ protected:
   OperandConstantBytes immSuccess;
   OperandConstantBytes immError;
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, success); }
 
@@ -80,7 +79,7 @@ public:
     out << "cbr/basic/" << CodeLocationString() << "_" << cond;
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 };
 
 class CbrBasicTest : public ConditionTestBase {
@@ -314,7 +313,7 @@ protected:
   
   TypedReg Result() {
     unsigned branchCount = cond->SwitchBranchCount();
-    BrigTypeX type = ResultType();
+    BrigType type = ResultType();
     TypedReg result = be.AddTReg(type);
     be.EmitMov(result, be.Immed(type, branchCount + 1));
     cond->EmitSwitchStart();

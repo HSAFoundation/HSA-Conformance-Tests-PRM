@@ -286,8 +286,6 @@ public:
 
     static OperandTestData& get(unsigned type)
     {
-        using namespace Brig;
-
         switch(type)
         {
         case BRIG_TYPE_B1:  return *predefined[IDX_b1_t];
@@ -559,7 +557,6 @@ bool     TestDataProvider::enableF16   = false;
 #define BEGIN_TEST_DATA \
     TestDataProvider* TestDataProvider::getProvider(unsigned opcode, unsigned dstType, unsigned srcType, AluMod aluMod, unsigned srcNum)\
     {\
-        using namespace Brig;\
         switch(opcode)\
         {\
         default: {{
@@ -570,7 +567,7 @@ bool     TestDataProvider::enableF16   = false;
         return 0;\
     }
 
-#define INST(inst)  } return 0; } case Brig::BRIG_OPCODE_##inst: { switch(srcType) {
+#define INST(inst)  } return 0; } case BRIG_OPCODE_##inst: { switch(srcType) {
 
 #define TYPE(t) case BRIG_TYPE_##t:
 #define SRC_TYPE(t) case BRIG_TYPE_##t:

@@ -40,13 +40,13 @@ namespace Bools {
   hexl::Sequence<bool>* Value(bool val);
 }
 
-std::string Dir2Str(Brig::BrigControlDirective d);
+std::string Dir2Str(BrigControlDirective d);
 
 template <>
-inline const char *EmptySequenceName<Brig::BrigControlDirective>() { return "ND"; }
+inline const char *EmptySequenceName<BrigControlDirective>() { return "ND"; }
 
 template <>
-inline void PrintSequenceItem<Brig::BrigControlDirective>(std::ostream& out, const Brig::BrigControlDirective& d) {
+inline void PrintSequenceItem<BrigControlDirective>(std::ostream& out, const BrigControlDirective& d) {
   out << Dir2Str(d);
 }
 
@@ -136,17 +136,17 @@ public:
 class ETypedReg : public EmitterObject {
 public:
   ETypedReg()
-    : type(Brig::BRIG_TYPE_NONE) { }
-  ETypedReg(Brig::BrigType16_t type_)
+    : type(BRIG_TYPE_NONE) { }
+  ETypedReg(BrigType16_t type_)
     : type(type_) { }
-  ETypedReg(HSAIL_ASM::OperandRegister reg, Brig::BrigType16_t type_)
+  ETypedReg(HSAIL_ASM::OperandRegister reg, BrigType16_t type_)
     : type(type_) { Add(reg); }
 
   HSAIL_ASM::OperandRegister Reg() const { assert(Count() == 1); return regs[0]; }
   HSAIL_ASM::OperandRegister Reg(size_t i) const { return regs[(int) i]; }
   HSAIL_ASM::ItemList&  Regs() { return regs; }
   const HSAIL_ASM::ItemList& Regs() const { return regs; }
-  Brig::BrigType16_t Type() const { return type; }
+  BrigType16_t Type() const { return type; }
   unsigned TypeSizeBytes() const { return HSAIL_ASM::getBrigTypeNumBytes(type); }
   unsigned TypeSizeBits() const { return HSAIL_ASM::getBrigTypeNumBits(type); }
   size_t Count() const { return regs.size(); }
@@ -154,7 +154,7 @@ public:
 
 private:
   HSAIL_ASM::ItemList regs;
-  Brig::BrigType16_t type;
+  BrigType16_t type;
 };
 
 class ETypedRegList : public EmitterObject {
@@ -170,24 +170,24 @@ public:
 
 class EPointerReg : public ETypedReg {
 public:
-  static Brig::BrigTypeX GetSegmentPointerType(Brig::BrigSegment8_t segment, bool large);
+  static BrigType GetSegmentPointerType(BrigSegment8_t segment, bool large);
 
-  EPointerReg(HSAIL_ASM::OperandRegister reg_, Brig::BrigType16_t type_, Brig::BrigSegment8_t segment_)
+  EPointerReg(HSAIL_ASM::OperandRegister reg_, BrigType16_t type_, BrigSegment8_t segment_)
     : ETypedReg(reg_, type_), segment(segment_) { }
 
-  Brig::BrigSegment8_t Segment() const { return segment; }
-  bool IsLarge() const { return Type() == Brig::BRIG_TYPE_U64; }
+  BrigSegment8_t Segment() const { return segment; }
+  bool IsLarge() const { return Type() == BRIG_TYPE_U64; }
 
 private:
-  Brig::BrigSegment8_t segment;
+  BrigSegment8_t segment;
 };
 
 class EVariableSpec : public Emittable {
 protected:
   Location location;
-  Brig::BrigSegment segment;
-  Brig::BrigTypeX type;
-  Brig::BrigAlignment align;
+  BrigSegment segment;
+  BrigType type;
+  BrigAlignment align;
   uint64_t dim;
   bool isConst;
   bool output;
@@ -196,17 +196,17 @@ protected:
   bool IsValidAt(Location location) const;
 
 public:
-  EVariableSpec(Brig::BrigSegment segment_, Brig::BrigTypeX type_, Location location_ = AUTO, Brig::BrigAlignment align_ = Brig::BRIG_ALIGNMENT_NONE, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false)
+  EVariableSpec(BrigSegment segment_, BrigType type_, Location location_ = AUTO, BrigAlignment align_ = BRIG_ALIGNMENT_NONE, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false)
     : location(location_), segment(segment_), type(type_), align(align_), dim(dim_), isConst(isConst_), output(output_) { }
   EVariableSpec(const EVariableSpec& spec, bool output_)
     : location(spec.location), segment(spec.segment), type(spec.type), align(spec.align), dim(spec.dim), isConst(spec.isConst), output(output_) { }
 
   bool IsValid() const;
   void Name(std::ostream& out) const;
-  Brig::BrigSegment Segment() const { return segment; }
-  Brig::BrigTypeX Type() const { return type; }
+  BrigSegment Segment() const { return segment; }
+  BrigType Type() const { return type; }
   ValueType VType() const { return Brig2ValueType(type); }
-  Brig::BrigAlignment Align() const { return align; }
+  BrigAlignment Align() const { return align; }
   unsigned AlignNum() const { return HSAIL_ASM::align2num(align); }
   uint64_t Dim() const { return dim; }
   uint32_t Dim32() const { assert(dim <= UINT32_MAX); return (uint32_t) dim; }
@@ -224,7 +224,7 @@ private:
   Location RealLocation() const;
 
 public:
-  EVariable(TestEmitter* te_, const std::string& id_, Brig::BrigSegment segment_, Brig::BrigTypeX type_, Location location_, Brig::BrigAlignment align_ = Brig::BRIG_ALIGNMENT_NONE, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false)
+  EVariable(TestEmitter* te_, const std::string& id_, BrigSegment segment_, BrigType type_, Location location_, BrigAlignment align_ = BRIG_ALIGNMENT_NONE, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false)
     : EVariableSpec(segment_, type_, location_, align_, dim_, isConst_, output_), id(id_) { te = te_;  }
   EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_)
     : EVariableSpec(*spec_), id(id_) { te = te_; }
@@ -295,7 +295,7 @@ protected:
   VariableSpec varSpec;
 
 public:
-  Brig::BrigTypeX Type() { return varSpec->Type(); }
+  BrigType Type() { return varSpec->Type(); }
   ValueType VType() { return varSpec->VType(); }
 };
 
@@ -318,18 +318,18 @@ public:
 
 class EControlDirectives : public Emittable {
 private:
-  const hexl::Sequence<Brig::BrigControlDirective>* spec;
+  const hexl::Sequence<BrigControlDirective>* spec;
 
   void Emit();
 
 public:
-  EControlDirectives(const hexl::Sequence<Brig::BrigControlDirective>* spec_)
+  EControlDirectives(const hexl::Sequence<BrigControlDirective>* spec_)
     : spec(spec_) { }
 
   void Name(std::ostream& out) const;
 
-  const hexl::Sequence<Brig::BrigControlDirective>* Spec() const { return spec; }
-  bool Has(Brig::BrigControlDirective d) const { return spec->Has(d); }
+  const hexl::Sequence<BrigControlDirective>* Spec() const { return spec; }
+  bool Has(BrigControlDirective d) const { return spec->Has(d); }
   void FunctionDirectives();
   void KernelDirectives();
 };
@@ -371,7 +371,7 @@ public:
 
   void ScenarioEnd() { for (Emittable* e : list) { e->ScenarioEnd(); } }
 
-  Variable NewVariable(const std::string& id, Brig::BrigSegment segment, Brig::BrigTypeX type, Location location = AUTO, Brig::BrigAlignment align = Brig::BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
+  Variable NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location = AUTO, BrigAlignment align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   Variable NewVariable(const std::string& id, VariableSpec varSpec);
   Variable NewVariable(const std::string& id, VariableSpec varSpec, bool output);
   FBarrier NewFBarrier(const std::string& id, Location location = Location::KERNEL, bool output = false);
@@ -381,7 +381,6 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
-  ImageCalc NewImageCalc(EImage * eimage, ESampler* esampler);
 };
 
 class EBuffer : public Emittable {
@@ -395,7 +394,7 @@ private:
   PointerReg address[2];
   PointerReg dataOffset;
 
-  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
+  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitBufferDefinition();
 
   HSAIL_ASM::OperandAddress DataAddress(TypedReg index, bool flat = false, uint64_t count = 1);
@@ -451,19 +450,19 @@ public:
 
 //  void Name(std::ostream& out) { out << UserModeQueueType2Str(type); }
 
-  PointerReg Address(Brig::BrigSegment segment = Brig::BRIG_SEGMENT_GLOBAL);
+  PointerReg Address(BrigSegment segment = BRIG_SEGMENT_GLOBAL);
 
   void KernelArguments();
   void StartKernelBody();
   void SetupDispatch(hexl::DispatchSetup* setup);
   void ScenarioInit();
 
-  void EmitLdQueueReadIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest);
-  void EmitLdQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest);
-  void EmitStQueueReadIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg src);
-  void EmitStQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg src);  
-  void EmitAddQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest, HSAIL_ASM::Operand src);
-  void EmitCasQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1);
+  void EmitLdQueueReadIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest);
+  void EmitLdQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest);
+  void EmitStQueueReadIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg src);
+  void EmitStQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg src);  
+  void EmitAddQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest, HSAIL_ASM::Operand src);
+  void EmitCasQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1);
 
   TypedReg DoorbellSignal();
   TypedReg EmitLoadDoorbellSignal();
@@ -498,9 +497,9 @@ public:
 
 class EImageSpec : public EVariableSpec {
 protected:
-  Brig::BrigImageGeometry geometry;
-  Brig::BrigImageChannelOrder channel_order;
-  Brig::BrigImageChannelType channel_type;
+  BrigImageGeometry geometry;
+  BrigImageChannelOrder channel_order;
+  BrigImageChannelType channel_type;
   size_t width;
   size_t height;
   size_t depth;
@@ -513,15 +512,15 @@ protected:
   
 public:
   explicit EImageSpec(
-    Brig::BrigSegment brigseg_ = Brig::BRIG_SEGMENT_GLOBAL, 
-    Brig::BrigTypeX imageType_ = Brig::BRIG_TYPE_RWIMG, 
+    BrigSegment brigseg_ = BRIG_SEGMENT_GLOBAL, 
+    BrigType imageType_ = BRIG_TYPE_RWIMG, 
     Location location_ = Location::KERNEL, 
     uint64_t dim_ = 0, 
     bool isConst_ = false, 
     bool output_ = false,
-    Brig::BrigImageGeometry geometry_ = Brig::BRIG_GEOMETRY_1D,
-    Brig::BrigImageChannelOrder channel_order_ = Brig::BRIG_CHANNEL_ORDER_A, 
-    Brig::BrigImageChannelType channel_type_ = Brig::BRIG_CHANNEL_TYPE_SNORM_INT8,
+    BrigImageGeometry geometry_ = BRIG_GEOMETRY_1D,
+    BrigImageChannelOrder channel_order_ = BRIG_CHANNEL_ORDER_A, 
+    BrigImageChannelType channel_type_ = BRIG_CHANNEL_TYPE_SNORM_INT8,
     size_t width_ = 0, 
     size_t height_ = 0, 
     size_t depth_ = 0, 
@@ -530,9 +529,9 @@ public:
 
   bool IsValid() const;
 
-  Brig::BrigImageGeometry Geometry() { return geometry; }
-  Brig::BrigImageChannelOrder ChannelOrder() { return channel_order; }
-  Brig::BrigImageChannelType ChannelType() { return channel_type; }
+  BrigImageGeometry Geometry() { return geometry; }
+  BrigImageChannelOrder ChannelOrder() { return channel_order; }
+  BrigImageChannelType ChannelType() { return channel_type; }
   size_t Width() { return width; }
   size_t Height() { return height; }
   size_t Depth() { return depth; }
@@ -540,9 +539,9 @@ public:
   size_t SlicePitch() { return slicePitch; }
   size_t ArraySize() { return array_size; }
   
-  void Geometry(Brig::BrigImageGeometry geometry_) { geometry = geometry_; }
-  void ChannelOrder(Brig::BrigImageChannelOrder channel_order_) { channel_order = channel_order_; }
-  void ChannelType(Brig::BrigImageChannelType channel_type_) { channel_type = channel_type_; }
+  void Geometry(BrigImageGeometry geometry_) { geometry = geometry_; }
+  void ChannelOrder(BrigImageChannelOrder channel_order_) { channel_order = channel_order_; }
+  void ChannelType(BrigImageChannelType channel_type_) { channel_type = channel_type_; }
   void Width(size_t width_) { width = width_; }
   void Height(size_t height_) { height = height_; }
   void Depth(size_t depth_) { depth = depth_; }
@@ -553,15 +552,15 @@ public:
   hexl::ImageGeometry ImageGeometry() { return hexl::ImageGeometry((unsigned)width, (unsigned)height, (unsigned)depth, (unsigned)array_size); }
 };
 
-class EImageCalc : public Emittable {
+class EImageCalc {
 private:
   ImageGeometry imageGeometry;
-  Brig::BrigImageGeometry imageGeometryProp;
-  Brig::BrigImageChannelOrder imageChannelOrder;
-  Brig::BrigImageChannelType imageChannelType;
-  Brig::BrigSamplerCoordNormalization samplerCoord;
-  Brig::BrigSamplerFilter samplerFilter;
-  Brig::BrigSamplerAddressing samplerAddressing;
+  BrigImageGeometry imageGeometryProp;
+  BrigImageChannelOrder imageChannelOrder;
+  BrigImageChannelType imageChannelType;
+  BrigSamplerCoordNormalization samplerCoord;
+  BrigSamplerFilter samplerFilter;
+  BrigSamplerAddressing samplerAddressing;
 
   Value color_zero;
   Value color_one;
@@ -602,15 +601,17 @@ private:
   MImage* image;
   std::unique_ptr<Values> data;
   bool bLimitTestOn;
+  ImageCalc calculator;
 
-  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
+  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitInitializer();
   void EmitDefinition();
 
   Location RealLocation() const;
 
 public:
-  EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec) : EImageSpec(*spec), id(id_), data(new Values()), bLimitTestOn(false) { te = te_; }
+  EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec) : EImageSpec(*spec), id(id_), data(new Values()), bLimitTestOn(false), calculator(NULL) { te = te_; }
+  ~EImage() { if (calculator) delete calculator; }
 
   const std::string& Id() const { return id; }
 
@@ -622,16 +623,16 @@ public:
   void KernelVariables();
 
   void SetupDispatch(DispatchSetup* dispatch);
-  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord);
-  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, TypedReg coord);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, Brig::BrigTypeX destType, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageLd(TypedReg dest, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageSt(HSAIL_ASM::OperandOperandList src, Brig::BrigTypeX srcType, TypedReg image, TypedReg coord);
-  void EmitImageSt(HSAIL_ASM::OperandOperandList src, Brig::BrigTypeX srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType);
-  void EmitImageQuery(TypedReg dest, TypedReg image, Brig::BrigImageQuery query);
+  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, TypedReg coord);
+  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg coord);
+  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void EmitImageLd(TypedReg dest, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, TypedReg coord);
+  void EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query);
 
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
 
@@ -640,39 +641,41 @@ public:
   Values* ReleaseData() { return data.release(); }
   Value GetRawData(size_t i) { assert(image); return image->GetRaw(i); }
   void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
+  void InitImageCalculator(Sampler pSampler) { calculator = new EImageCalc(this, pSampler); }
+  void ReadColor(Value* _coords, Value* _color) const { assert(calculator); calculator->ReadColor(_coords, _color); }
 };
 
 class ESamplerSpec : public EVariableSpec {
 protected:
-  Brig::BrigSamplerCoordNormalization coord;
-  Brig::BrigSamplerFilter filter;
-  Brig::BrigSamplerAddressing addressing;
+  BrigSamplerCoordNormalization coord;
+  BrigSamplerFilter filter;
+  BrigSamplerAddressing addressing;
 
   bool IsValidSegment() const;
   
 public:
   explicit ESamplerSpec(
-    Brig::BrigSegment brigseg_ = Brig::BRIG_SEGMENT_GLOBAL, 
+    BrigSegment brigseg_ = BRIG_SEGMENT_GLOBAL, 
     Location location_ = Location::KERNEL, 
     uint64_t dim_ = 0, 
     bool isConst_ = false, 
     bool output_ = false,
-    Brig::BrigSamplerCoordNormalization coord_ = Brig::BRIG_COORD_UNNORMALIZED,
-    Brig::BrigSamplerFilter filter_ = Brig::BRIG_FILTER_NEAREST,
-    Brig::BrigSamplerAddressing addressing_ = Brig::BRIG_ADDRESSING_UNDEFINED
+    BrigSamplerCoordNormalization coord_ = BRIG_COORD_UNNORMALIZED,
+    BrigSamplerFilter filter_ = BRIG_FILTER_NEAREST,
+    BrigSamplerAddressing addressing_ = BRIG_ADDRESSING_UNDEFINED
   ) 
-  : EVariableSpec(brigseg_, Brig::BRIG_TYPE_SAMP, location_, Brig::BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
+  : EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
   coord(coord_), filter(filter_), addressing(addressing_) {}
 
   bool IsValid() const;
 
-  Brig::BrigSamplerCoordNormalization CoordNormalization() { return coord; }
-  Brig::BrigSamplerFilter Filter() { return filter; }
-  Brig::BrigSamplerAddressing Addresing() { return addressing; }
+  BrigSamplerCoordNormalization CoordNormalization() { return coord; }
+  BrigSamplerFilter Filter() { return filter; }
+  BrigSamplerAddressing Addresing() { return addressing; }
   
-  void CoordNormalization(Brig::BrigSamplerCoordNormalization coord_) { coord = coord_; }
-  void Filter(Brig::BrigSamplerFilter filter_) { filter = filter_; }
-  void Addresing(Brig::BrigSamplerAddressing addressing_) { addressing = addressing_; }
+  void CoordNormalization(BrigSamplerCoordNormalization coord_) { coord = coord_; }
+  void Filter(BrigSamplerFilter filter_) { filter = filter_; }
+  void Addresing(BrigSamplerAddressing addressing_) { addressing = addressing_; }
 };
 
 class ESampler : public ESamplerSpec {
@@ -681,7 +684,7 @@ private:
   HSAIL_ASM::DirectiveVariable var;
   MSampler* sampler;
 
-  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(Brig::BrigSegment segment);
+  HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitInitializer();
   void EmitDefinition();
 
@@ -701,7 +704,7 @@ public:
   void KernelVariables();
 
   void SetupDispatch(DispatchSetup* dispatch);
-  void EmitSamplerQuery(TypedReg dest, TypedReg sampler, Brig::BrigSamplerQuery query);
+  void EmitSamplerQuery(TypedReg dest, TypedReg sampler, BrigSamplerQuery query);
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
   TypedReg AddReg();
   TypedReg AddValueReg();
@@ -750,8 +753,8 @@ private:
   std::string id;
   ConditionType type;
   ConditionInput input;
-  Brig::BrigTypeX itype;
-  Brig::BrigWidth width;
+  BrigType itype;
+  BrigWidth width;
 
   HSAIL_ASM::DirectiveVariable kernarg, funcarg;
   TypedReg kerninp, funcinp;
@@ -765,11 +768,11 @@ private:
   std::string Id();
 
 public:
-  ECondition(ConditionType type_, ConditionInput input_, Brig::BrigWidth width_)
-    : type(type_), input(input_), itype(Brig::BRIG_TYPE_U32), width(width_),
+  ECondition(ConditionType type_, ConditionInput input_, BrigWidth width_)
+    : type(type_), input(input_), itype(BRIG_TYPE_U32), width(width_),
       kerninp(0), funcinp(0), condBuffer(0)
       { }
-  ECondition(ConditionType type_, ConditionInput input_, Brig::BrigTypeX itype_, Brig::BrigWidth width_)
+  ECondition(ConditionType type_, ConditionInput input_, BrigType itype_, BrigWidth width_)
     : type(type_), input(input_), itype(itype_), width(width_),
       kerninp(0), funcinp(0), condBuffer(0)
       { }
@@ -812,7 +815,7 @@ public:
   unsigned SwitchBranchCount();
   unsigned ExpectedSwitchPath(uint64_t i);
 
-  uint32_t InputValue(uint64_t id, Brig::BrigWidth width = Brig::BRIG_WIDTH_NONE);
+  uint32_t InputValue(uint64_t id, BrigWidth width = BRIG_WIDTH_NONE);
 };
 
 class BrigEmitter;
@@ -841,7 +844,7 @@ public:
   hexl::scenario::Scenario* TestScenario() { return scenario.get(); }
   hexl::scenario::Scenario* ReleaseScenario() { return scenario.release(); }
 
-  Variable NewVariable(const std::string& id, Brig::BrigSegment segment, Brig::BrigTypeX type, Location location = AUTO, Brig::BrigAlignment align = Brig::BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
+  Variable NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location = AUTO, BrigAlignment align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   Variable NewVariable(const std::string& id, VariableSpec varSpec);
   Variable NewVariable(const std::string& id, VariableSpec varSpec, bool output);
   FBarrier NewFBarrier(const std::string& id, Location location = Location::KERNEL, bool output = false);
@@ -852,7 +855,6 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
-  ImageCalc NewImageCalc(EImage * eimage, ESampler* esampler);
 };
 
 }
@@ -937,10 +939,10 @@ public:
 
   virtual void ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs);
 
-  virtual Brig::BrigTypeX ResultType() const { assert(0); return Brig::BRIG_TYPE_NONE; }
+  virtual BrigType ResultType() const { assert(0); return BRIG_TYPE_NONE; }
   virtual uint64_t ResultDim() const { return 0; }
   uint32_t ResultCount() const { assert(ResultDim() < UINT32_MAX); return (std::max)((uint32_t) ResultDim(), (uint32_t) 1); }
-  bool IsResultType(Brig::BrigTypeX type) const { return ResultType() == type; }
+  bool IsResultType(BrigType type) const { return ResultType() == type; }
   ValueType ResultValueType() const { return Brig2ValueType(ResultType()); }
   virtual emitter::TypedReg Result() { assert(0); return 0; }
   virtual size_t OutputBufferSize() const;

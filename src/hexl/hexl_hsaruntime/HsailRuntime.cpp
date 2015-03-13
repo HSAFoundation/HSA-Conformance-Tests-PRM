@@ -25,7 +25,6 @@
 #include "time.h"
 
 using namespace hexl;
-using namespace Brig;
 
 namespace hexl {
 

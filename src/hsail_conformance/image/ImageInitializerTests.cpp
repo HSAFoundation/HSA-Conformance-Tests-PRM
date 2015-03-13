@@ -21,7 +21,6 @@
 
 using namespace hexl::emitter;
 using namespace hexl::scenario;
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -108,7 +107,7 @@ public:
     sampler->FunctionVariables();
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
   TypedReg Result() {

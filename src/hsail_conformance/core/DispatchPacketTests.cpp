@@ -19,7 +19,6 @@
 #include "MObject.hpp"
 #include "UtilTests.hpp"
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -40,7 +39,7 @@ public:
     specList.Add(directives);
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   void Name(std::ostream& out) const {
     out << CodeLocationString() << '_' << geometry << '_' << directives;
@@ -212,7 +211,7 @@ public:
     out << "_" << (dest64  ? "64" : "32");
   }
 
-  BrigTypeX ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
+  BrigType ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
 
   void ExpectedResults(Values* result) const {
     ValueType type = ResultValueType();
@@ -239,7 +238,7 @@ public:
     ControlDirectives directives, const bool dest64_)
     : DispatchPacketBaseTest(codeLocation, geometry, directives), dest64(dest64_) { }
 
-  BrigTypeX ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
+  BrigType ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
 
   void Name(std::ostream& out) const {
     DispatchPacketBaseTest::Name(out);
@@ -263,7 +262,7 @@ public:
     ControlDirectives directives)
     : DispatchPacketBaseTest(codeLocation, geometry, directives) { }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   void ExpectedResults(Values* result) const {
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
@@ -285,7 +284,7 @@ public:
     ControlDirectives directives)
     : DispatchPacketBaseTest(codeLocation, geometry, directives) { }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U64; }
+  BrigType ResultType() const { return BRIG_TYPE_U64; }
 
   Value ExpectedResult() const {
     return Value(MV_UINT64, 0);
@@ -303,7 +302,7 @@ public:
     ControlDirectives directives)
     : DispatchPacketBaseTest(codeLocation, geometry, directives) { }
     
-  BrigTypeX ResultType() const { return BRIG_TYPE_U64; }
+  BrigType ResultType() const { return BRIG_TYPE_U64; }
   
   Value ExpectedResult() const {
     return Value(MV_EXPR, S("packetcompletionsig"));
@@ -330,7 +329,7 @@ public:
     specList.Add(directives);
   }
 
-  BrigTypeX ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
+  BrigType ResultType() const { return dest64 ? BRIG_TYPE_U64 : BRIG_TYPE_U32; }
 
   void Name(std::ostream& out) const {
     out << CodeLocationString() << '_' << geometry << '_' << directives

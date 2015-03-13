@@ -26,9 +26,7 @@
 #include <sstream>
 #include <cassert>
 
-#define BRIG_SEGMENT_MAX Brig::BRIG_SEGMENT_AMD_GCN
-
-namespace Brig {
+#define BRIG_SEGMENT_MAX BRIG_SEGMENT_AMD_GCN
 
 enum BrigImageAccess {
     BRIG_ACCESS_PERMISSION_NONE = 0,
@@ -36,8 +34,6 @@ enum BrigImageAccess {
     BRIG_ACCESS_PERMISSION_WO = 2,
     BRIG_ACCESS_PERMISSION_RW = 3
 };
-
-}
 
 namespace hexl {
 
@@ -51,10 +47,10 @@ namespace hexl {
     class CoreConfig {
     private:
       Arena* ap;
-      Brig::BrigVersion32_t majorVersion;
-      Brig::BrigVersion32_t minorVersion;
-      Brig::BrigMachineModel8_t model;
-      Brig::BrigProfile8_t profile;
+      BrigVersion32_t majorVersion;
+      BrigVersion32_t minorVersion;
+      BrigMachineModel8_t model;
+      BrigProfile8_t profile;
       uint32_t wavesize;
       uint8_t wavesPerGroup;
 
@@ -63,24 +59,24 @@ namespace hexl {
 
       static CoreConfig* Get(hexl::Context *context) { return context->Get<CoreConfig*>(CONTEXT_KEY); }
 
-      CoreConfig(Brig::BrigVersion32_t majorVersion_ = Brig::BRIG_VERSION_HSAIL_MAJOR,
-                 Brig::BrigVersion32_t minorVersion_ = Brig::BRIG_VERSION_HSAIL_MINOR,
-                 Brig::BrigMachineModel8_t model_ = (sizeof(void *) == 8 ? Brig::BRIG_MACHINE_LARGE : Brig::BRIG_MACHINE_SMALL),
-                 Brig::BrigProfile8_t profile_ = Brig::BRIG_PROFILE_FULL);
+      CoreConfig(BrigVersion32_t majorVersion_ = BRIG_VERSION_HSAIL_MAJOR,
+                 BrigVersion32_t minorVersion_ = BRIG_VERSION_HSAIL_MINOR,
+                 BrigMachineModel8_t model_ = (sizeof(void *) == 8 ? BRIG_MACHINE_LARGE : BRIG_MACHINE_SMALL),
+                 BrigProfile8_t profile_ = BRIG_PROFILE_FULL);
 
       Arena* Ap() { return ap; }
-      Brig::BrigVersion32_t MajorVersion() const { return majorVersion; }
-      Brig::BrigVersion32_t MinorVersion() const { return minorVersion; }
-      Brig::BrigMachineModel8_t Model() const { return model; }
-      Brig::BrigProfile8_t Profile() const { return profile; }
+      BrigVersion32_t MajorVersion() const { return majorVersion; }
+      BrigVersion32_t MinorVersion() const { return minorVersion; }
+      BrigMachineModel8_t Model() const { return model; }
+      BrigProfile8_t Profile() const { return profile; }
       uint32_t Wavesize() const { return wavesize; }
       uint8_t WavesPerGroup() const { return wavesPerGroup; }
       EndiannessConfig Endianness() { return ENDIANNESS_LITTLE; }
 
       bool IsLarge() const {
         switch (model) {
-        case Brig::BRIG_MACHINE_LARGE: return true;
-        case Brig::BRIG_MACHINE_SMALL: return false;
+        case BRIG_MACHINE_LARGE: return true;
+        case BRIG_MACHINE_SMALL: return false;
         default: assert(false); return false;
         }
       }
@@ -131,42 +127,42 @@ namespace hexl {
 
       class SegmentsConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigSegment>* all;
-        hexl::Sequence<Brig::BrigSegment>* variable;
-        hexl::Sequence<Brig::BrigSegment>* atomic;
-        hexl::Sequence<Brig::BrigSegment>* initializable;
-        hexl::Sequence<Brig::BrigSegment>* singleList[BRIG_SEGMENT_MAX];
+        hexl::Sequence<BrigSegment>* all;
+        hexl::Sequence<BrigSegment>* variable;
+        hexl::Sequence<BrigSegment>* atomic;
+        hexl::Sequence<BrigSegment>* initializable;
+        hexl::Sequence<BrigSegment>* singleList[BRIG_SEGMENT_MAX];
 
       public:
         SegmentsConfig(CoreConfig* cc);
 
-        bool CanStore(Brig::BrigSegment8_t segment);
-        bool HasNullptr(Brig::BrigSegment8_t segment);
-        bool HasFlatAddress(Brig::BrigSegment8_t segment);
-        bool HasAddress(Brig::BrigSegment8_t segment);
-        bool CanPassAddressToKernel(Brig::BrigSegment8_t segment);
+        bool CanStore(BrigSegment8_t segment);
+        bool HasNullptr(BrigSegment8_t segment);
+        bool HasFlatAddress(BrigSegment8_t segment);
+        bool HasAddress(BrigSegment8_t segment);
+        bool CanPassAddressToKernel(BrigSegment8_t segment);
 
-        hexl::Sequence<Brig::BrigSegment>* All() { return all; }
-        hexl::Sequence<Brig::BrigSegment>* Variable() { return variable; }
-        hexl::Sequence<Brig::BrigSegment>* Atomic() { return atomic; }
-        hexl::Sequence<Brig::BrigSegment>* InitializableSegments() { return initializable; }
-        hexl::Sequence<Brig::BrigSegment>* Single(Brig::BrigSegment segment);
+        hexl::Sequence<BrigSegment>* All() { return all; }
+        hexl::Sequence<BrigSegment>* Variable() { return variable; }
+        hexl::Sequence<BrigSegment>* Atomic() { return atomic; }
+        hexl::Sequence<BrigSegment>* InitializableSegments() { return initializable; }
+        hexl::Sequence<BrigSegment>* Single(BrigSegment segment);
       };
 
       class TypesConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigTypeX> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128, *atomic;
+        hexl::Sequence<BrigType> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128, *atomic;
         hexl::Sequence<size_t>* registerSizes;
 
       public:
         TypesConfig(CoreConfig* cc);
 
-        hexl::Sequence<Brig::BrigTypeX>* Compound() { return compound; }
-        hexl::Sequence<Brig::BrigTypeX>* Packed() { return packed; }
-        hexl::Sequence<Brig::BrigTypeX>* Packed128Bit() { return packed128; }
-        hexl::Sequence<Brig::BrigTypeX>* Atomic() { return atomic; }
-        const hexl::Sequence<Brig::BrigTypeX>* CompoundIntegral() { return compoundIntegral; }
-        const hexl::Sequence<Brig::BrigTypeX>* CompoundFloating() { return compoundFloating; }
+        hexl::Sequence<BrigType>* Compound() { return compound; }
+        hexl::Sequence<BrigType>* Packed() { return packed; }
+        hexl::Sequence<BrigType>* Packed128Bit() { return packed128; }
+        hexl::Sequence<BrigType>* Atomic() { return atomic; }
+        const hexl::Sequence<BrigType>* CompoundIntegral() { return compoundIntegral; }
+        const hexl::Sequence<BrigType>* CompoundFloating() { return compoundFloating; }
         hexl::Sequence<size_t>* RegisterSizes() { return registerSizes; }
       };
 
@@ -177,14 +173,14 @@ namespace hexl {
         hexl::Sequence<VariableSpec>* byTypeDimensionAlign[BRIG_SEGMENT_MAX];
         hexl::Sequence<uint64_t> *dim0, *dims, *initializerDims;
         hexl::Sequence<Location> *autoLocation, *initializerLocations;
-        hexl::VectorSequence<Brig::BrigAlignment> allAlignment;
+        hexl::VectorSequence<BrigAlignment> allAlignment;
 
       public:
         VariablesConfig(CoreConfig* cc);
 
         hexl::Sequence<VariableSpec>* BySegmentType() { return bySegmentType; }
-        hexl::Sequence<VariableSpec>* ByTypeAlign(Brig::BrigSegment segment) { return byTypeAlign[segment]; }
-        hexl::Sequence<VariableSpec>* ByTypeDimensionAlign(Brig::BrigSegment segment) { return byTypeDimensionAlign[segment]; }
+        hexl::Sequence<VariableSpec>* ByTypeAlign(BrigSegment segment) { return byTypeAlign[segment]; }
+        hexl::Sequence<VariableSpec>* ByTypeDimensionAlign(BrigSegment segment) { return byTypeDimensionAlign[segment]; }
 
         hexl::Sequence<uint64_t>* Dim0() { return dim0; }
         hexl::Sequence<uint64_t>* Dims() { return dims; }
@@ -193,57 +189,57 @@ namespace hexl {
         hexl::Sequence<Location>* AutoLocation() { return autoLocation; }
         hexl::Sequence<Location>* InitializerLocations() { return initializerLocations; }
 
-        hexl::Sequence<Brig::BrigAlignment>* AllAlignment() { return &allAlignment; }
+        hexl::Sequence<BrigAlignment>* AllAlignment() { return &allAlignment; }
       };
 
       class QueuesConfig : public ConfigBase {
       private:
         hexl::Sequence<UserModeQueueType>* types;
-        hexl::Sequence<Brig::BrigSegment>* segments;
-        hexl::Sequence<Brig::BrigOpcode>* ldOpcodes;
-        hexl::Sequence<Brig::BrigOpcode>* addCasOpcodes;
-        hexl::Sequence<Brig::BrigOpcode>* stOpcodes;
-        hexl::Sequence<Brig::BrigMemoryOrder>* ldMemoryOrders;
-        hexl::Sequence<Brig::BrigMemoryOrder>* addCasMemoryOrders;
-        hexl::Sequence<Brig::BrigMemoryOrder>* stMemoryOrders;
+        hexl::Sequence<BrigSegment>* segments;
+        hexl::Sequence<BrigOpcode>* ldOpcodes;
+        hexl::Sequence<BrigOpcode>* addCasOpcodes;
+        hexl::Sequence<BrigOpcode>* stOpcodes;
+        hexl::Sequence<BrigMemoryOrder>* ldMemoryOrders;
+        hexl::Sequence<BrigMemoryOrder>* addCasMemoryOrders;
+        hexl::Sequence<BrigMemoryOrder>* stMemoryOrders;
 
       public:
         QueuesConfig(CoreConfig* cc);
 
         hexl::Sequence<UserModeQueueType>* Types() { return types; }
-        hexl::Sequence<Brig::BrigSegment>* Segments() { return segments; }
-        hexl::Sequence<Brig::BrigOpcode>* LdOpcodes() { return ldOpcodes; }
-        hexl::Sequence<Brig::BrigOpcode>* AddCasOpcodes() { return addCasOpcodes; }
-        hexl::Sequence<Brig::BrigOpcode>* StOpcodes() { return stOpcodes; }
-        hexl::Sequence<Brig::BrigMemoryOrder>* LdMemoryOrders() { return ldMemoryOrders; }
-        hexl::Sequence<Brig::BrigMemoryOrder>* AddCasMemoryOrders() { return addCasMemoryOrders; }
-        hexl::Sequence<Brig::BrigMemoryOrder>* StMemoryOrders() { return stMemoryOrders; }
+        hexl::Sequence<BrigSegment>* Segments() { return segments; }
+        hexl::Sequence<BrigOpcode>* LdOpcodes() { return ldOpcodes; }
+        hexl::Sequence<BrigOpcode>* AddCasOpcodes() { return addCasOpcodes; }
+        hexl::Sequence<BrigOpcode>* StOpcodes() { return stOpcodes; }
+        hexl::Sequence<BrigMemoryOrder>* LdMemoryOrders() { return ldMemoryOrders; }
+        hexl::Sequence<BrigMemoryOrder>* AddCasMemoryOrders() { return addCasMemoryOrders; }
+        hexl::Sequence<BrigMemoryOrder>* StMemoryOrders() { return stMemoryOrders; }
       };
 
       class MemoryConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigMemoryOrder> *allMemoryOrders, *signalSendMemoryOrders, *signalWaitMemoryOrders, *memfenceMemoryOrders;
-        hexl::Sequence<Brig::BrigMemoryScope> *allMemoryScopes, *memfenceMemoryScopes;
-        hexl::Sequence<Brig::BrigAtomicOperation> *allAtomics, *signalSendAtomics, *signalWaitAtomics;
-        hexl::Sequence<Brig::BrigSegment> *memfenceSegments;
-        hexl::Sequence<Brig::BrigOpcode> *ldStOpcodes, *atomicOpcodes;
-        hexl::Sequence<Brig::BrigAtomicOperation>* atomicOperations;
+        hexl::Sequence<BrigMemoryOrder> *allMemoryOrders, *signalSendMemoryOrders, *signalWaitMemoryOrders, *memfenceMemoryOrders;
+        hexl::Sequence<BrigMemoryScope> *allMemoryScopes, *memfenceMemoryScopes;
+        hexl::Sequence<BrigAtomicOperation> *allAtomics, *signalSendAtomics, *signalWaitAtomics;
+        hexl::Sequence<BrigSegment> *memfenceSegments;
+        hexl::Sequence<BrigOpcode> *ldStOpcodes, *atomicOpcodes;
+        hexl::Sequence<BrigAtomicOperation>* atomicOperations;
 
       public:
         MemoryConfig(CoreConfig* cc);
-        hexl::Sequence<Brig::BrigMemoryOrder>* AllMemoryOrders() { return allMemoryOrders; }
-        hexl::Sequence<Brig::BrigMemoryOrder>* SignalSendMemoryOrders() { return signalSendMemoryOrders; }
-        hexl::Sequence<Brig::BrigMemoryOrder>* SignalWaitMemoryOrders() { return signalWaitMemoryOrders; }
-        hexl::Sequence<Brig::BrigMemoryScope>* AllMemoryScopes() { return allMemoryScopes; }
-        hexl::Sequence<Brig::BrigAtomicOperation>* AllAtomics() { return allAtomics; }
-        hexl::Sequence<Brig::BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
-        hexl::Sequence<Brig::BrigAtomicOperation>* SignalWaitAtomics() { return signalWaitAtomics; }
-        hexl::Sequence<Brig::BrigSegment>* MemfenceSegments() { return memfenceSegments; }
-        hexl::Sequence<Brig::BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
-        hexl::Sequence<Brig::BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
-        hexl::Sequence<Brig::BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
-        hexl::Sequence<Brig::BrigMemoryOrder>* MemfenceMemoryOrders() { return memfenceMemoryOrders; }
-        hexl::Sequence<Brig::BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
+        hexl::Sequence<BrigMemoryOrder>* AllMemoryOrders() { return allMemoryOrders; }
+        hexl::Sequence<BrigMemoryOrder>* SignalSendMemoryOrders() { return signalSendMemoryOrders; }
+        hexl::Sequence<BrigMemoryOrder>* SignalWaitMemoryOrders() { return signalWaitMemoryOrders; }
+        hexl::Sequence<BrigMemoryScope>* AllMemoryScopes() { return allMemoryScopes; }
+        hexl::Sequence<BrigAtomicOperation>* AllAtomics() { return allAtomics; }
+        hexl::Sequence<BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
+        hexl::Sequence<BrigAtomicOperation>* SignalWaitAtomics() { return signalWaitAtomics; }
+        hexl::Sequence<BrigSegment>* MemfenceSegments() { return memfenceSegments; }
+        hexl::Sequence<BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
+        hexl::Sequence<BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
+        hexl::Sequence<BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
+        hexl::Sequence<BrigMemoryOrder>* MemfenceMemoryOrders() { return memfenceMemoryOrders; }
+        hexl::Sequence<BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
       };
 
       class ControlDirectivesConfig : public ConfigBase {
@@ -256,12 +252,12 @@ namespace hexl {
           *gridSizeRelatedSets,
           *workitemIdRelatedSets, *workitemAbsIdRelatedSets, *workitemFlatIdRelatedSets, *workitemFlatAbsIdRelatedSets,
           *degenerateRelatedSets, *boundary24WorkitemAbsIdRelatedSets, *boundary24WorkitemFlatAbsIdRelatedSets, *boundary24WorkitemFlatIdRelatedSets;
-        hexl::Sequence<Brig::BrigKind>* pragmaOperandTypes;
+        hexl::Sequence<BrigKind>* pragmaOperandTypes;
         hexl::Sequence<uint32_t>* validExceptionNumbers;
-        hexl::Sequence<Brig::BrigControlDirective> *exceptionDirectives, *geometryDirectives;
+        hexl::Sequence<BrigControlDirective> *exceptionDirectives, *geometryDirectives;
         hexl::Sequence<std::string> *validExtensions;
 
-        static ControlDirectives Array(Arena* ap, const Brig::BrigControlDirective *values, size_t count);
+        static ControlDirectives Array(Arena* ap, const BrigControlDirective *values, size_t count);
         static hexl::Sequence<ControlDirectives>* DSubsets(Arena* ap, const ControlDirectives& set);
 
       public:
@@ -295,74 +291,74 @@ namespace hexl {
         const ControlDirectives& Boundary24WorkitemFlatIdRelated()  { return boundary24WorkitemFlatIdRelated; }
         hexl::Sequence<ControlDirectives>* Boundary24WorkitemFlatIdRelatedSets()  { return boundary24WorkitemFlatIdRelatedSets; }
 
-        hexl::Sequence<Brig::BrigKind>* PragmaOperandTypes() { return pragmaOperandTypes; }
+        hexl::Sequence<BrigKind>* PragmaOperandTypes() { return pragmaOperandTypes; }
         
         hexl::Sequence<uint32_t>* ValidExceptionNumbers() { return validExceptionNumbers; }
-        hexl::Sequence<Brig::BrigControlDirective>* ExceptionDirectives() { return exceptionDirectives; }
-        hexl::Sequence<Brig::BrigControlDirective>* GeometryDirectives() { return geometryDirectives; }
+        hexl::Sequence<BrigControlDirective>* ExceptionDirectives() { return exceptionDirectives; }
+        hexl::Sequence<BrigControlDirective>* GeometryDirectives() { return geometryDirectives; }
 
         hexl::Sequence<std::string>* ValidExtensions() { return validExtensions; }
       };
 
       class ControlFlowConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigWidth> *allWidths;
-        hexl::VectorSequence<Brig::BrigWidth> *workgroupWidths;
+        hexl::Sequence<BrigWidth> *allWidths;
+        hexl::VectorSequence<BrigWidth> *workgroupWidths;
         hexl::Sequence<ConditionInput>* conditionInputs;
         hexl::Sequence<Condition>* binaryConditions;
-        hexl::Sequence<Brig::BrigTypeX>* sbrTypes;
+        hexl::Sequence<BrigType>* sbrTypes;
         hexl::Sequence<Condition>* switchConditions;
 
       public:
         ControlFlowConfig(CoreConfig* cc);
-        hexl::Sequence<Brig::BrigWidth>* AllWidths() { return allWidths; }
-        hexl::Sequence<Brig::BrigWidth>* WorkgroupWidths() { return workgroupWidths; }
+        hexl::Sequence<BrigWidth>* AllWidths() { return allWidths; }
+        hexl::Sequence<BrigWidth>* WorkgroupWidths() { return workgroupWidths; }
         hexl::Sequence<ConditionInput>* ConditionInputs() { return conditionInputs; }
         hexl::Sequence<Condition>* BinaryConditions() { return binaryConditions; }
-        hexl::Sequence<Brig::BrigTypeX>* SbrTypes() { return sbrTypes; }
+        hexl::Sequence<BrigType>* SbrTypes() { return sbrTypes; }
         hexl::Sequence<Condition>* SwitchConditions() { return switchConditions; }
       };
 
       class ImageConfig : public ConfigBase {
       private:
         hexl::VectorSequence<ImageGeometry*>* defaultImageGeometry;
-        hexl::Sequence<Brig::BrigImageGeometry>* imageGeometryProps, *imageRdGeometryProp, *imageDepthGeometryProp;
-        hexl::Sequence<Brig::BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
-        hexl::Sequence<Brig::BrigImageChannelType>* imageChannelTypes;
-        hexl::Sequence<Brig::BrigImageQuery>* imageQueryTypes;
-        hexl::Sequence<Brig::BrigImageAccess>* imageAccessTypes;
+        hexl::Sequence<BrigImageGeometry>* imageGeometryProps, *imageRdGeometryProp, *imageDepthGeometryProp;
+        hexl::Sequence<BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
+        hexl::Sequence<BrigImageChannelType>* imageChannelTypes;
+        hexl::Sequence<BrigImageQuery>* imageQueryTypes;
+        hexl::Sequence<BrigImageAccess>* imageAccessTypes;
         hexl::Sequence<unsigned>* imageArray;
         hexl::Sequence<uint32_t>* numberRW;
 
       public:
         ImageConfig(CoreConfig* cc);
         hexl::VectorSequence<hexl::ImageGeometry*>* DefaultImageGeometrySet() { return defaultImageGeometry; }
-        hexl::Sequence<Brig::BrigImageGeometry>* ImageGeometryProps() { return imageGeometryProps; }
-        hexl::Sequence<Brig::BrigImageGeometry>* ImageRdGeometryProp() { return imageRdGeometryProp; }
-        hexl::Sequence<Brig::BrigImageGeometry>* ImageDepthGeometryProp() { return imageDepthGeometryProp; }
-        hexl::Sequence<Brig::BrigImageChannelOrder>* ImageChannelOrders() { return imageChannelOrders; }
-        hexl::Sequence<Brig::BrigImageChannelOrder>* ImageSupportedChannelOrders() { return imageSupportedChannelOrders; }
-        hexl::Sequence<Brig::BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
-        hexl::Sequence<Brig::BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
-        hexl::Sequence<Brig::BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
+        hexl::Sequence<BrigImageGeometry>* ImageGeometryProps() { return imageGeometryProps; }
+        hexl::Sequence<BrigImageGeometry>* ImageRdGeometryProp() { return imageRdGeometryProp; }
+        hexl::Sequence<BrigImageGeometry>* ImageDepthGeometryProp() { return imageDepthGeometryProp; }
+        hexl::Sequence<BrigImageChannelOrder>* ImageChannelOrders() { return imageChannelOrders; }
+        hexl::Sequence<BrigImageChannelOrder>* ImageSupportedChannelOrders() { return imageSupportedChannelOrders; }
+        hexl::Sequence<BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
+        hexl::Sequence<BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
+        hexl::Sequence<BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
         hexl::Sequence<unsigned>* ImageArraySets() { return imageArray; };
         hexl::Sequence<uint32_t>* NumberOfRwImageHandles() { return numberRW; }
       };
 
       class SamplerConfig : public ConfigBase {
       private:
-        hexl::Sequence<Brig::BrigSamplerCoordNormalization>* samplerCoords;
-        hexl::Sequence<Brig::BrigSamplerFilter>* samplerFilters;
-        hexl::Sequence<Brig::BrigSamplerAddressing>* samplerAddressings;
-        hexl::Sequence<Brig::BrigSamplerQuery>* samplerQueryTypes;
+        hexl::Sequence<BrigSamplerCoordNormalization>* samplerCoords;
+        hexl::Sequence<BrigSamplerFilter>* samplerFilters;
+        hexl::Sequence<BrigSamplerAddressing>* samplerAddressings;
+        hexl::Sequence<BrigSamplerQuery>* samplerQueryTypes;
         
       public:
         SamplerConfig(CoreConfig* cc);
 
-        hexl::Sequence<Brig::BrigSamplerCoordNormalization>* SamplerCoords() { return samplerCoords; }
-        hexl::Sequence<Brig::BrigSamplerFilter>* SamplerFilters() { return samplerFilters; }
-        hexl::Sequence<Brig::BrigSamplerAddressing>* SamplerAddressings() { return samplerAddressings; }
-        hexl::Sequence<Brig::BrigSamplerQuery>* SamplerQueryTypes() { return samplerQueryTypes; }
+        hexl::Sequence<BrigSamplerCoordNormalization>* SamplerCoords() { return samplerCoords; }
+        hexl::Sequence<BrigSamplerFilter>* SamplerFilters() { return samplerFilters; }
+        hexl::Sequence<BrigSamplerAddressing>* SamplerAddressings() { return samplerAddressings; }
+        hexl::Sequence<BrigSamplerQuery>* SamplerQueryTypes() { return samplerQueryTypes; }
       };
 
       GridsConfig& Grids() { return grids; }

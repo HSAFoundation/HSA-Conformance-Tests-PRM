@@ -22,7 +22,6 @@
 #include "CoreConfig.hpp"
 #include "hsa.h"
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl::scenario;
 
@@ -109,7 +108,7 @@ void EmittableContainer::Name(std::ostream& out) const
   }
 }
 
-Variable EmittableContainer::NewVariable(const std::string& id, Brig::BrigSegment segment, Brig::BrigTypeX type, Location location, Brig::BrigAlignment align, uint64_t dim, bool isConst, bool output)
+Variable EmittableContainer::NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location, BrigAlignment align, uint64_t dim, bool isConst, bool output)
 {
   Variable var = te->NewVariable(id, segment, type, location, align, dim, isConst, output);
   Add(var);
@@ -142,14 +141,6 @@ Buffer EmittableContainer::NewBuffer(const std::string& id, BufferType type, Val
   Buffer buffer = te->NewBuffer(id, type, vtype, count);
   Add(buffer);
   return buffer;
-}
-
-
-ImageCalc EmittableContainer::NewImageCalc(EImage * eimage, ESampler* esampler)
-{
-  ImageCalc calc= te->NewImageCalc(eimage, esampler);
-  Add(calc);
-  return calc;
 }
 
 UserModeQueue EmittableContainer::NewQueue(const std::string& id, UserModeQueueType type)
@@ -212,7 +203,7 @@ bool EVariableSpec::IsValidAt(Location location) const
 void EVariableSpec::Name(std::ostream& out) const
 {
   if (!this) { out << "empty"; return; }
-  out << segment2str(segment) << "_" << typeX2str(type);
+  out << segment2str(segment) << "_" << type2str(type);
   if (dim > 0) { out << "[" << dim << "]"; }
   out << "_align(" << align2num(align) << ")";
   if (location != AUTO) { out << "@" << LocationString(location); }
@@ -307,7 +298,7 @@ std::string EVariable::VariableName() const
 void EVariable::Name(std::ostream& out) const
 {
   if (isConst) { out << "const_"; }
-  out << segment2str(segment) << "_" << typeX2str(type);
+  out << segment2str(segment) << "_" << type2str(type);
   if (dim > 0) { out << "[" << dim << "]"; }
   out << "_align(" << align2num(align) << ")";
   if (location != AUTO) { out << "@" << LocationString(location); }
@@ -755,7 +746,7 @@ void EUserModeQueue::StartKernelBody()
   }
 }
 
-PointerReg EUserModeQueue::Address(Brig::BrigSegment segment)
+PointerReg EUserModeQueue::Address(BrigSegment segment)
 {
   switch (segment) {
   case BRIG_SEGMENT_GLOBAL:
@@ -857,7 +848,7 @@ void EUserModeQueue::EmitStQueueWriteIndex(BrigSegment segment, BrigMemoryOrder 
   inst.operands() = te->Brig()->Operands(te->Brig()->Address(addr), src->Reg());
 }
 
-void EUserModeQueue::EmitAddQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest, Operand src)
+void EUserModeQueue::EmitAddQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest, Operand src)
 {
   PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_ADDQUEUEWRITEINDEX, BRIG_TYPE_U64);
@@ -866,7 +857,7 @@ void EUserModeQueue::EmitAddQueueWriteIndex(Brig::BrigSegment segment, Brig::Bri
   inst.operands() = te->Brig()->Operands(dest->Reg(), te->Brig()->Address(addr), src);
 }
 
-void EUserModeQueue::EmitCasQueueWriteIndex(Brig::BrigSegment segment, Brig::BrigMemoryOrder memoryOrder, TypedReg dest, Operand src0, Operand src1)
+void EUserModeQueue::EmitCasQueueWriteIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest, Operand src0, Operand src1)
 {
   PointerReg addr = Address(segment);
   InstQueue inst = te->Brig()->Brigantine().addInst<InstQueue>(BRIG_OPCODE_CASQUEUEWRITEINDEX, BRIG_TYPE_U64);
@@ -877,7 +868,7 @@ void EUserModeQueue::EmitCasQueueWriteIndex(Brig::BrigSegment segment, Brig::Bri
 
 EImageSpec::EImageSpec(
   BrigSegment brigseg_, 
-  BrigTypeX imageType_, 
+  BrigType imageType_, 
   Location location_, 
   uint64_t dim_, 
   bool isConst_, 
@@ -959,7 +950,7 @@ void EImage::SetupDispatch(DispatchSetup* dispatch)
   }
 }
 
-void EImage::EmitImageRd(OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, TypedReg coord)
+void EImage::EmitImageRd(OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
   inst.imageType() = image->Type();
@@ -978,7 +969,7 @@ void EImage::EmitImageRd(OperandOperandList dest, BrigTypeX destType, TypedReg i
   OptList.push_back(coord->Reg());
   inst.operands() = OptList;
 }
-void EImage::EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigTypeX coordType)
+void EImage::EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigType coordType)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
   inst.imageType() = image->Type();
@@ -1002,7 +993,7 @@ void EImage::EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigTypeX destType,
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigTypeX coordType)
+void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigType coordType)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
   inst.imageType() = image->Type();
@@ -1035,7 +1026,7 @@ void  EImage::EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageLd(OperandOperandList dest, BrigTypeX destType, TypedReg image, TypedReg coord)
+void EImage::EmitImageLd(OperandOperandList dest, BrigType destType, TypedReg image, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
   inst.imageType() = image->Type();
@@ -1054,7 +1045,7 @@ void EImage::EmitImageLd(OperandOperandList dest, BrigTypeX destType, TypedReg i
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageLd(TypedReg dest, TypedReg image, OperandOperandList coord, BrigTypeX coordType)
+void EImage::EmitImageLd(TypedReg dest, TypedReg image, OperandOperandList coord, BrigType coordType)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
   inst.imageType() = image->Type();
@@ -1073,7 +1064,7 @@ void EImage::EmitImageLd(TypedReg dest, TypedReg image, OperandOperandList coord
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigTypeX destType, TypedReg image, OperandOperandList coord, BrigTypeX coordType)
+void EImage::EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, OperandOperandList coord, BrigType coordType)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
   inst.imageType() = image->Type();
@@ -1096,7 +1087,7 @@ void EImage::EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigTypeX destType,
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageSt(OperandOperandList src, BrigTypeX srcType, TypedReg image, TypedReg coord)
+void EImage::EmitImageSt(OperandOperandList src, BrigType srcType, TypedReg image, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
   inst.imageType() = image->Type();
@@ -1115,7 +1106,7 @@ void EImage::EmitImageSt(OperandOperandList src, BrigTypeX srcType, TypedReg ima
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageSt(HSAIL_ASM::OperandOperandList src, Brig::BrigTypeX srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType)
+void EImage::EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
   inst.imageType() = image->Type();
@@ -1138,7 +1129,7 @@ void EImage::EmitImageSt(HSAIL_ASM::OperandOperandList src, Brig::BrigTypeX srcT
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, Brig::BrigTypeX coordType)
+void EImage::EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
   inst.imageType() = image->Type();
@@ -1226,7 +1217,7 @@ void EImage::EmitInitializer()
     if (dim == 0) {
       var.init() = list[0];
     } else {
-      var.init() = te->Brig()->Brigantine().createConstantOperandList(list, type);
+      var.init() = te->Brig()->Brigantine().createOperandList(list);
     }
   }
 }
@@ -1387,46 +1378,43 @@ void EImageCalc::SetupDefaultColors()
 {
   switch (imageChannelType)
   {
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT24:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-  case Brig::BRIG_CHANNEL_TYPE_HALF_FLOAT:
-  case Brig::BRIG_CHANNEL_TYPE_FLOAT:
+  case BRIG_CHANNEL_TYPE_SNORM_INT8:
+  case BRIG_CHANNEL_TYPE_SNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT8:
+  case BRIG_CHANNEL_TYPE_UNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT24:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+  case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+  case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+  case BRIG_CHANNEL_TYPE_FLOAT:
     color_zero = Value(0.0f);
     color_one  = Value(1.0f);
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     color_zero = Value(MV_INT32, 0);
     color_one  = Value(MV_INT32, S32(0x7F));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT16:
     color_zero = Value(MV_INT32, 0);
     color_one  = Value(MV_INT32, S32(0x7FFF));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     color_zero = Value(MV_INT32, 0);
     color_one  = Value(MV_INT32, S32(0x7FFFFFFF));
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
     color_zero = Value(MV_UINT32, 0);
     color_one  = Value(MV_UINT32, U32(0xFF));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
     color_zero = Value(MV_UINT32, 0);
     color_one  = Value(MV_UINT32, U32(0xFFFF));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     color_zero = Value(MV_UINT32, 0);
     color_one  = Value(MV_UINT32, U32(0xFFFFFFFF));
     break;
-
   default:
     assert(0); //illegal channel type
     break;
@@ -1438,61 +1426,24 @@ float EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
   float f;
 
   if(samplerCoord == BRIG_COORD_UNNORMALIZED){
-    switch(c->Type()){
-    case MV_UINT32:
-      assert(samplerFilter == BRIG_FILTER_NEAREST); //only nearest filter is allowed for u32 unnormalized mode
-      f = c->U32();
-      break;
-
-    case MV_INT32:
-      f = c->S32();
-      break;
-
-    case MV_FLOAT:
-      f = c->F();
-      break;
-
-    default:
-      assert(0); //illegal coord type
-    }
+    f = c->F();
   } else {
     assert(c->Type() == MV_FLOAT); //only f32 is allowed in normilized mode
     f = c->F() * dimSize;
   }
-
   if(samplerFilter == BRIG_FILTER_LINEAR)
     f -= 0.5f;
-
   return f;
 }
 
 float EImageCalc::UnnormalizeArrayCoord(Value* c) const
 {
-  float f;
-
-  switch(c->Type()){
-  case MV_UINT32:
-    f = c->U32();
-    break;
-
-  case MV_INT32:
-    f = c->S32();
-    break;
-
-  case MV_FLOAT:
-    f = c->F();
-    break;
-
-  default:
-    assert(0); //illegal coord type
-  }
-    
-  return f;
+  return c->F();
 }
 
 int EImageCalc::round_downi(float f) const
 {
-  return floorf(f);
+  return static_cast<int>(floorf(f));
 }
 
 int EImageCalc::round_neari(float f) const
@@ -1518,7 +1469,6 @@ int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
   if(!out_of_range){
     return rounded_coord;
   };
-
   int tile;
   float mirrored_coord;
   switch(samplerAddressing){
@@ -1526,16 +1476,13 @@ int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
   case BRIG_ADDRESSING_CLAMP_TO_EDGE:
     return clamp_i(rounded_coord, 0, dimSize -1);
     break;
-
   case BRIG_ADDRESSING_CLAMP_TO_BORDER:
     return clamp_i(rounded_coord, -1, dimSize);
     break;
-
   case BRIG_ADDRESSING_REPEAT:
     tile = round_downi(f / dimSize);
     return round_downi(f - (tile * dimSize));
     break;
-    
   case BRIG_ADDRESSING_MIRRORED_REPEAT:
     mirrored_coord = (f < 0) ? (-f - 1.0f) : f;
     tile = round_downi(mirrored_coord / dimSize);
@@ -1545,12 +1492,10 @@ int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
     }
     return rounded_coord;
     break;
-
   default:
     assert(0); //illegal addressing mode
     break;
   }
-
   return -1;
 }
 
@@ -1570,10 +1515,11 @@ void EImageCalc::LoadBorderData(Value* _color) const
   case BRIG_CHANNEL_ORDER_LUMINANCE:
     alpha_is_one = true;
     break;
-
   case BRIG_CHANNEL_ORDER_DEPTH:
   case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
     assert(0); //border color for depth images is implementation define //should we test it???
+    break;
+  default:
     break;
   }
 
@@ -1581,7 +1527,6 @@ void EImageCalc::LoadBorderData(Value* _color) const
   _color[1] = color_zero;
   _color[2] = color_zero;
   _color[3] = alpha_is_one ? color_one : color_zero;
-  
   return;
 }
 
@@ -1589,44 +1534,38 @@ uint32_t EImageCalc::GetRawColorData(int x_ind, int y_ind, int z_ind, int channe
 {
   switch (imageChannelType)
   {
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_SNORM_INT8:
+  case BRIG_CHANNEL_TYPE_UNORM_INT8:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
     return 0xFF;
     break;
-    
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_SNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT16:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
     return 0xFFFF;
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_HALF_FLOAT:
+  case BRIG_CHANNEL_TYPE_HALF_FLOAT:
     return 0xFFFF;
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT24:
+  case BRIG_CHANNEL_TYPE_UNORM_INT24:
     return 0x00FFFFFF;
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
     return 0x1F;
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
     return (channel == 1) ? 0x3F : 0x1F;
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+  case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     return 0x03FF;
     break;
-    
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-  case Brig::BRIG_CHANNEL_TYPE_FLOAT:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+  case BRIG_CHANNEL_TYPE_FLOAT:
     return 0xFFFFFFFF;
     break;
-
   default:
     assert(0); //illegal channel 
     break;
@@ -1685,72 +1624,57 @@ uint32_t EImageCalc::ConvertionUnsignedClamp(uint32_t c, unsigned int bit_size) 
 Value EImageCalc::ConvertRawData(uint32_t data) const
 {
   Value c;
-  union {
-    float f32;
-    int32_t s32;
-    uint32_t u32;
-  } raw_data;
-
-  raw_data.u32 = data;
-
-  half h;
-  float f;
   switch (imageChannelType)
   {
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT8:
+  case BRIG_CHANNEL_TYPE_SNORM_INT8:
     c = Value(ConvertionSignedNormalize(data, 8));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT16:
+  case BRIG_CHANNEL_TYPE_SNORM_INT16:
     c = Value(ConvertionSignedNormalize(data, 16));
     break;
 
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT8:
+  case BRIG_CHANNEL_TYPE_UNORM_INT8:
     c = Value(ConvertionUnsignedNormalize(data, 8));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT16:
     c = Value(ConvertionUnsignedNormalize(data, 16));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT24:
+  case BRIG_CHANNEL_TYPE_UNORM_INT24:
     c = Value(ConvertionUnsignedNormalize(data, 24));
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+  case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     //should never happen, because rgb and rgbx channel orders
     //are handled directly in LoadColorData()
     assert(0);
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     c = Value(MV_INT32, S32(ConvertionSignedClamp(data, 8)));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT16:
     c = Value(MV_INT32, S32(ConvertionSignedClamp(data, 16)));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
-    c = Value(MV_INT32, S32(raw_data.s32));
+  case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    c = Value(MV_INT32, S32(data));
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
     c = Value(MV_UINT32, U32(ConvertionUnsignedClamp(data, 8)));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
     c = Value(MV_UINT32, U32(ConvertionUnsignedClamp(data, 16)));
     break;
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     c = Value(MV_UINT32, U32(data));
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    h = HSAIL_X::f16_t(raw_data.s32);
-    f = (float)h;
-    c = Value(f);
+  case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    c = Value(MV_UINT32, S16(data));
+    c = Value( c.F() );
     break;
-  case Brig::BRIG_CHANNEL_TYPE_FLOAT:
-    c = Value(raw_data.f32);
+  case BRIG_CHANNEL_TYPE_FLOAT:
+    c = Value(MV_UINT32, S32(data));
+    c = Value(c.F());
     break;
-
   default:
     assert(0);
     break;
@@ -1774,42 +1698,38 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
 
   switch (imageChannelOrder)
   {
-  case Brig::BRIG_CHANNEL_ORDER_A:
+  case BRIG_CHANNEL_ORDER_A:
     _color[0] = color_zero;
     _color[1] = color_zero;
     _color[2] = color_zero;
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_R:
-  case Brig::BRIG_CHANNEL_ORDER_RX:
+  case BRIG_CHANNEL_ORDER_R:
+  case BRIG_CHANNEL_ORDER_RX:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     _color[1] = color_zero;
     _color[2] = color_zero;
     _color[3] = color_one;
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_RG:
-  case Brig::BRIG_CHANNEL_ORDER_RGX:
+  case BRIG_CHANNEL_ORDER_RG:
+  case BRIG_CHANNEL_ORDER_RGX:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
     _color[2] = color_zero;
     _color[3] = color_one;
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_RA:
+  case BRIG_CHANNEL_ORDER_RA:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     _color[1] = color_zero;
     _color[2] = color_zero;
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_RGB:
-  case Brig::BRIG_CHANNEL_ORDER_RGBX:
+  case BRIG_CHANNEL_ORDER_RGB:
+  case BRIG_CHANNEL_ORDER_RGBX:
     packed_color = GetRawColorData(x_ind, y_ind, z_ind);
     switch (imageChannelType)
     {
-    case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
       unpacked_b = packed_color & 0x1F; //todo where is 0'th bit???
       unpacked_g = (packed_color >> 5) & 0x1F;
       unpacked_r = (packed_color >> 10) & 0x1F;
@@ -1817,7 +1737,7 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
       _color[1] = Value(ConvertionUnsignedNormalize(unpacked_g, 5));
       _color[2] = Value(ConvertionUnsignedNormalize(unpacked_b, 5));
       break;
-    case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       unpacked_b = packed_color & 0x1F; //todo where is 0'th bit???
       unpacked_g = (packed_color >> 5) & 0x3F;
       unpacked_r = (packed_color >> 11) & 0x1F;
@@ -1825,7 +1745,7 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
       _color[1] = Value(ConvertionUnsignedNormalize(unpacked_g, 6));
       _color[2] = Value(ConvertionUnsignedNormalize(unpacked_b, 5));
       break;
-    case Brig::BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
       unpacked_b = packed_color & 0x03FF; //todo where is 0'th bit???
       unpacked_g = (packed_color >> 10) & 0x03FF;
       unpacked_r = (packed_color >> 20) & 0x03FF;
@@ -1833,45 +1753,39 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
       _color[1] = Value(ConvertionUnsignedNormalize(unpacked_g, 10));
       _color[2] = Value(ConvertionUnsignedNormalize(unpacked_b, 10));
       break;
-      
     default:
       assert(0); //rgb and rgbx channel orders are legal to use only with 555, 565 or 101010 channel type
       break;
     }
     _color[3] = color_one;
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_RGBA:
+  case BRIG_CHANNEL_ORDER_RGBA:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
     _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_BGRA:
+  case BRIG_CHANNEL_ORDER_BGRA:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
     _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
     _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_ARGB:
+  case BRIG_CHANNEL_ORDER_ARGB:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
     _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
     _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_ABGR:
+  case BRIG_CHANNEL_ORDER_ABGR:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
     _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
     _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_SRGB:
-  case Brig::BRIG_CHANNEL_ORDER_SRGBX:
-    assert(imageChannelType == Brig::BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
+  case BRIG_CHANNEL_ORDER_SRGB:
+  case BRIG_CHANNEL_ORDER_SRGBX:
+    assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
     fr = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 0), 8);
     fg = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 2), 8);
@@ -1880,9 +1794,8 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     _color[2] = Value(GammaCorrection(fb));
     _color[3] = color_one;
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_SRGBA:
-    assert(imageChannelType == Brig::BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
+  case BRIG_CHANNEL_ORDER_SRGBA:
+    assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
     fr = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 0), 8);
     fg = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 2), 8);
@@ -1891,9 +1804,8 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     _color[2] = Value(GammaCorrection(fb));
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_SBGRA:
-    assert(imageChannelType == Brig::BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
+  case BRIG_CHANNEL_ORDER_SBGRA:
+    assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
     fr = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 2), 8);
     fg = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 0), 8);
@@ -1902,31 +1814,26 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     _color[2] = Value(GammaCorrection(fb));
     _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_INTENSITY:
+  case BRIG_CHANNEL_ORDER_INTENSITY:
     c = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     _color[0] = c;
     _color[1] = c;
     _color[2] = c;
     _color[3] = c;
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_LUMINANCE:
+  case BRIG_CHANNEL_ORDER_LUMINANCE:
     c = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     _color[0] = c;
     _color[1] = c;
     _color[2] = c;
     _color[3] = color_one;
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_DEPTH:
+  case BRIG_CHANNEL_ORDER_DEPTH:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     break;
-
-  case Brig::BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
+  case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
     _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
     break;
-
   default:
     assert(0); //illegal channel order
     break;
@@ -1938,7 +1845,7 @@ void EImageCalc::LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const
   int dimSizeX = imageGeometry.ImageSize(0);
   int dimSizeY = imageGeometry.ImageSize(1);
   int dimSizeZ = imageGeometry.ImageSize(2);
-  bool out_of_range = (x_ind < 0) || (y_ind < 0) || (z_ind < 0) || (x_ind > dimSizeX - 1) || (y_ind > dimSizeX - 1) || (z_ind > dimSizeX - 1);
+  bool out_of_range = (x_ind < 0) || (y_ind < 0) || (z_ind < 0) || (x_ind > dimSizeX - 1) || (y_ind > dimSizeY - 1) || (z_ind > dimSizeZ - 1);
   if(out_of_range){
     assert(samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER);
     LoadBorderData(_color);
@@ -2004,12 +1911,10 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   case BRIG_GEOMETRY_1D:
   case BRIG_GEOMETRY_1DB:
     break;
-
   case BRIG_GEOMETRY_1DA:
     v = UnnormalizeArrayCoord(y);
     ind[1] = GetTexelArrayIndex(v, vSize);
     break;
-
   case BRIG_GEOMETRY_2D:
   case BRIG_GEOMETRY_2DDEPTH:
     v = UnnormalizeCoord(y, vSize);
@@ -2022,29 +1927,26 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
     ind[1] = GetTexelIndex(v, vSize);
     ind[2] = GetTexelArrayIndex(w, wSize);
     break;
-
   case BRIG_GEOMETRY_3D:
     v = UnnormalizeCoord(y, vSize);
     w = UnnormalizeCoord(z, wSize);
     ind[1] = GetTexelIndex(v, vSize);
     ind[2] = GetTexelIndex(w, wSize);
     break;
-
   default:
     assert(0);
     break;
   }
 
-
   //apply filtering
-  if(samplerFilter == Brig::BRIG_FILTER_NEAREST)
+  if(samplerFilter == BRIG_FILTER_NEAREST)
   {
     LoadTexel(ind[0], ind[1], ind[2], _color);
     return;
   }
 
   //linear filtering
-  assert(samplerFilter == Brig::BRIG_FILTER_LINEAR); //we are supporting only nearest and linear filters
+  assert(samplerFilter == BRIG_FILTER_LINEAR); //we are supporting only nearest and linear filters
   int x0_index = ind[0];
   int x1_index = GetTexelIndex(u + 1.0f, imageGeometry.ImageSize(0));
   float x_frac = u - floorf(u);
@@ -2062,31 +1964,29 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
 
   switch (imageGeometryProp)
   {
-  case Brig::BRIG_GEOMETRY_1D:
-  case Brig::BRIG_GEOMETRY_1DB:
-  case Brig::BRIG_GEOMETRY_1DA:
+  case BRIG_GEOMETRY_1D:
+  case BRIG_GEOMETRY_1DB:
+  case BRIG_GEOMETRY_1DA:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     for(int i=0; i<4; i++){
       filtered_color[i] = (1 - x_frac) * colors[0][i] + x_frac * colors[1][i];
     }
     break;
-
-  case Brig::BRIG_GEOMETRY_2D:
-  case Brig::BRIG_GEOMETRY_2DA:
+  case BRIG_GEOMETRY_2D:
+  case BRIG_GEOMETRY_2DA:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
     LoadFloatTexel(x1_index, y1_index, z0_index, colors[3]);
     for(int i=0; i<4; i++){
-      filtered_color[i] = (1 - x_frac)  * (1 - y_frac)	* colors[0][i]
-              + x_frac		* (1 - y_frac)	* colors[1][i]
-              + (1 - x_frac)	* y_frac		* colors[2][i]
-              + x_frac		* y_frac		* colors[3][i];
+      filtered_color[i] = (1 - x_frac)  * (1 - y_frac)  * colors[0][i]
+              + x_frac    * (1 - y_frac)  * colors[1][i]
+              + (1 - x_frac)  * y_frac    * colors[2][i]
+              + x_frac    * y_frac    * colors[3][i];
     }
     break;
-
-  case Brig::BRIG_GEOMETRY_3D:
+  case BRIG_GEOMETRY_3D:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
@@ -2096,66 +1996,60 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
     LoadFloatTexel(x0_index, y1_index, z1_index, colors[6]);
     LoadFloatTexel(x1_index, y1_index, z1_index, colors[7]);
     for(int i=0; i<4; i++){
-      filtered_color[i] = (1 - x_frac)  * (1 - y_frac)	* (1 - z_frac)	* colors[0][i]
-              + x_frac		* (1 - y_frac)	* (1 - z_frac)	* colors[1][i]
-              + (1 - x_frac)	* y_frac		* (1 - z_frac)	* colors[2][i]
-              + x_frac		* y_frac		* (1 - z_frac)	* colors[3][i]
-              + (1 - x_frac)  * (1 - y_frac)	* z_frac		* colors[4][i]
-              + x_frac		* (1 - y_frac)	* z_frac		* colors[5][i]
-              + (1 - x_frac)	* y_frac		* z_frac		* colors[6][i]
-              + x_frac		* y_frac		* z_frac		* colors[7][i];
+      filtered_color[i] = (1 - x_frac)  * (1 - y_frac)  * (1 - z_frac)  * colors[0][i]
+              + x_frac    * (1 - y_frac)  * (1 - z_frac)  * colors[1][i]
+              + (1 - x_frac)  * y_frac    * (1 - z_frac)  * colors[2][i]
+              + x_frac    * y_frac    * (1 - z_frac)  * colors[3][i]
+              + (1 - x_frac)  * (1 - y_frac)  * z_frac    * colors[4][i]
+              + x_frac    * (1 - y_frac)  * z_frac    * colors[5][i]
+              + (1 - x_frac)  * y_frac    * z_frac    * colors[6][i]
+              + x_frac    * y_frac    * z_frac    * colors[7][i];
     }
-    break;
-      
-  case Brig::BRIG_GEOMETRY_2DDEPTH:
-  case Brig::BRIG_GEOMETRY_2DADEPTH:
+    break;      
+  case BRIG_GEOMETRY_2DDEPTH:
+  case BRIG_GEOMETRY_2DADEPTH:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
     LoadFloatTexel(x1_index, y1_index, z0_index, colors[3]);
-    filtered_color[0] = (1 - x_frac)  * (1 - y_frac)	* colors[0][0]
-            + x_frac		* (1 - y_frac)	* colors[1][0]
-            + (1 - x_frac)	* y_frac		* colors[2][0]
-            + x_frac		* y_frac		* colors[3][0];
+    filtered_color[0] = (1 - x_frac)  * (1 - y_frac)  * colors[0][0]
+            + x_frac    * (1 - y_frac)  * colors[1][0]
+            + (1 - x_frac)  * y_frac    * colors[2][0]
+            + x_frac    * y_frac    * colors[3][0];
     break;
-
   default:
     assert(0);
     break;
   }
 
-    
   switch (imageChannelType)
   {
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_SNORM_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT24:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-  case Brig::BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-  case Brig::BRIG_CHANNEL_TYPE_HALF_FLOAT:
-  case Brig::BRIG_CHANNEL_TYPE_FLOAT:
+  case BRIG_CHANNEL_TYPE_SNORM_INT8:
+  case BRIG_CHANNEL_TYPE_SNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT8:
+  case BRIG_CHANNEL_TYPE_UNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT24:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+  case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+  case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+  case BRIG_CHANNEL_TYPE_FLOAT:
     //todo add depth images support
     for(int i=0; i<4; i++)
       _color[i] = Value(static_cast<float>(filtered_color[i]));
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     //for(int i=0; i<4; i++) _color[i] = Value(MV_INT32, S32(static_cast<int32_t>(filtered_color[i])));
     assert(0); //linear filter for all access types other then f32 is undefined
     break;
-
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-  case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     //for(int i=0; i<4; i++) _color[i] = Value(MV_UINT32, U32(static_cast<uint32_t>(filtered_color[i])));
     assert(0); //linear filter for all access types other then f32 is undefined
     break;
-
   default:
     assert(0);
     break;
@@ -2181,7 +2075,6 @@ void EImageCalc::ReadColor(Value* _coords, Value* _color) const
 {
   EmulateReadColor(_coords, _color);
 }
-
 
 void ESignal::ScenarioInit()
 {
@@ -2573,7 +2466,7 @@ void TestEmitter::SetCoreConfig(CoreConfig* cc)
   be->SetCoreConfig(cc);
 }
 
-Variable TestEmitter::NewVariable(const std::string& id, Brig::BrigSegment segment, Brig::BrigTypeX type, Location location, Brig::BrigAlignment align, uint64_t dim, bool isConst, bool output)
+Variable TestEmitter::NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location, BrigAlignment align, uint64_t dim, bool isConst, bool output)
 {
   return new(Ap()) EVariable(this, id, segment, type, location, align, dim, isConst, output);
 }
@@ -2596,11 +2489,6 @@ FBarrier TestEmitter::NewFBarrier(const std::string& id, Location location, bool
 Buffer TestEmitter::NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count)
 {
   return new(Ap()) EBuffer(this, id, type, vtype, count);
-}
-
-ImageCalc TestEmitter::NewImageCalc(EImage * eimage, ESampler* esampler)
-{
-  return new(Ap()) EImageCalc(eimage, esampler);
 }
 
 UserModeQueue TestEmitter::NewQueue(const std::string& id, UserModeQueueType type)

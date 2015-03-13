@@ -171,8 +171,6 @@ static const u64_t U64IB = 0xffffffffffffffffLL;
 
 u64_t getIntBoundary(unsigned type, bool low)
 {
-    using namespace Brig; 
-
     switch (type)
     {
     case BRIG_TYPE_S8:  return low? -S8IB  - 1 : S8IB;
@@ -281,8 +279,6 @@ static const f16_t MIN_U64_F16(0.0);
 
 f16_t getTypeBoundary_f16(unsigned type, bool isLo)
 {
-    using namespace Brig; 
-
     switch (type)
     {
     case BRIG_TYPE_S8:   return isLo? MIN_S8_F16  : MAX_S8_F16;
@@ -302,8 +298,6 @@ f16_t getTypeBoundary_f16(unsigned type, bool isLo)
 
 float getTypeBoundary_f32(unsigned type, bool isLo)
 {
-    using namespace Brig; 
-
     switch (type)
     {
     case BRIG_TYPE_S8:   return isLo? MIN_S8_F32  : MAX_S8_F32;
@@ -323,8 +317,6 @@ float getTypeBoundary_f32(unsigned type, bool isLo)
 
 double getTypeBoundary_f64(unsigned type, bool isLo)
 {
-    using namespace Brig; 
-
     switch (type)
     {
     case BRIG_TYPE_S8:   return isLo? MIN_S8_F64  : MAX_S8_F64;

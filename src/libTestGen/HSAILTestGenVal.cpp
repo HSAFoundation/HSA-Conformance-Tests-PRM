@@ -93,7 +93,7 @@ Val::Val(unsigned dim, Val v0, Val v1, Val v2, Val v3)
 {
     assert(2 <= dim && dim <= 4);
 
-    setProps(Brig::BRIG_TYPE_NONE);
+    setProps(BRIG_TYPE_NONE);
     num.clear();
 
     vector = new ValVector(dim, v0, v1, v2, v3);
@@ -128,7 +128,7 @@ unsigned Val::getDim() const
 
 unsigned Val::getVecType() const
 {
-    return isVector()? vector->getType() : Brig::BRIG_TYPE_NONE;
+    return isVector()? vector->getType() : BRIG_TYPE_NONE;
 }
 
 Val Val::operator[](unsigned i) const
@@ -183,8 +183,8 @@ Val Val::getPackedElement(unsigned elementIdx, unsigned packing /*=BRIG_PACK_P*/
     }
     else // Special case for SHL/SHR
     {
-        assert(getType() == Brig::BRIG_TYPE_U32);
-        assert(packing == Brig::BRIG_PACK_PP);
+        assert(getType() == BRIG_TYPE_U32);
+        assert(packing == BRIG_PACK_PP);
         return *this; // shift all elements by the same amount
     }
 }
@@ -336,7 +336,7 @@ Val Val::randomize() const
     Val res = *this;
     unsigned dim = getSize() / 8; // NB: 0 for b1; it is ok
 
-    for (unsigned i = 0; i < dim; ++i) res.num.setElement(rand(), Brig::BRIG_TYPE_U8, i);
+    for (unsigned i = 0; i < dim; ++i) res.num.setElement(rand(), BRIG_TYPE_U8, i);
 
     res = res.transform(op_s2q());  // Signaling NaNs are not supported, replace with quiet
     res = res.normalize(false);     // Clear NaN payload
@@ -370,9 +370,9 @@ bool Val::eq(Val v) const
 
 static unsigned getTextWidth(unsigned type)
 {
-    if (type == Brig::BRIG_TYPE_F16) return 10;
-    if (type == Brig::BRIG_TYPE_F32) return 16;
-    if (type == Brig::BRIG_TYPE_F64) return 24;
+    if (type == BRIG_TYPE_F16) return 10;
+    if (type == BRIG_TYPE_F32) return 16;
+    if (type == BRIG_TYPE_F64) return 24;
 
     switch (getBrigTypeNumBits(type))
     {
@@ -386,8 +386,6 @@ static unsigned getTextWidth(unsigned type)
 
 string Val::luaStr(unsigned idx /*=0*/) const
 {
-    using namespace Brig;
-
     assert(!isPackedFloat());
     assert(0 <= idx && idx <= 3);
     assert(!empty() && !isVector());
@@ -426,7 +424,6 @@ string Val::luaStr(unsigned idx /*=0*/) const
 
 string Val::decDump() const
 {
-    using namespace Brig;
     assert(!empty() && !isVector());
     assert(getSize() != 128);
     assert(!isPacked());
@@ -465,7 +462,6 @@ string Val::decDump() const
 
 string Val::hexDump() const
 {
-    using namespace Brig;
     assert(!empty() && !isVector());
     assert(getSize() != 128);
     assert(!isPacked());
@@ -489,7 +485,7 @@ string Val::dump() const
 {
     assert(!empty());
 
-    if (isVector() && getVecType() == Brig::BRIG_TYPE_B128)
+    if (isVector() && getVecType() == BRIG_TYPE_B128)
     {
         string val;
         for (unsigned i = 0; i < vector->getDim(); ++i)
@@ -500,7 +496,7 @@ string Val::dump() const
     }
     else if (isVector())
     {
-        assert(getVecType() != Brig::BRIG_TYPE_B128);
+        assert(getVecType() != BRIG_TYPE_B128);
 
         string sval;
         string hval;
@@ -512,7 +508,7 @@ string Val::dump() const
         }
         return "(" + sval + ") [" + hval + "]";
     }
-    else if (getType() == Brig::BRIG_TYPE_B128)
+    else if (getType() == BRIG_TYPE_B128)
     {
         return b128().hexDump();
     }
