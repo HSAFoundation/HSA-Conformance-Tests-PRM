@@ -332,6 +332,7 @@ namespace hexl {
         hexl::Sequence<Brig::BrigImageQuery>* imageQueryTypes;
         hexl::Sequence<Brig::BrigImageAccess>* imageAccessTypes;
         hexl::Sequence<unsigned>* imageArray;
+        hexl::Sequence<uint32_t>* numberRW;
 
       public:
         ImageConfig(CoreConfig* cc);
@@ -345,6 +346,7 @@ namespace hexl {
         hexl::Sequence<Brig::BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
         hexl::Sequence<Brig::BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
         hexl::Sequence<unsigned>* ImageArraySets() { return imageArray; };
+        hexl::Sequence<uint32_t>* NumberOfRwImageHandles() { return numberRW; }
       };
 
       class SamplerConfig : public ConfigBase {

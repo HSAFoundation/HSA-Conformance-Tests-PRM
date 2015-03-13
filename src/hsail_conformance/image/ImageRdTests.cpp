@@ -119,24 +119,24 @@ public:
         return false;
     }
 
-	if (samplerFilter == BRIG_FILTER_LINEAR) //only f32 access type is supported for linear filter
-	{
-		switch (imageChannelType)
-		{
-		case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
-		case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
-		case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
-		case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-		case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-		case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-		case Brig::BRIG_CHANNEL_TYPE_UNKNOWN:
-		case Brig::BRIG_CHANNEL_TYPE_FIRST_USER_DEFINED:
-			return false;
-			break;
-		default:
-			break;
-		}
-	}
+  if (samplerFilter == BRIG_FILTER_LINEAR) //only f32 access type is supported for linear filter
+  {
+    switch (imageChannelType)
+    {
+    case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case Brig::BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+    case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case Brig::BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    case Brig::BRIG_CHANNEL_TYPE_UNKNOWN:
+    case Brig::BRIG_CHANNEL_TYPE_FIRST_USER_DEFINED:
+      return false;
+      break;
+    default:
+      break;
+    }
+  }
 
     return (codeLocation != FUNCTION);
   }
@@ -252,16 +252,16 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
-	Value coords[3];
-	coords[0] = Value(0.0f);
-	coords[1] = Value(0.0f);
-	coords[2] = Value(0.0f);
-	calc->ReadColor(coords, color);
+  Value color[4];
+  Value coords[3];
+  coords[0] = Value(0.0f);
+  coords[1] = Value(0.0f);
+  coords[2] = Value(0.0f);
+  calc->ReadColor(coords, color);
 
     switch (imageChannelType)
     {
-		case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
         {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
@@ -284,7 +284,7 @@ public:
         }
         return Value(MV_UINT32, color[3].U32());
 
-	  case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
             {
@@ -309,7 +309,7 @@ public:
       case BRIG_CHANNEL_TYPE_FLOAT:
         return Value(MV_UINT32, 0xFFC00000);
       default:
-		return Value(MV_UINT32, color[3].U32());
+    return Value(MV_UINT32, color[3].U32());
     }
 
   }
@@ -381,7 +381,7 @@ public:
         }
         return Value(MV_UINT32, color[0].U32());
 
-	  case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
        if (samplerFilter == BRIG_FILTER_LINEAR) {
             if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
             {
@@ -447,14 +447,14 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
     
-	switch (imageChannelType)
+  switch (imageChannelType)
     {
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
@@ -544,14 +544,14 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
     
-	switch (imageChannelType)
+  switch (imageChannelType)
     {
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
@@ -641,14 +641,14 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
     
-	switch (imageChannelType)
+  switch (imageChannelType)
     {
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
@@ -738,14 +738,14 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
     
-	switch (imageChannelType)
+  switch (imageChannelType)
     {
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
@@ -835,7 +835,7 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
@@ -878,7 +878,7 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
@@ -923,7 +923,7 @@ public:
   }
 
   Value ExpectedResult() const {	
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
@@ -1020,7 +1020,7 @@ public:
   }
 
   Value ExpectedResult() const {
-	Value color[4];
+  Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
@@ -1319,7 +1319,7 @@ public:
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
-	return Value(MV_UINT32, color[0].U32());
+  return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1357,7 +1357,7 @@ public:
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
-	return Value(MV_UINT32, color[0].U32());
+  return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1393,7 +1393,7 @@ public:
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
-	return Value(MV_UINT32, color[0].U32());
+  return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1429,7 +1429,7 @@ public:
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
-	return Value(MV_UINT32, color[0].U32());
+  return Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const
@@ -1467,7 +1467,7 @@ public:
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
     
-	switch (imageChannelType)
+  switch (imageChannelType)
     {
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)
@@ -1566,7 +1566,7 @@ public:
     coords[2] = Value(0.0f);
     calc->ReadColor(coords, color);
     
-	switch (imageChannelType)
+  switch (imageChannelType)
     {
       case BRIG_CHANNEL_TYPE_SNORM_INT16:
         if (samplerFilter == BRIG_FILTER_LINEAR)

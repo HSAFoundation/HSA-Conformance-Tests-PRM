@@ -241,6 +241,8 @@ static const BrigImageQuery allImgQueries[] = {
 
 static const unsigned arrayGeometry[] = { 1, 2, 10, };
 
+static const uint32_t numberRwArray[] = { 0, 17, 32, 64 };
+
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
     defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>()),
@@ -252,7 +254,8 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageChannelTypes(NEWA ArraySequence<BrigImageChannelType>(allChannelType, NELEM(allChannelType))),
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess))),
-    imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry)))
+    imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry))),
+    numberRW(NEWA ArraySequence<unsigned>(numberRwArray, NELEM(numberRwArray)))
 {
    defaultImageGeometry->Add(NEWA ImageGeometry(1000));
    defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
