@@ -1834,7 +1834,7 @@ void EImageCalc::LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const
   int dimSizeX = imageGeometry.ImageSize(0);
   int dimSizeY = imageGeometry.ImageSize(1);
   int dimSizeZ = imageGeometry.ImageSize(2);
-  bool out_of_range = (x_ind < 0) || (y_ind < 0) || (z_ind < 0) || (x_ind > dimSizeX - 1) || (y_ind > dimSizeX - 1) || (z_ind > dimSizeX - 1);
+  bool out_of_range = (x_ind < 0) || (y_ind < 0) || (z_ind < 0) || (x_ind > dimSizeX - 1) || (y_ind > dimSizeY - 1) || (z_ind > dimSizeZ - 1);
   if(out_of_range){
     assert(samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER);
     LoadBorderData(_color);
