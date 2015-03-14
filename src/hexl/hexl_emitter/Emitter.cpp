@@ -1460,7 +1460,7 @@ int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
   int tile;
   float mirrored_coord;
   switch(samplerAddressing){
-  case BRIG_ADDRESSING_UNDEFINED: //we are consider undefined as clamp_to_edge
+  case BRIG_ADDRESSING_UNDEFINED: //TODO assert
   case BRIG_ADDRESSING_CLAMP_TO_EDGE:
     return clamp_i(rounded_coord, 0, dimSize -1);
     break;
@@ -1518,7 +1518,7 @@ void EImageCalc::LoadBorderData(Value* _color) const
   return;
 }
 
-uint32_t EImageCalc::GetRawColorData(int x_ind, int y_ind, int z_ind, int channel) const
+uint32_t EImageCalc::GetRawColorData() const
 {
   switch (imageChannelType)
   {
@@ -1526,44 +1526,37 @@ uint32_t EImageCalc::GetRawColorData(int x_ind, int y_ind, int z_ind, int channe
   case BRIG_CHANNEL_TYPE_UNORM_INT8:
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-    return 0xFF;
+    return existVal.U32()&0xFF;
     break;
   case BRIG_CHANNEL_TYPE_SNORM_INT16:
   case BRIG_CHANNEL_TYPE_UNORM_INT16:
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    return 0xFFFF;
+    return existVal.U32()&0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    return 0xFFFF;
+    return existVal.U32()&0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT24:
-    return 0x00FFFFFF;
+    return existVal.U32()&0x00FFFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-    return 0x1F;
-    break;
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    return (channel == 1) ? 0x3F : 0x1F;
+    return existVal.U32()&0x1F;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    return 0x03FF;
+    return existVal.U32()&0x03FF;
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
   case BRIG_CHANNEL_TYPE_FLOAT:
-    return 0xFFFFFFFF;
+    return existVal.U32();
     break;
   default:
-    assert(0); //illegal channel 
+    assert(0); //illegal channel
     break;
   }
   return 0;
-}
-
-uint32_t EImageCalc::GetRawColorData(int x_ind, int y_ind, int z_ind) const
-{
-  return 0xFFFFFFFF;
 }
 
 int32_t EImageCalc::SignExtend(uint32_t c, unsigned int bit_size) const
@@ -1609,6 +1602,18 @@ uint32_t EImageCalc::ConvertionUnsignedClamp(uint32_t c, unsigned int bit_size) 
   return c & ((1U << bit_size) - 1); //zeroing higher bits
 }
 
+float EImageCalc::ConvertionHalfFloat(uint32_t data) const
+{
+  union {
+    float f32;
+    int32_t s32;
+    uint32_t u32;
+  } r;
+  r.u32 = data;
+  half h = HSAIL_X::f16_t(r.s32);
+  return (float)h;
+}
+
 Value EImageCalc::ConvertRawData(uint32_t data) const
 {
   Value c;
@@ -1638,10 +1643,10 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
     assert(0);
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-    c = Value(MV_INT32, S32(ConvertionSignedClamp(data, 8)));
+    c = Value(MV_INT8, S8(ConvertionSignedClamp(data, 8)));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-    c = Value(MV_INT32, S32(ConvertionSignedClamp(data, 16)));
+    c = Value(MV_INT16, S16(ConvertionSignedClamp(data, 16)));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     c = Value(MV_INT32, S32(data));
@@ -1650,17 +1655,16 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
     c = Value(MV_UINT32, U32(ConvertionUnsignedClamp(data, 8)));
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    c = Value(MV_UINT32, U32(ConvertionUnsignedClamp(data, 16)));
+    c = Value(MV_UINT16, U16(ConvertionUnsignedClamp(data, 16)));
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     c = Value(MV_UINT32, U32(data));
     break;
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    c = Value(MV_UINT32, S16(data));
-    c = Value( c.F() );
+    c = Value(MV_UINT32, 0xFFC00000);//Value(ConvertionHalfFloat(data));
     break;
   case BRIG_CHANNEL_TYPE_FLOAT:
-    c = Value(MV_UINT32, S32(data));
+    c = Value(MV_INT32, S32(data));
     c = Value(c.F());
     break;
   default:
@@ -1690,31 +1694,31 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     _color[0] = color_zero;
     _color[1] = color_zero;
     _color[2] = color_zero;
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_R:
   case BRIG_CHANNEL_ORDER_RX:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    _color[0] = ConvertRawData(GetRawColorData());
     _color[1] = color_zero;
     _color[2] = color_zero;
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_RG:
   case BRIG_CHANNEL_ORDER_RGX:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
-    _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
+    _color[0] = ConvertRawData(GetRawColorData());
+    _color[1] = ConvertRawData(GetRawColorData());
     _color[2] = color_zero;
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_RA:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    _color[0] = ConvertRawData(GetRawColorData());
     _color[1] = color_zero;
     _color[2] = color_zero;
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_RGB:
   case BRIG_CHANNEL_ORDER_RGBX:
-    packed_color = GetRawColorData(x_ind, y_ind, z_ind);
+    packed_color = GetRawColorData();
     switch (imageChannelType)
     {
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
@@ -1748,35 +1752,35 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_RGBA:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
-    _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
-    _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
+    _color[0] = ConvertRawData(GetRawColorData());
+    _color[1] = ConvertRawData(GetRawColorData());
+    _color[2] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_BGRA:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
-    _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
-    _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
+    _color[0] = ConvertRawData(GetRawColorData());
+    _color[1] = ConvertRawData(GetRawColorData());
+    _color[2] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_ARGB:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
-    _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
-    _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    _color[0] = ConvertRawData(GetRawColorData());
+    _color[1] = ConvertRawData(GetRawColorData());
+    _color[2] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_ABGR:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
-    _color[1] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 2));
-    _color[2] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 1));
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    _color[0] = ConvertRawData(GetRawColorData());
+    _color[1] = ConvertRawData(GetRawColorData());
+    _color[2] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_SRGB:
   case BRIG_CHANNEL_ORDER_SRGBX:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 0), 8);
-    fg = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 1), 8);
-    fb = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 2), 8);
+    fr = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fg = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fb = ConvertionUnsignedNormalize(GetRawColorData(), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
@@ -1784,43 +1788,43 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     break;
   case BRIG_CHANNEL_ORDER_SRGBA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 0), 8);
-    fg = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 1), 8);
-    fb = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 2), 8);
+    fr = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fg = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fb = ConvertionUnsignedNormalize(GetRawColorData(), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_SBGRA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 2), 8);
-    fg = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 1), 8);
-    fb = ConvertionUnsignedNormalize(GetRawColorData(x_ind, y_ind, z_ind, 0), 8);
+    fr = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fg = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fb = ConvertionUnsignedNormalize(GetRawColorData(), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 3));
+    _color[3] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_INTENSITY:
-    c = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    c = ConvertRawData(GetRawColorData());
     _color[0] = c;
     _color[1] = c;
     _color[2] = c;
     _color[3] = c;
     break;
   case BRIG_CHANNEL_ORDER_LUMINANCE:
-    c = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    c = ConvertRawData(GetRawColorData());
     _color[0] = c;
     _color[1] = c;
     _color[2] = c;
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_DEPTH:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    _color[0] = ConvertRawData(GetRawColorData());
     break;
   case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
-    _color[0] = ConvertRawData(GetRawColorData(x_ind, y_ind, z_ind, 0));
+    _color[0] = ConvertRawData(GetRawColorData());
     break;
   default:
     assert(0); //illegal channel order
@@ -1888,6 +1892,12 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   uint32_t uSize = imageGeometry.ImageSize(0);
   uint32_t vSize = imageGeometry.ImageSize(1);
   uint32_t wSize = imageGeometry.ImageSize(2);
+
+  if (bWithoutSampler)
+  {
+    LoadTexel((*x).U32(), (*y).U32(), (*z).U32(), _color);
+    return;
+  }
 
   //unnormalize and apply addresing mode
   u = UnnormalizeCoord(x, uSize);
@@ -2044,18 +2054,28 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   }
 }
 
-EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler)
+EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler, Value val)
 {
   assert(eimage);
-  assert(esampler);
+
+  existVal = val;
+ 
   imageGeometry = eimage->ImageGeometry();
   imageGeometryProp = eimage->Geometry();
   imageChannelOrder = eimage->ChannelOrder();
   imageChannelType = eimage->ChannelType();
+  if (esampler != NULL) {
   samplerCoord = esampler->CoordNormalization();
   samplerFilter = esampler->Filter();
   samplerAddressing = esampler->Addresing();
-
+    bWithoutSampler = false;
+  }
+  else {
+    samplerCoord = BRIG_COORD_UNNORMALIZED;
+    samplerFilter = BRIG_FILTER_NEAREST;
+    samplerAddressing = BRIG_ADDRESSING_UNDEFINED;
+    bWithoutSampler = true;
+  }
   SetupDefaultColors();
 }
 
