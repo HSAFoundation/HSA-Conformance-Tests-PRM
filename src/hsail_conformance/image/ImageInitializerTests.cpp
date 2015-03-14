@@ -140,7 +140,7 @@ public:
       be.EmitCbr(cmp->Reg(), falseLabel);
     }
 
-    // query sampler coordinate
+    //// query sampler coordinate
     sampler->EmitSamplerQuery(dest, samplerAddr, BRIG_SAMPLER_QUERY_COORD);
     be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), coord), BRIG_COMPARE_NE);
     be.EmitCbr(cmp->Reg(), falseLabel);

@@ -1115,9 +1115,17 @@ void EImage::EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, Ty
   inst.equivClass() = 0;//12;
   inst.type() = srcType;
   ItemList OptList;
-  OptList.push_back(src);
+  if (src.elementCount() == 1) {
+    OptList.push_back(src.elements(0));
+  } else {
+    OptList.push_back(src);
+  }
   OptList.push_back(image->Reg());
-  OptList.push_back(coord);
+  if (coord.elementCount() == 1) {
+    OptList.push_back(coord.elements(0));
+  } else {
+    OptList.push_back(coord);
+  }
   inst.operands() = OptList;
 }
 
@@ -1132,7 +1140,11 @@ void EImage::EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperand
   ItemList OptList;
   OptList.push_back(src->Reg());
   OptList.push_back(image->Reg());
-  OptList.push_back(coord);
+  if (coord.elementCount() == 1) {
+    OptList.push_back(coord.elements(0));
+  } else {
+    OptList.push_back(coord);
+  }
   inst.operands() = OptList;
 }
 
