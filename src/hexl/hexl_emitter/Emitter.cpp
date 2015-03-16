@@ -2451,12 +2451,12 @@ uint32_t ECondition::InputValue(uint64_t wi, BrigWidth width)
   switch (width) {
     case BRIG_WIDTH_1:  ewidth = 1; break;
     case BRIG_WIDTH_2:  ewidth = 2; break;
-//    case BRIG_WIDTH_4:  ewidth = 4; break;
-//    case BRIG_WIDTH_8:  ewidth = 8; break;
-//    case BRIG_WIDTH_16: ewidth = 16; break;
+    case BRIG_WIDTH_4:  ewidth = 4; break;
+    case BRIG_WIDTH_8:  ewidth = 8; break;
+    case BRIG_WIDTH_16: ewidth = 16; break;
     case BRIG_WIDTH_32: ewidth = 32; break;
     case BRIG_WIDTH_64: ewidth = 64; break;
-//    case BRIG_WIDTH_128: ewidth = 128; break;
+    case BRIG_WIDTH_128: ewidth = 128; break;
     case BRIG_WIDTH_256: ewidth = 256; break;
     case BRIG_WIDTH_WAVESIZE: ewidth = te->CoreCfg()->Wavesize(); break;
     case BRIG_WIDTH_ALL: ewidth = Geometry()->WorkgroupSize(); break;

@@ -807,21 +807,19 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
   : ConfigBase(cc),
     allWidths(NEWA EnumSequence<BrigWidth>(BRIG_WIDTH_NONE, BRIG_WIDTH_LAST)),
     workgroupWidths(NEWA VectorSequence<BrigWidth>()),
+    cornerWidths(NEWA VectorSequence<BrigWidth>()),
     conditionInputs(NEWA EnumSequence<ConditionInput>(COND_INPUT_START, COND_INPUT_END)),
     binaryConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), WorkgroupWidths()))),
+    nestedConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), CornerWidths()))),
     sbrTypes(NEWA EnumSequence<BrigType>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
     switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths())))
 {
-  //for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
-  //  workgroupWidths->Add((BrigWidth) w);
-  //}
-  workgroupWidths->Add(BRIG_WIDTH_1);
-  workgroupWidths->Add(BRIG_WIDTH_2);
-  workgroupWidths->Add(BRIG_WIDTH_32);
-  workgroupWidths->Add(BRIG_WIDTH_64);
-  workgroupWidths->Add(BRIG_WIDTH_256);
-  workgroupWidths->Add(BRIG_WIDTH_WAVESIZE);
-  workgroupWidths->Add(BRIG_WIDTH_ALL);
+  for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
+    workgroupWidths->Add((BrigWidth) w);
+  }
+  cornerWidths->Add(BRIG_WIDTH_1);
+  cornerWidths->Add(BRIG_WIDTH_WAVESIZE);
+  cornerWidths->Add(BRIG_WIDTH_ALL);
 }
 }
 }
