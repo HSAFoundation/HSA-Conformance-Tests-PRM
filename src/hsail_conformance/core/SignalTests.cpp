@@ -25,7 +25,6 @@ using namespace hexl::emitter;
 using namespace hexl::scenario;
 using namespace scenario;
 using namespace HSAIL_ASM;
-using namespace Brig;
 
 namespace hsail_conformance {
 ///// BASE (VALUE) /////
@@ -51,7 +50,7 @@ public:
                                            << (noret ? "/noret" : "/ret")
                                            << "/" << atomicOperation2str(atomicOp); }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, U32(1)); }
 
@@ -132,7 +131,7 @@ public:
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
     TypedReg signal = be.AddTReg(be.SignalType());
     be.EmitLoad(signalArg.segment(), signal, be.Address(signalArg));
-    BrigTypeX vtype = be.SignalValueIntType(true);
+    BrigType vtype = be.SignalValueIntType(true);
     TypedReg dest = NULL, origin = NULL, src0 = be.AddTReg(vtype), c = be.AddCTReg(), src1 = NULL;
     if (!noret) {
         dest = be.AddTReg(vtype);
@@ -151,10 +150,10 @@ public:
     expectedValue = GetExpectedSignalValue(immDest, initialValue, immSrc0, immSrc1);
     if (BRIG_ATOMIC_CAS == atomicOp) {
       src1 = be.AddTReg(vtype);
-      be.EmitMov(src1->Reg(), be.Immed(be.SignalValueBitType(), expectedValue), src1->TypeSizeBits());
+      be.EmitMov(src1->Reg(), be.Immed(type2bitType(vtype), expectedValue), src1->TypeSizeBits());
     }
     // if register
-    be.EmitMov(src0->Reg(), be.Immed(be.SignalValueBitType(), immSrc0), src0->TypeSizeBits());
+    be.EmitMov(src0->Reg(), be.Immed(type2bitType(vtype), immSrc0), src0->TypeSizeBits());
     std::string passLabel = be.AddLabel();
     std::string failLabel = be.AddLabel();
     // main signal operation to test
@@ -201,7 +200,7 @@ public:
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
     TypedReg signal = be.AddTReg(be.SignalType());
     be.EmitLoad(signalArg.segment(), signal, be.Address(signalArg));
-    BrigTypeX vtype = be.SignalValueIntType(true);
+    BrigType vtype = be.SignalValueIntType(true);
     TypedReg dest = be.AddTReg(vtype), src0 = be.AddTReg(vtype), acquired = be.AddTReg(vtype), c = be.AddCTReg();
     int64_t immSrc0;
     switch (atomicOp) {
@@ -213,7 +212,7 @@ public:
     default:
       immSrc0 = initialValue; break;
     }
-    be.EmitMov(src0->Reg(), be.Immed(be.SignalValueBitType(), immSrc0), src0->TypeSizeBits());
+    be.EmitMov(src0->Reg(), be.Immed(type2bitType(vtype), immSrc0), src0->TypeSizeBits());
     // main signal operation to test, wrapped into loop
     be.EmitSignalWaitLoop(dest, signal, src0->Reg(), atomicOp, memoryOrder, timeout);
     be.EmitSignalOp(acquired, signal, NULL, NULL, BRIG_ATOMIC_LD, memoryOrder);

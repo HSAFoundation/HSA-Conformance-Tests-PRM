@@ -14,25 +14,6 @@
 
 using std::numeric_limits;
 
-using Brig::BRIG_TYPE_B1;
-using Brig::BRIG_TYPE_B8;
-using Brig::BRIG_TYPE_B32;
-using Brig::BRIG_TYPE_B64;
-using Brig::BRIG_TYPE_B128;
-using Brig::BRIG_TYPE_S8;
-using Brig::BRIG_TYPE_S16;
-using Brig::BRIG_TYPE_S32;
-using Brig::BRIG_TYPE_S64;
-using Brig::BRIG_TYPE_U8;
-using Brig::BRIG_TYPE_U16;
-using Brig::BRIG_TYPE_U32;
-using Brig::BRIG_TYPE_U64;
-using Brig::BRIG_TYPE_F16;
-using Brig::BRIG_TYPE_F32;
-using Brig::BRIG_TYPE_F64;
-using Brig::BRIG_TYPE_U8X4;
-using Brig::BRIG_TYPE_U16X2;
-
 using HSAIL_ASM::InstBasic;
 using HSAIL_ASM::InstSourceType;
 using HSAIL_ASM::InstAtomic;
@@ -1039,8 +1020,6 @@ static Val emulate_expand(unsigned type, unsigned stype, Val arg)
 
 static Val emulateCmp(unsigned type, unsigned stype, unsigned op, Val arg1, Val arg2)
 {
-    using namespace Brig;
-
     assert(arg1.getType() == stype);
     assert(arg2.getType() == stype);
 
@@ -1235,8 +1214,8 @@ static Val emulateCvt(unsigned type, unsigned stype, AluMod aluMod, Val arg)
     // to avoid handling b1 in other places, pretend that it is an u32 value
     if (stype == BRIG_TYPE_B1) 
     {
-        assert(rounding == Brig::BRIG_ROUND_NONE);
-        if (isFloatType(type)) rounding = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN; // Any fp mode will do
+        assert(rounding == BRIG_ROUND_NONE);
+        if (isFloatType(type)) rounding = BRIG_ROUND_FLOAT_NEAR_EVEN; // Any fp mode will do
         arg = Val(BRIG_TYPE_U32, arg.getAsB64());
         stype = BRIG_TYPE_U32;
     }
@@ -1254,8 +1233,6 @@ static Val emulateCvt(unsigned type, unsigned stype, AluMod aluMod, Val arg)
 
 static Val emulateAtomicMem(unsigned type, unsigned atomicOperation, Val arg1, Val arg2, Val arg3)
 {
-    using namespace Brig;
-
     assert(arg1.getType() == type);
     assert(BRIG_ATOMIC_ST || arg2.getType() == type);
 
@@ -1284,7 +1261,7 @@ static Val emulateAtomicMem(unsigned type, unsigned atomicOperation, Val arg1, V
 
 static Val emulateAtomicDst(unsigned opcode, Val arg1)
 {
-    return (opcode == Brig::BRIG_OPCODE_ATOMIC)? arg1 : emptyDstValue();
+    return (opcode == BRIG_OPCODE_ATOMIC)? arg1 : emptyDstValue();
 }
 
 //=============================================================================
@@ -1539,8 +1516,6 @@ static Val emulate_sadhi(unsigned type, unsigned stype, Val arg1, Val arg2, Val 
 
 static Val emulateMod(unsigned opcode, unsigned type, AluMod aluMod, Val arg1, Val arg2, Val arg3 = Val(), Val arg4 = Val())
 {
-    using namespace Brig;
-
     if (!isSupportedFpRounding(aluMod.getRounding())) return unimplemented();
 
     unsigned rounding = aluMod.getRounding();
@@ -1626,8 +1601,6 @@ static Val emulateMod(unsigned opcode, unsigned type, AluMod aluMod, Val arg1, V
 
 static Val emulateSourceType(unsigned opcode, unsigned type, unsigned stype, Val arg1, Val arg2, Val arg3)
 {
-    using namespace Brig;
-
     switch (opcode)
     {
     case BRIG_OPCODE_CLASS:     return emulate_class(stype, arg1, arg2);
@@ -1649,8 +1622,6 @@ static Val emulateSourceType(unsigned opcode, unsigned type, unsigned stype, Val
 
 static Val emulateMemDst(unsigned segment, unsigned opcode, Val arg)
 {
-    using namespace Brig;
-
     switch (opcode)
     {
     case BRIG_OPCODE_LD:  return arg;
@@ -1662,8 +1633,6 @@ static Val emulateMemDst(unsigned segment, unsigned opcode, Val arg)
 
 static Val emulateMemMem(unsigned segment, unsigned opcode, Val arg0, Val arg1)
 {
-    using namespace Brig;
-
     switch (opcode)
     {
     case BRIG_OPCODE_LD:  return arg1;
@@ -1682,8 +1651,6 @@ static Val emulateMemMem(unsigned segment, unsigned opcode, Val arg0, Val arg1)
 // NB: Readonly cannot be initialized and so unsuitable for tesing.
 static bool isSupportedSegment(unsigned segment)
 {
-    using namespace Brig;
-
     switch (segment)
     {
     case BRIG_SEGMENT_GLOBAL:
@@ -1717,8 +1684,6 @@ static bool emulateFtz(Inst inst, Val& arg0, Val& arg1, Val& arg2, Val& arg3, Va
 
 static bool discardNanSign(unsigned opcode)
 {
-    using namespace Brig;
-
     switch (opcode)
     {
     case BRIG_OPCODE_ABS:
@@ -1740,8 +1705,6 @@ static bool discardNanSign(unsigned opcode)
 // Most of these operations may be reduced to non-packed operations.
 static bool isCommonPacked(Inst inst)
 {
-    using namespace Brig;
-
     return (getPacking(inst) != BRIG_PACK_NONE) ||
            (isPackedType(inst.type()) &&
                 (inst.opcode() == BRIG_OPCODE_SHL  ||
@@ -1752,8 +1715,6 @@ static bool isCommonPacked(Inst inst)
 // which cannot be reduced to non-packed operations
 static bool isSpecialPacked(Inst inst)
 {
-    using namespace Brig;
-
     switch (inst.opcode())
     {
     case BRIG_OPCODE_SHUFFLE:   // Packed Data Operations
@@ -1790,8 +1751,6 @@ static Val emulateMulHiPacked(unsigned type, unsigned baseType, Val arg1, Val ar
     assert(arg1.getType() == baseType);
     assert(arg2.getType() == baseType);
 
-    using namespace Brig;
-
     unsigned elementType = packedType2elementType(type);
     unsigned opcode = (getBrigTypeNumBits(elementType) < 32)? BRIG_OPCODE_MUL : BRIG_OPCODE_MULHI;
 
@@ -1809,8 +1768,6 @@ static Val emulateSat(unsigned opcode, unsigned type, Val arg1, Val arg2)
 {
     assert(isPackedType(type));
     assert(!isFloatType(packedType2elementType(type)));
-
-    using namespace Brig;
 
     // Repack from base type to element type
     unsigned baseType    = packedType2baseType(type);
@@ -1834,8 +1791,6 @@ static Val emulateSat(unsigned opcode, unsigned type, Val arg1, Val arg2)
 
 static Val emulateDstValPackedRegular(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 {
-    using namespace Brig;
-
     assert(arg0.empty());
     assert(arg3.empty());
     assert(arg4.empty());
@@ -1897,8 +1852,6 @@ static Val emulateDstValPackedRegular(Inst inst, Val arg0, Val arg1, Val arg2, V
 
 static Val emulateDstValPackedSpecial(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 {
-    using namespace Brig;
-
     switch (inst.opcode())
     {
     // Packed Data Operations
@@ -1948,7 +1901,6 @@ static Val emulateDstValCommon(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3
 //     This function shall only check limitations which cannot be expressed there
 bool testableInst(Inst inst)
 {
-    using namespace Brig;
     assert(inst);
 
     if (InstAtomic instAtomic = inst)
@@ -2007,8 +1959,6 @@ Val emulateDstVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 // instruction does not modify memory or if emulation failed.
 Val emulateMemVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 {
-    using namespace Brig;
-
     Val res;
 
     if (InstAtomic i = inst)
@@ -2039,8 +1989,6 @@ Val emulateMemVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 // This is a property of target HW, not emulator!
 double getPrecision(Inst inst)
 {
-    using namespace Brig;
-
     switch(inst.opcode()) // Instructions with HW-specific precision
     {
     case BRIG_OPCODE_NRCP:

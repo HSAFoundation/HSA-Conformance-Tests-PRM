@@ -32,8 +32,6 @@ Operand Context::getOperand(unsigned oprId)
 {
     assert(O_MINID < oprId && oprId < O_MAXID);
 
-    using namespace Brig;
-
     if (isOperandCreated(oprId)) return operandTab[oprId];
 
     Operand opr = Operand();
@@ -271,28 +269,28 @@ Directive Context::emitSymbol(unsigned symId)
     }
     else if (symId == SYM_FUNC)
     {
-        DirectiveFunction fn = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_FUNCTION, name);
+        DirectiveFunction fn = emitSbrStart(BRIG_KIND_DIRECTIVE_FUNCTION, name);
         startSbrBody();
         emitSbrEnd();
         return fn;
     }
     else if (symId == SYM_IFUNC)
     {
-        DirectiveIndirectFunction fn = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_INDIRECT_FUNCTION, name);
+        DirectiveIndirectFunction fn = emitSbrStart(BRIG_KIND_DIRECTIVE_INDIRECT_FUNCTION, name);
         startSbrBody();
         emitSbrEnd();
         return fn;
     }
     else if (symId == SYM_KERNEL)
     {
-        DirectiveKernel k = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_KERNEL, name);
+        DirectiveKernel k = emitSbrStart(BRIG_KIND_DIRECTIVE_KERNEL, name);
         startSbrBody();
         emitSbrEnd();
         return k;
     }
     else if (symId == SYM_SIGNATURE)
     {
-        DirectiveSignature sig = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_SIGNATURE, name);
+        DirectiveSignature sig = emitSbrStart(BRIG_KIND_DIRECTIVE_SIGNATURE, name);
         emitSbrEnd();
         return sig;
     }

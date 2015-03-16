@@ -22,7 +22,6 @@
 
 using namespace hexl;
 using namespace hexl::emitter;
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hsail_conformance::utils;
 
@@ -38,7 +37,7 @@ protected:
 
   Variable Memory(uint32_t index) const { return memories[index]; }
   BrigOpcode Opcode() const { return opcode; }
-  BrigTypeX ValueType() {
+  BrigType ValueType() {
     return te->CoreCfg()->IsLarge() ? BRIG_TYPE_U64 : BRIG_TYPE_U32;
   }
 
@@ -171,7 +170,7 @@ public:
            geometry->isPartial() == false;
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
   TypedReg Result() override {
@@ -199,7 +198,7 @@ public:
     out << geometry;
   }
   
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
   TypedReg Result() override {
@@ -260,7 +259,7 @@ public:
     return geometry->GridSize() == LIMIT;
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
   TypedReg Result() override {
@@ -304,7 +303,7 @@ public:
     var = InitializeVariable();
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
   TypedReg Result() override {
@@ -348,7 +347,7 @@ public:
 class GroupMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
 private:
   static const uint32_t LIMIT = 0x8000; // 32 KBytes of group memory
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE = 123456789;
 
 protected:
@@ -438,7 +437,7 @@ public:
 class KernargMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
 private:
   static const uint32_t LIMIT = 1024; // 1KByte of kernarg memory
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE = 123456789;
 
   uint32_t VarSize() const {
@@ -480,7 +479,7 @@ public:
 class ArgMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
 private:
   static const uint32_t LIMIT = 64; // 64 bytes of arg memory
-  static const BrigTypeX VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE = 123456789;
 
   uint32_t VarSize() const {
@@ -577,7 +576,7 @@ protected:
 public:
   RegisterLimitBaseTest(Location codeLocation = Location::KERNEL, Grid geometry = 0): SkipTest(codeLocation, geometry) {}
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), 1); }
 
   TypedReg Result() override {
@@ -648,9 +647,9 @@ public:
       && (typeSize == 32 || typeSize == 64 || typeSize == 128);
   }
 
-  BrigTypeX ResultType() const override { return RegisterType(); }
+  BrigType ResultType() const override { return RegisterType(); }
 
-  BrigTypeX RegisterType() const {
+  BrigType RegisterType() const {
     switch (typeSize) {
     case 32: return BRIG_TYPE_U32;
     case 64: return BRIG_TYPE_U64;

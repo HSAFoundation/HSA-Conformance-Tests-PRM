@@ -21,14 +21,13 @@
 #include "HSAILBrigObjectFile.h"
 #include "hsail_c.h"
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 
 namespace hexl {
 
 BrigContainer* BrigC(brig_container_t brig)
 {
-  BrigModuleHeader* brigm = static_cast<Brig::BrigModuleHeader*>(brig_container_get_brig_module(brig));
+  BrigModuleHeader* brigm = static_cast<BrigModuleHeader*>(brig_container_get_brig_module(brig));
   return new BrigContainer(brigm);
 }
 
@@ -119,7 +118,7 @@ std::string ExtractTestPath(const std::string& name, unsigned level)
   return name.substr(0, pos);
 }
 
-hexl::ValueType Brig2ValueType(BrigTypeX type)
+hexl::ValueType Brig2ValueType(BrigType type)
 {
   switch (type) {
   case BRIG_TYPE_B8:
@@ -175,7 +174,7 @@ hexl::ValueType Brig2ValueType(BrigTypeX type)
 }
 
 
-Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
+BrigType Value2BrigType(hexl::ValueType type)
 {
   switch (type) {
   case MV_UINT8: return BRIG_TYPE_U8;
@@ -218,7 +217,7 @@ Brig::BrigTypeX Value2BrigType(hexl::ValueType type)
   }
 }
 
-bool Is128Bit(BrigTypeX type) {
+bool Is128Bit(BrigType type) {
   return HSAIL_ASM::getBrigTypeNumBytes(type) == 16;
 }
 
@@ -255,6 +254,76 @@ bool IsImageDepth(BrigImageGeometry geometry) {
   }
 }
 
+bool IsImageQueryGeometrySupport(BrigImageGeometry imageGeometryProp, BrigImageQuery imageQuery)
+{
+  switch (imageGeometryProp)
+  {
+  case BRIG_GEOMETRY_1D:
+  case BRIG_GEOMETRY_1DB:
+      if ((imageQuery == BRIG_IMAGE_QUERY_HEIGHT) || (imageQuery == BRIG_IMAGE_QUERY_DEPTH) || (imageQuery == BRIG_IMAGE_QUERY_ARRAY))
+        return false;
+      break;
+  case BRIG_GEOMETRY_1DA:
+    if ((imageQuery == BRIG_IMAGE_QUERY_HEIGHT) || (imageQuery == BRIG_IMAGE_QUERY_DEPTH))
+        return false;
+      break;
+  case BRIG_GEOMETRY_2D:
+  case BRIG_GEOMETRY_2DDEPTH:
+    if  ((imageQuery == BRIG_IMAGE_QUERY_DEPTH) || (imageQuery == BRIG_IMAGE_QUERY_ARRAY))
+      return false;
+    break;
+  case BRIG_GEOMETRY_2DA:
+  case BRIG_GEOMETRY_2DADEPTH:
+     if  (imageQuery == BRIG_IMAGE_QUERY_DEPTH)
+      return false;
+    break;
+  case BRIG_GEOMETRY_3D:
+    if  (imageQuery == BRIG_IMAGE_QUERY_ARRAY)
+      return false;
+    break;
+  default:
+    break;
+  }
+  return true;
+}
+
+bool IsImageGeometrySupported(BrigImageGeometry imageGeometryProp, ImageGeometry imageGeometry) 
+{
+  switch (imageGeometryProp)
+  {
+  case BRIG_GEOMETRY_1D:
+  case BRIG_GEOMETRY_1DB:
+    if ((imageGeometry.ImageHeight() > 1) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() > 1))
+      return false;
+    break;
+  case BRIG_GEOMETRY_1DA:
+    if ((imageGeometry.ImageHeight() > 1) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() < 2))
+      return false;
+    break;
+    case BRIG_GEOMETRY_2D:
+    case BRIG_GEOMETRY_2DDEPTH:
+    if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() > 1))
+      return false;
+    break;
+  case BRIG_GEOMETRY_2DA:
+    if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() > 1) || (imageGeometry.ImageArray() < 2))
+      return false;
+    break;
+  case BRIG_GEOMETRY_2DADEPTH:
+    if (imageGeometry.ImageDepth() > 1)
+      return false;
+    break;
+  case BRIG_GEOMETRY_3D:
+    if ((imageGeometry.ImageHeight() < 2) || (imageGeometry.ImageDepth() < 2) || (imageGeometry.ImageArray() > 1))
+      return false;
+    break;
+  default:
+    if (imageGeometry.ImageArray() > 1)
+      return false;
+  }
+  return true;
+}
+
 bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, 
                       BrigImageChannelType channelType) {
   switch (geometry) {
@@ -262,7 +331,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
   case BRIG_GEOMETRY_3D:  case BRIG_GEOMETRY_1DA:
   case BRIG_GEOMETRY_2DA: case BRIG_GEOMETRY_1DB:
     switch (channelOrder) {
-    case Brig::BRIG_CHANNEL_ORDER_A:
+    case BRIG_CHANNEL_ORDER_A:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -271,7 +340,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_R:
+    case BRIG_CHANNEL_ORDER_R:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -280,7 +349,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_RX:
+    case BRIG_CHANNEL_ORDER_RX:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -289,7 +358,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_RG:
+    case BRIG_CHANNEL_ORDER_RG:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -298,7 +367,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_RGX:
+    case BRIG_CHANNEL_ORDER_RGX:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -307,7 +376,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_RA:
+    case BRIG_CHANNEL_ORDER_RA:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -316,7 +385,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_RGB:
+    case BRIG_CHANNEL_ORDER_RGB:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
@@ -325,7 +394,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return false;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_RGBX:
+    case BRIG_CHANNEL_ORDER_RGBX:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -334,7 +403,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_RGBA:
+    case BRIG_CHANNEL_ORDER_RGBA:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -343,7 +412,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_BGRA:
+    case BRIG_CHANNEL_ORDER_BGRA:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
       case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
@@ -352,7 +421,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return false;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_ARGB:
+    case BRIG_CHANNEL_ORDER_ARGB:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
       case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
@@ -361,7 +430,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return false;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_ABGR:
+    case BRIG_CHANNEL_ORDER_ABGR:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
       case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
@@ -370,7 +439,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return false;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_SRGB:
+    case BRIG_CHANNEL_ORDER_SRGB:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -379,7 +448,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_SRGBX:
+    case BRIG_CHANNEL_ORDER_SRGBX:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -388,7 +457,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_SRGBA:
+    case BRIG_CHANNEL_ORDER_SRGBA:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -397,7 +466,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_SBGRA:
+    case BRIG_CHANNEL_ORDER_SBGRA:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -406,7 +475,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return true;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_INTENSITY:
+    case BRIG_CHANNEL_ORDER_INTENSITY:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNORM_INT16:
       case BRIG_CHANNEL_TYPE_SNORM_INT8: case BRIG_CHANNEL_TYPE_SNORM_INT16:
@@ -416,7 +485,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return false;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_LUMINANCE:
+    case BRIG_CHANNEL_ORDER_LUMINANCE:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNORM_INT16:
       case BRIG_CHANNEL_TYPE_SNORM_INT8: case BRIG_CHANNEL_TYPE_SNORM_INT16:
@@ -431,7 +500,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
 
   case BRIG_GEOMETRY_2DDEPTH: case BRIG_GEOMETRY_2DADEPTH:
     switch (channelOrder) {
-    case Brig::BRIG_CHANNEL_ORDER_DEPTH:
+    case BRIG_CHANNEL_ORDER_DEPTH:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT16: case BRIG_CHANNEL_TYPE_UNORM_INT24:
       case BRIG_CHANNEL_TYPE_FLOAT:
@@ -440,7 +509,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
         return false;
       }
 
-    case Brig::BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
+    case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT16: case BRIG_CHANNEL_TYPE_UNORM_INT24:
       case BRIG_CHANNEL_TYPE_FLOAT:

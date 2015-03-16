@@ -22,7 +22,6 @@
 #include <sstream>
 
 namespace hsail_conformance {
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -48,7 +47,7 @@ protected:
   OperandConstantBytes immSuccess;
   OperandConstantBytes immError;
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, success); }
 
@@ -77,10 +76,10 @@ public:
   }
 
   void Name(std::ostream& out) const {
-    out << "cbr/basic/" << CodeLocationString() << "_" << cond;
+    out << "cbr/basic/" << CodeLocationString() << "/" << cond;
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 };
 
 class CbrBasicTest : public ConditionTestBase {
@@ -102,6 +101,39 @@ public:
   }
 };
 
+class CbrIfThenElseTest : public ConditionTestBase {
+
+public:
+  CbrIfThenElseTest(Location location, Grid geometry, Condition cond_)
+    : ConditionTestBase(location, geometry, cond_) {}
+
+  void Name(std::ostream& out) const {
+    out << "cbr/ifthenelse/" << CodeLocationString() << "/" << cond;
+  }
+
+protected:
+  Value ExpectedResult(uint64_t i) const {
+    uint32_t eresult;
+    if (cond->ExpectThenPath(i)) {
+        eresult = 1;
+    } else {
+      eresult = 2;
+    }
+    return Value(MV_UINT32, eresult);
+  }
+
+  TypedReg Result() {
+    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 3));
+    cond->EmitIfThenElseStart();
+    be.EmitMov(result, be.Immed(result->Type(), 1));
+    cond->EmitIfThenElseOtherwise();
+    be.EmitMov(result, be.Immed(result->Type(), 2));
+    cond->EmitIfThenElseEnd();
+    return result;
+  }
+};
+
 class CbrNestedTest : public ConditionTestBase {
 protected:
   Condition cond2;
@@ -115,7 +147,7 @@ public:
   }
 
   void Name(std::ostream& out) const {
-    out << "cbr/nested/" << CodeLocationString() << "_" << cond << "_" << cond2;
+    out << "cbr/nested/" << CodeLocationString() << "/" << cond << "_" << cond2;
   }
 
 protected:
@@ -142,6 +174,151 @@ protected:
     be.EmitMov(result, be.Immed(result->Type(), 1));
     cond2->EmitIfThenEnd();
     cond->EmitIfThenEnd();
+    return result;
+  }
+};
+
+class CbrIfThenElseNestedInThenTest : public CbrNestedTest {
+
+public:
+  CbrIfThenElseNestedInThenTest(Location location, Grid geometry, Condition cond_, Condition cond2_)
+    : CbrNestedTest(location, geometry, cond_, cond2_) {}
+
+  void Name(std::ostream& out) const {
+    out << "cbr/ifthenelse/nested/inthen/" << CodeLocationString() << "/" << cond << "_" << cond2;
+  }
+
+protected:
+  Value ExpectedResult(uint64_t i) const {
+    uint32_t eresult;
+    if (cond->ExpectThenPath(i)) {
+      if (cond2->ExpectThenPath(i)) {
+        eresult = 1;
+      } else {
+        eresult = 2;
+      }
+    } else {
+      eresult = 3;
+    }
+    return Value(MV_UINT32, eresult);
+  }
+
+  TypedReg Result() {
+    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 4));
+    cond->EmitIfThenElseStart();
+
+      cond2->EmitIfThenElseStart();
+      be.EmitMov(result, be.Immed(result->Type(), 1));
+      cond2->EmitIfThenElseOtherwise();
+      be.EmitMov(result, be.Immed(result->Type(), 2));
+      cond2->EmitIfThenElseEnd();
+
+    cond->EmitIfThenElseOtherwise();
+    be.EmitMov(result, be.Immed(result->Type(), 3));
+    cond->EmitIfThenElseEnd();
+    return result;
+  }
+};
+
+class CbrIfThenElseNestedInElseTest : public CbrNestedTest {
+
+public:
+  CbrIfThenElseNestedInElseTest(Location location, Grid geometry, Condition cond_, Condition cond2_)
+    : CbrNestedTest(location, geometry, cond_, cond2_) {}
+
+  void Name(std::ostream& out) const {
+    out << "cbr/ifthenelse/nested/inelse/" << CodeLocationString() << "/" << cond << "_" << cond2;
+  }
+
+protected:
+  Value ExpectedResult(uint64_t i) const {
+    uint32_t eresult;
+    if (cond->ExpectThenPath(i)) {
+      eresult = 1;
+    } else {
+      if (cond2->ExpectThenPath(i)) {
+        eresult = 2;
+      } else {
+        eresult = 3;
+      }
+    }
+    return Value(MV_UINT32, eresult);
+  }
+
+  TypedReg Result() {
+    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 4));
+    cond->EmitIfThenElseStart();
+    be.EmitMov(result, be.Immed(result->Type(), 1));
+    cond->EmitIfThenElseOtherwise();
+
+      cond2->EmitIfThenElseStart();
+      be.EmitMov(result, be.Immed(result->Type(), 2));
+      cond2->EmitIfThenElseOtherwise();
+      be.EmitMov(result, be.Immed(result->Type(), 3));
+      cond2->EmitIfThenElseEnd();
+
+    cond->EmitIfThenElseEnd();
+    return result;
+  }
+};
+
+class CbrIfThenElseNestedTest : public CbrNestedTest {
+protected:
+  Condition cond3;
+
+public:
+  CbrIfThenElseNestedTest(Location location, Grid geometry, Condition cond_, Condition cond2_, Condition cond3_)
+    : CbrNestedTest(location, geometry, cond_, cond2_),
+    cond3(cond3_)
+  {
+    specList.Add(cond3);
+  }
+
+  void Name(std::ostream& out) const {
+    out << "cbr/ifthenelse/nested/inboth/" << CodeLocationString() << "/" << cond << "_" << cond2 << "_" << cond3;
+  }
+
+protected:
+  Value ExpectedResult(uint64_t i) const {
+    uint32_t eresult;
+    if (cond->ExpectThenPath(i)) {
+      if (cond2->ExpectThenPath(i)) {
+        eresult = 1;
+      } else {
+        eresult = 2;
+      }
+    } else {
+      if (cond3->ExpectThenPath(i)) {
+        eresult = 3;
+      } else {
+        eresult = 4;
+      }
+    }
+    return Value(MV_UINT32, eresult);
+  }
+
+  TypedReg Result() {
+    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 5));
+    cond->EmitIfThenElseStart();
+
+      cond2->EmitIfThenElseStart();
+      be.EmitMov(result, be.Immed(result->Type(), 1));
+      cond2->EmitIfThenElseOtherwise();
+      be.EmitMov(result, be.Immed(result->Type(), 2));
+      cond2->EmitIfThenElseEnd();
+
+    cond->EmitIfThenElseOtherwise();
+
+      cond3->EmitIfThenElseStart();
+      be.EmitMov(result, be.Immed(result->Type(), 3));
+      cond3->EmitIfThenElseOtherwise();
+      be.EmitMov(result, be.Immed(result->Type(), 4));
+      cond3->EmitIfThenElseEnd();
+
+    cond->EmitIfThenElseEnd();
     return result;
   }
 };
@@ -314,7 +491,7 @@ protected:
   
   TypedReg Result() {
     unsigned branchCount = cond->SwitchBranchCount();
-    BrigTypeX type = ResultType();
+    BrigType type = ResultType();
     TypedReg result = be.AddTReg(type);
     be.EmitMov(result, be.Immed(type, branchCount + 1));
     cond->EmitSwitchStart();
@@ -335,11 +512,14 @@ void BranchTests::Iterate(TestSpecIterator& it)
   Arena* ap = cc->Ap();
   TestForEach<BrBasicTest>(ap, it, base, CodeLocations());
   TestForEach<CbrBasicTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions());
-  TestForEach<CbrNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), cc->ControlFlow().BinaryConditions());
-  /*
-  TestForEach<CbrSandTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
-  TestForEach<CbrSorTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
-  */
+  TestForEach<CbrNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
+  TestForEach<CbrIfThenElseTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions());
+  TestForEach<CbrIfThenElseNestedInThenTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
+  TestForEach<CbrIfThenElseNestedInElseTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
+  TestForEach<CbrIfThenElseNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
+  //TestForEach<CbrSandTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
+  //TestForEach<CbrSorTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
+  
   TestForEach<SbrBasicTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().SwitchConditions());
 }
 

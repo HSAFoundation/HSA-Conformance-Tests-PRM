@@ -20,7 +20,6 @@
 #include "HCTests.hpp"
 #include <sstream>
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -44,7 +43,7 @@ public:
   }
 
 protected:
-  Brig::BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, 1); }
 
@@ -84,7 +83,7 @@ public:
   }
 
 protected:
-  Brig::BrigTypeX ResultType() const { return addressSpec->Type(); }
+  BrigType ResultType() const { return addressSpec->Type(); }
 
   Value ExpectedResult() const { return be.GenerateTestValue(addressSpec->Type()); }
 
@@ -151,7 +150,7 @@ public:
   }
 
 protected:
-  Brig::BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, 1); }
 
@@ -194,7 +193,7 @@ public:
   }
 
 protected:
-  Brig::BrigTypeX ResultType() const { return addressSpec->Type(); }
+  BrigType ResultType() const { return addressSpec->Type(); }
 
   Value ExpectedResult() const { return be.GenerateTestValue(addressSpec->Type()); }
 
@@ -266,7 +265,7 @@ public:
   }
 
 protected:
-  Brig::BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, 1); }
 
@@ -304,7 +303,7 @@ public:
   }
 
 protected:
-  Brig::BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const {
     return Value(MV_UINT32, 1);
@@ -349,7 +348,7 @@ public:
   }
 
 protected:
-  Brig::BrigTypeX ResultType() const { return be.PointerType(addressSpec->Segment()); }
+  BrigType ResultType() const { return be.PointerType(addressSpec->Segment()); }
 
   Value ExpectedResult() const { return Value(Brig2ValueType(ResultType()), 42); }
 

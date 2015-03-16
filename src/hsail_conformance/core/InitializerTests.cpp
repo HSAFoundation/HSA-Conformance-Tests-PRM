@@ -20,7 +20,6 @@
 #include "HCTests.hpp"
 #include <sstream>
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -188,7 +187,7 @@ public:
 
 class InitializerTest : public Test {
 private:
-  BrigTypeX type;
+  BrigType type;
   BrigSegment segment;
   uint64_t dim;
   Values data;
@@ -198,7 +197,7 @@ private:
   uint64_t DataSize() const { return std::max((uint32_t) dim, (uint32_t) 1); }
   uint64_t TypeSize() const {return getBrigTypeNumBytes(type); }
   hexl::ValueType ValueType() const { return Brig2ValueType(type); }
-  BrigTypeX SegmentAddrType() const {
+  BrigType SegmentAddrType() const {
     return getSegAddrSize(segment, te->CoreCfg()->IsLarge()) == 32 ? BRIG_TYPE_U32 : BRIG_TYPE_U64;
   }
 
@@ -220,7 +219,7 @@ private:
   }
 
 protected:
-  BrigTypeX VarType() const { return type; }
+  BrigType VarType() const { return type; }
   BrigSegment VarSegment() const { return segment; }
   uint64_t VarDim() const { return dim; }
   bool VarIsConst() const { return isConst; }
@@ -229,7 +228,7 @@ protected:
   virtual void InitVar() = 0;
 
 public:
-  InitializerTest(Grid geometry, Location codeLocation, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+  InitializerTest(Grid geometry, Location codeLocation, BrigType type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
     : Test(codeLocation, geometry), 
       type(type_), segment(segment_), dim(dim_), data(), isConst(isConst_), generator()
   {
@@ -255,7 +254,7 @@ public:
     if (isConst) {
       out << "const_";
     }
-    out << segment2str(segment) << "_" << typeX2str(type);
+    out << segment2str(segment) << "_" << type2str(type);
     if (dim != 0) { 
       out << "[" << dim << "]"; 
     }
@@ -265,7 +264,7 @@ public:
     return DataSize() * TypeSize();
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U8; }
+  BrigType ResultType() const override { return BRIG_TYPE_U8; }
 
   void ExpectedResults(Values* result) const override {
     for (uint64_t i = 0; i < geometry->GridSize(); ++i) {
@@ -362,7 +361,7 @@ protected:
   }
 
 public:
-  ModuleInitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+  ModuleInitializerTest(Grid geometry, BrigType type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
     : InitializerTest(geometry, Location::KERNEL, type_, segment_, dim_, isConst_) { }
 
   void Name(std::ostream& out) const override {
@@ -392,7 +391,7 @@ protected:
   }
 
 public:
-  KernelInitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+  KernelInitializerTest(Grid geometry, BrigType type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
     : InitializerTest(geometry, Location::KERNEL, type_, segment_, dim_, isConst_) { }
 
   void Name(std::ostream& out) const override {
@@ -418,7 +417,7 @@ protected:
   }
 
 public:
-  FunctionInitializerTest(Grid geometry, BrigTypeX type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
+  FunctionInitializerTest(Grid geometry, BrigType type_, BrigSegment segment_, uint64_t dim_, bool isConst_)
     : InitializerTest(geometry, Location::FUNCTION, type_, segment_, dim_, isConst_) { }
 
   void Init() override {
@@ -436,7 +435,7 @@ public:
     auto inputArgs = be.AddTRegList();
     auto outputArgs = be.AddTRegList();
     ActualCallArguments(inputArgs, outputArgs);
-    be.EmitCallSeq(function->Directive(), inputArgs, outputArgs);
+    be.EmitCallSeq(function, inputArgs, outputArgs);
   }
 
   void ActualCallArguments(TypedRegList inputArgs, TypedRegList outputArgs) override {
@@ -462,12 +461,12 @@ private:
   BrigSegment segment;
   uint64_t dim;
   bool isConst;
-  BrigTypeX signalType;
+  BrigType signalType;
 
   uint64_t DataSize() const { return std::max(dim, (uint64_t) 1); }
   
 protected:
-  BrigTypeX VarType() const { return signalType; }
+  BrigType VarType() const { return signalType; }
   BrigSegment VarSegment() const { return segment; }
   uint64_t VarDim() const { return dim; }
   bool VarIsConst() const { return isConst; }
@@ -501,13 +500,13 @@ public:
     if (isConst) {
       out << "const_";
     }
-    out << segment2str(segment) << "_" << typeX2str(signalType);
+    out << segment2str(segment) << "_" << type2str(signalType);
     if (dim != 0) { 
       out << "[" << dim << "]"; 
     }
   }
 
-  BrigTypeX ResultType() const override { return signalType; }
+  BrigType ResultType() const override { return signalType; }
 
   uint64_t ResultDim() const override {
     return DataSize();
@@ -639,7 +638,7 @@ public:
     auto inputArgs = be.AddTRegList();
     auto outputArgs = be.AddTRegList();
     ActualCallArguments(inputArgs, outputArgs);
-    be.EmitCallSeq(function->Directive(), inputArgs, outputArgs);
+    be.EmitCallSeq(function, inputArgs, outputArgs);
   }
 
   void ActualCallArguments(TypedRegList inputArgs, TypedRegList outputArgs) override {

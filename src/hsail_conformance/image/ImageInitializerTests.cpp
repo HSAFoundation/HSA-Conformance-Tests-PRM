@@ -21,7 +21,6 @@
 
 using namespace hexl::emitter;
 using namespace hexl::scenario;
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 using namespace hexl::emitter;
@@ -108,7 +107,7 @@ public:
     sampler->FunctionVariables();
   }
 
-  BrigTypeX ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
   TypedReg Result() {
@@ -141,7 +140,7 @@ public:
       be.EmitCbr(cmp->Reg(), falseLabel);
     }
 
-    // query sampler coordinate
+    //// query sampler coordinate
     sampler->EmitSamplerQuery(dest, samplerAddr, BRIG_SAMPLER_QUERY_COORD);
     be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), coord), BRIG_COMPARE_NE);
     be.EmitCbr(cmp->Reg(), falseLabel);

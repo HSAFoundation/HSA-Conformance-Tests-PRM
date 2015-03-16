@@ -64,8 +64,6 @@ private:
 public:
     static void init(unsigned model, unsigned profile, bool stdInst, bool imgInst, bool gcnInst, bool commentsEnabled)
     {
-        using namespace Brig;
-
         assert(model == BRIG_MACHINE_SMALL  || model == BRIG_MACHINE_LARGE);
         assert(profile == BRIG_PROFILE_BASE || profile == BRIG_PROFILE_FULL);
 
@@ -78,15 +76,15 @@ public:
         gcnSubset = gcnInst;
     }
 
-    static unsigned getModel()     { assert(brigModel != Brig::BRIG_MACHINE_UNDEF); return brigModel; }
-    static bool     isSmallModel() { return getModel() == Brig::BRIG_MACHINE_SMALL; }
-    static bool     isLargeModel() { return getModel() == Brig::BRIG_MACHINE_LARGE; }
-    static unsigned getModelType() { return isSmallModel() ? Brig::BRIG_TYPE_U32 : Brig::BRIG_TYPE_U64; }
+    static unsigned getModel()     { assert(brigModel != BRIG_MACHINE_UNDEF); return brigModel; }
+    static bool     isSmallModel() { return getModel() == BRIG_MACHINE_SMALL; }
+    static bool     isLargeModel() { return getModel() == BRIG_MACHINE_LARGE; }
+    static unsigned getModelType() { return isSmallModel() ? BRIG_TYPE_U32 : BRIG_TYPE_U64; }
     static unsigned getModelSize() { return isSmallModel() ? 32 : 64; }
 
-    static unsigned getProfile()   { assert(brigProfile != Brig::BRIG_PROFILE_UNDEF); return brigProfile; }
-    static bool     isFullProfile(){ return getProfile() == Brig::BRIG_PROFILE_FULL; }
-    static bool     isBaseProfile(){ return getProfile() == Brig::BRIG_PROFILE_BASE; }
+    static unsigned getProfile()   { assert(brigProfile != BRIG_PROFILE_UNDEF); return brigProfile; }
+    static bool     isFullProfile(){ return getProfile() == BRIG_PROFILE_FULL; }
+    static bool     isBaseProfile(){ return getProfile() == BRIG_PROFILE_BASE; }
 
     static bool     commentsEnabled(){ return brigComments; }
 
@@ -137,8 +135,8 @@ public: // Directives
 
 public: // Instructions
     void emitRet();
-    void emitSt(unsigned type, unsigned segment, Operand from, Operand to, unsigned align = Brig::BRIG_ALIGNMENT_1);
-    void emitLd(unsigned type, unsigned segment, Operand to, Operand from, unsigned align = Brig::BRIG_ALIGNMENT_1);
+    void emitSt(unsigned type, unsigned segment, Operand from, Operand to, unsigned align = BRIG_ALIGNMENT_1);
+    void emitLd(unsigned type, unsigned segment, Operand to, Operand from, unsigned align = BRIG_ALIGNMENT_1);
     void emitMov(unsigned type, Operand to, Operand from);
     void emitAdd(unsigned type, Operand res, Operand op1, Operand op2);
     void emitAdd(unsigned type, Operand res, Operand op1, unsigned n);
@@ -172,7 +170,7 @@ public: // Operands
     Operand emitLabelRef(const char* name);
     Operand emitLabelRef(const char* name, unsigned idx, unsigned width = 0);
 
-    DirectiveVariable emitSymbol(unsigned scalarType, string name, unsigned segment = Brig::BRIG_SEGMENT_GLOBAL, unsigned dim = 0)
+    DirectiveVariable emitSymbol(unsigned scalarType, string name, unsigned segment = BRIG_SEGMENT_GLOBAL, unsigned dim = 0)
     {
         assert(name.length() > 0);
         assert(!isArrayType(scalarType));
@@ -183,11 +181,11 @@ public: // Operands
         sym.modifier().isConst() = false;
         sym.modifier().isDefinition() = true;
 
-        sym.linkage() = (name[0] == '%')? Brig::BRIG_LINKAGE_FUNCTION : Brig::BRIG_LINKAGE_MODULE;
+        sym.linkage() = (name[0] == '%')? BRIG_LINKAGE_FUNCTION : BRIG_LINKAGE_MODULE;
 
-        sym.allocation() = Brig::BRIG_ALLOCATION_AUTOMATIC;
-        if      (segment == Brig::BRIG_SEGMENT_GLOBAL)   sym.allocation() = Brig::BRIG_ALLOCATION_PROGRAM;
-        else if (segment == Brig::BRIG_SEGMENT_READONLY) sym.allocation() = Brig::BRIG_ALLOCATION_AGENT;
+        sym.allocation() = BRIG_ALLOCATION_AUTOMATIC;
+        if      (segment == BRIG_SEGMENT_GLOBAL)   sym.allocation() = BRIG_ALLOCATION_PROGRAM;
+        else if (segment == BRIG_SEGMENT_READONLY) sym.allocation() = BRIG_ALLOCATION_AGENT;
 
         sym.init() = Directive();
         sym.align() = getNaturalAlignment(scalarType);
@@ -201,14 +199,14 @@ public: // Operands
 
         DirectiveFbarrier fb = brigantine.addFbarrier(SRef(name));
 
-        fb.linkage() = (name[0] == '%')? Brig::BRIG_LINKAGE_FUNCTION : Brig::BRIG_LINKAGE_MODULE;
+        fb.linkage() = (name[0] == '%')? BRIG_LINKAGE_FUNCTION : BRIG_LINKAGE_MODULE;
         fb.modifier().isDefinition() = true;
 
         return fb;
     }
 
     unsigned getSegAddrSize(unsigned segment)    { return HSAIL_ASM::getSegAddrSize(segment, isLargeModel()); }
-    unsigned getSegAddrType(unsigned segment)    { return (getSegAddrSize(segment) == 32)? Brig::BRIG_TYPE_U32 : Brig::BRIG_TYPE_U64; }
+    unsigned getSegAddrType(unsigned segment)    { return (getSegAddrSize(segment) == 32)? BRIG_TYPE_U32 : BRIG_TYPE_U64; }
     unsigned conv2LdStType(unsigned type);
 
 public:

@@ -491,10 +491,10 @@ class f16_t
 public:
     typedef FloatProp16::Type bits_t;
 private:
-    static const unsigned RND_NEAR = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN;
-    static const unsigned RND_ZERO = Brig::BRIG_ROUND_FLOAT_ZERO;
-    static const unsigned RND_UP   = Brig::BRIG_ROUND_FLOAT_PLUS_INFINITY;
-    static const unsigned RND_DOWN = Brig::BRIG_ROUND_FLOAT_MINUS_INFINITY;
+    static const unsigned RND_NEAR = BRIG_ROUND_FLOAT_NEAR_EVEN;
+    static const unsigned RND_ZERO = BRIG_ROUND_FLOAT_ZERO;
+    static const unsigned RND_UP   = BRIG_ROUND_FLOAT_PLUS_INFINITY;
+    static const unsigned RND_DOWN = BRIG_ROUND_FLOAT_MINUS_INFINITY;
 
 private:
     bits_t bits;
@@ -926,17 +926,17 @@ ValueType ImageValueType(unsigned geometry);
 
 class MImage : public MObject {
 public:
-  MImage(unsigned id, const std::string& name, Brig::BrigSegment segment_, Brig::BrigImageGeometry geometry_, Brig::BrigImageChannelOrder chanel_order_, Brig::BrigImageChannelType channel_type_, Brig::BrigTypeX image_type_,
+  MImage(unsigned id, const std::string& name, BrigSegment segment_, BrigImageGeometry geometry_, BrigImageChannelOrder chanel_order_, BrigImageChannelType channel_type_, BrigType image_type_,
     size_t width_, size_t height_, size_t depth_, size_t array_size_)
     : MObject(id, MIMAGE, name), segment(segment_), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), imageType(image_type_),
     width(width_), height(height_), depth(depth_), array_size(array_size_), image_size(0), vtype(MV_UINT32), bLimitTestOn(false)
       { }
   MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
 
-  Brig::BrigImageGeometry Geometry() const { return geometry; }
-  Brig::BrigImageChannelOrder ChannelOrder() const { return channelOrder; }
-  Brig::BrigImageChannelType ChannelType() const { return channelType; }
-  Brig::BrigTypeX ImageType() const { return imageType; } 
+  BrigImageGeometry Geometry() const { return geometry; }
+  BrigImageChannelOrder ChannelOrder() const { return channelOrder; }
+  BrigImageChannelType ChannelType() const { return channelType; }
+  BrigType ImageType() const { return imageType; } 
   unsigned AccessPermission() const;
     
   size_t Width() const { return width; }
@@ -968,11 +968,11 @@ public:
   bool IsLimitTest() { return bLimitTestOn; }
 
 private:
-  Brig::BrigSegment segment;
-  Brig::BrigImageGeometry geometry;
-  Brig::BrigImageChannelOrder channelOrder;
-  Brig::BrigImageChannelType channelType;
-  Brig::BrigTypeX imageType;
+  BrigSegment segment;
+  BrigImageGeometry geometry;
+  BrigImageChannelOrder channelOrder;
+  BrigImageChannelType channelType;
+  BrigType imageType;
   size_t width, height, depth, array_size, image_size;
   Value data;
   Values contentData;
@@ -1004,7 +1004,7 @@ private:
   void DeserializeData(std::istream& in);
 };
 
-inline MImage* NewMValue(unsigned id, const std::string& name, Brig::BrigSegment segment, Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder chanel_order, Brig::BrigImageChannelType channel_type, Brig::BrigTypeX image_type, 
+inline MImage* NewMValue(unsigned id, const std::string& name, BrigSegment segment, BrigImageGeometry geometry, BrigImageChannelOrder chanel_order, BrigImageChannelType channel_type, BrigType image_type, 
                          size_t width, size_t height, size_t depth, size_t array_size) {
   MImage* mi = new MImage(id, name, segment, geometry, chanel_order, channel_type, image_type, 
                          width, height, depth, array_size);

@@ -114,7 +114,7 @@ public:
 
 public:
 
-    void defineTestKernel()  { testKernel = emitSbrStart(Brig::BRIG_KIND_DIRECTIVE_KERNEL, "&Test"); }
+    void defineTestKernel()  { testKernel = emitSbrStart(BRIG_KIND_DIRECTIVE_KERNEL, "&Test"); }
     void startKernelBody()   { startSbrBody(); }
 
     void finishKernelBody()
@@ -191,7 +191,6 @@ private:
     {
         assert(!isPlayground());
 
-        using namespace Brig;
         unsigned opcode = sample.getOpcode();
 
         if (isTermInst(opcode))

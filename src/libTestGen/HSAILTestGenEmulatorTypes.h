@@ -403,10 +403,10 @@ f16_t f16_todo();
 class f16_t
 {
 private:
-    static const unsigned RND_NEAR = Brig::BRIG_ROUND_FLOAT_NEAR_EVEN;
-    static const unsigned RND_ZERO = Brig::BRIG_ROUND_FLOAT_ZERO;
-    static const unsigned RND_UP   = Brig::BRIG_ROUND_FLOAT_PLUS_INFINITY;
-    static const unsigned RND_DOWN = Brig::BRIG_ROUND_FLOAT_MINUS_INFINITY;
+    static const unsigned RND_NEAR = BRIG_ROUND_FLOAT_NEAR_EVEN;
+    static const unsigned RND_ZERO = BRIG_ROUND_FLOAT_ZERO;
+    static const unsigned RND_UP   = BRIG_ROUND_FLOAT_PLUS_INFINITY;
+    static const unsigned RND_DOWN = BRIG_ROUND_FLOAT_MINUS_INFINITY;
 
 private:
     u16_t bits;
@@ -487,8 +487,6 @@ public:
     // Get value with sign-extension
     u64_t getElement(unsigned type, unsigned idx = 0) const
     {
-        using namespace Brig;
-
         assert(idx < 128 / static_cast<unsigned>(getBrigTypeNumBits(type)));
 
         switch(type)
@@ -515,8 +513,6 @@ public:
 
     void setElement(u64_t val, unsigned type, unsigned idx = 0)
     {
-        using namespace Brig;
-
         assert(idx < 128 / static_cast<unsigned>(getBrigTypeNumBits(type)));
 
         switch(type)
@@ -588,43 +584,43 @@ public:
 // ============================================================================
 // HSAIL Bit Types
 
-typedef HsailType<u8_t,  u8_t,  Brig::BRIG_TYPE_B1>  b1_t;
-typedef HsailType<u8_t,  u8_t,  Brig::BRIG_TYPE_B8>  b8_t;
-typedef HsailType<u16_t, u16_t, Brig::BRIG_TYPE_B16> b16_t;
-typedef HsailType<u32_t, u32_t, Brig::BRIG_TYPE_B32> b32_t;
-typedef HsailType<u64_t, u64_t, Brig::BRIG_TYPE_B64> b64_t;
+typedef HsailType<u8_t,  u8_t,  BRIG_TYPE_B1>  b1_t;
+typedef HsailType<u8_t,  u8_t,  BRIG_TYPE_B8>  b8_t;
+typedef HsailType<u16_t, u16_t, BRIG_TYPE_B16> b16_t;
+typedef HsailType<u32_t, u32_t, BRIG_TYPE_B32> b32_t;
+typedef HsailType<u64_t, u64_t, BRIG_TYPE_B64> b64_t;
 
 //=============================================================================
 //=============================================================================
 //=============================================================================
 // HSAIL Packed Types
 
-typedef HsailType<u32_t,  u8_t,  Brig::BRIG_TYPE_U8X4 > u8x4_t;
-typedef HsailType<u32_t,  u16_t, Brig::BRIG_TYPE_U16X2> u16x2_t;
-typedef HsailType<u64_t,  u8_t,  Brig::BRIG_TYPE_U8X8 > u8x8_t;
-typedef HsailType<u64_t,  u16_t, Brig::BRIG_TYPE_U16X4> u16x4_t;
-typedef HsailType<u64_t,  u32_t, Brig::BRIG_TYPE_U32X2> u32x2_t;
-typedef HsailType<b128_t, u8_t,  Brig::BRIG_TYPE_U8X16> u8x16_t;
-typedef HsailType<b128_t, u16_t, Brig::BRIG_TYPE_U16X8> u16x8_t;
-typedef HsailType<b128_t, u32_t, Brig::BRIG_TYPE_U32X4> u32x4_t;
-typedef HsailType<b128_t, u64_t, Brig::BRIG_TYPE_U64X2> u64x2_t;
+typedef HsailType<u32_t,  u8_t,  BRIG_TYPE_U8X4 > u8x4_t;
+typedef HsailType<u32_t,  u16_t, BRIG_TYPE_U16X2> u16x2_t;
+typedef HsailType<u64_t,  u8_t,  BRIG_TYPE_U8X8 > u8x8_t;
+typedef HsailType<u64_t,  u16_t, BRIG_TYPE_U16X4> u16x4_t;
+typedef HsailType<u64_t,  u32_t, BRIG_TYPE_U32X2> u32x2_t;
+typedef HsailType<b128_t, u8_t,  BRIG_TYPE_U8X16> u8x16_t;
+typedef HsailType<b128_t, u16_t, BRIG_TYPE_U16X8> u16x8_t;
+typedef HsailType<b128_t, u32_t, BRIG_TYPE_U32X4> u32x4_t;
+typedef HsailType<b128_t, u64_t, BRIG_TYPE_U64X2> u64x2_t;
 
-typedef HsailType<u32_t,  s8_t,  Brig::BRIG_TYPE_S8X4 > s8x4_t;
-typedef HsailType<u32_t,  s16_t, Brig::BRIG_TYPE_S16X2> s16x2_t;
-typedef HsailType<u64_t,  s8_t,  Brig::BRIG_TYPE_S8X8 > s8x8_t;
-typedef HsailType<u64_t,  s16_t, Brig::BRIG_TYPE_S16X4> s16x4_t;
-typedef HsailType<u64_t,  s32_t, Brig::BRIG_TYPE_S32X2> s32x2_t;
-typedef HsailType<b128_t, s8_t,  Brig::BRIG_TYPE_S8X16> s8x16_t;
-typedef HsailType<b128_t, s16_t, Brig::BRIG_TYPE_S16X8> s16x8_t;
-typedef HsailType<b128_t, s32_t, Brig::BRIG_TYPE_S32X4> s32x4_t;
-typedef HsailType<b128_t, s64_t, Brig::BRIG_TYPE_S64X2> s64x2_t;
+typedef HsailType<u32_t,  s8_t,  BRIG_TYPE_S8X4 > s8x4_t;
+typedef HsailType<u32_t,  s16_t, BRIG_TYPE_S16X2> s16x2_t;
+typedef HsailType<u64_t,  s8_t,  BRIG_TYPE_S8X8 > s8x8_t;
+typedef HsailType<u64_t,  s16_t, BRIG_TYPE_S16X4> s16x4_t;
+typedef HsailType<u64_t,  s32_t, BRIG_TYPE_S32X2> s32x2_t;
+typedef HsailType<b128_t, s8_t,  BRIG_TYPE_S8X16> s8x16_t;
+typedef HsailType<b128_t, s16_t, BRIG_TYPE_S16X8> s16x8_t;
+typedef HsailType<b128_t, s32_t, BRIG_TYPE_S32X4> s32x4_t;
+typedef HsailType<b128_t, s64_t, BRIG_TYPE_S64X2> s64x2_t;
 
-typedef HsailType<u32_t,  f16_t, Brig::BRIG_TYPE_F16X2> f16x2_t;
-typedef HsailType<u64_t,  f16_t, Brig::BRIG_TYPE_F16X4> f16x4_t;
-typedef HsailType<u64_t,  f32_t, Brig::BRIG_TYPE_F32X2> f32x2_t;
-typedef HsailType<b128_t, f16_t, Brig::BRIG_TYPE_F16X8> f16x8_t;
-typedef HsailType<b128_t, f32_t, Brig::BRIG_TYPE_F32X4> f32x4_t;
-typedef HsailType<b128_t, f64_t, Brig::BRIG_TYPE_F64X2> f64x2_t;
+typedef HsailType<u32_t,  f16_t, BRIG_TYPE_F16X2> f16x2_t;
+typedef HsailType<u64_t,  f16_t, BRIG_TYPE_F16X4> f16x4_t;
+typedef HsailType<u64_t,  f32_t, BRIG_TYPE_F32X2> f32x2_t;
+typedef HsailType<b128_t, f16_t, BRIG_TYPE_F16X8> f16x8_t;
+typedef HsailType<b128_t, f32_t, BRIG_TYPE_F32X4> f32x4_t;
+typedef HsailType<b128_t, f64_t, BRIG_TYPE_F64X2> f64x2_t;
 
 // ============================================================================
 // ============================================================================

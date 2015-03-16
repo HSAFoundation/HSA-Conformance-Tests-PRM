@@ -34,7 +34,6 @@
 #endif // ENABLE_HEXL_HSAILTESTGEN
 #include "CoreConfig.hpp"
 
-using namespace Brig;
 using namespace hexl;
 #ifdef ENABLE_HEXL_HSAILTESTGEN
 using namespace hexl::TestGen;

@@ -21,24 +21,27 @@
 #include "hsail_c.h"
 #include <string>
 #include "MObject.hpp"
+#include "Image.hpp"
 
 namespace HSAIL_ASM { class BrigContainer; }
 
 namespace hexl {
-Brig::BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig);
-Brig::BrigCodeOffset32_t GetBrigUniqueKernelOffset(brig_container_t brig);
-std::string GetBrigKernelName(brig_container_t brig, Brig::BrigCodeOffset32_t kernelOffset);
-unsigned GetBrigKernelInArgCount(brig_container_t brig, Brig::BrigCodeOffset32_t kernelOffset);
+BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig);
+BrigCodeOffset32_t GetBrigUniqueKernelOffset(brig_container_t brig);
+std::string GetBrigKernelName(brig_container_t brig, BrigCodeOffset32_t kernelOffset);
+unsigned GetBrigKernelInArgCount(brig_container_t brig, BrigCodeOffset32_t kernelOffset);
 brig_container_t CreateBrigFromContainer(HSAIL_ASM::BrigContainer* container);
 std::string ExtractTestPath(const std::string& name, unsigned level);
-hexl::ValueType Brig2ValueType(Brig::BrigTypeX type);
-Brig::BrigTypeX Value2BrigType(hexl::ValueType type);
-bool Is128Bit(Brig::BrigTypeX type);
-uint32_t ImageGeometryDims(Brig::BrigImageGeometry geometry);
-bool IsImageGeometryArray(Brig::BrigImageGeometry geometry);
-bool IsImageDepth(Brig::BrigImageGeometry geometry);
-bool IsImageSupported(Brig::BrigImageGeometry geometry, Brig::BrigImageChannelOrder channelOrder, 
-                      Brig::BrigImageChannelType channelType);
+hexl::ValueType Brig2ValueType(BrigType type);
+BrigType Value2BrigType(hexl::ValueType type);
+bool Is128Bit(BrigType type);
+uint32_t ImageGeometryDims(BrigImageGeometry geometry);
+bool IsImageGeometryArray(BrigImageGeometry geometry);
+bool IsImageDepth(BrigImageGeometry geometry);
+bool IsImageQueryGeometrySupport(BrigImageGeometry imageGeometryProp, BrigImageQuery imageQuery);
+bool IsImageGeometrySupported(BrigImageGeometry imageGeometryProp, ImageGeometry imageGeometry);
+bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, 
+                      BrigImageChannelType channelType);
 
 template <>
 struct Serializer<brig_container_t> {

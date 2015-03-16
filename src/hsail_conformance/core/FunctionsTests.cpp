@@ -24,11 +24,10 @@
 using namespace hexl;
 using namespace hexl::emitter;
 using namespace HSAIL_ASM;
-using namespace Brig;
 
 namespace hsail_conformance {
 
-class FunctionArgumentsTest : public Test {
+class FunctionArguments : public Test {
 private:
   VariableSpec argSpec;
   Variable functionArg;
@@ -39,7 +38,7 @@ private:
   static const uint32_t length = 64;
 
 public:
-  FunctionArgumentsTest(VariableSpec argSpec_,
+  FunctionArguments(VariableSpec argSpec_,
     bool useVectorInstructionsForFormals_, bool useVectorInstructionsForActuals_)
     : Test(emitter::FUNCTION),
       argSpec(argSpec_),
@@ -85,7 +84,7 @@ public:
     inputs->Add(indata);
   }
 
-  BrigTypeX ResultType() const {
+  BrigType ResultType() const {
     return argSpec->Type();
   }
 
@@ -98,11 +97,178 @@ public:
   }
 };
 
+class RecursiveFactorial : public Test {
+private:
+  BrigType type;
+  Variable functionArg;
+  Buffer input;
+
+public:
+  RecursiveFactorial(BrigType type_)
+    : Test(emitter::FUNCTION),
+      type(type_) { }
+
+  void Name(std::ostream& out) const {
+    out << type2str(type);
+  }
+
+  void Init() {
+    Test::Init();
+    ValueType vtype = Brig2ValueType(type);
+    functionArg = function->NewVariable("n", BRIG_SEGMENT_ARG, type);
+    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, vtype, geometry->GridSize());
+    for (unsigned wi = 0; wi < input->Count(); ++wi) { input->AddData(Value(vtype, InputValue(wi))); }
+  }
+
+  uint64_t InputValue(uint64_t wi) const {
+    return wi % 11;
+  }
+
+  uint64_t Factorial(uint64_t n) const {
+    assert(n < 15);
+    uint64_t f = 1;
+    for (uint64_t i = 1; i <= n; ++i) {
+      f *= i;
+    }
+    return f;
+  }
+
+  BrigType ResultType() const override { return type; }
+
+  Value ExpectedResult(uint64_t wi) const {
+    return Value(Brig2ValueType(type), Factorial(InputValue(wi)));
+  }
+
+  void ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
+  {
+    TypedReg indata = functionArg->AddDataReg();
+    input->EmitLoadData(indata);
+    Test::ActualCallArguments(inputs, outputs);
+    inputs->Add(indata);
+  }
+
+  TypedReg Result() {
+    TypedReg in = functionArg->AddDataReg();
+    TypedReg in1 = functionArg->AddDataReg();
+    TypedReg out = functionResult->AddDataReg();
+    BrigType rtype = (BrigType) getUnsignedType(in->RegSizeBits());
+    functionArg->EmitLoadTo(in);
+
+    OperandRegister c = be.AddCReg();
+    be.EmitCmp(c, rtype, in->Reg(), be.Immed(rtype, (uint64_t) 0), BRIG_COMPARE_EQ);
+    std::string zero = be.AddLabel();
+    std::string end = be.AddLabel();
+    be.EmitCbr(c, zero);
+    be.EmitArith(BRIG_OPCODE_SUB, rtype, in1->Reg(), in->Reg(), be.Immed(rtype, 1));
+
+    emitter::TypedRegList inputs = be.AddTRegList(), outputs = be.AddTRegList();
+    inputs->Add(in1);
+    outputs->Add(out);
+    be.EmitCallSeq(function, inputs, outputs);
+
+    be.EmitArith(BRIG_OPCODE_MUL, rtype, out->Reg(), out->Reg(), in->Reg());
+    be.EmitBr(end);
+    be.EmitLabel(zero);
+    be.EmitMov(out, be.Immed(rtype, (uint64_t) 1));
+    be.EmitLabel(end);
+    return out;
+  }
+};
+
+class RecursiveFibonacci : public Test {
+private:
+  BrigType type;
+  Variable functionArg;
+  Buffer input;
+
+public:
+  RecursiveFibonacci(BrigType type_)
+    : Test(emitter::FUNCTION),
+      type(type_) { }
+
+  void Name(std::ostream& out) const {
+    out << type2str(type);
+  }
+
+  void Init() {
+    Test::Init();
+    ValueType vtype = Brig2ValueType(type);
+    functionArg = function->NewVariable("n", BRIG_SEGMENT_ARG, type);
+    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, vtype, geometry->GridSize());
+    for (unsigned wi = 0; wi < input->Count(); ++wi) { input->AddData(Value(vtype, InputValue(wi))); }
+  }
+
+  uint64_t InputValue(uint64_t wi) const {
+    return wi % 11;
+  }
+
+  uint64_t Fibonacci(uint64_t n) const {
+    assert(n <= 11);
+    uint64_t f = 1, f1 = 0;
+    for (uint64_t i = 1; i <= n; ++i) {
+      uint64_t fs = f;
+      f += f1;
+      f1 = fs;
+    }
+    return f;
+  }
+
+  BrigType ResultType() const override { return type; }
+
+  Value ExpectedResult(uint64_t wi) const {
+    return Value(Brig2ValueType(type), Fibonacci(InputValue(wi)));
+  }
+
+  void ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)
+  {
+    TypedReg indata = functionArg->AddDataReg();
+    input->EmitLoadData(indata);
+    Test::ActualCallArguments(inputs, outputs);
+    inputs->Add(indata);
+  }
+
+  TypedReg Result() {
+    TypedReg in = functionArg->AddDataReg();
+    TypedReg in1 = functionArg->AddDataReg();
+    TypedReg out = functionResult->AddDataReg();
+    TypedReg out1 = functionResult->AddDataReg();
+    BrigType rtype = (BrigType) getUnsignedType(in->RegSizeBits());
+    functionArg->EmitLoadTo(in);
+
+    OperandRegister c = be.AddCReg();
+    be.EmitCmp(c, rtype, in->Reg(), be.Immed(rtype, (uint64_t) 1), BRIG_COMPARE_LE);
+    std::string zero = be.AddLabel();
+    std::string end = be.AddLabel();
+    be.EmitCbr(c, zero);
+    be.EmitArith(BRIG_OPCODE_SUB, rtype, in1->Reg(), in->Reg(), be.Immed(rtype, 1));
+
+    emitter::TypedRegList inputs = be.AddTRegList(), outputs = be.AddTRegList();
+    inputs->Add(in1);
+    outputs->Add(out);
+    be.EmitCallSeq(function, inputs, outputs);
+
+    be.EmitArith(BRIG_OPCODE_SUB, rtype, in1->Reg(), in1->Reg(), be.Immed(rtype, 1));
+    emitter::TypedRegList inputs1 = be.AddTRegList(), outputs1 = be.AddTRegList();
+    inputs1->Add(in1);
+    outputs1->Add(out1);
+    be.EmitCallSeq(function, inputs1, outputs1);
+
+    be.EmitArith(BRIG_OPCODE_ADD, rtype, out->Reg(), out->Reg(), out1->Reg());
+    be.EmitBr(end);
+    be.EmitLabel(zero);
+    be.EmitMov(out, be.Immed(rtype, (uint64_t) 1));
+    be.EmitLabel(end);
+    return out;
+  }
+};
+
 void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<FunctionArgumentsTest>(ap, it, "functions/arguments/1arg", cc->Variables().ByTypeDimensionAlign(BRIG_SEGMENT_ARG), Bools::All(), Bools::All());
+  TestForEach<FunctionArguments>(ap, it, "functions/arguments/1arg", cc->Variables().ByTypeDimensionAlign(BRIG_SEGMENT_ARG), Bools::All(), Bools::All());
+  TestForEach<RecursiveFactorial>(ap, it, "functions/recursion/factorial", cc->Types().CompoundIntegral());
+  TestForEach<RecursiveFibonacci>(ap, it, "functions/recursion/fibonacci", cc->Types().CompoundIntegral());
 }
 
 }

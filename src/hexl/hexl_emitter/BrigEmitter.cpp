@@ -21,7 +21,6 @@
 #include <algorithm>
 #include <sstream>
 
-using namespace Brig;
 using namespace HSAIL_ASM;
 using namespace hexl;
 
@@ -49,7 +48,7 @@ BrigContainer* BrigEmitter::BrigC() {
 */
 }
 
-BrigTypeX EPointerReg::GetSegmentPointerType(BrigSegment8_t segment, bool large)
+BrigType EPointerReg::GetSegmentPointerType(BrigSegment8_t segment, bool large)
 {
   switch (getSegAddrSize(segment, large)) {
   case 32:
@@ -173,7 +172,7 @@ std::string BrigEmitter::GenVariableName(BrigSegment segment, bool output)
   }
 }
 
-BrigTypeX BrigEmitter::PointerType(BrigSegment8_t asegment) const
+BrigType BrigEmitter::PointerType(BrigSegment8_t asegment) const
 {
   switch (getSegAddrSize(asegment, coreConfig->IsLarge())) {
   case 32: return BRIG_TYPE_U32;
@@ -186,7 +185,7 @@ void BrigEmitter::Start()
 {
   assert(coreConfig);
   brigantine.startProgram();
-  brigantine.module("&sample", coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), Brig::BRIG_ROUND_FLOAT_NEAR_EVEN);
+  brigantine.module("&sample", coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), BRIG_ROUND_FLOAT_NEAR_EVEN);
 }
 
 void BrigEmitter::End()
@@ -259,7 +258,7 @@ ItemList BrigEmitter::Operands(Operand o1, Operand o2, Operand o3, Operand o4, O
   return operands;
 }
 
-hexl::Value BrigEmitter::GenerateTestValue(BrigTypeX type, uint64_t id) const
+hexl::Value BrigEmitter::GenerateTestValue(BrigType type, uint64_t id) const
 {
   return Value(Brig2ValueType(type), U64(42));
 }
@@ -465,7 +464,7 @@ void BrigEmitter::EmitStore(TypedReg src, PointerReg addr, int64_t offset, bool 
   EmitStore(addr->Segment(), src, Address(addr, offset), useVectorInstructions, equiv);
 }
 
-void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigTypeX type, Operand src, OperandAddress addr, uint8_t equiv)
+void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigType type, Operand src, OperandAddress addr, uint8_t equiv)
 {
   InstMem mem = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, type);
   mem.segment() = segment;
@@ -475,7 +474,7 @@ void BrigEmitter::EmitStore(BrigSegment8_t segment, BrigTypeX type, Operand src,
   mem.operands() = Operands(src, addr) ;
 }
 
-void BrigEmitter::EmitStore(BrigTypeX type, Operand src, PointerReg addr, uint8_t equiv) 
+void BrigEmitter::EmitStore(BrigType type, Operand src, PointerReg addr, uint8_t equiv) 
 {
   EmitStore(addr->Segment(), type, src, Address(addr), equiv);
 }
@@ -557,7 +556,7 @@ void BrigEmitter::EmitStoresToBuffers(TypedRegList srcs, ItemList buffers, BrigS
   }
 }
 
-BrigType16_t BrigEmitter::ArithType(Brig::BrigOpcode16_t opcode, BrigType16_t operandType) const
+BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const
 {
   switch (opcode) {
     case BRIG_OPCODE_SHL:
@@ -580,6 +579,13 @@ BrigType16_t BrigEmitter::ArithType(Brig::BrigOpcode16_t opcode, BrigType16_t op
     } 
     default: return operandType;
   }
+}
+
+HSAIL_ASM::InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2)
+{
+  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, type));
+  inst.operands() = Operands(dst, src0, src1, src2);
+  return inst;
 }
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand o)
@@ -802,15 +808,19 @@ InstBr BrigEmitter::EmitCall(HSAIL_ASM::DirectiveFunction f, ItemList ins, ItemL
 {
     InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_CALL, BRIG_TYPE_NONE);
     inst.width() = BRIG_WIDTH_ALL;
-    std::string name = f.name().str();
     inst.operands() = Operands(
       brigantine.createCodeList(outs),
-      brigantine.createExecutableRef(name),
+      brigantine.createExecutableRef(f.name().str()),
       brigantine.createCodeList(ins));
     return inst;
 }
 
-void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+void BrigEmitter::EmitCallSeq(Function f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+{
+  EmitCallSeq(f->Directive(), inRegs, outRegs, useVectorInstructions);
+}
+
+void BrigEmitter::EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
 {
   ItemList ins;
   ItemList outs;
@@ -821,13 +831,11 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
     outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
   }
-//  assert(fArg = f.firstInArg());
   for (unsigned i = 0; i < inRegs->Count(); ++i) {
     assert(fArg);
-    //assert(fArg.type == inRegs->Get(i)->Type());
     ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
-  }
+   }
   EmitStores(inRegs, ins, useVectorInstructions);
   EmitCall(f, ins, outs);
   EmitLoads(outRegs, outs, useVectorInstructions);
@@ -862,7 +870,7 @@ void BrigEmitter::EmitCbr(Operand src, const std::string& l, BrigWidth width)
   inst.operands() = Operands(src, brigantine.createLabelRef(l));
 }
 
-void BrigEmitter::EmitSbr(BrigTypeX type, Operand src, const std::vector<std::string>& labels, BrigWidth width)
+void BrigEmitter::EmitSbr(BrigType type, Operand src, const std::vector<std::string>& labels, BrigWidth width)
 {
   InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_SBR, type);
   if (BRIG_WIDTH_NONE == width) inst.width() = BRIG_WIDTH_1;
@@ -1032,7 +1040,7 @@ void BrigEmitter::EmitLdf(TypedReg dest, DirectiveFbarrier fb)
   inst.operands() = Operands(dest->Reg(), brigantine.createCodeRef(fb));
 }
 
-BrigTypeX BrigEmitter::SignalType() const
+BrigType BrigEmitter::SignalType() const
 {
   switch (coreConfig->Model()) {
   case BRIG_MACHINE_SMALL: return BRIG_TYPE_SIG32;
@@ -1041,7 +1049,7 @@ BrigTypeX BrigEmitter::SignalType() const
   }
 }
 
-BrigTypeX BrigEmitter::ImageType(unsigned access) const
+BrigType BrigEmitter::ImageType(unsigned access) const
 {
   switch (access) {
   case 1: return BRIG_TYPE_ROIMG;
@@ -1051,12 +1059,12 @@ BrigTypeX BrigEmitter::ImageType(unsigned access) const
   }
 }
 
-BrigTypeX BrigEmitter::SamplerType() const
+BrigType BrigEmitter::SamplerType() const
 {
   return BRIG_TYPE_SAMP;
 }
 
-BrigTypeX BrigEmitter::AtomicValueBitType() const
+BrigType BrigEmitter::AtomicValueBitType() const
 {
   switch (coreConfig->Model()) {
   case BRIG_MACHINE_SMALL: return BRIG_TYPE_B32;
@@ -1066,12 +1074,12 @@ BrigTypeX BrigEmitter::AtomicValueBitType() const
 }
 
 
-BrigTypeX BrigEmitter::SignalValueBitType() const
+BrigType BrigEmitter::SignalValueBitType() const
 {
   return AtomicValueBitType();
 }
 
-BrigTypeX BrigEmitter::AtomicValueIntType(bool isSigned) const
+BrigType BrigEmitter::AtomicValueIntType(bool isSigned) const
 {
   switch (coreConfig->Model()) {
   case BRIG_MACHINE_SMALL: return isSigned ? BRIG_TYPE_S32 : BRIG_TYPE_U32;
@@ -1080,12 +1088,12 @@ BrigTypeX BrigEmitter::AtomicValueIntType(bool isSigned) const
   }
 }
 
-BrigTypeX BrigEmitter::SignalValueIntType(bool isSigned) const
+BrigType BrigEmitter::SignalValueIntType(bool isSigned) const
 {
   return AtomicValueIntType(isSigned);
 }
 
-BrigTypeX BrigEmitter::AtomicValueType(BrigAtomicOperation op, bool isSigned) const
+BrigType BrigEmitter::AtomicValueType(BrigAtomicOperation op, bool isSigned) const
 {
   switch (op) {
   case BRIG_ATOMIC_LD:
@@ -1106,13 +1114,13 @@ BrigTypeX BrigEmitter::AtomicValueType(BrigAtomicOperation op, bool isSigned) co
   case BRIG_ATOMIC_WRAPINC:
   case BRIG_ATOMIC_WRAPDEC:
     // 6.6.1., 6.7.1. Explanation of Modifiers. Type (is always unsigned)
-    return SignalValueIntType(false);
+    return AtomicValueIntType(false);
   default:
     assert(false); return BRIG_TYPE_NONE;
   }
 }
 
-BrigTypeX BrigEmitter::SignalValueType(BrigAtomicOperation signalOp, bool isSigned) const
+BrigType BrigEmitter::SignalValueType(BrigAtomicOperation signalOp, bool isSigned) const
 {
   switch (signalOp) {
   case BRIG_ATOMIC_LD:

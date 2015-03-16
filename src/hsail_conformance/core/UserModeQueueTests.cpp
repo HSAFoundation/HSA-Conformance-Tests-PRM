@@ -22,7 +22,6 @@
 using namespace hexl;
 using namespace hexl::emitter;
 using namespace hexl::scenario;
-using namespace Brig;
 using namespace HSAIL_ASM;
 
 namespace hsail_conformance {
@@ -59,7 +58,7 @@ public:
     out << opcode2str(opcode) << "/basic/" << opcode2str(opcode) << "_" << segment2str(segment) << "_" << memoryOrder2str(memoryOrder);
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U64; }
+  BrigType ResultType() const { return BRIG_TYPE_U64; }
 
   Value ExpectedResult() const { return Value(MV_UINT64, 1); }
 
@@ -92,7 +91,7 @@ public:
     out << opcode2str(opcode) << "/basic/" << opcode2str(opcode) << "_" << segment2str(segment) << "_" << memoryOrder2str(memoryOrder);
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U64; }
+  BrigType ResultType() const { return BRIG_TYPE_U64; }
 
   Value ExpectedResult() const { return Value(MV_UINT64, 1); }
 
@@ -130,7 +129,7 @@ public:
     out << opcode2str(opcode) << "/trivial/" << opcode2str(opcode) << "_" << segment2str(segment) << "_" << memoryOrder2str(memoryOrder);
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U64; }
+  BrigType ResultType() const { return BRIG_TYPE_U64; }
 
   Value ExpectedResult() const { return Value(MV_UINT64, 1); }
 
@@ -177,7 +176,7 @@ public:
     out << "kerneldispatch";
   }
 
-  BrigTypeX ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, U32(1)); }
 

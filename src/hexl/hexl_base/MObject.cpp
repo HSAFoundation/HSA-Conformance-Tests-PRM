@@ -971,9 +971,9 @@ void MRBuffer::DeserializeData(std::istream& in)
 unsigned MImage::AccessPermission() const 
 {
   switch(imageType) {
-  case Brig::BRIG_TYPE_ROIMG: return 1;
-  case Brig::BRIG_TYPE_WOIMG: return 2;
-  case Brig::BRIG_TYPE_RWIMG: return 3;
+  case BRIG_TYPE_ROIMG: return 1;
+  case BRIG_TYPE_WOIMG: return 2;
+  case BRIG_TYPE_RWIMG: return 3;
   default: assert(false); return 0;
   }
 }

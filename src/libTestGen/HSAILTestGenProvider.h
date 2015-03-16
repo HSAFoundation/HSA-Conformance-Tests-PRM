@@ -120,9 +120,9 @@ private:
 public:
     static TestGen* create(unsigned opcode, bool isBasicFormat = false)
     {
-        assert(!isBasicFormat || getFormat(opcode) == Brig::BRIG_KIND_INST_MOD);
+        assert(!isBasicFormat || getFormat(opcode) == BRIG_KIND_INST_MOD);
 
-        unsigned format = isBasicFormat? Brig::BRIG_KIND_INST_BASIC : getFormat(opcode);
+        unsigned format = isBasicFormat? BRIG_KIND_INST_BASIC : getFormat(opcode);
 
         TestGen* test = new TestGen(format, opcode, isBasicFormat);
 
@@ -375,7 +375,7 @@ private:
 
         // Below is a list of conditions when there are no more tests.
         // An interesting case is a GCN trig_preop instruction which cannot be supported with base profile.
-        assert(!start || isBasicVariant() || positiveSample.getOpcode() == Brig::BRIG_OPCODE_GCNTRIG_PREOP);
+        assert(!start || isBasicVariant() || positiveSample.getOpcode() == BRIG_OPCODE_GCNTRIG_PREOP);
 
         return false;
     }

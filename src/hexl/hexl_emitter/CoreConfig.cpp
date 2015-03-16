@@ -18,16 +18,14 @@
 #include "Emitter.hpp"
 #include "BrigEmitter.hpp"
 
-using namespace Brig;
-
 namespace hexl {
 
 namespace emitter {
 const char *CoreConfig::CONTEXT_KEY = "hsail_conformance.coreConfig";
 
 CoreConfig::CoreConfig(
-  Brig::BrigVersion32_t majorVersion_, Brig::BrigVersion32_t minorVersion_,
-  Brig::BrigMachineModel8_t model_, Brig::BrigProfile8_t profile_)
+  BrigVersion32_t majorVersion_, BrigVersion32_t minorVersion_,
+  BrigMachineModel8_t model_, BrigProfile8_t profile_)
   : ap(new Arena()),
     majorVersion(majorVersion_), minorVersion(minorVersion_),
     model(model_), profile(profile_),
@@ -60,7 +58,6 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     boundary24(NEWA hexl::VectorSequence<hexl::Grid>()),
     boundary32(NEWA hexl::VectorSequence<hexl::Grid>()),
     severalwaves(NEWA hexl::VectorSequence<hexl::Grid>()),
-    severalwavesingroup(NEWA hexl::VectorSequence<hexl::Grid>()),
     workgroup256(NEWA hexl::VectorSequence<hexl::Grid>()),
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
@@ -104,9 +101,6 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   boundary32->Add(NEWA GridGeometry(3,          2, 0x40000020,          2,   1, 256,   1));
   boundary32->Add(NEWA GridGeometry(3,          2,          2, 0x40000020,   1,   1, 256));
   severalwaves->Add(NEWA GridGeometry(1,  256,  1,   1,  cc->Wavesize(),  1,   1));
-  severalwavesingroup->Add(NEWA GridGeometry(1,  1024,  1,   1,  cc->Wavesize()*4,  1,   1));
-  severalwavesingroup->Add(NEWA GridGeometry(2,  16, 16, 1,  16, 16, 1));
-  severalwavesingroup->Add(NEWA GridGeometry(3,  5,  7,  12, 3,  5,  7));
   workgroup256->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
   workgroup256->Add(NEWA GridGeometry(2, 16, 16, 1, 16, 16, 1));
   workgroup256->Add(NEWA GridGeometry(2, 64, 4, 1, 64, 4, 1));
@@ -128,7 +122,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
-  barrier->Add(NEWA GridGeometry(1,  1024,  1,   1,  cc->Wavesize()*4,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*8,  1,   1,  cc->Wavesize()*2,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));
   fbarrier->Add(NEWA GridGeometry(1, cc->Wavesize(), 1, 1, cc->Wavesize(), 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 1024, 1, 1, cc->Wavesize()*4, 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));
@@ -223,10 +218,10 @@ static const BrigImageGeometry DepthGeometry[] = {
     BRIG_GEOMETRY_2DADEPTH,
 };
 
-static const BrigImageAccess allAccess[] = {
-    BRIG_ACCESS_PERMISSION_RO,
-    BRIG_ACCESS_PERMISSION_WO,
-    BRIG_ACCESS_PERMISSION_RW,
+static const BrigType allAccess[] = {
+    BRIG_TYPE_ROIMG,
+    BRIG_TYPE_WOIMG,
+    BRIG_TYPE_RWIMG,
 };
 
 static const BrigImageQuery allImgQueries[] = {
@@ -240,6 +235,8 @@ static const BrigImageQuery allImgQueries[] = {
 
 static const unsigned arrayGeometry[] = { 1, 2, 10, };
 
+static const uint32_t numberRwArray[] = { 0, 17, 32, 64 };
+
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
     defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>()),
@@ -250,8 +247,9 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageSupportedChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(supportedChannelOrder, NELEM(supportedChannelOrder))),
     imageChannelTypes(NEWA ArraySequence<BrigImageChannelType>(allChannelType, NELEM(allChannelType))),
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
-    imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess))),
-    imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry)))
+    imageAccessTypes(NEWA ArraySequence<BrigType>(allAccess, NELEM(allAccess))),
+    imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry))),
+    numberRW(NEWA ArraySequence<unsigned>(numberRwArray, NELEM(numberRwArray)))
 {
    defaultImageGeometry->Add(NEWA ImageGeometry(1000));
    defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
@@ -430,13 +428,13 @@ bool CoreConfig::SegmentsConfig::CanPassAddressToKernel(BrigSegment8_t segment)
   }
 }
 
-hexl::Sequence<Brig::BrigSegment>*
-CoreConfig::SegmentsConfig::Single(Brig::BrigSegment segment)
+hexl::Sequence<BrigSegment>*
+CoreConfig::SegmentsConfig::Single(BrigSegment segment)
 {
   return singleList[segment];
 }
 
-static const BrigTypeX compoundTypes[] = {
+static const BrigType compoundTypes[] = {
   BRIG_TYPE_U8,
   BRIG_TYPE_U16,
   BRIG_TYPE_U32,
@@ -450,7 +448,7 @@ static const BrigTypeX compoundTypes[] = {
   BRIG_TYPE_F64,
 };
 
-static const BrigTypeX compoundIntegralTypes[] = {
+static const BrigType compoundIntegralTypes[] = {
   BRIG_TYPE_U8,
   BRIG_TYPE_U16,
   BRIG_TYPE_U32,
@@ -461,13 +459,13 @@ static const BrigTypeX compoundIntegralTypes[] = {
   BRIG_TYPE_S64
 };
 
-static const BrigTypeX compoundFloatingTypes[] = {
+static const BrigType compoundFloatingTypes[] = {
 //  BRIG_TYPE_F16,
   BRIG_TYPE_F32,
   BRIG_TYPE_F64
 };
 
-static const BrigTypeX packedTypes[] = {
+static const BrigType packedTypes[] = {
   BRIG_TYPE_U8X4,
   BRIG_TYPE_U8X8,
   BRIG_TYPE_S8X4,
@@ -481,7 +479,7 @@ static const BrigTypeX packedTypes[] = {
   BRIG_TYPE_F32X2
 };
 
-static const BrigTypeX packed128BitTypes[] = {
+static const BrigType packed128BitTypes[] = {
   BRIG_TYPE_U8X16,
   BRIG_TYPE_U16X8,
   BRIG_TYPE_U32X4,
@@ -494,7 +492,7 @@ static const BrigTypeX packed128BitTypes[] = {
   BRIG_TYPE_F64X2
 };
 
-static const BrigTypeX atomicTypes[] = {
+static const BrigType atomicTypes[] = {
   BRIG_TYPE_U32,
   BRIG_TYPE_U64,
   BRIG_TYPE_S32,
@@ -509,12 +507,12 @@ static const size_t registerSizesArr[] = {
 
 CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    compound(NEWA ArraySequence<BrigTypeX>(compoundTypes, NELEM(compoundTypes))),
-    compoundIntegral(NEWA ArraySequence<BrigTypeX>(compoundIntegralTypes, NELEM(compoundIntegralTypes))),
-    compoundFloating(NEWA ArraySequence<BrigTypeX>(compoundFloatingTypes, NELEM(compoundFloatingTypes))),
-    packed(NEWA ArraySequence<BrigTypeX>(packedTypes, NELEM(packedTypes))),
-    packed128(NEWA ArraySequence<BrigTypeX>(packed128BitTypes, NELEM(packed128BitTypes))),
-    atomic(NEWA ArraySequence<BrigTypeX>(atomicTypes, NELEM(atomicTypes))),
+    compound(NEWA ArraySequence<BrigType>(compoundTypes, NELEM(compoundTypes))),
+    compoundIntegral(NEWA ArraySequence<BrigType>(compoundIntegralTypes, NELEM(compoundIntegralTypes))),
+    compoundFloating(NEWA ArraySequence<BrigType>(compoundFloatingTypes, NELEM(compoundFloatingTypes))),
+    packed(NEWA ArraySequence<BrigType>(packedTypes, NELEM(packedTypes))),
+    packed128(NEWA ArraySequence<BrigType>(packed128BitTypes, NELEM(packed128BitTypes))),
+    atomic(NEWA ArraySequence<BrigType>(atomicTypes, NELEM(atomicTypes))),
     registerSizes(NEWA ArraySequence<size_t>(registerSizesArr, NELEM(registerSizesArr)))
 {
 }
@@ -763,7 +761,7 @@ static const std::string validExtensionsNames[] = {
 
 CoreConfig::ControlDirectivesConfig::ControlDirectivesConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    none(NEWA EControlDirectives(NEWA EmptySequence<Brig::BrigControlDirective>())),
+    none(NEWA EControlDirectives(NEWA EmptySequence<BrigControlDirective>())),
     dimensionRelated(NEWA EControlDirectives(NEWA OneValueSequence<BrigControlDirective>(BRIG_CONTROL_REQUIREDDIM))),
     gridGroupRelated(Array(ap, gridGroupRelatedValues, NELEM(gridGroupRelatedValues))),
     gridSizeRelated(Array(ap, gridSizeRelatedValues, NELEM(gridSizeRelatedValues))),
@@ -809,16 +807,19 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
   : ConfigBase(cc),
     allWidths(NEWA EnumSequence<BrigWidth>(BRIG_WIDTH_NONE, BRIG_WIDTH_LAST)),
     workgroupWidths(NEWA VectorSequence<BrigWidth>()),
+    cornerWidths(NEWA VectorSequence<BrigWidth>()),
     conditionInputs(NEWA EnumSequence<ConditionInput>(COND_INPUT_START, COND_INPUT_END)),
     binaryConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), WorkgroupWidths()))),
-    sbrTypes(NEWA EnumSequence<BrigTypeX>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
+    nestedConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), CornerWidths()))),
+    sbrTypes(NEWA EnumSequence<BrigType>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
     switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths())))
 {
   for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
     workgroupWidths->Add((BrigWidth) w);
   }
-  workgroupWidths->Add(BRIG_WIDTH_WAVESIZE);
-  workgroupWidths->Add(BRIG_WIDTH_ALL);
+  cornerWidths->Add(BRIG_WIDTH_1);
+  cornerWidths->Add(BRIG_WIDTH_WAVESIZE);
+  cornerWidths->Add(BRIG_WIDTH_ALL);
 }
 }
 }

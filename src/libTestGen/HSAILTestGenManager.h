@@ -74,7 +74,7 @@ public:
 
             // skip generation of tests for special opcodes
             if (HSAIL_ASM::isCallInst(opcode)) continue;    //F generalize
-            if (opcode == Brig::BRIG_OPCODE_SBR) continue;  //F
+            if (opcode == BRIG_OPCODE_SBR) continue;  //F
 
             if (InstDesc::isStdOpcode(opcode)   && !BrigSettings::stdInstEnabled()) continue;
             if (InstDesc::isGcnOpcode(opcode)   && !BrigSettings::gcnInstEnabled()) continue;
@@ -89,7 +89,7 @@ public:
             }
 
             // Optional generation of InstBasic version for instructions encoded in InstMod format
-            if (InstDesc::getFormat(opcode) == Brig::BRIG_KIND_INST_MOD && genBasic)
+            if (InstDesc::getFormat(opcode) == BRIG_KIND_INST_MOD && genBasic)
             {
                 std::unique_ptr<TestGen> basicDesc(TestGen::create(opcode, true));
                 generateTests(*basicDesc); // for InstBasic format
@@ -285,9 +285,9 @@ private:
         {
             string note;
             if (genBasic) {
-                if (test.getFormat() == Brig::BRIG_KIND_INST_MOD)
+                if (test.getFormat() == BRIG_KIND_INST_MOD)
                     note = " (InstMod format)";
-                if (test.getFormat() == Brig::BRIG_KIND_INST_BASIC && test.isBasicVariant())
+                if (test.getFormat() == BRIG_KIND_INST_BASIC && test.isBasicVariant())
                     note = " (InstBasic format)";
             }
 

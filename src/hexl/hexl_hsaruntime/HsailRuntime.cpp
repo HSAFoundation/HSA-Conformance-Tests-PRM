@@ -25,7 +25,6 @@
 #include "time.h"
 
 using namespace hexl;
-using namespace Brig;
 
 namespace hexl {
 
@@ -366,7 +365,7 @@ HsailModule::~HsailModule()
 hsa_ext_module_t HsailModule::Module()
 {
   hsa_ext_module_t module;
-  module = (::BrigModule_t) brig_container_get_brig_module(brig);
+  module = (BrigModule_t) brig_container_get_brig_module(brig);
   return module;
 }
 

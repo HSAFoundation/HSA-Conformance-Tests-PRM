@@ -54,7 +54,7 @@ using HSAIL_ASM::isOpaqueType;
 using HSAIL_ASM::ArbitraryData;
 using HSAIL_ASM::getBrigTypeNumBits;
 using HSAIL_ASM::type2immType;
-using HSAIL_ASM::typeX2str;
+using HSAIL_ASM::type2str;
 using HSAIL_ASM::isSignalType;
 
 namespace TESTGEN {
@@ -64,8 +64,8 @@ namespace TESTGEN {
 //=============================================================================
 // Default settings
 
-unsigned BrigSettings::brigModel    = Brig::BRIG_MACHINE_UNDEF;
-unsigned BrigSettings::brigProfile  = Brig::BRIG_PROFILE_UNDEF;
+unsigned BrigSettings::brigModel    = BRIG_MACHINE_UNDEF;
+unsigned BrigSettings::brigProfile  = BRIG_PROFILE_UNDEF;
 bool     BrigSettings::brigComments = true;
 bool     BrigSettings::stdSubset    = true;
 bool     BrigSettings::imgSubset    = false;
@@ -78,7 +78,7 @@ bool     BrigSettings::gcnSubset    = false;
 void BrigContext::emitModule()
 {
     //F1.0: name + rounding + pass by option
-    brigantine.module("&module", Brig::BRIG_VERSION_HSAIL_MAJOR, Brig::BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile(), Brig::BRIG_ROUND_FLOAT_DEFAULT);
+    brigantine.module("&module", BRIG_VERSION_HSAIL_MAJOR, BRIG_VERSION_HSAIL_MINOR, getModel(), getProfile(), BRIG_ROUND_FLOAT_DEFAULT);
 }
 
 void BrigContext::emitExtension(const char* name)
@@ -142,29 +142,29 @@ void BrigContext::emitComment(string s /*=""*/)
 
 void BrigContext::emitRet()
 {
-    Inst inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_RET, Brig::BRIG_TYPE_NONE);
+    Inst inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_RET, BRIG_TYPE_NONE);
     append(inst, Operand());
 }
 
-void BrigContext::emitSt(unsigned type, unsigned segment, Operand from, Operand to, unsigned align /*=Brig::BRIG_ALIGNMENT_1*/)
+void BrigContext::emitSt(unsigned type, unsigned segment, Operand from, Operand to, unsigned align /*=BRIG_ALIGNMENT_1*/)
 {
-    InstMem inst = brigantine.addInst<InstMem>(Brig::BRIG_OPCODE_ST, conv2LdStType(type));
+    InstMem inst = brigantine.addInst<InstMem>(BRIG_OPCODE_ST, conv2LdStType(type));
 
     inst.segment()    = segment;
     inst.align()      = align;
-    inst.width()      = Brig::BRIG_WIDTH_NONE;
+    inst.width()      = BRIG_WIDTH_NONE;
     inst.equivClass() = 0;
     inst.modifier().isConst() = false;
 
     append(inst, from, to);
 }
 
-void BrigContext::emitLd(unsigned type, unsigned segment, Operand to, Operand from, unsigned align /*=Brig::BRIG_ALIGNMENT_1*/)
+void BrigContext::emitLd(unsigned type, unsigned segment, Operand to, Operand from, unsigned align /*=BRIG_ALIGNMENT_1*/)
 {
-    InstMem inst = brigantine.addInst<InstMem>(Brig::BRIG_OPCODE_LD, conv2LdStType(type));
+    InstMem inst = brigantine.addInst<InstMem>(BRIG_OPCODE_LD, conv2LdStType(type));
 
     inst.segment()    = segment;
-    inst.width()      = Brig::BRIG_WIDTH_1;
+    inst.width()      = BRIG_WIDTH_1;
     inst.equivClass() = 0;
     inst.align()      = align;
     inst.modifier().isConst() = false;
@@ -174,63 +174,63 @@ void BrigContext::emitLd(unsigned type, unsigned segment, Operand to, Operand fr
 
 void BrigContext::emitShl(unsigned type, Operand res, Operand src, unsigned shift)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_SHL, type);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_SHL, type);
 
-    append(inst, res, src, emitImm(Brig::BRIG_TYPE_U32, shift));
+    append(inst, res, src, emitImm(BRIG_TYPE_U32, shift));
 }
 
 void BrigContext::emitShr(unsigned type, Operand res, Operand src, unsigned shift)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_SHR, type);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_SHR, type);
 
-    append(inst, res, src, emitImm(Brig::BRIG_TYPE_U32, shift));
+    append(inst, res, src, emitImm(BRIG_TYPE_U32, shift));
 }
 
 void BrigContext::emitMul(unsigned type, Operand res, Operand src, unsigned multiplier)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_MUL, type);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_MUL, type);
 
     append(inst, res, src, emitImm(type, multiplier));
 }
 
 void BrigContext::emitMov(unsigned type, Operand to, Operand from)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_MOV, type);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_MOV, type);
 
     append(inst, to, from);
 }
 
 void BrigContext::emitAdd(unsigned type, Operand res, Operand op1, Operand op2)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_ADD, type);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_ADD, type);
 
     append(inst, res, op1, op2);
 }
 
 void BrigContext::emitAdd(unsigned type, Operand res, Operand op1, unsigned n)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_ADD, type);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_ADD, type);
 
     append(inst, res, op1, emitImm(type, n));
 }
 
 void BrigContext::emitSub(unsigned type, Operand res, Operand op1, Operand op2)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_SUB, type);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_SUB, type);
 
     append(inst, res, op1, op2);
 }
 
 void BrigContext::emitGetWorkItemId(Operand res, unsigned dim)
 {
-    InstBasic inst = brigantine.addInst<InstBasic>(Brig::BRIG_OPCODE_WORKITEMABSID, Brig::BRIG_TYPE_U32);
+    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_WORKITEMABSID, BRIG_TYPE_U32);
 
-    append(inst, res, emitImm(Brig::BRIG_TYPE_U32, dim));
+    append(inst, res, emitImm(BRIG_TYPE_U32, dim));
 }
 
 void BrigContext::emitCvt(unsigned dstType, unsigned srcType, OperandRegister to, OperandRegister from)
 {
-    InstCvt cvt = brigantine.addInst<InstCvt>(Brig::BRIG_OPCODE_CVT, dstType);
+    InstCvt cvt = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dstType);
     cvt.sourceType() = srcType;
 
     append(cvt, to, from);
@@ -241,7 +241,7 @@ void BrigContext::emitLda(OperandRegister dst, DirectiveVariable var)
     assert(dst);
     assert(var);
 
-    InstAddr lda = brigantine.addInst<InstAddr>(Brig::BRIG_OPCODE_LDA, getSegAddrType(var.segment()));
+    InstAddr lda = brigantine.addInst<InstAddr>(BRIG_OPCODE_LDA, getSegAddrType(var.segment()));
 
     lda.segment()   = var.segment();
 
@@ -250,30 +250,30 @@ void BrigContext::emitLda(OperandRegister dst, DirectiveVariable var)
 
 void BrigContext::emitCmpEq(unsigned cRegIdx, unsigned sRegIdx, unsigned immVal)
 {
-    InstCmp cmp = brigantine.addInst<InstCmp>(Brig::BRIG_OPCODE_CMP, Brig::BRIG_TYPE_B1);
+    InstCmp cmp = brigantine.addInst<InstCmp>(BRIG_OPCODE_CMP, BRIG_TYPE_B1);
 
-    cmp.sourceType()        = Brig::BRIG_TYPE_U32;
-    cmp.compare()           = Brig::BRIG_COMPARE_EQ;
+    cmp.sourceType()        = BRIG_TYPE_U32;
+    cmp.compare()           = BRIG_COMPARE_EQ;
     cmp.modifier().ftz()    = 0;
-    cmp.pack()              = Brig::BRIG_PACK_NONE;
+    cmp.pack()              = BRIG_PACK_NONE;
 
-    append(cmp, emitReg(1, cRegIdx), emitReg(32, sRegIdx), emitImm(Brig::BRIG_TYPE_U32, immVal));
+    append(cmp, emitReg(1, cRegIdx), emitReg(32, sRegIdx), emitImm(BRIG_TYPE_U32, immVal));
 }
 
 void BrigContext::emitCbr(unsigned cRegIdx, Operand label)
 {
-    InstBr cbr = brigantine.addInst<InstBr>(Brig::BRIG_OPCODE_CBR, Brig::BRIG_TYPE_B1);
+    InstBr cbr = brigantine.addInst<InstBr>(BRIG_OPCODE_CBR, BRIG_TYPE_B1);
 
-    cbr.width() = Brig::BRIG_WIDTH_1;
+    cbr.width() = BRIG_WIDTH_1;
 
     append(cbr, emitReg(1, cRegIdx), label);
 }
 
 void BrigContext::emitBr(Operand label)
 {
-    InstBr br = brigantine.addInst<InstBr>(Brig::BRIG_OPCODE_BR, Brig::BRIG_TYPE_NONE);
+    InstBr br = brigantine.addInst<InstBr>(BRIG_OPCODE_BR, BRIG_TYPE_NONE);
 
-    br.width() = Brig::BRIG_WIDTH_ALL;
+    br.width() = BRIG_WIDTH_ALL;
 
     append(br, label);
 }
@@ -315,7 +315,7 @@ Operand BrigContext::emitReg(unsigned size, unsigned idx)
 Operand BrigContext::emitVector(unsigned cnt, unsigned type, unsigned idx0)
 {
     assert(2 <= cnt && cnt <= 4);
-    assert(typeX2str(type));
+    assert(type2str(type));
 
     ItemList opnds;
     unsigned size = getBrigTypeNumBits(type);
@@ -329,7 +329,7 @@ Operand BrigContext::emitVector(unsigned cnt, unsigned type, bool isDst /*=true*
     assert(2 <= cnt && cnt <= 4);
     assert(immCnt == 0 || !isDst);
     assert(immCnt <= cnt);
-    assert(typeX2str(type));
+    assert(type2str(type));
 
     unsigned size = getBrigTypeNumBits(type);
     bool isSignal = isSignalType(type);
@@ -355,7 +355,7 @@ Operand BrigContext::emitWavesize()
 
 Operand BrigContext::emitImm(unsigned type, uint64_t lVal /*=0*/, uint64_t hVal /*=0*/)
 {
-    assert(typeX2str(type));
+    assert(type2str(type));
 
     ArbitraryData data;
 
@@ -373,7 +373,7 @@ Operand BrigContext::emitImm(unsigned type, uint64_t lVal /*=0*/, uint64_t hVal 
     }
 
     unsigned constType = type2immType(type, false);
-    assert(constType != Brig::BRIG_TYPE_NONE);
+    assert(constType != BRIG_TYPE_NONE);
 
     return brigantine.createImmed(data.toSRef(), constType);
 }
@@ -387,7 +387,7 @@ Operand BrigContext::emitAddrRef(DirectiveVariable var, OperandRegister reg, uns
 {
     assert(var || reg);
 
-    bool is32BitAddr = (var && getSegAddrSize(var.segment()) == 32) || (reg && reg.regKind() == Brig::BRIG_REGISTER_KIND_SINGLE);
+    bool is32BitAddr = (var && getSegAddrSize(var.segment()) == 32) || (reg && reg.regKind() == BRIG_REGISTER_KIND_SINGLE);
 
     return brigantine.createRef(var? SRef(var.name()) : SRef(), reg, offset, is32BitAddr);
 }
@@ -405,7 +405,7 @@ Operand BrigContext::emitAddrRef(OperandRegister reg, uint64_t offset)
 {
     assert(reg);
 
-    bool is32BitAddr = (reg && reg.regKind() == Brig::BRIG_REGISTER_KIND_SINGLE);
+    bool is32BitAddr = (reg && reg.regKind() == BRIG_REGISTER_KIND_SINGLE);
 
     return brigantine.createRef(SRef(), reg, offset, is32BitAddr);
 }
@@ -424,7 +424,7 @@ DirectiveVariable BrigContext::emitSbrArg(unsigned type, string name, bool isInp
     assert(currentSbr);
     assert(!DirectiveKernel(currentSbr) || isInputArg);
 
-    unsigned segment = DirectiveKernel(currentSbr)? Brig::BRIG_SEGMENT_KERNARG : Brig::BRIG_SEGMENT_ARG;
+    unsigned segment = DirectiveKernel(currentSbr)? BRIG_SEGMENT_KERNARG : BRIG_SEGMENT_ARG;
     DirectiveVariable arg = emitSymbol(type, name, segment);
     if (isInputArg) brigantine.addInputParameter(arg); else brigantine.addOutputParameter(arg);
     return arg;
@@ -436,16 +436,16 @@ DirectiveExecutable BrigContext::emitSbrStart(unsigned kind, const char* name)
 
     switch (kind)
     {
-    case Brig::BRIG_KIND_DIRECTIVE_FUNCTION:            currentSbr = brigantine.declFunc(SRef(name));         break;
-    case Brig::BRIG_KIND_DIRECTIVE_INDIRECT_FUNCTION:   currentSbr = brigantine.declIndirectFunc(SRef(name)); break;
-    case Brig::BRIG_KIND_DIRECTIVE_KERNEL:              currentSbr = brigantine.declKernel(SRef(name));       break;
-    case Brig::BRIG_KIND_DIRECTIVE_SIGNATURE:           currentSbr = brigantine.declSignature(SRef(name));    break;
+    case BRIG_KIND_DIRECTIVE_FUNCTION:            currentSbr = brigantine.declFunc(SRef(name));         break;
+    case BRIG_KIND_DIRECTIVE_INDIRECT_FUNCTION:   currentSbr = brigantine.declIndirectFunc(SRef(name)); break;
+    case BRIG_KIND_DIRECTIVE_KERNEL:              currentSbr = brigantine.declKernel(SRef(name));       break;
+    case BRIG_KIND_DIRECTIVE_SIGNATURE:           currentSbr = brigantine.declSignature(SRef(name));    break;
     default: 
         assert(false); 
         return DirectiveExecutable();
     }
 
-    currentSbr.linkage() = DirectiveSignature(currentSbr)? Brig::BRIG_LINKAGE_NONE : Brig::BRIG_LINKAGE_MODULE;
+    currentSbr.linkage() = DirectiveSignature(currentSbr)? BRIG_LINKAGE_NONE : BRIG_LINKAGE_MODULE;
 
     return currentSbr;
 }
@@ -478,8 +478,6 @@ void BrigContext::emitSbrEnd()
 
 unsigned BrigContext::conv2LdStType(unsigned type) // Convert to type supported by ld/st
 {
-    using namespace Brig;
-
     if (isSignedType(type) || isFloatType(type) || isOpaqueType(type)) return type;
 
     switch(getBrigTypeNumBits(type))
