@@ -242,7 +242,7 @@ public:
     ImageLimitTest::SetupDispatch(setup);
     unsigned count = setup->MSetup().Count();
     // allocate memory for buffer with image handles
-    uint32_t sizes[] = {images.size(), 1, 1};
+    uint32_t sizes[] = {(size_t)images.size(), 1, 1};
     auto buffer = new MBuffer(count++, "images_buffer", MEM_GLOBAL, MV_IMAGEREF, 1, sizes);
     setup->MSetup().Add(buffer);
 
@@ -452,8 +452,7 @@ private:
   Value red;
 
   static const uint32_t LIMIT = 16;
-  //static const uint32_t INITIAL_VALUE = 123456;
-  static const uint32_t INITIAL_VALUE = 0;
+  static const uint32_t INITIAL_VALUE = 123456;
   static const BrigType ELEMENT_TYPE = BRIG_TYPE_F32;
 
 public:
@@ -487,7 +486,8 @@ public:
     imageSpec.Depth(1);
     imageSpec.ArraySize(1);
     image = kernel->NewImage("image", &imageSpec);
-    image->AddData(Value(static_cast<float>(INITIAL_VALUE)));
+    auto initialValue = Value(static_cast<float>(INITIAL_VALUE));
+    image->AddData(initialValue);
 
     samplers.reserve(LIMIT);
     ESamplerSpec samplerSpec(BRIG_SEGMENT_GLOBAL, Location::KERNEL);
@@ -498,7 +498,7 @@ public:
       samplers.push_back(kernel->NewSampler("sampler" + std::to_string(i), &samplerSpec));
     }
 
-    image->InitImageCalculator(samplers[0]);
+    image->InitImageCalculator(samplers[0], initialValue);
     Value readColor[4];
     Value readCoords[3];
     readCoords[0] = Value(0.0F);
@@ -524,8 +524,11 @@ public:
     auto imageAddr = be.AddTReg(image->Type());
     be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(image->Variable())); 
 
-    auto imageCoordinate = be.AddTReg(BRIG_TYPE_F32);
-    be.EmitMov(imageCoordinate, be.Immed(BRIG_TYPE_U32, 0));
+    // coordinates where to read from image
+    ItemList ilist;
+    ilist.push_back(be.Immed(0.0F));
+    auto imageCoordinateList = be.Brigantine().createOperandList(ilist);
+    
     auto imageElement = be.AddTReg(BRIG_TYPE_F32, 4);
     auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
 
@@ -543,7 +546,7 @@ public:
       be.EmitCbr(cmp->Reg(), falseLabel);
 
       // read from image with sampler and compare R channel with INITIAL_VALUE
-      image->EmitImageRd(imageElementList, BRIG_TYPE_U32, imageAddr, samplerAddr, imageCoordinate);
+      image->EmitImageRd(imageElementList, BRIG_TYPE_U32, imageAddr, samplerAddr, imageCoordinateList, BRIG_TYPE_F32);
       be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(0), be.Immed(red.F()), BRIG_COMPARE_NE); 
       be.EmitCbr(cmp->Reg(), falseLabel);
     }
