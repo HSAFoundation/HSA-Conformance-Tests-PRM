@@ -564,6 +564,8 @@ private:
 
   Value color_zero;
   Value color_one;
+  bool bWithoutSampler;
+  Value existVal;
 
   void SetupDefaultColors();
   float UnnormalizeCoord(Value* c, unsigned dimSize) const;
@@ -575,13 +577,13 @@ private:
   int GetTexelIndex(float f, unsigned _dimSize) const;
   int GetTexelArrayIndex(float f, unsigned dimSize) const;
   void LoadBorderData(Value* _color) const;
-  uint32_t GetRawColorData(int x_ind, int y_ind, int z_ind, int channel) const;
-  uint32_t GetRawColorData(int x_ind, int y_ind, int z_ind) const;
+  uint32_t GetRawColorData() const;
   int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
   float ConvertionSignedNormalize(uint32_t c, unsigned int bit_size) const;
   float ConvertionUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
   int32_t ConvertionSignedClamp(uint32_t c, unsigned int bit_size) const;
   uint32_t ConvertionUnsignedClamp(uint32_t c, unsigned int bit_size) const;
+  float ConvertionHalfFloat(uint32_t data) const;
   Value ConvertRawData(uint32_t data) const;
   float GammaCorrection(float f) const;
   void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
@@ -590,7 +592,7 @@ private:
   void EmulateReadColor(Value* _coords, Value* _color) const;
 
 public:
-  EImageCalc(EImage * eimage, ESampler* esampler);
+  EImageCalc(EImage * eimage, ESampler* esampler, Value val);
   void ReadColor(Value* _coords, Value* _color) const;
 };
 
@@ -639,9 +641,9 @@ public:
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
-  Value GetRawData(size_t i) { assert(image); return image->GetRaw(i); }
+  Value GetRawData() { return (*data).at(0); }
   void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
-  void InitImageCalculator(Sampler pSampler) { calculator = new EImageCalc(this, pSampler); }
+  void InitImageCalculator(Sampler pSampler, Value val) { calculator = new EImageCalc(this, pSampler, val); }
   void ReadColor(Value* _coords, Value* _color) const { assert(calculator); calculator->ReadColor(_coords, _color); }
 };
 

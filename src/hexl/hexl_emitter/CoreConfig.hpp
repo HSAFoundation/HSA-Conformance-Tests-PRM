@@ -28,13 +28,6 @@
 
 #define BRIG_SEGMENT_MAX BRIG_SEGMENT_AMD_GCN
 
-enum BrigImageAccess {
-    BRIG_ACCESS_PERMISSION_NONE = 0,
-    BRIG_ACCESS_PERMISSION_RO = 1,
-    BRIG_ACCESS_PERMISSION_WO = 2,
-    BRIG_ACCESS_PERMISSION_RW = 3
-};
-
 namespace hexl {
 
   namespace emitter {
@@ -96,7 +89,7 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *severalwavesingroup, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, *images;
+          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, *images;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -114,7 +107,6 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* Boundary32Set() { return boundary32; }
         hexl::Sequence<hexl::Grid>* Boundary24Set() { return boundary24; }
         hexl::Sequence<hexl::Grid>* SeveralWavesSet() { return severalwaves; }
-        hexl::Sequence<hexl::Grid>* SeveralWavesInGroupSet() { return severalwavesingroup; }
         hexl::Sequence<hexl::Grid>* BarrierSet() { return barrier; }
         hexl::Sequence<hexl::Grid>* FBarrierSet() { return fbarrier; }
         hexl::Sequence<hexl::Grid>* AllWavesIdSet() { return allWavesIdSet; }
@@ -326,7 +318,7 @@ namespace hexl {
         hexl::Sequence<BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
         hexl::Sequence<BrigImageChannelType>* imageChannelTypes;
         hexl::Sequence<BrigImageQuery>* imageQueryTypes;
-        hexl::Sequence<BrigImageAccess>* imageAccessTypes;
+        hexl::Sequence<BrigType>* imageAccessTypes;
         hexl::Sequence<unsigned>* imageArray;
         hexl::Sequence<uint32_t>* numberRW;
 
@@ -340,7 +332,7 @@ namespace hexl {
         hexl::Sequence<BrigImageChannelOrder>* ImageSupportedChannelOrders() { return imageSupportedChannelOrders; }
         hexl::Sequence<BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
         hexl::Sequence<BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
-        hexl::Sequence<BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
+        hexl::Sequence<BrigType>* ImageAccessTypes() { return imageAccessTypes; };
         hexl::Sequence<unsigned>* ImageArraySets() { return imageArray; };
         hexl::Sequence<uint32_t>* NumberOfRwImageHandles() { return numberRW; }
       };
