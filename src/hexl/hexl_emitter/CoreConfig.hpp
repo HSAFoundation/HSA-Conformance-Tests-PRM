@@ -296,8 +296,10 @@ namespace hexl {
       private:
         hexl::Sequence<BrigWidth> *allWidths;
         hexl::VectorSequence<BrigWidth> *workgroupWidths;
+        hexl::VectorSequence<BrigWidth> *cornerWidths;
         hexl::Sequence<ConditionInput>* conditionInputs;
         hexl::Sequence<Condition>* binaryConditions;
+        hexl::Sequence<Condition>* nestedConditions;
         hexl::Sequence<BrigType>* sbrTypes;
         hexl::Sequence<Condition>* switchConditions;
 
@@ -305,8 +307,10 @@ namespace hexl {
         ControlFlowConfig(CoreConfig* cc);
         hexl::Sequence<BrigWidth>* AllWidths() { return allWidths; }
         hexl::Sequence<BrigWidth>* WorkgroupWidths() { return workgroupWidths; }
+        hexl::Sequence<BrigWidth>* CornerWidths() { return cornerWidths; }
         hexl::Sequence<ConditionInput>* ConditionInputs() { return conditionInputs; }
         hexl::Sequence<Condition>* BinaryConditions() { return binaryConditions; }
+        hexl::Sequence<Condition>* NestedConditions() { return nestedConditions; }
         hexl::Sequence<BrigType>* SbrTypes() { return sbrTypes; }
         hexl::Sequence<Condition>* SwitchConditions() { return switchConditions; }
       };

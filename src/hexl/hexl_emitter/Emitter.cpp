@@ -2447,7 +2447,7 @@ unsigned ECondition::ExpectedSwitchPath(uint64_t i)
   case COND_WAVESIZE:
     return te->CoreCfg()->Wavesize() + 1;
   default:
-    assert(0); return 1024; 
+    assert(0); return 1024;
   }
 }
 
