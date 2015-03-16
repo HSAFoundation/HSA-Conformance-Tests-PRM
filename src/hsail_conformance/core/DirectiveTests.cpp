@@ -132,7 +132,7 @@ private:
     be.EmitArith(BRIG_OPCODE_ADD, tmp, tmp, result->Reg());
     be.EmitArith(BRIG_OPCODE_SUB, tmp, tmp, tmp->Reg());
     be.EmitArith(BRIG_OPCODE_ADD, result, result, tmp->Reg());
-    be.EmitCall(empty_function->Directive(), ItemList(), ItemList());
+    be.EmitCallSeq(empty_function, be.AddTRegList(), be.AddTRegList());
 
     if (annotationLocation == AnnotationLocation::END_ARG_BLOCK) {
       EmitAnnotation();

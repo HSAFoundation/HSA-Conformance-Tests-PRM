@@ -149,6 +149,8 @@ public:
   BrigType16_t Type() const { return type; }
   unsigned TypeSizeBytes() const { return HSAIL_ASM::getBrigTypeNumBytes(type); }
   unsigned TypeSizeBits() const { return HSAIL_ASM::getBrigTypeNumBits(type); }
+  unsigned RegSizeBytes() const { return (std::max)(TypeSizeBytes(), (unsigned) 4); }
+  unsigned RegSizeBits() const { return (std::max)(TypeSizeBits(), (unsigned) 32); }
   size_t Count() const { return regs.size(); }
   void Add(HSAIL_ASM::OperandRegister reg) { regs.push_back(reg); }
 
@@ -745,6 +747,7 @@ public:
   void StartFunction();
   void StartFunctionBody();
   void EndFunction();
+  void Declaration();
 };
 
 const char* ConditionType2Str(ConditionType type);

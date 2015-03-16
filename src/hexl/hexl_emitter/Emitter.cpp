@@ -2138,6 +2138,13 @@ void EFunction::EndFunction()
   te->Brig()->EndFunction();
 }
 
+void EFunction::Declaration()
+{
+  te->Brig()->StartFunction();
+  FunctionFormalOutputArguments();
+  FunctionFormalInputArguments();
+}
+
 void EFunction::StartFunctionBody()
 {
   te->Brig()->StartBody();
@@ -2713,7 +2720,7 @@ emitter::TypedReg EmittedTest::KernelResult()
       emitter::TypedRegList kernArgInRegs = te->Brig()->AddTRegList(), kernArgOutRegs = te->Brig()->AddTRegList();
       functionResultReg = te->Brig()->AddTReg(ResultType(), ResultCount());
       ActualCallArguments(kernArgInRegs, kernArgOutRegs);
-      te->Brig()->EmitCallSeq(function->Directive(), kernArgInRegs, kernArgOutRegs);
+      te->Brig()->EmitCallSeq(function, kernArgInRegs, kernArgOutRegs);
       return functionResultReg;
     }
   default:

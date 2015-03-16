@@ -158,6 +158,7 @@ public:
   void EmitStoresToBuffers(TypedRegList srcs, HSAIL_ASM::ItemList buffers, BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
 
   BrigType16_t ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const;
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1 = HSAIL_ASM::Operand(), HSAIL_ASM::Operand src2 = HSAIL_ASM::Operand());
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand op);
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, HSAIL_ASM::Operand src2);
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, const TypedReg& src2);
@@ -188,6 +189,7 @@ public:
 
   HSAIL_ASM::InstBr EmitCall(HSAIL_ASM::DirectiveFunction f, HSAIL_ASM::ItemList ins, HSAIL_ASM::ItemList outs);
   void EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
+  void EmitCallSeq(Function f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
   void EmitControlDirectiveGeometry(BrigControlDirective d, hexl::Grid grid);
   void EmitDynamicMemoryDirective(size_t size);
   HSAIL_ASM::DirectiveLoc EmitLocDirective(uint32_t line, uint32_t column = 1, const std::string& fileName = "");

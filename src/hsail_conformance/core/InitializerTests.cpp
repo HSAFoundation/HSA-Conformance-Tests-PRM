@@ -435,7 +435,7 @@ public:
     auto inputArgs = be.AddTRegList();
     auto outputArgs = be.AddTRegList();
     ActualCallArguments(inputArgs, outputArgs);
-    be.EmitCallSeq(function->Directive(), inputArgs, outputArgs);
+    be.EmitCallSeq(function, inputArgs, outputArgs);
   }
 
   void ActualCallArguments(TypedRegList inputArgs, TypedRegList outputArgs) override {
@@ -638,7 +638,7 @@ public:
     auto inputArgs = be.AddTRegList();
     auto outputArgs = be.AddTRegList();
     ActualCallArguments(inputArgs, outputArgs);
-    be.EmitCallSeq(function->Directive(), inputArgs, outputArgs);
+    be.EmitCallSeq(function, inputArgs, outputArgs);
   }
 
   void ActualCallArguments(TypedRegList inputArgs, TypedRegList outputArgs) override {

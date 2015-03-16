@@ -153,8 +153,8 @@ namespace hexl {
         hexl::Sequence<BrigType>* Packed() { return packed; }
         hexl::Sequence<BrigType>* Packed128Bit() { return packed128; }
         hexl::Sequence<BrigType>* Atomic() { return atomic; }
-        const hexl::Sequence<BrigType>* CompoundIntegral() { return compoundIntegral; }
-        const hexl::Sequence<BrigType>* CompoundFloating() { return compoundFloating; }
+        hexl::Sequence<BrigType>* CompoundIntegral() { return compoundIntegral; }
+        hexl::Sequence<BrigType>* CompoundFloating() { return compoundFloating; }
         hexl::Sequence<size_t>* RegisterSizes() { return registerSizes; }
       };
 
