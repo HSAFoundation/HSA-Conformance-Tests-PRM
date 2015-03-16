@@ -812,9 +812,14 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
     sbrTypes(NEWA EnumSequence<BrigType>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
     switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths())))
 {
-  for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
-    workgroupWidths->Add((BrigWidth) w);
-  }
+  //for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
+  //  workgroupWidths->Add((BrigWidth) w);
+  //}
+  workgroupWidths->Add(BRIG_WIDTH_1);
+  workgroupWidths->Add(BRIG_WIDTH_2);
+  workgroupWidths->Add(BRIG_WIDTH_32);
+  workgroupWidths->Add(BRIG_WIDTH_64);
+  workgroupWidths->Add(BRIG_WIDTH_256);
   workgroupWidths->Add(BRIG_WIDTH_WAVESIZE);
   workgroupWidths->Add(BRIG_WIDTH_ALL);
 }
