@@ -28,13 +28,6 @@
 
 #define BRIG_SEGMENT_MAX BRIG_SEGMENT_AMD_GCN
 
-enum BrigImageAccess {
-    BRIG_ACCESS_PERMISSION_NONE = 0,
-    BRIG_ACCESS_PERMISSION_RO = 1,
-    BRIG_ACCESS_PERMISSION_WO = 2,
-    BRIG_ACCESS_PERMISSION_RW = 3
-};
-
 namespace hexl {
 
   namespace emitter {
@@ -325,7 +318,7 @@ namespace hexl {
         hexl::Sequence<BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
         hexl::Sequence<BrigImageChannelType>* imageChannelTypes;
         hexl::Sequence<BrigImageQuery>* imageQueryTypes;
-        hexl::Sequence<BrigImageAccess>* imageAccessTypes;
+        hexl::Sequence<BrigType>* imageAccessTypes;
         hexl::Sequence<unsigned>* imageArray;
         hexl::Sequence<uint32_t>* numberRW;
 
@@ -339,7 +332,7 @@ namespace hexl {
         hexl::Sequence<BrigImageChannelOrder>* ImageSupportedChannelOrders() { return imageSupportedChannelOrders; }
         hexl::Sequence<BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
         hexl::Sequence<BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
-        hexl::Sequence<BrigImageAccess>* ImageAccessTypes() { return imageAccessTypes; };
+        hexl::Sequence<BrigType>* ImageAccessTypes() { return imageAccessTypes; };
         hexl::Sequence<unsigned>* ImageArraySets() { return imageArray; };
         hexl::Sequence<uint32_t>* NumberOfRwImageHandles() { return numberRW; }
       };

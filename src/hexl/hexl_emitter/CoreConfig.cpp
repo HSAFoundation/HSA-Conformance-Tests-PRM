@@ -218,10 +218,10 @@ static const BrigImageGeometry DepthGeometry[] = {
     BRIG_GEOMETRY_2DADEPTH,
 };
 
-static const BrigImageAccess allAccess[] = {
-    BRIG_ACCESS_PERMISSION_RO,
-    BRIG_ACCESS_PERMISSION_WO,
-    BRIG_ACCESS_PERMISSION_RW,
+static const BrigType allAccess[] = {
+    BRIG_TYPE_ROIMG,
+    BRIG_TYPE_WOIMG,
+    BRIG_TYPE_RWIMG,
 };
 
 static const BrigImageQuery allImgQueries[] = {
@@ -247,7 +247,7 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageSupportedChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(supportedChannelOrder, NELEM(supportedChannelOrder))),
     imageChannelTypes(NEWA ArraySequence<BrigImageChannelType>(allChannelType, NELEM(allChannelType))),
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
-    imageAccessTypes(NEWA ArraySequence<BrigImageAccess>(allAccess, NELEM(allAccess))),
+    imageAccessTypes(NEWA ArraySequence<BrigType>(allAccess, NELEM(allAccess))),
     imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry))),
     numberRW(NEWA ArraySequence<unsigned>(numberRwArray, NELEM(numberRwArray)))
 {
