@@ -145,6 +145,40 @@ protected:
   }
 };
 
+class CbrIfThenElseTest : public ConditionTestBase {
+
+public:
+  CbrIfThenElseTest(Location location, Grid geometry, Condition cond_)
+    : ConditionTestBase(location, geometry, cond_) {}
+
+  void Name(std::ostream& out) const {
+    out << "cbr/ifthenelse/" << CodeLocationString() << "_" << cond;
+  }
+
+protected:
+  Value ExpectedResult(uint64_t i) const {
+    uint32_t eresult;
+    if (cond->ExpectThenPath(i)) {
+        eresult = 2;
+    } else {
+      eresult = 1;
+    }
+    return Value(MV_UINT32, eresult);
+  }
+
+  TypedReg Result() {
+    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 3));
+    cond->EmitIfThenElseStart();
+    be.EmitMov(result, be.Immed(result->Type(), 2));
+    cond->EmitIfThenElseOtherwise();
+    be.EmitMov(result, be.Immed(result->Type(), 1));
+    cond->EmitIfThenElseEnd();
+    return result;
+  }
+};
+
+
 /*
 class CbrSandTest : public CbrNestedTest {
 public:
@@ -334,11 +368,12 @@ void BranchTests::Iterate(TestSpecIterator& it)
   Arena* ap = cc->Ap();
   TestForEach<BrBasicTest>(ap, it, base, CodeLocations());
   TestForEach<CbrBasicTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions());
+  TestForEach<CbrIfThenElseTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions());
   TestForEach<CbrNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), cc->ControlFlow().BinaryConditions());
-  /*
-  TestForEach<CbrSandTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
-  TestForEach<CbrSorTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
-  */
+  
+  //TestForEach<CbrSandTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
+  //TestForEach<CbrSorTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
+  
   TestForEach<SbrBasicTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().SwitchConditions());
 }
 
