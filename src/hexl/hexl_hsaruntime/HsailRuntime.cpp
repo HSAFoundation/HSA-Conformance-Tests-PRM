@@ -1111,9 +1111,9 @@ bool HsailRuntimeContext::Init() {
   wavesPerGroup = wgMaxSize / wavesize;
   status = Hsa()->hsa_system_get_info(HSA_SYSTEM_INFO_ENDIANNESS, &endianness);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_system_get_info failed", status); return false; }
-  uint16_t exceptionMask;
   
   // Wait until hsa_agent_get_exception_policies() will be implemented in runtime
+  // uint16_t exceptionMask;
   // status = Hsa()->hsa_agent_get_exception_policies(agent, profile, &exceptionMask);
   // if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_exception_policies failed", status); return false; }
   // isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
