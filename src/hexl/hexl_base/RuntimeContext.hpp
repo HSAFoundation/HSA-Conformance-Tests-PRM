@@ -93,6 +93,13 @@ public:
   virtual bool Init() = 0;
   virtual std::string Description() const =0;
   virtual RuntimeContextState* NewState(Context* context) = 0;
+
+  virtual bool IsFullProfile() = 0;
+  virtual uint32_t Wavesize()= 0;
+  virtual uint32_t WavesPerGroup() = 0;
+  virtual bool IsLittleEndianness() = 0;
+  virtual bool IsBreakSupported() = 0;
+  virtual bool IsDetectSupported() = 0;
 };
 
 template <class MState>
