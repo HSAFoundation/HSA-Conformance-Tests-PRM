@@ -242,7 +242,7 @@ public:
     ImageLimitTest::SetupDispatch(setup);
     unsigned count = setup->MSetup().Count();
     // allocate memory for buffer with image handles
-    uint32_t sizes[] = {images.size(), 1, 1};
+    uint32_t sizes[] = {(size_t)images.size(), 1, 1};
     auto buffer = new MBuffer(count++, "images_buffer", MEM_GLOBAL, MV_IMAGEREF, 1, sizes);
     setup->MSetup().Add(buffer);
 
@@ -445,18 +445,24 @@ public:
 class SamplerHandlesNumber : public Test {
 private:
   std::vector<Sampler> samplers;
+  Image image;
   BrigSamplerAddressing addresing;
   BrigSamplerCoordNormalization coord;
   BrigSamplerFilter filter;
+  Value red;
 
   static const uint32_t LIMIT = 16;
+  static const uint32_t INITIAL_VALUE = 123456;
+  static const BrigType ELEMENT_TYPE = BRIG_TYPE_F32;
 
 public:
   SamplerHandlesNumber(Grid geometry, BrigSamplerAddressing addresing_, BrigSamplerCoordNormalization coord_, BrigSamplerFilter filter_)
     : Test(Location::KERNEL, geometry), addresing(addresing_), coord(coord_), filter(filter_) {}
 
   void Name(std::ostream& out) const override {
-    out << addresing << "_" << coord << "_" << filter;
+    out << samplerAddressing2str(addresing) << "_" 
+        << samplerCoordNormalization2str(coord) << "_" 
+        << samplerFilter2str(filter);
   }
 
   bool IsValid() const override {
@@ -469,14 +475,92 @@ public:
 
   void Init() override {
     Test::Init();
+
+    // image to test sampler
+    EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
+    imageSpec.Geometry(BRIG_GEOMETRY_1D);
+    imageSpec.ChannelOrder(BRIG_CHANNEL_ORDER_R);
+    imageSpec.ChannelType(BRIG_CHANNEL_TYPE_FLOAT);
+    imageSpec.Width(1);
+    imageSpec.Height(1);
+    imageSpec.Depth(1);
+    imageSpec.ArraySize(1);
+    image = kernel->NewImage("image", &imageSpec);
+    auto initialValue = Value(static_cast<float>(INITIAL_VALUE));
+    image->AddData(initialValue);
+
     samplers.reserve(LIMIT);
     ESamplerSpec samplerSpec(BRIG_SEGMENT_GLOBAL, Location::KERNEL);
     samplerSpec.CoordNormalization(coord);
     samplerSpec.Filter(filter);
     samplerSpec.Addresing(addresing);
     for (uint32_t i = 0; i < LIMIT; ++i) {
-      samplers.push_back(kernel->NewSampler("sampler", &samplerSpec));
+      samplers.push_back(kernel->NewSampler("sampler" + std::to_string(i), &samplerSpec));
     }
+
+    image->InitImageCalculator(samplers[0], initialValue);
+    Value readColor[4];
+    Value readCoords[3];
+    readCoords[0] = Value(0.0F);
+    readCoords[1] = Value(0.0F);
+    readCoords[2] = Value(0.0F);
+    image->ReadColor(readCoords, readColor);
+    red = readColor[0];
+  }
+
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
+  void ModuleDirectives() override {
+    be.EmitExtensionDirective("IMAGE");
+  }
+
+  TypedReg Result() override {
+    auto trueLabel = "@true";
+    auto falseLabel = "@false";
+    auto endLabel = "@end";
+
+    // load image handle
+    auto imageAddr = be.AddTReg(image->Type());
+    be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(image->Variable())); 
+
+    // coordinates where to read from image
+    ItemList ilist;
+    ilist.push_back(be.Immed(0.0F));
+    auto imageCoordinateList = be.Brigantine().createOperandList(ilist);
+    
+    auto imageElement = be.AddTReg(BRIG_TYPE_F32, 4);
+    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
+
+    auto samplerAddr = be.AddTReg(samplers[0]->Type());
+    auto query = be.AddTReg(BRIG_TYPE_U32);
+    auto cmp = be.AddCTReg();
+
+    for (uint32_t i = 0; i < samplers.size(); ++i) {
+      auto sampler = samplers[i];
+      be.EmitLoad(sampler->Segment(), samplerAddr->Type(), samplerAddr->Reg(), be.Address(sampler->Variable())); 
+
+      // check query sampler filter mode
+      sampler->EmitSamplerQuery(query, imageAddr, BRIG_SAMPLER_QUERY_FILTER);
+      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), filter), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+
+      // read from image with sampler and compare R channel with INITIAL_VALUE
+      image->EmitImageRd(imageElementList, BRIG_TYPE_U32, imageAddr, samplerAddr, imageCoordinateList, BRIG_TYPE_F32);
+      be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(0), be.Immed(red.F()), BRIG_COMPARE_NE); 
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
+
+    // true
+    be.EmitLabel(trueLabel);
+    auto result = be.AddInitialTReg(ResultType(), 1);
+    be.EmitBr(endLabel);
+    // false
+    be.EmitLabel(falseLabel);
+    be.EmitMov(result, be.Immed(result->Type(), 0));
+    //end
+    be.EmitLabel(endLabel);
+    return result;
   }
 };
 
@@ -492,6 +576,8 @@ void ImageLimitsTestSet::Iterate(hexl::TestSpecIterator& it)
 
   TestForEach<ROImageHandlesNumber>(ap, it, "limits/ro_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
   TestForEach<RWImageHandlesNumber>(ap, it, "limits/rw_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().NumberOfRwImageHandles());
+  
+  TestForEach<SamplerHandlesNumber>(ap, it, "limits/sampler_number", cc->Grids().TrivialGeometrySet(), cc->Sampler().SamplerAddressings(), cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters());
 }
 
 } // hsail_conformance

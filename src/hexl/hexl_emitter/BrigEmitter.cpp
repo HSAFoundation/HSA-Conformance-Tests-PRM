@@ -272,6 +272,10 @@ Operand BrigEmitter::Immed(BrigType16_t type, SRef data) {
   return brigantine.createImmed(data, type);
 }
 
+Operand BrigEmitter::Immed(float imm) {
+  return brigantine.createImmed(f32_t(&imm), BRIG_TYPE_F32);
+}
+
 Operand BrigEmitter::ImmedString(const std::string& str) 
 {
   return brigantine.createOperandString(str);

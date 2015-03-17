@@ -69,7 +69,8 @@ public:
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
    imgobj = kernel->NewImage("%roimage", &imageSpec);
-   imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF));
+   //imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF));
+   imgobj->AddData(Value(MV_UINT32, 0x47F12000));
  
    ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
    samplerSpec.CoordNormalization(samplerCoord);
