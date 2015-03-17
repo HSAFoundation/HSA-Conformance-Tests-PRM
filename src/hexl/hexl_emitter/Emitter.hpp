@@ -784,7 +784,10 @@ public:
       kerninp(0), funcinp(0), condBuffer(0)
       { }
     
+  ConditionType Type() { return type; }
+  BrigType BrigType() { return itype; }
   ConditionInput Input() { return input; }
+  BrigWidth Width() { return width; }
 
   void Name(std::ostream& out) const;
   void Reset(TestEmitter* te);

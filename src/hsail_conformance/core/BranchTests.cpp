@@ -179,7 +179,6 @@ protected:
 };
 
 class CbrIfThenElseNestedInThenTest : public CbrNestedTest {
-
 public:
   CbrIfThenElseNestedInThenTest(Location location, Grid geometry, Condition cond_, Condition cond2_)
     : CbrNestedTest(location, geometry, cond_, cond2_) {}
@@ -525,7 +524,19 @@ protected:
   Value ExpectedResult(uint64_t i) const {
     return Value(MV_UINT32, cond->ExpectedSwitchPath(i));
   }
-  
+
+  bool IsValid() const {
+    if (cond->Input() != cond2->Input())
+      return false;
+    if (cond->Width() != cond2->Width())
+      return false;
+    if (cond->Type() != cond2->Type())
+      return false;
+    if (cond->BrigType() != cond2->BrigType())
+      return false;
+    return true;
+  }
+
   TypedReg Result() {
     unsigned branchCount = cond->SwitchBranchCount();
     unsigned branchCount2 = cond2->SwitchBranchCount();
@@ -537,15 +548,15 @@ protected:
     for (unsigned i = 0; i < branchCount; ++i) {
       cond->EmitSwitchBranchStart(i);
       be.EmitMov(result, be.Immed(type, i + 1));
-      if (0 == i) {
-        cond2->EmitSwitchStart();
-        be.EmitMov(result, be.Immed(type, branchCount + 2));
-        for (unsigned j = 0; j < branchCount2; ++j) {
-          cond2->EmitSwitchBranchStart(j);
-          be.EmitMov(result, be.Immed(type, j + 1));
-        }
-        cond2->EmitSwitchEnd();
+      if (COND_WAVESIZE == cond->Input() && i != branchCount-1) continue;
+      // nested sbr
+      cond2->EmitSwitchStart();
+      be.EmitMov(result, be.Immed(type, branchCount + 2));
+      for (unsigned j = 0; j < branchCount2; ++j) {
+        cond2->EmitSwitchBranchStart(j);
+        be.EmitMov(result, be.Immed(type, j + 1));
       }
+      cond2->EmitSwitchEnd();
     }
     cond->EmitSwitchEnd();
     return result;
@@ -564,6 +575,7 @@ void BranchTests::Iterate(TestSpecIterator& it)
   TestForEach<CbrIfThenElseNestedInThenTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
   TestForEach<CbrIfThenElseNestedInElseTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
   TestForEach<CbrIfThenElseNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
+
   //TestForEach<CbrSandTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
   //TestForEach<CbrSorTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
   
