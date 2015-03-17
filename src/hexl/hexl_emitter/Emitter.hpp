@@ -795,6 +795,7 @@ public:
   BrigType IType() { return itype; }
   ConditionInput Input() { return input; }
   BrigWidth Width() { return width; }
+  std::string EndLabel() { return lEnd; }
 
   void Name(std::ostream& out) const;
   void Reset(TestEmitter* te);
@@ -817,6 +818,7 @@ public:
 
   HSAIL_ASM::Operand EmitIfCond();
   void EmitIfThenStart();
+  void EmitIfThenStart(Condition condition);
   void EmitIfThenEnd();
   bool ExpectThenPath(uint64_t wi);
   bool ExpectThenPath(const Dim& point) { return ExpectThenPath(Geometry()->WorkitemFlatAbsId(point)); }

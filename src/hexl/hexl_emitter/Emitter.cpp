@@ -2687,6 +2687,14 @@ void ECondition::EmitIfThenStart()
   te->Brig()->EmitLabel(lThen);
 }
 
+void ECondition::EmitIfThenStart(Condition condition)
+{
+  lThen = te->Brig()->AddLabel();
+  te->Brig()->EmitCbr(EmitIfCond(), lThen, width);
+  te->Brig()->EmitBr(condition->EndLabel());
+  te->Brig()->EmitLabel(lThen);
+}
+
 void ECondition::EmitIfThenEnd()
 {
   te->Brig()->EmitLabel(lEnd);
