@@ -128,6 +128,7 @@ public:
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
   void EmitMov(TypedReg dst, HSAIL_ASM::Operand src);
   void EmitMov(TypedReg dst, TypedReg src);
+  HSAIL_ASM::InstBasic EmitTypedMov(BrigType16_t moveType, HSAIL_ASM::OperandRegister dst, HSAIL_ASM::Operand src);
   TypedReg AddInitialTReg(BrigType16_t type, uint64_t initialValue, unsigned count = 1);
 
   // Memory operations
@@ -265,6 +266,11 @@ public:
   // Images operations
   BrigType ImageType(unsigned access) const;
   BrigType SamplerType() const;
+
+  // Exception operations
+  HSAIL_ASM::InstBasic EmitClearDetectExcept(uint32_t exceptionNumber);
+  HSAIL_ASM::InstBasic EmitGetDetectExcept(TypedReg dest);
+  HSAIL_ASM::InstBasic EmitSetDetectExcept(uint32_t exceptionNumber);
 
   // Dispatch packet operations
   TypedReg EmitCurrentWorkgroupSize(uint32_t dim);

@@ -312,6 +312,12 @@ void BrigEmitter::EmitMov(TypedReg dst, TypedReg src)
   }
 }
 
+InstBasic BrigEmitter::EmitTypedMov(BrigType16_t moveType, OperandRegister dst, Operand src) {
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_MOV, moveType);
+  inst.operands() = Operands(dst, src);
+  return inst;
+}
+
 void BrigEmitter::EmitMov(TypedReg dst, Operand src)
 {
   for (unsigned i = 0; i < dst->Count(); ++i) {
@@ -1547,6 +1553,28 @@ UserModeQueue BrigEmitter::Queue(PointerReg address)
   return new(ap) EUserModeQueue(*this, AddName("queue"), address);
 }
 */
+
+InstBasic BrigEmitter::EmitClearDetectExcept(uint32_t exceptionNumber) {
+  assert(exceptionNumber <= 0x1F);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_CLEARDETECTEXCEPT, BRIG_TYPE_U32);
+  inst.operands() = Operands(Immed(BRIG_TYPE_U32, exceptionNumber));
+  return inst;
+}
+
+InstBasic BrigEmitter::EmitGetDetectExcept(TypedReg dest) {
+  assert(dest->Type() == BRIG_TYPE_U32);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_GETDETECTEXCEPT, BRIG_TYPE_U32);
+  inst.operands() = Operands(dest->Reg());
+  return inst;
+}
+
+InstBasic BrigEmitter::EmitSetDetectExcept(uint32_t exceptionNumber) {
+  assert(exceptionNumber <= 0x1F);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_SETDETECTEXCEPT, BRIG_TYPE_U32);
+  inst.operands() = Operands(Immed(BRIG_TYPE_U32, exceptionNumber));
+  return inst;
+}
+
 void BrigEmitter::EmitAgentId(TypedReg dest)
 {
   EmitMov(dest, Immed(BRIG_TYPE_U32, 0));

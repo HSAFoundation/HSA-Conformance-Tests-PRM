@@ -242,7 +242,7 @@ public:
     ImageLimitTest::SetupDispatch(setup);
     unsigned count = setup->MSetup().Count();
     // allocate memory for buffer with image handles
-    uint32_t sizes[] = {(size_t)images.size(), 1, 1};
+    uint32_t sizes[] = {(uint32_t)images.size(), 1, 1};
     auto buffer = new MBuffer(count++, "images_buffer", MEM_GLOBAL, MV_IMAGEREF, 1, sizes);
     setup->MSetup().Add(buffer);
 

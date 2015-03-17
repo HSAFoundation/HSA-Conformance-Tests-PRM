@@ -35,6 +35,7 @@ std::string ExtractTestPath(const std::string& name, unsigned level);
 hexl::ValueType Brig2ValueType(BrigType type);
 BrigType Value2BrigType(hexl::ValueType type);
 bool Is128Bit(BrigType type);
+std::string ExceptionsNumber2Str(uint32_t exceptionsNumber);
 uint32_t ImageGeometryDims(BrigImageGeometry geometry);
 bool IsImageGeometryArray(BrigImageGeometry geometry);
 bool IsImageDepth(BrigImageGeometry geometry);
