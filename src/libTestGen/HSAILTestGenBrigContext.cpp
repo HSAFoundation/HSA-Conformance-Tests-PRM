@@ -83,7 +83,7 @@ void BrigContext::emitModule()
 
 void BrigContext::emitExtension(const char* name)
 {
-    DirectiveExtension ext = brigantine.addExtension(name);
+    brigantine.addExtension(name);
 }
 
 string BrigContext::getLabName(const char* name, unsigned idx, unsigned width /*=0*/)
@@ -108,13 +108,13 @@ Operand BrigContext::emitLabelRef(const char* name)
 
 Operand BrigContext::emitLabelAndRef(const char* name)
 {
-    DirectiveLabel lbl = emitLabel(name);
+    emitLabel(name);
     return emitLabelRef(name);
 }
 
-DirectiveLabel BrigContext::emitAuxLabel() 
+DirectiveLabel BrigContext::emitAuxLabel()
 { 
-    return emitLabel("@aux_label_", labCount++); 
+    return emitLabel("@aux_label_", labCount++);
 }
 
 DirectiveLabel BrigContext::emitLabel(const char* name, unsigned idx, unsigned width /*=0*/)

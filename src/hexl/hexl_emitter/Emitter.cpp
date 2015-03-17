@@ -1472,7 +1472,12 @@ int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
   int tile;
   float mirrored_coord;
   switch(samplerAddressing){
-  case BRIG_ADDRESSING_UNDEFINED: //TODO assert
+  case BRIG_ADDRESSING_UNDEFINED:
+	//we should never use undefined addressing
+	//in case of out of range coordinates
+	//because it, well, undefined
+	assert(0);
+	break;
   case BRIG_ADDRESSING_CLAMP_TO_EDGE:
     return clamp_i(rounded_coord, 0, dimSize -1);
     break;
@@ -1587,7 +1592,7 @@ int32_t EImageCalc::SignExtend(uint32_t c, unsigned int bit_size) const
   return r.s32;
 }
 
-float EImageCalc::ConvertionSignedNormalize(uint32_t c, unsigned int bit_size) const
+float EImageCalc::ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const
 {
   float f = static_cast<float>(SignExtend(c, bit_size));
   f = f / ((1U << (bit_size-1)) - 1);
@@ -1595,7 +1600,7 @@ float EImageCalc::ConvertionSignedNormalize(uint32_t c, unsigned int bit_size) c
   return clamp_f(f, -1.0f, 1.0f); // values (-scale) and (-scale-1) should return -1.0f;
 }
 
-float EImageCalc::ConvertionUnsignedNormalize(uint32_t c, unsigned int bit_size) const
+float EImageCalc::ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const
 {
   c = c & ((1U << bit_size) - 1); //zeroing higher bits
     
@@ -1604,26 +1609,23 @@ float EImageCalc::ConvertionUnsignedNormalize(uint32_t c, unsigned int bit_size)
   return clamp_f(f, 0.0f, 1.0f);
 }
 
-int32_t EImageCalc::ConvertionSignedClamp(uint32_t c, unsigned int bit_size) const
+int32_t EImageCalc::ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const
 {
   return SignExtend(c, bit_size);
 }
 
-uint32_t EImageCalc::ConvertionUnsignedClamp(uint32_t c, unsigned int bit_size) const
+uint32_t EImageCalc::ConvertionLoadUnsignedClamp(uint32_t c, unsigned int bit_size) const
 {
   return c & ((1U << bit_size) - 1); //zeroing higher bits
 }
 
-float EImageCalc::ConvertionHalfFloat(uint32_t data) const
+float EImageCalc::ConvertionLoadHalfFloat(uint32_t data) const
 {
-  union {
-    float f32;
-    int32_t s32;
-    uint32_t u32;
-  } r;
-  r.u32 = data;
-  half h = HSAIL_X::f16_t(r.s32);
-  return (float)h;
+  ValueData bits;
+  bits.u32 = data;
+  half h = half::make(bits.h_bits);
+
+  return h.f32();
 }
 
 Value EImageCalc::ConvertRawData(uint32_t data) const
@@ -1632,20 +1634,20 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
   switch (imageChannelType)
   {
   case BRIG_CHANNEL_TYPE_SNORM_INT8:
-    c = Value(ConvertionSignedNormalize(data, 8));
+    c = Value(ConvertionLoadSignedNormalize(data, 8));
     break;
   case BRIG_CHANNEL_TYPE_SNORM_INT16:
-    c = Value(ConvertionSignedNormalize(data, 16));
+    c = Value(ConvertionLoadSignedNormalize(data, 16));
     break;
 
   case BRIG_CHANNEL_TYPE_UNORM_INT8:
-    c = Value(ConvertionUnsignedNormalize(data, 8));
+    c = Value(ConvertionLoadUnsignedNormalize(data, 8));
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT16:
-    c = Value(ConvertionUnsignedNormalize(data, 16));
+    c = Value(ConvertionLoadUnsignedNormalize(data, 16));
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT24:
-    c = Value(ConvertionUnsignedNormalize(data, 24));
+    c = Value(ConvertionLoadUnsignedNormalize(data, 24));
     break;
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
@@ -1655,19 +1657,19 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
     assert(0);
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-    c = Value(MV_INT8, S8(ConvertionSignedClamp(data, 8)));
+    c = Value(MV_INT8, S8(ConvertionLoadSignedClamp(data, 8)));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-    c = Value(MV_INT16, S16(ConvertionSignedClamp(data, 16)));
+    c = Value(MV_INT16, S16(ConvertionLoadSignedClamp(data, 16)));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     c = Value(MV_INT32, S32(data));
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-    c = Value(MV_UINT32, U32(ConvertionUnsignedClamp(data, 8)));
+    c = Value(MV_UINT32, U32(ConvertionLoadUnsignedClamp(data, 8)));
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    c = Value(MV_UINT16, U16(ConvertionUnsignedClamp(data, 16)));
+    c = Value(MV_UINT16, U16(ConvertionLoadUnsignedClamp(data, 16)));
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     c = Value(MV_UINT32, U32(data));
@@ -1734,28 +1736,28 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     switch (imageChannelType)
     {
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
-      unpacked_b = packed_color & 0x1F; //todo where is 0'th bit???
+      unpacked_b = packed_color & 0x1F;
       unpacked_g = (packed_color >> 5) & 0x1F;
       unpacked_r = (packed_color >> 10) & 0x1F;
-      _color[0] = Value(ConvertionUnsignedNormalize(unpacked_r, 5));
-      _color[1] = Value(ConvertionUnsignedNormalize(unpacked_g, 5));
-      _color[2] = Value(ConvertionUnsignedNormalize(unpacked_b, 5));
+      _color[0] = Value(ConvertionLoadUnsignedNormalize(unpacked_r, 5));
+      _color[1] = Value(ConvertionLoadUnsignedNormalize(unpacked_g, 5));
+      _color[2] = Value(ConvertionLoadUnsignedNormalize(unpacked_b, 5));
       break;
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      unpacked_b = packed_color & 0x1F; //todo where is 0'th bit???
+      unpacked_b = packed_color & 0x1F;
       unpacked_g = (packed_color >> 5) & 0x3F;
       unpacked_r = (packed_color >> 11) & 0x1F;
-      _color[0] = Value(ConvertionUnsignedNormalize(unpacked_r, 5));
-      _color[1] = Value(ConvertionUnsignedNormalize(unpacked_g, 6));
-      _color[2] = Value(ConvertionUnsignedNormalize(unpacked_b, 5));
+      _color[0] = Value(ConvertionLoadUnsignedNormalize(unpacked_r, 5));
+      _color[1] = Value(ConvertionLoadUnsignedNormalize(unpacked_g, 6));
+      _color[2] = Value(ConvertionLoadUnsignedNormalize(unpacked_b, 5));
       break;
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-      unpacked_b = packed_color & 0x03FF; //todo where is 0'th bit???
+      unpacked_b = packed_color & 0x03FF;
       unpacked_g = (packed_color >> 10) & 0x03FF;
       unpacked_r = (packed_color >> 20) & 0x03FF;
-      _color[0] = Value(ConvertionUnsignedNormalize(unpacked_r, 10));
-      _color[1] = Value(ConvertionUnsignedNormalize(unpacked_g, 10));
-      _color[2] = Value(ConvertionUnsignedNormalize(unpacked_b, 10));
+      _color[0] = Value(ConvertionLoadUnsignedNormalize(unpacked_r, 10));
+      _color[1] = Value(ConvertionLoadUnsignedNormalize(unpacked_g, 10));
+      _color[2] = Value(ConvertionLoadUnsignedNormalize(unpacked_b, 10));
       break;
     default:
       assert(0); //rgb and rgbx channel orders are legal to use only with 555, 565 or 101010 channel type
@@ -1790,9 +1792,9 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
   case BRIG_CHANNEL_ORDER_SRGB:
   case BRIG_CHANNEL_ORDER_SRGBX:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionUnsignedNormalize(GetRawColorData(), 8);
-    fg = ConvertionUnsignedNormalize(GetRawColorData(), 8);
-    fb = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fr = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fg = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fb = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
@@ -1800,9 +1802,9 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     break;
   case BRIG_CHANNEL_ORDER_SRGBA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionUnsignedNormalize(GetRawColorData(), 8);
-    fg = ConvertionUnsignedNormalize(GetRawColorData(), 8);
-    fb = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fr = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fg = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fb = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
@@ -1810,9 +1812,9 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     break;
   case BRIG_CHANNEL_ORDER_SBGRA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionUnsignedNormalize(GetRawColorData(), 8);
-    fg = ConvertionUnsignedNormalize(GetRawColorData(), 8);
-    fb = ConvertionUnsignedNormalize(GetRawColorData(), 8);
+    fr = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fg = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fb = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
@@ -2180,7 +2182,7 @@ const char* ConditionInput2Str(ConditionInput input)
 
 void ECondition::Name(std::ostream& out) const
 {
-  out << ConditionType2Str(type) << "_" << ConditionInput2Str(input) << "_" << width2str(width);
+  out << ConditionType2Str(type) << "_" << ConditionInput2Str(input) << "_" << width2str(width) << "_" << type2str(itype);
 }
  
 void ECondition::Reset(TestEmitter* te)
@@ -2422,6 +2424,7 @@ void ECondition::EmitSwitchEnd()
 {
   //te->Brig()->EmitBr(lEnd);
   te->Brig()->EmitLabel(lEnd);
+  labels.clear();
 }
 
 unsigned ECondition::SwitchBranchCount()

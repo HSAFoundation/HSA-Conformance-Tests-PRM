@@ -219,10 +219,9 @@ namespace hexl {
       private:
         hexl::Sequence<BrigMemoryOrder> *allMemoryOrders, *signalSendMemoryOrders, *signalWaitMemoryOrders, *memfenceMemoryOrders;
         hexl::Sequence<BrigMemoryScope> *allMemoryScopes, *memfenceMemoryScopes;
-        hexl::Sequence<BrigAtomicOperation> *allAtomics, *signalSendAtomics, *signalWaitAtomics;
+        hexl::Sequence<BrigAtomicOperation> *allAtomics, *atomicOperations, *signalSendAtomics, *signalWaitAtomics;
         hexl::Sequence<BrigSegment> *memfenceSegments;
         hexl::Sequence<BrigOpcode> *ldStOpcodes, *atomicOpcodes;
-        hexl::Sequence<BrigAtomicOperation>* atomicOperations;
 
       public:
         MemoryConfig(CoreConfig* cc);
@@ -231,12 +230,12 @@ namespace hexl {
         hexl::Sequence<BrigMemoryOrder>* SignalWaitMemoryOrders() { return signalWaitMemoryOrders; }
         hexl::Sequence<BrigMemoryScope>* AllMemoryScopes() { return allMemoryScopes; }
         hexl::Sequence<BrigAtomicOperation>* AllAtomics() { return allAtomics; }
+        hexl::Sequence<BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
         hexl::Sequence<BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
         hexl::Sequence<BrigAtomicOperation>* SignalWaitAtomics() { return signalWaitAtomics; }
         hexl::Sequence<BrigSegment>* MemfenceSegments() { return memfenceSegments; }
         hexl::Sequence<BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
         hexl::Sequence<BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
-        hexl::Sequence<BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
         hexl::Sequence<BrigMemoryOrder>* MemfenceMemoryOrders() { return memfenceMemoryOrders; }
         hexl::Sequence<BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
       };
@@ -309,6 +308,7 @@ namespace hexl {
         hexl::Sequence<Condition>* nestedConditions;
         hexl::Sequence<BrigType>* sbrTypes;
         hexl::Sequence<Condition>* switchConditions;
+        hexl::Sequence<Condition>* nestedSwitchConditions;
 
       public:
         ControlFlowConfig(CoreConfig* cc);
@@ -320,6 +320,7 @@ namespace hexl {
         hexl::Sequence<Condition>* NestedConditions() { return nestedConditions; }
         hexl::Sequence<BrigType>* SbrTypes() { return sbrTypes; }
         hexl::Sequence<Condition>* SwitchConditions() { return switchConditions; }
+        hexl::Sequence<Condition>* NestedSwitchConditions() { return nestedSwitchConditions; }
       };
 
       class ImageConfig : public ConfigBase {

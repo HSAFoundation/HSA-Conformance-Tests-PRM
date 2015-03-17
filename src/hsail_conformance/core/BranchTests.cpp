@@ -481,7 +481,7 @@ public:
   }
 
   void Name(std::ostream& out) const {
-    out << "sbr/switch/" << CodeLocationString() << "_" << cond;
+    out << "sbr/switch/" << CodeLocationString() << "/" << cond;
   }
 
 protected:
@@ -505,6 +505,53 @@ protected:
   }
 };
 
+class SbrNestedTest : public ConditionTestBase {
+protected:
+  Condition cond2;
+
+public:
+  SbrNestedTest(Location location, Grid geometry, Condition cond, Condition cond2_)
+    : ConditionTestBase(location, geometry, cond),
+      cond2(cond2_)
+  {
+    specList.Add(cond2);
+  }
+
+  void Name(std::ostream& out) const {
+    out << "sbr/nested/" << CodeLocationString() << "/" << cond << "_" << cond2;
+  }
+
+protected:
+  Value ExpectedResult(uint64_t i) const {
+    return Value(MV_UINT32, cond->ExpectedSwitchPath(i));
+  }
+  
+  TypedReg Result() {
+    unsigned branchCount = cond->SwitchBranchCount();
+    unsigned branchCount2 = cond2->SwitchBranchCount();
+    BrigType type = ResultType();
+    TypedReg result = be.AddTReg(type);
+    be.EmitMov(result, be.Immed(type, branchCount + 1));
+    cond->EmitSwitchStart();
+    be.EmitMov(result, be.Immed(type, branchCount + 2));
+    for (unsigned i = 0; i < branchCount; ++i) {
+      cond->EmitSwitchBranchStart(i);
+      be.EmitMov(result, be.Immed(type, i + 1));
+      if (0 == i) {
+        cond2->EmitSwitchStart();
+        be.EmitMov(result, be.Immed(type, branchCount + 2));
+        for (unsigned j = 0; j < branchCount2; ++j) {
+          cond2->EmitSwitchBranchStart(j);
+          be.EmitMov(result, be.Immed(type, j + 1));
+        }
+        cond2->EmitSwitchEnd();
+      }
+    }
+    cond->EmitSwitchEnd();
+    return result;
+  }
+};
+
 void BranchTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -521,6 +568,7 @@ void BranchTests::Iterate(TestSpecIterator& it)
   //TestForEach<CbrSorTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
   
   TestForEach<SbrBasicTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().SwitchConditions());
+  TestForEach<SbrNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedSwitchConditions(), cc->ControlFlow().NestedSwitchConditions());
 }
 
 }

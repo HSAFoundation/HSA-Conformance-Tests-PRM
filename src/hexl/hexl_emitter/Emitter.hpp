@@ -581,11 +581,11 @@ private:
   void LoadBorderData(Value* _color) const;
   uint32_t GetRawColorData() const;
   int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
-  float ConvertionSignedNormalize(uint32_t c, unsigned int bit_size) const;
-  float ConvertionUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
-  int32_t ConvertionSignedClamp(uint32_t c, unsigned int bit_size) const;
-  uint32_t ConvertionUnsignedClamp(uint32_t c, unsigned int bit_size) const;
-  float ConvertionHalfFloat(uint32_t data) const;
+  float ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
+  float ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
+  int32_t ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const;
+  uint32_t ConvertionLoadUnsignedClamp(uint32_t c, unsigned int bit_size) const;
+  float ConvertionLoadHalfFloat(uint32_t data) const;
   Value ConvertRawData(uint32_t data) const;
   float GammaCorrection(float f) const;
   void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
