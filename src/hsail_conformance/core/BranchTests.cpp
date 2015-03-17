@@ -532,7 +532,7 @@ protected:
       return false;
     if (cond->Type() != cond2->Type())
       return false;
-    if (cond->BrigType() != cond2->BrigType())
+    if (cond->IType() != cond2->IType())
       return false;
     return true;
   }
