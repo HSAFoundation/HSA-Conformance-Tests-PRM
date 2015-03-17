@@ -2422,6 +2422,7 @@ void ECondition::EmitSwitchEnd()
 {
   //te->Brig()->EmitBr(lEnd);
   te->Brig()->EmitLabel(lEnd);
+  labels.clear();
 }
 
 unsigned ECondition::SwitchBranchCount()
