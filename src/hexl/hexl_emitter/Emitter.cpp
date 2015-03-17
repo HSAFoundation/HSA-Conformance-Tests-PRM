@@ -21,6 +21,40 @@
 #include "Sequence.hpp"
 #include "CoreConfig.hpp"
 #include "hsa.h"
+#include <math.h>
+
+///\todo Generalize (move to libHSAIL?)
+#ifdef _WIN32
+	bool isNanOrDenorm(float f)
+	{
+		switch(_fpclassf(f))
+		{
+		case _FPCLASS_SNAN:
+		case _FPCLASS_QNAN:
+		case _FPCLASS_ND:
+		case _FPCLASS_PD:
+			return true;
+		}
+		return false;
+	}
+#else //assume Linux
+	#if _XOPEN_SOURCE >= 600 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
+	//fpclassify() supported
+	bool isNanOrDenorm(float f)
+	{
+		switch(fpclassify(f)){
+		case FP_NAN:
+		case FP_SUBNORMAL:
+			return true;
+			break;
+		}
+		return false;
+	}
+	#else
+	#error "fpclassify() is not guaranteed to be supported"
+#endif
+#endif // _WIN32
+
 
 using namespace HSAIL_ASM;
 using namespace hexl::scenario;
@@ -1877,6 +1911,46 @@ float EImageCalc::ConvertionLoadHalfFloat(uint32_t data) const
   half h = half::make(bits.h_bits);
 
   return h.f32();
+}
+
+float EImageCalc::ConvertionLoadFloat(uint32_t data) const
+{
+	ValueData f;
+	f.u32 = data;
+	//handling NaNs and subnormals is implementation defined
+	//therefore we should avoid such tests
+	assert(isNanOrDenorm(f.f));
+	return f.f;
+}
+
+int32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const
+{
+	return 0;
+}
+
+uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const
+{
+	return 0;
+}
+
+int32_t EImageCalc::ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const
+{
+	return 0;
+}
+
+uint32_t EImageCalc::ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_size) const
+{
+	return 0;
+}
+
+half EImageCalc::ConvertionStoreHalfFloat(float f) const
+{
+	return half::make(0);
+}
+
+float EImageCalc::ConvertionStoreFloat(float f) const
+{
+	return 0;
 }
 
 Value EImageCalc::ConvertRawData(uint32_t data) const

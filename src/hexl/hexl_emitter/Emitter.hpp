@@ -587,6 +587,13 @@ private:
   int32_t ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const;
   uint32_t ConvertionLoadUnsignedClamp(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadHalfFloat(uint32_t data) const;
+  float ConvertionLoadFloat(uint32_t data) const;
+  int32_t ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const;
+  uint32_t ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const;
+  int32_t ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const;
+  uint32_t ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_size) const;
+  half ConvertionStoreHalfFloat(float f) const;
+  float ConvertionStoreFloat(float f) const;
   Value ConvertRawData(uint32_t data) const;
   float GammaCorrection(float f) const;
   void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
