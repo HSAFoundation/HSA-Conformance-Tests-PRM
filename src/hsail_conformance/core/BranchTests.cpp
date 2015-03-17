@@ -358,162 +358,51 @@ protected:
     be.EmitMov(result, be.Immed(result->Type(), 3));
     cond->EmitIfThenStart();
     be.EmitMov(result, be.Immed(result->Type(), 2));
-    cond2->EmitIfThenStart(cond);
+    cond2->EmitIfThenStartSand(cond);
     be.EmitMov(result, be.Immed(result->Type(), 1));
     cond->EmitIfThenEnd();
     return result;
   }
 };
 
-/*
-class CbrSandTest : public CbrNestedTest {
+class CbrSorTest : public ConditionTestBase {
+protected:
+  Condition cond2;
+
 public:
-  CbrSandTest(Location location, Grid geometry, Memory::Type memoryType_, BrigWidth width_, bool testThenBranch_, bool testSecondThenBranch_)
-  : CbrNestedTest(location, geometry, memoryType_, width_, testThenBranch_),
-    testSecondThenBranch(testSecondThenBranch_), s_success("@success"), s_error("@error") {
-    baseName = "cbr/sand";
-    c_y = be.AddTReg(GetBranchInstrType());
+  CbrSorTest(Location location, Grid geometry, Condition cond_, Condition cond2_)
+    : ConditionTestBase(location, geometry, cond_),
+    cond2(cond2_)
+  {
+    specList.Add(cond2);
   }
 
-  void Name(std::ostream& out) const { CbrNestedTest::Name(out); out << "_" << (testSecondThenBranch ? "then" : "else"); }
+  void Name(std::ostream& out) const {
+    out << "cbr/sor/" << CodeLocationString() << "/" << cond << "_" << cond2;
+  }
 
 protected:
-  bool testSecondThenBranch;
-  std::string s_success;
-  std::string s_error;
-  TypedReg c_y;
-  Operand src_y;
-
-  Value ExpectedResult(uint64_t id) const { return ExpectedResult(); }
-  Value ExpectedResult() const { return Value(MV_UINT32, success); }
-
-  bool IsValid() const {
-    if (Location::FUNCTION == codeLocation) return false;
-    switch (memoryType) {
-      // WAVESIZE is constant > 0, so cbr will always go by "then" branch and never by "else"
-      // testThenBranch is performed in CbrNestedTest, thus no WAVESIZE tests in S-circuit test at all
-      case MT_WAVESIZE:
-      // conditional expressions are meaningless on constants
-      case MT_IMMEDIATE: return false;
-      default: break;
+  Value ExpectedResult(uint64_t i) const {
+    uint32_t eresult;
+    if (cond->ExpectThenPath(i) || cond2->ExpectThenPath(i)) {
+        eresult = 1;
+    } else {
+        eresult = 2;
     }
-    return true;
+    return Value(MV_UINT32, eresult);
   }
 
   TypedReg Result() {
-    uint64_t then_result = success;
-    uint64_t else_result = error;
-    // if "THEN" branch is testing
-    uint64_t then_imm = 1;
-    // if "ELSE" branch is testing
-    if (!testThenBranch) then_imm = 0;
-    // if second (Y) "THEN" branch is testing
-    uint64_t then_imm_y = 1;
-    // if second (Y) "ELSE" branch is testing
-    if (!testSecondThenBranch) then_imm_y = 0;
-    // SAND
-    if (then_imm + then_imm_y == 2) {
-      then_result = success;
-      else_result = error;
-    } else {
-      then_result = error;
-      else_result = success;
-      if (0 == then_imm) {
-        std::string s_temp = s_success;
-        s_success = s_error;
-        s_error = s_temp;
-      }
-    }
-    OperandData thenImmOp = be.Brigantine().createImmed(then_imm, GetBranchInstrType());
-    OperandData thenImmOp_y = be.Brigantine().createImmed(then_imm_y, GetBranchInstrType());
-    Operand src = c->Reg();
-    // mov_b1 $c0, then_imm; // then_imm = {1,0}
-    be.EmitMov(src, thenImmOp, c->TypeSizeBits());
-    src_y = c_y->Reg();
-    // mov_b1 $c1, then_imm_y; // then_imm_y = {1,0}
-    be.EmitMov(src_y, thenImmOp_y, c->TypeSizeBits());
-    // cbr $c0, @then;
-    be.EmitCbr(src, s_then, width);
-    // br @error;
-    be.EmitBr(s_error);
-    // @then:
-    be.Brigantine().addLabel(s_then);
-    // cbr $c1, @success;
-    be.EmitCbr(src_y, s_success, width);
-    // @error:
-    be.Brigantine().addLabel(s_error);
-    // mov_b32 $s0, else_result; // else_result = {2,1}
-    be.EmitMov(result->Reg(), be.Brigantine().createImmed(else_result, result->Type()), result->TypeSizeBits());
-    // br @end_if;
-    be.EmitBr(s_endif);
-    // @success:
-    be.Brigantine().addLabel(s_success);
-    // mov_b32 $s0, then_result; // then_result = {1,2}
-    be.EmitMov(result->Reg(), be.Brigantine().createImmed(then_result, result->Type()), result->TypeSizeBits());
-    // @endif:
-    be.Brigantine().addLabel(s_endif);
+    TypedReg result = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(result, be.Immed(result->Type(), 3));
+    cond->EmitIfThenStartSor();
+    be.EmitMov(result, be.Immed(result->Type(), 2));
+    cond2->EmitIfThenStartSor(cond);
+    be.EmitMov(result, be.Immed(result->Type(), 1));
+    cond2->EmitIfThenEnd();
     return result;
   }
 };
-
-class CbrSorTest : public CbrSandTest {
-public:
-  CbrSorTest(Location location, Grid geometry, Memory::Type memoryType_, BrigWidth width_, bool testThenBranch_, bool testSecondThenBranch_)
-  : CbrSandTest(location, geometry, memoryType_, width_, testThenBranch_, testSecondThenBranch_) { baseName = "cbr/sor"; }
-
-  TypedReg Result() {
-    // if "THEN" branch is testing
-    uint64_t then_imm = 1;
-    // if "ELSE" branch is testing
-    if (!testThenBranch) then_imm = 0;
-    // if second (Y) "THEN" branch is testing
-    uint64_t then_imm_y = 1;
-    // if second (Y) "ELSE" branch is testing
-    if (!testSecondThenBranch) then_imm_y = 0;
-    // SOR
-    std::string s_else;
-    if (then_imm == 1) {
-      s_then = s_success;
-      s_else = s_error;
-    } else {
-      s_then = s_error;
-      if (then_imm_y) s_else = s_success;
-      else            s_else = s_error;
-    }
-    if (then_imm + then_imm_y == 0)
-      be.EmitMov(result->Reg(), be.Brigantine().createImmed(success, result->Type()), result->TypeSizeBits());
-    else
-      be.EmitMov(result->Reg(), be.Brigantine().createImmed(error, result->Type()), result->TypeSizeBits());
-    OperandData thenImmOp = be.Brigantine().createImmed(then_imm, GetBranchInstrType());
-    OperandData thenImmOp_y = be.Brigantine().createImmed(then_imm_y, GetBranchInstrType());
-    Operand src = c->Reg();
-    // mov_b1 $c0, then_imm; // then_imm = {1,0}
-    be.EmitMov(src, thenImmOp, c->TypeSizeBits());
-    src_y = c_y->Reg();
-    // mov_b1 $c1, then_imm_y; // then_imm_y = {1,0}
-    be.EmitMov(src_y, thenImmOp_y, c->TypeSizeBits());
-    // cbr $c0, @success;
-    be.EmitCbr(src, s_then, width);
-    // cbr $c1, @success;
-    be.EmitCbr(src_y, s_else, width);
-    // br @end_if;
-    be.EmitBr(s_endif);
-    // @error:
-    be.Brigantine().addLabel(s_error);
-    // mov_b32 $s0, 2;
-    be.EmitMov(result->Reg(), be.Brigantine().createImmed(error, result->Type()), result->TypeSizeBits());
-    // br @end_if;
-    be.EmitBr(s_endif);
-    // @success:
-    be.Brigantine().addLabel(s_success);
-    // mov_b32 $s0, 1;
-    be.EmitMov(result->Reg(), be.Brigantine().createImmed(success, result->Type()), result->TypeSizeBits());
-    // @endif:
-    be.Brigantine().addLabel(s_endif);
-    return result;
-  }
-};
-*/
 
 class SbrBasicTest : public ConditionTestBase {
 public:
@@ -619,9 +508,8 @@ void BranchTests::Iterate(TestSpecIterator& it)
   TestForEach<CbrIfThenElseNestedInElseTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
   TestForEach<CbrIfThenElseNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
   TestForEach<CbrSandTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
+  TestForEach<CbrSorTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedConditions(), cc->ControlFlow().NestedConditions());
 
-  //TestForEach<CbrSorTest>(it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().BinaryConditions(), Bools::All(), Bools::All());
-  
   TestForEach<SbrBasicTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().SwitchConditions());
   TestForEach<SbrNestedTest>(ap, it, base, CodeLocations(), cc->Grids().SeveralWavesSet(), cc->ControlFlow().NestedSwitchConditions(), cc->ControlFlow().NestedSwitchConditions());
 }

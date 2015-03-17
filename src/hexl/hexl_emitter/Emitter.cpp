@@ -2687,12 +2687,26 @@ void ECondition::EmitIfThenStart()
   te->Brig()->EmitLabel(lThen);
 }
 
-void ECondition::EmitIfThenStart(Condition condition)
+void ECondition::EmitIfThenStartSand(Condition condition)
 {
   lThen = te->Brig()->AddLabel();
   te->Brig()->EmitCbr(EmitIfCond(), lThen, width);
   te->Brig()->EmitBr(condition->EndLabel());
   te->Brig()->EmitLabel(lThen);
+}
+
+void ECondition::EmitIfThenStartSor()
+{
+  lThen = te->Brig()->AddLabel();
+  te->Brig()->EmitCbr(EmitIfCond(), lThen, width);
+}
+
+void ECondition::EmitIfThenStartSor(Condition condition)
+{
+  lEnd = te->Brig()->AddLabel();
+  te->Brig()->EmitCbr(EmitIfCond(), condition->ThenLabel(), width);
+  te->Brig()->EmitBr(lEnd);
+  te->Brig()->EmitLabel(condition->ThenLabel());
 }
 
 void ECondition::EmitIfThenEnd()

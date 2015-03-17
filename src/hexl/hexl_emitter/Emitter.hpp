@@ -796,6 +796,7 @@ public:
   ConditionInput Input() { return input; }
   BrigWidth Width() { return width; }
   std::string EndLabel() { return lEnd; }
+  std::string ThenLabel() { return lThen; }
 
   void Name(std::ostream& out) const;
   void Reset(TestEmitter* te);
@@ -818,7 +819,9 @@ public:
 
   HSAIL_ASM::Operand EmitIfCond();
   void EmitIfThenStart();
-  void EmitIfThenStart(Condition condition);
+  void EmitIfThenStartSand(Condition condition);
+  void EmitIfThenStartSor();
+  void EmitIfThenStartSor(Condition condition);
   void EmitIfThenEnd();
   bool ExpectThenPath(uint64_t wi);
   bool ExpectThenPath(const Dim& point) { return ExpectThenPath(Geometry()->WorkitemFlatAbsId(point)); }
