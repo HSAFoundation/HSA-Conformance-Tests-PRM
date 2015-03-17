@@ -812,7 +812,8 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
     binaryConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), WorkgroupWidths()))),
     nestedConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), CornerWidths()))),
     sbrTypes(NEWA EnumSequence<BrigType>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
-    switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths())))
+    switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths()))),
+    nestedSwitchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), CornerWidths())))
 {
   for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
     workgroupWidths->Add((BrigWidth) w);

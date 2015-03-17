@@ -302,6 +302,7 @@ namespace hexl {
         hexl::Sequence<Condition>* nestedConditions;
         hexl::Sequence<BrigType>* sbrTypes;
         hexl::Sequence<Condition>* switchConditions;
+        hexl::Sequence<Condition>* nestedSwitchConditions;
 
       public:
         ControlFlowConfig(CoreConfig* cc);
@@ -313,6 +314,7 @@ namespace hexl {
         hexl::Sequence<Condition>* NestedConditions() { return nestedConditions; }
         hexl::Sequence<BrigType>* SbrTypes() { return sbrTypes; }
         hexl::Sequence<Condition>* SwitchConditions() { return switchConditions; }
+        hexl::Sequence<Condition>* NestedSwitchConditions() { return nestedSwitchConditions; }
       };
 
       class ImageConfig : public ConfigBase {
