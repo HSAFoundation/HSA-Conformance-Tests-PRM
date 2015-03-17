@@ -792,7 +792,7 @@ public:
       { }
     
   ConditionType Type() { return type; }
-  BrigType Itype() { return itype; }
+  BrigType IType() { return itype; }
   ConditionInput Input() { return input; }
   BrigWidth Width() { return width; }
 
