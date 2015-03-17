@@ -334,7 +334,7 @@ public:
     } else if (codeLocation == Location::FUNCTION) {
       auto kernArgInRegs = te->Brig()->AddTRegList();
       auto kernArgOutRegs = te->Brig()->AddTRegList();
-      te->Brig()->EmitCallSeq(function->Directive(), kernArgInRegs, kernArgOutRegs);
+      te->Brig()->EmitCallSeq(function, kernArgInRegs, kernArgOutRegs);
     }
   }
 

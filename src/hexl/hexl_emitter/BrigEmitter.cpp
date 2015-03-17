@@ -585,6 +585,13 @@ BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandT
   }
 }
 
+HSAIL_ASM::InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2)
+{
+  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, type));
+  inst.operands() = Operands(dst, src0, src1, src2);
+  return inst;
+}
+
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand o)
 {
   assert(dst->Type() == src0->Type());
@@ -805,15 +812,19 @@ InstBr BrigEmitter::EmitCall(HSAIL_ASM::DirectiveFunction f, ItemList ins, ItemL
 {
     InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_CALL, BRIG_TYPE_NONE);
     inst.width() = BRIG_WIDTH_ALL;
-    std::string name = f.name().str();
     inst.operands() = Operands(
       brigantine.createCodeList(outs),
-      brigantine.createExecutableRef(name),
+      brigantine.createExecutableRef(f.name().str()),
       brigantine.createCodeList(ins));
     return inst;
 }
 
-void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+void BrigEmitter::EmitCallSeq(Function f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+{
+  EmitCallSeq(f->Directive(), inRegs, outRegs, useVectorInstructions);
+}
+
+void BrigEmitter::EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
 {
   ItemList ins;
   ItemList outs;
@@ -824,13 +835,11 @@ void BrigEmitter::EmitCallSeq(DirectiveFunction f, TypedRegList inRegs, TypedReg
     outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
   }
-//  assert(fArg = f.firstInArg());
   for (unsigned i = 0; i < inRegs->Count(); ++i) {
     assert(fArg);
-    //assert(fArg.type == inRegs->Get(i)->Type());
     ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
     fArg = fArg.next();
-  }
+   }
   EmitStores(inRegs, ins, useVectorInstructions);
   EmitCall(f, ins, outs);
   EmitLoads(outRegs, outs, useVectorInstructions);
