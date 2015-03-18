@@ -2484,7 +2484,7 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 {
 	Value rgba[4];
 	Value raw_data;
-	uint64_t raw_bits[2];
+	//uint64_t raw_bits[2];
 	int bits_per_channel = -1;
 	uint32_t packed_rgb = 0;
 	uint32_t unpacked_r, unpacked_g, unpacked_b;

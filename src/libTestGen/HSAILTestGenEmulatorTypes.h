@@ -473,8 +473,7 @@ public:
         return reinterpret_cast<const T*>(this)[idx];
     }
 
-    template<>
-    f16_t get<f16_t>(unsigned idx /*= 0*/) const
+    f16_t get(unsigned idx = 0) const
     {
         assert(idx < 16 / sizeof(f16_t::bits_t));
         return f16_t::make(reinterpret_cast<const f16_t::bits_t*>(this)[idx]);
@@ -487,8 +486,7 @@ public:
         reinterpret_cast<T*>(this)[idx] = val;
     }
 
-    template<>
-    void set<f16_t>(f16_t val, unsigned idx /*= 0*/)
+    void set(f16_t val, unsigned idx = 0)
     {
         assert(idx < 16 / sizeof(f16_t::bits_t));
         reinterpret_cast<f16_t::bits_t*>(this)[idx] = val.getBits();
