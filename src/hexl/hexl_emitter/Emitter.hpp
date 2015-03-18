@@ -579,7 +579,8 @@ private:
   int GetTexelIndex(float f, unsigned _dimSize) const;
   int GetTexelArrayIndex(float f, unsigned dimSize) const;
   void LoadBorderData(Value* _color) const;
-  uint32_t GetRawColorData() const;
+  uint32_t GetRawPixelData(int x_ind, int y_ind, int z_ind) const;
+  uint32_t GetRawChannelData(int x_ind, int y_ind, int z_ind, int channel) const;
   int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
@@ -640,6 +641,7 @@ public:
 
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
 
+  void InitMemValue(Value v);
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }

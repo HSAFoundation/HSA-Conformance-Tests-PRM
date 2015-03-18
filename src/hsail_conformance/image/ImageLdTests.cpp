@@ -60,7 +60,7 @@ public:
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
    imgobj = kernel->NewImage("%roimage", &imageSpec);
-   imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF));
+   imgobj->InitMemValue(Value(MV_UINT32, 0x00000032));
    
    imgobj->InitImageCalculator(NULL, imgobj->GetRawData());
   }
@@ -81,7 +81,10 @@ public:
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
-
+    color[0] = Value(MV_UINT64, 0);
+    color[1] = Value(MV_UINT64, 0);
+    color[2] = Value(MV_UINT64, 0);
+    color[3] = Value(MV_UINT64, 0);
     imgobj->ReadColor(coords, color);
 
     return (imageChannelOrder == BRIG_CHANNEL_ORDER_A) ? Value(MV_UINT32, color[3].U32()) : Value(MV_UINT32, color[0].U32());

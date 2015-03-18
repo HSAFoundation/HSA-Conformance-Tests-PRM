@@ -934,6 +934,252 @@ Location EImage::RealLocation() const
   }
 }
 
+void EImage::InitMemValue(Value v)
+{
+  Value result;
+  switch (ChannelOrder())
+  {
+  case BRIG_CHANNEL_ORDER_A:
+  case BRIG_CHANNEL_ORDER_R:
+  case BRIG_CHANNEL_ORDER_RX:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      result = Value(MV_UINT8, v.U8());
+      break;
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      result = Value(MV_UINT16, v.U16());
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_RG:
+  case BRIG_CHANNEL_ORDER_RGX:
+  case BRIG_CHANNEL_ORDER_RA:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      result = Value(MV_UINT16, v.U16());
+      break;
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      result = Value(MV_UINT64, v.U64());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_RGB:
+  case BRIG_CHANNEL_ORDER_RGBX:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      result = Value(MV_UINT16, v.U16());
+      break;
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_RGBA:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      result = Value(MV_UINT64, v.U64());
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      result = Value(MV_UINT128, v.U128());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_BGRA:
+  case BRIG_CHANNEL_ORDER_ARGB:
+  case BRIG_CHANNEL_ORDER_ABGR:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_SRGB:
+  case BRIG_CHANNEL_ORDER_SRGBX:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      result = Value(MV_UINT32, v.U32()); //TODO 24bpp
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_SRGBA:
+  case BRIG_CHANNEL_ORDER_SBGRA:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+  case BRIG_CHANNEL_ORDER_INTENSITY:
+  case BRIG_CHANNEL_ORDER_LUMINANCE:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      result = Value(MV_UINT8, v.U8());
+      break;
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      result = Value(MV_UINT16, v.U16());
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_DEPTH:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      result = Value(MV_UINT16, v.U16());
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      result = Value(MV_UINT32, v.U32());
+      break;
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+      result = Value(MV_UINT32, v.U32()); //TODO 24bpp
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
+    switch (ChannelType())
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+      result = Value(MV_UINT8, v.U32());
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      result = Value(MV_UINT64, v.U64());
+      break;
+    default:
+      assert(0); //illegal channel
+      break;
+    }
+    break;
+  default:
+    assert(0); //illegal channel order
+    break;
+  }
+  //store value
+  AddData(result);
+}
+
 void EImage::SetupDispatch(DispatchSetup* dispatch) 
 {
   if (segment == BRIG_SEGMENT_KERNARG) {  
@@ -1535,7 +1781,12 @@ void EImageCalc::LoadBorderData(Value* _color) const
   return;
 }
 
-uint32_t EImageCalc::GetRawColorData() const
+uint32_t EImageCalc::GetRawPixelData(int x_ind, int y_ind, int z_ind) const
+{
+  return existVal.U32();
+}
+
+uint32_t EImageCalc::GetRawChannelData(int x_ind, int y_ind, int z_ind, int channel) const
 {
   switch (imageChannelType)
   {
@@ -1543,26 +1794,26 @@ uint32_t EImageCalc::GetRawColorData() const
   case BRIG_CHANNEL_TYPE_UNORM_INT8:
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-    return existVal.U32()&0xFF;
+    return (existVal.U32() >> channel*8) & 0xFF;
     break;
   case BRIG_CHANNEL_TYPE_SNORM_INT16:
   case BRIG_CHANNEL_TYPE_UNORM_INT16:
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    return existVal.U32()&0xFFFF;
+    return (existVal.U32() >> channel*8) & 0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    return existVal.U32()&0xFFFF;
+    return (existVal.U32() >> channel*8) & 0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT24:
-    return existVal.U32()&0x00FFFFFF;
+    return (existVal.U32() >> channel*8) & 0x00FFFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    return existVal.U32()&0x1F;
+    return (existVal.U32() >> channel*8) & 0x1F;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    return existVal.U32()&0x03FF;
+    return (existVal.U32() >> channel*8) & 0x3FF;
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
@@ -1657,10 +1908,10 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
     assert(0);
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-    c = Value(MV_INT8, S8(ConvertionLoadSignedClamp(data, 8)));
+    c = Value(MV_INT32, S32(ConvertionLoadSignedClamp(data, 8)));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-    c = Value(MV_INT16, S16(ConvertionLoadSignedClamp(data, 16)));
+    c = Value(MV_INT32, S32(ConvertionLoadSignedClamp(data, 16)));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     c = Value(MV_INT32, S32(data));
@@ -1669,13 +1920,13 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
     c = Value(MV_UINT32, U32(ConvertionLoadUnsignedClamp(data, 8)));
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    c = Value(MV_UINT16, U16(ConvertionLoadUnsignedClamp(data, 16)));
+    c = Value(MV_UINT32, U32(ConvertionLoadUnsignedClamp(data, 16)));
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     c = Value(MV_UINT32, U32(data));
     break;
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    c = Value(MV_UINT32, 0xFFC00000);//Value(ConvertionHalfFloat(data));
+    c = Value(MV_UINT32, 0xFFC00000);
     break;
   case BRIG_CHANNEL_TYPE_FLOAT:
     c = Value(MV_INT32, S32(data));
@@ -1708,31 +1959,31 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     _color[0] = color_zero;
     _color[1] = color_zero;
     _color[2] = color_zero;
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     break;
   case BRIG_CHANNEL_ORDER_R:
   case BRIG_CHANNEL_ORDER_RX:
-    _color[0] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     _color[1] = color_zero;
     _color[2] = color_zero;
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_RG:
   case BRIG_CHANNEL_ORDER_RGX:
-    _color[0] = ConvertRawData(GetRawColorData());
-    _color[1] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
+    _color[1] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 1));
     _color[2] = color_zero;
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_RA:
-    _color[0] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     _color[1] = color_zero;
     _color[2] = color_zero;
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 1));
     break;
   case BRIG_CHANNEL_ORDER_RGB:
   case BRIG_CHANNEL_ORDER_RGBX:
-    packed_color = GetRawColorData();
+    packed_color = GetRawPixelData(x_ind, y_ind, z_ind);
     switch (imageChannelType)
     {
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
@@ -1766,35 +2017,35 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_RGBA:
-    _color[0] = ConvertRawData(GetRawColorData());
-    _color[1] = ConvertRawData(GetRawColorData());
-    _color[2] = ConvertRawData(GetRawColorData());
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
+    _color[1] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 1));
+    _color[2] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 2));
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
     break;
   case BRIG_CHANNEL_ORDER_BGRA:
-    _color[0] = ConvertRawData(GetRawColorData());
-    _color[1] = ConvertRawData(GetRawColorData());
-    _color[2] = ConvertRawData(GetRawColorData());
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 2));
+    _color[1] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 1));
+    _color[2] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
     break;
   case BRIG_CHANNEL_ORDER_ARGB:
-    _color[0] = ConvertRawData(GetRawColorData());
-    _color[1] = ConvertRawData(GetRawColorData());
-    _color[2] = ConvertRawData(GetRawColorData());
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 1));
+    _color[1] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 2));
+    _color[2] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     break;
   case BRIG_CHANNEL_ORDER_ABGR:
-    _color[0] = ConvertRawData(GetRawColorData());
-    _color[1] = ConvertRawData(GetRawColorData());
-    _color[2] = ConvertRawData(GetRawColorData());
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
+    _color[1] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 2));
+    _color[2] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 1));
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     break;
   case BRIG_CHANNEL_ORDER_SRGB:
   case BRIG_CHANNEL_ORDER_SRGBX:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
-    fg = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
-    fb = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
+    fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
+    fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
@@ -1802,43 +2053,43 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     break;
   case BRIG_CHANNEL_ORDER_SRGBA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
-    fg = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
-    fb = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
+    fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
+    fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
     break;
   case BRIG_CHANNEL_ORDER_SBGRA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
-    fr = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
-    fg = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
-    fb = ConvertionLoadUnsignedNormalize(GetRawColorData(), 8);
+    fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
+    fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
+    fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
     _color[0] = Value(GammaCorrection(fr));
     _color[1] = Value(GammaCorrection(fg));
     _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawColorData());
+    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
     break;
   case BRIG_CHANNEL_ORDER_INTENSITY:
-    c = ConvertRawData(GetRawColorData());
+    c = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     _color[0] = c;
     _color[1] = c;
     _color[2] = c;
     _color[3] = c;
     break;
   case BRIG_CHANNEL_ORDER_LUMINANCE:
-    c = ConvertRawData(GetRawColorData());
+    c = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     _color[0] = c;
     _color[1] = c;
     _color[2] = c;
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_DEPTH:
-    _color[0] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     break;
   case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
-    _color[0] = ConvertRawData(GetRawColorData());
+    _color[0] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
     break;
   default:
     assert(0); //illegal channel order
