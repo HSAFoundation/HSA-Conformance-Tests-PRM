@@ -46,6 +46,9 @@ namespace hexl {
       BrigProfile8_t profile;
       uint32_t wavesize;
       uint8_t wavesPerGroup;
+      bool isDetectSupported;
+      bool isBreakSupported;
+      EndiannessConfig endianness;
 
     public:
       static const char *CONTEXT_KEY;
@@ -57,6 +60,8 @@ namespace hexl {
                  BrigMachineModel8_t model_ = (sizeof(void *) == 8 ? BRIG_MACHINE_LARGE : BRIG_MACHINE_SMALL),
                  BrigProfile8_t profile_ = BRIG_PROFILE_FULL);
 
+      void Init(hexl::Context *context);
+
       Arena* Ap() { return ap; }
       BrigVersion32_t MajorVersion() const { return majorVersion; }
       BrigVersion32_t MinorVersion() const { return minorVersion; }
@@ -64,7 +69,9 @@ namespace hexl {
       BrigProfile8_t Profile() const { return profile; }
       uint32_t Wavesize() const { return wavesize; }
       uint8_t WavesPerGroup() const { return wavesPerGroup; }
-      EndiannessConfig Endianness() { return ENDIANNESS_LITTLE; }
+      bool IsDetectSupported() const { return isDetectSupported; }
+      bool IsBreakSupported() const { return isBreakSupported; }
+      EndiannessConfig Endianness() { return endianness; }
 
       bool IsLarge() const {
         switch (model) {
@@ -212,10 +219,9 @@ namespace hexl {
       private:
         hexl::Sequence<BrigMemoryOrder> *allMemoryOrders, *signalSendMemoryOrders, *signalWaitMemoryOrders, *memfenceMemoryOrders;
         hexl::Sequence<BrigMemoryScope> *allMemoryScopes, *memfenceMemoryScopes;
-        hexl::Sequence<BrigAtomicOperation> *allAtomics, *signalSendAtomics, *signalWaitAtomics;
+        hexl::Sequence<BrigAtomicOperation> *allAtomics, *atomicOperations, *signalSendAtomics, *signalWaitAtomics;
         hexl::Sequence<BrigSegment> *memfenceSegments;
         hexl::Sequence<BrigOpcode> *ldStOpcodes, *atomicOpcodes;
-        hexl::Sequence<BrigAtomicOperation>* atomicOperations;
 
       public:
         MemoryConfig(CoreConfig* cc);
@@ -224,12 +230,12 @@ namespace hexl {
         hexl::Sequence<BrigMemoryOrder>* SignalWaitMemoryOrders() { return signalWaitMemoryOrders; }
         hexl::Sequence<BrigMemoryScope>* AllMemoryScopes() { return allMemoryScopes; }
         hexl::Sequence<BrigAtomicOperation>* AllAtomics() { return allAtomics; }
+        hexl::Sequence<BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
         hexl::Sequence<BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
         hexl::Sequence<BrigAtomicOperation>* SignalWaitAtomics() { return signalWaitAtomics; }
         hexl::Sequence<BrigSegment>* MemfenceSegments() { return memfenceSegments; }
         hexl::Sequence<BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
         hexl::Sequence<BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
-        hexl::Sequence<BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
         hexl::Sequence<BrigMemoryOrder>* MemfenceMemoryOrders() { return memfenceMemoryOrders; }
         hexl::Sequence<BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
       };
@@ -302,6 +308,7 @@ namespace hexl {
         hexl::Sequence<Condition>* nestedConditions;
         hexl::Sequence<BrigType>* sbrTypes;
         hexl::Sequence<Condition>* switchConditions;
+        hexl::Sequence<Condition>* nestedSwitchConditions;
 
       public:
         ControlFlowConfig(CoreConfig* cc);
@@ -313,6 +320,7 @@ namespace hexl {
         hexl::Sequence<Condition>* NestedConditions() { return nestedConditions; }
         hexl::Sequence<BrigType>* SbrTypes() { return sbrTypes; }
         hexl::Sequence<Condition>* SwitchConditions() { return switchConditions; }
+        hexl::Sequence<Condition>* NestedSwitchConditions() { return nestedSwitchConditions; }
       };
 
       class ImageConfig : public ConfigBase {

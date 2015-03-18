@@ -2433,7 +2433,7 @@ const char* ConditionInput2Str(ConditionInput input)
 
 void ECondition::Name(std::ostream& out) const
 {
-  out << ConditionType2Str(type) << "_" << ConditionInput2Str(input) << "_" << width2str(width);
+  out << ConditionType2Str(type) << "_" << ConditionInput2Str(input) << "_" << width2str(width) << "_" << type2str(itype);
 }
  
 void ECondition::Reset(TestEmitter* te)

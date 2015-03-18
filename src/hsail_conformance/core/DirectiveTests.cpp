@@ -132,7 +132,7 @@ private:
     be.EmitArith(BRIG_OPCODE_ADD, tmp, tmp, result->Reg());
     be.EmitArith(BRIG_OPCODE_SUB, tmp, tmp, tmp->Reg());
     be.EmitArith(BRIG_OPCODE_ADD, result, result, tmp->Reg());
-    be.EmitCallSeq(empty_function, be.AddTRegList(), be.AddTRegList());
+    be.EmitCall(empty_function->Directive(), ItemList(), ItemList());
 
     if (annotationLocation == AnnotationLocation::END_ARG_BLOCK) {
       EmitAnnotation();
@@ -478,13 +478,7 @@ public:
     } else { 
       out << "detect_";
     }
-    // 'v' - INVALID_OPERATION, 'd' - DIVIDE_BY_ZERO, 'o' - OVERFLOW, 'u' - underflow, 'e' - INEXACT
-    if ((exceptionNumber & 0x10) != 0) { out << 'e'; }
-    if ((exceptionNumber & 0x08) != 0) { out << 'u'; }
-    if ((exceptionNumber & 0x04) != 0) { out << 'o'; }
-    if ((exceptionNumber & 0x02) != 0) { out << 'd'; }
-    if ((exceptionNumber & 0x01) != 0) { out << 'v'; }
-    if (exceptionNumber == 0) { out << '0'; }
+    out << ExceptionsNumber2Str(exceptionNumber);
   }
 
   TypedReg Result() override{

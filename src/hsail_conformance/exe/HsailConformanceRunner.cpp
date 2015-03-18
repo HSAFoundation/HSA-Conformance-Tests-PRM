@@ -201,6 +201,7 @@ void HCRunner::Run()
     context->Put("hexl.runtime", runtime);
   }
   context->Put("hexl.testFactory", testFactory);
+  coreConfig->Init(context.get());
   runner = CreateTestRunner();
   TestSet* tests = CreateTestSet();
   assert(tests);

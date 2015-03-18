@@ -238,7 +238,7 @@ private:
 public:
   explicit WorkGroupNumberLimitTest(bool): SkipTest(Location::KERNEL, &LIMIT_GEOMETRY) { }
 
-  void Name(std::ostream& out) const {}
+  void Name(std::ostream& out) const override {}
 };
 
 const GridGeometry WorkGroupNumberLimitTest::LIMIT_GEOMETRY(3, 65537, 257, 255, 1, 1, 1);

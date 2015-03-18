@@ -41,8 +41,10 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_shut_down);
   GET_FUNCTION(hsa_iterate_agents);
   GET_FUNCTION(hsa_agent_iterate_regions);
+  GET_FUNCTION(hsa_system_get_info);
   GET_FUNCTION(hsa_region_get_info);
   GET_FUNCTION(hsa_agent_get_info);
+  GET_FUNCTION(hsa_agent_get_exception_policies);
   GET_FUNCTION(hsa_queue_create);
   GET_FUNCTION(hsa_queue_destroy);
   GET_FUNCTION(hsa_memory_allocate);
@@ -347,7 +349,9 @@ public:
 HsailRuntimeContext::HsailRuntimeContext(Context* context)
   : RuntimeContext(context),
     hsaApi(context, context->Opts(), HSARUNTIMECORENAME),
-    queue(0), queueSize(0), error(false)
+    queue(0), queueSize(0), error(false),
+    profile(HSA_PROFILE_BASE), wavesize(64), wavesPerGroup(4), endianness(HSA_ENDIANNESS_LITTLE),
+    isBreakSupported(false), isDetectSupported(false)
 {
 }
 
@@ -1096,6 +1100,27 @@ bool HsailRuntimeContext::Init() {
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
   status = Hsa()->hsa_queue_create(agent, queueSize, HSA_QUEUE_TYPE_SINGLE, HsaQueueErrorCallback, this, UINT32_MAX, UINT32_MAX, &queue);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_queue_create failed", status); return false; }
+
+  status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_PROFILE, &profile);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
+  status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_WAVEFRONT_SIZE, &wavesize);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
+  uint32_t wgMaxSize;
+  status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_WORKGROUP_MAX_SIZE, &wgMaxSize);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
+  wavesPerGroup = wgMaxSize / wavesize;
+  status = Hsa()->hsa_system_get_info(HSA_SYSTEM_INFO_ENDIANNESS, &endianness);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_system_get_info failed", status); return false; }
+  
+  // Wait until hsa_agent_get_exception_policies() will be implemented in runtime
+  // uint16_t exceptionMask;
+  // status = Hsa()->hsa_agent_get_exception_policies(agent, profile, &exceptionMask);
+  // if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_exception_policies failed", status); return false; }
+  // isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
+  // isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
+  isBreakSupported = true;
+  isDetectSupported = true;
+
   context->Put("queueid", Value(MV_UINT32, Queue()->id));
   context->Put("queueptr", Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) Queue()));
   return true;

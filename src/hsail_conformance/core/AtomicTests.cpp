@@ -583,7 +583,7 @@ public:
         {
             Comment("Load variable address");
             atomicVarAddr = be.AddAReg(testVar.segment());
-            InstAddr inst = be.EmitLda(atomicVarAddr, testVar);
+            be.EmitLda(atomicVarAddr, testVar);
         }
         return atomicVarAddr;
     }

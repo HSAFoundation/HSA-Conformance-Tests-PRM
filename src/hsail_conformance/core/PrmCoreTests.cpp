@@ -29,6 +29,7 @@
 #include "InitializerTests.hpp"
 #include "DirectiveTests.hpp"
 #include "LimitsTests.hpp"
+#include "ExceptionsTests.hpp"
 #ifdef ENABLE_HEXL_HSAILTESTGEN
 #include "HexlTestGen.hpp"
 #endif // ENABLE_HEXL_HSAILTESTGEN
@@ -170,6 +171,7 @@ SpecialOperationsTests::SpecialOperationsTests()
   : TestSetUnion("special")
 {
   Add(new DispatchPacketOperationsTests());
+  Add(new ExceptionsTests());
   Add(new UserModeQueueTests());
   Add(new MiscOperationsTests());
 }

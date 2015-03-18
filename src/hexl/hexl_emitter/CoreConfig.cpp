@@ -17,6 +17,7 @@
 #include "CoreConfig.hpp"
 #include "Emitter.hpp"
 #include "BrigEmitter.hpp"
+#include "RuntimeContext.hpp"
 
 namespace hexl {
 
@@ -31,6 +32,9 @@ CoreConfig::CoreConfig(
     model(model_), profile(profile_),
     wavesize(64),
     wavesPerGroup(4),
+    isDetectSupported(true),
+    isBreakSupported(true),
+    endianness(ENDIANNESS_LITTLE),
     grids(this),
     segments(this),
     types(this),
@@ -42,6 +46,16 @@ CoreConfig::CoreConfig(
     images(this),
     samplers(this)
 {
+}
+
+void CoreConfig::Init(Context *context) {
+  RuntimeContext* runtimeContext = context->Runtime();
+  profile = runtimeContext->IsFullProfile() ? BRIG_PROFILE_FULL : BRIG_PROFILE_BASE;
+  wavesize = runtimeContext->Wavesize();
+  wavesPerGroup = runtimeContext->WavesPerGroup();
+  endianness = runtimeContext->IsLittleEndianness() ? ENDIANNESS_LITTLE : ENDIANNESS_BIG;
+  isBreakSupported = runtimeContext->IsBreakSupported();
+  isDetectSupported = runtimeContext->IsDetectSupported();
 }
 
 CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
@@ -655,12 +669,12 @@ CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
     signalWaitMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_SC_RELEASE)),
     allMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(BRIG_MEMORY_SCOPE_WORKITEM, BRIG_MEMORY_SCOPE_LAST)),
     allAtomics(NEWA ArraySequence<BrigAtomicOperation>(allAtomicsValues, NELEM(allAtomicsValues))),
+    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues))),
     signalSendAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalSendAtomicsValues, NELEM(signalSendAtomicsValues))),
     signalWaitAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalWaitAtomicsValues, NELEM(signalWaitAtomicsValues))),
     memfenceSegments(new (ap) hexl::ArraySequence<BrigSegment>(memfenceSegmentsValues, NELEM(memfenceSegmentsValues))),
     ldStOpcodes(NEWA ArraySequence<BrigOpcode>(ldStOpcodesValues, NELEM(ldStOpcodesValues))),
     atomicOpcodes(NEWA ArraySequence<BrigOpcode>(atomicOpcodesValues, NELEM(atomicOpcodesValues))),
-    atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues))),
     memfenceMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_ORDER_LAST)),
     memfenceMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(BRIG_MEMORY_SCOPE_WAVEFRONT, BRIG_MEMORY_SCOPE_LAST))
 {
@@ -812,7 +826,8 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
     binaryConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), WorkgroupWidths()))),
     nestedConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), CornerWidths()))),
     sbrTypes(NEWA EnumSequence<BrigType>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
-    switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths())))
+    switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths()))),
+    nestedSwitchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), CornerWidths())))
 {
   for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
     workgroupWidths->Add((BrigWidth) w);
