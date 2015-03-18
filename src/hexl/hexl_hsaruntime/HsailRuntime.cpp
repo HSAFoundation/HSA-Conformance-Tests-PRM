@@ -1111,15 +1111,11 @@ bool HsailRuntimeContext::Init() {
   wavesPerGroup = wgMaxSize / wavesize;
   status = Hsa()->hsa_system_get_info(HSA_SYSTEM_INFO_ENDIANNESS, &endianness);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_system_get_info failed", status); return false; }
-  
-  // Wait until hsa_agent_get_exception_policies() will be implemented in runtime
-  // uint16_t exceptionMask;
-  // status = Hsa()->hsa_agent_get_exception_policies(agent, profile, &exceptionMask);
-  // if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_exception_policies failed", status); return false; }
-  // isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
-  // isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
-  isBreakSupported = true;
-  isDetectSupported = true;
+  uint16_t exceptionMask;
+  status = Hsa()->hsa_agent_get_exception_policies(agent, profile, &exceptionMask);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_exception_policies failed", status); return false; }
+  isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
+  isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
 
   context->Put("queueid", Value(MV_UINT32, Queue()->id));
   context->Put("queueptr", Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) Queue()));
