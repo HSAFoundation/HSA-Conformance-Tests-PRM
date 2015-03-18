@@ -832,6 +832,8 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
   for (unsigned w = BRIG_WIDTH_1; w <= BRIG_WIDTH_256; ++w) {
     workgroupWidths->Add((BrigWidth) w);
   }
+  workgroupWidths->Add(BRIG_WIDTH_WAVESIZE);
+  workgroupWidths->Add(BRIG_WIDTH_ALL);
   cornerWidths->Add(BRIG_WIDTH_1);
   cornerWidths->Add(BRIG_WIDTH_WAVESIZE);
   cornerWidths->Add(BRIG_WIDTH_ALL);
