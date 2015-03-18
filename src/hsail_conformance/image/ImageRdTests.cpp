@@ -51,7 +51,7 @@ public:
   }
   
   void Name(std::ostream& out) const {
-    out << CodeLocationString() << '_' << geometry << '\\' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType)) << "_" <<
+    out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType)) << "_" <<
       SamplerCoordsString(MObjectSamplerCoords(samplerCoord)) << "_" << SamplerFilterString(MObjectSamplerFilter(samplerFilter)) << "_" << SamplerAddressingString(MObjectSamplerAddressing(samplerAddressing));
   }
 
@@ -69,8 +69,7 @@ public:
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
    imgobj = kernel->NewImage("%roimage", &imageSpec);
-   //imgobj->AddData(Value(MV_UINT32, 0xFFFFFFFF));
-   imgobj->AddData(Value(MV_UINT32, 0x47F12000));
+   imgobj->InitMemValue(Value(MV_UINT32, 0x00000032));
  
    ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
    samplerSpec.CoordNormalization(samplerCoord);

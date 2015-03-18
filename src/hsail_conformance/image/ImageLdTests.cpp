@@ -45,7 +45,7 @@ public:
   }
   
   void Name(std::ostream& out) const {
-    out << CodeLocationString() << '_' << geometry << '\\' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType));
+    out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType));
   }
   
   void Init() {
@@ -81,10 +81,6 @@ public:
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
-    color[0] = Value(MV_UINT64, 0);
-    color[1] = Value(MV_UINT64, 0);
-    color[2] = Value(MV_UINT64, 0);
-    color[3] = Value(MV_UINT64, 0);
     imgobj->ReadColor(coords, color);
 
     return (imageChannelOrder == BRIG_CHANNEL_ORDER_A) ? Value(MV_UINT32, color[3].U32()) : Value(MV_UINT32, color[0].U32());

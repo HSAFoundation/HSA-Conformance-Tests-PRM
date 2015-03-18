@@ -1926,7 +1926,7 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
     c = Value(MV_UINT32, U32(data));
     break;
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    c = Value(MV_UINT32, 0xFFC00000);
+    c = Value(ConvertionLoadHalfFloat(data));
     break;
   case BRIG_CHANNEL_TYPE_FLOAT:
     c = Value(MV_INT32, S32(data));
