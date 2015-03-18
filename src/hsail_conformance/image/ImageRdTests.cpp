@@ -164,6 +164,13 @@ public:
       default:
         break;
       }
+	  //currently rd test will generate coordinate 0, which will sample out of range texel
+	  //for linear filtering. We should not test it, because it implementation defined.
+	  //TODO:
+	  //Change rd test with linear filter and undefined addressing
+	  //to not read from edge of an image
+	  if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
+		  return false;
     }
     return IsImageSupported(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
