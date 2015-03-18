@@ -42,7 +42,7 @@ enum ValueType { MV_INT8, MV_UINT8, MV_INT16, MV_UINT16, MV_INT32, MV_UINT32, MV
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
                  MV_PLAIN_FLOAT16,
 #endif
-                 MV_INT8X4, MV_INT8X8, MV_UINT8X4, MV_UINT8X8, MV_INT16X2, MV_INT16X4, MV_UINT16X2, MV_UINT16X4, MV_INT32X2, MV_UINT32X2, MV_FLOAT16X2, MV_FLOAT16X4, MV_FLOATX2, MV_LAST};
+                 MV_INT8X4, MV_INT8X8, MV_UINT8X4, MV_UINT8X8, MV_INT16X2, MV_INT16X4, MV_UINT16X2, MV_UINT16X4, MV_INT32X2, MV_UINT32X2, MV_UINT128, MV_FLOAT16X2, MV_FLOAT16X4, MV_FLOATX2, MV_LAST};
 
 enum MObjectType {
   MUNDEF = 0,
@@ -484,6 +484,33 @@ typedef IEEE754
 //==============================================================================
 //==============================================================================
 //==============================================================================
+// U128 type
+class uint128
+{
+public:
+  typedef struct { uint64_t l; uint64_t h; } Type;
+private:
+    uint64_t val[2];
+
+public:
+    uint128() { val[0] = 0; val[1] = 0;}
+    explicit uint128(int64_t l) { val[0] = l; val[1] = 0; }
+    explicit uint128(int64_t h, int64_t l) { val[0] = l; val[1] = h; }
+
+public:
+    uint32_t U32() const { return val[0] & 0x00000000FFFFFFFF; }
+    uint64_t U64L() const { return val[0]; }
+    uint64_t U64H() const { return val[1]; }
+    operator int() const { return U32(); }
+    operator long long() const { return U64L(); }
+
+    static uint128 make(Type bits) { uint128 res; res.val[1] = bits.h; res.val[0] = bits.l; return res; }
+
+};
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
 // F16 type
 
 class f16_t
@@ -545,6 +572,7 @@ inline f16_t operator- (f16_t l, f16_t r) { return f16_t(l.f64() - r.f64()); } *
 namespace hexl {
 
 typedef HSAIL_X::f16_t half;
+typedef HSAIL_X::uint128 uint128_t;
 
 typedef union {
   uint8_t u8;
@@ -555,6 +583,7 @@ typedef union {
   int32_t s32;
   uint64_t u64;
   int64_t s64;
+  uint128_t::Type u128;
   half::bits_t h_bits;
   float f;
   double d;
@@ -574,6 +603,7 @@ inline ValueData U32(uint32_t u32) { ValueData data; data.u32 = u32;  return dat
 inline ValueData S32(int32_t s32) { ValueData data; data.s32 = s32;  return data; }
 inline ValueData U64(uint64_t u64) { ValueData data; data.u64 = u64;  return data; }
 inline ValueData S64(int64_t s64) { ValueData data; data.s64 = s64;  return data; }
+inline ValueData U128(uint128_t u128) { ValueData data; data.u128.h = u128.U64H(); data.u128.l = u128.U64L(); return data; }
 inline ValueData H(half h) { ValueData data; data.h_bits = h.getBits();  return data; }
 inline ValueData F(float f) { ValueData data; data.f = f;  return data; }
 inline ValueData D(double d) { ValueData data; data.d = d;  return data; }
@@ -592,6 +622,7 @@ ValueData S16X2(int16_t a, int16_t b);
 ValueData S16X4(int16_t a, int16_t b, int16_t c, int16_t d);
 ValueData U32X2(uint32_t a, uint32_t b);
 ValueData S32X2(int32_t a, int32_t b);
+ValueData U64X2(uint64_t a, uint64_t b);
 ValueData FX2(float a, float b);
 
 class Comparison;
@@ -599,14 +630,15 @@ class Comparison;
 class Value {
 public:
   /// Unsafe constructor, take care. Example: Value(MV_DOUBLE, F(expr)) yields totally invalid result.
-  Value(ValueType type_, ValueData data_) : type(type_), data(data_), printExtraHex(false) {}
-  Value() : type(MV_UINT64), printExtraHex(false) { data.u64 = 0; }
+  Value(ValueType type_, ValueData data_) : type(type_), data(data_), printExtraHex(false) { }
+  Value() : type(MV_UINT64), printExtraHex(false) { data.u64 = 0; data.u128.h = 0;}
   Value(const Value& v) : type(v.type), data(v.data), printExtraHex(v.printExtraHex) { }
   Value& operator=(const Value& v) { type = v.type; data = v.data; printExtraHex = v.printExtraHex; return *this; }
   /// \todo HIGHLY unsafe, take care! Example: Value(MV_FLOAT, 1.5F) will cast 1.5F to uint64 1 (0x1), which means float denorm.
-  Value(ValueType _type, uint64_t _value) : type(_type), printExtraHex(false) { data.u64 = _value; }
-  explicit Value(float value_) : type(MV_FLOAT), printExtraHex(false)  { data.f = value_; }
-  explicit Value(double value_) : type(MV_DOUBLE), printExtraHex(false) { data.d = value_; }
+  Value(ValueType _type, uint64_t _value) : type(_type), printExtraHex(false) { data.u64 = _value;  data.u128.h = 0;}
+  Value(ValueType _type, uint128_t _value) : type(_type), printExtraHex(false) { data.u128.h = _value.U64H(); data.u128.l = _value.U64L();}
+  explicit Value(float value_) : type(MV_FLOAT), printExtraHex(false)  { data.f = value_;  data.u128.h = 0;}
+  explicit Value(double value_) : type(MV_DOUBLE), printExtraHex(false) { data.d = value_;  data.u128.h = 0;}
   ~Value();
 
   ValueType Type() const { return type; }
@@ -621,6 +653,7 @@ public:
   uint32_t U32() const { return data.u32; }
   int64_t S64() const { return data.s64; }
   uint64_t U64() const { return data.u64; }
+  uint128_t U128() const { return uint128_t::make(data.u128); }
   half H() const { return half::make(data.h_bits); }
   float F() const { return data.f; }
   double D() const { return data.d; }
@@ -638,6 +671,7 @@ public:
   int16_t S16X4(size_t index) const { assert(index < 4); return reinterpret_cast<const int16_t *>(&(data.u64))[index]; }
   uint32_t U32X2(size_t index) const { assert(index < 2); return reinterpret_cast<const uint32_t *>(&(data.u64))[index]; }
   int32_t S32X2(size_t index) const { assert(index < 2); return reinterpret_cast<const int32_t *>(&(data.u64))[index]; }
+  uint64_t U64X2(size_t index) const { assert(index < 2); return reinterpret_cast<const uint64_t *>(&(data.u128))[index]; }
   float FX2(size_t index) const { assert(index < 2); return reinterpret_cast<const float *>(&(data.u64))[index]; }
     
   size_t Size() const;

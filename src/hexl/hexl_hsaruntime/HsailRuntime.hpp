@@ -39,8 +39,10 @@ struct HsaApiTable {
   hsa_status_t (*hsa_shut_down)();
   hsa_status_t (*hsa_iterate_agents)(hsa_status_t(*callback)(hsa_agent_t agent, void *data), void *data);
   hsa_status_t (*hsa_agent_iterate_regions)(hsa_agent_t agent, hsa_status_t(*callback)(hsa_region_t region, void *data), void *data);
+  hsa_status_t (*hsa_system_get_info)(hsa_system_info_t attribute, void *value);
   hsa_status_t (*hsa_region_get_info)(hsa_region_t region, hsa_region_info_t attribute, void *value);
   hsa_status_t (*hsa_agent_get_info)(hsa_agent_t agent, hsa_agent_info_t attribute, void *value);
+  hsa_status_t (*hsa_agent_get_exception_policies)(hsa_agent_t agent, hsa_profile_t profile, uint16_t *mask);
   hsa_status_t (*hsa_queue_create)(hsa_agent_t agent, size_t size, hsa_queue_type_t type, void (*callback)(hsa_status_t status, hsa_queue_t *queue, void *data), void *data, uint32_t private_segment_size, uint32_t group_segment_size, hsa_queue_t **queue);
   hsa_status_t (*hsa_queue_destroy)(hsa_queue_t *queue);
   uint64_t (*hsa_queue_load_write_index_relaxed)(hsa_queue_t *queue);
@@ -151,6 +153,12 @@ private:
   hsa_queue_t* queue;
   uint32_t queueSize;
   bool error;
+  hsa_profile_t profile;
+  uint32_t wavesize;
+  uint32_t wavesPerGroup;
+  hsa_endianness_t endianness;
+  bool isBreakSupported;
+  bool isDetectSupported;
 
 public:
   HsailRuntimeContext(Context* context);
@@ -195,6 +203,13 @@ public:
   uint32_t QueueSize() const { return queue->size; }
   const HsaApi& Hsa() const { return hsaApi; }
   hsa_region_t GetRegion(RegionMatch match = 0);
+
+  bool IsFullProfile() override { return profile == HSA_PROFILE_FULL; }
+  uint32_t Wavesize() override { return wavesize; }
+  uint32_t WavesPerGroup() override { return wavesPerGroup; }
+  bool IsLittleEndianness() override { return endianness == HSA_ENDIANNESS_LITTLE; }
+  bool IsBreakSupported() override { return isBreakSupported; }
+  bool IsDetectSupported() override { return isDetectSupported; }
 };
 
 HsailRuntimeContext* HsailRuntimeFromContext(RuntimeContext* runtime);

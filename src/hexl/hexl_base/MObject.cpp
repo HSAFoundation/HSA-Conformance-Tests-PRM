@@ -81,6 +81,7 @@ size_t ValueTypeSize(ValueType type)
   case MV_FLOAT16X2: return 4;
   case MV_FLOAT16X4: return 8;
   case MV_FLOATX2: return 8;
+  case MV_UINT128: return 16;
   case MV_IMAGE:
     return sizeof(void *);
   case MV_REF:
@@ -179,6 +180,13 @@ ValueData S32X2(int32_t a, int32_t b) {
   return data;
 }
 
+ValueData U64X2(uint64_t a, uint64_t b) {
+  ValueData data; 
+  data.u128.h = a;
+  data.u128.l = b;
+  return data;
+}
+
 ValueData FX2(float a, float b) { 
   std::vector<float> vector(2);   
   vector[0] = a; vector[1] = b;
@@ -264,7 +272,7 @@ const char *ImageChannelOrderString(MObjectImageChannelOrder mem)
   case IMG_ORDER_RGB: return "rgb";
   case IMG_ORDER_RGBX: return "rgbx";
   case IMG_ORDER_RGBA: return "rgba";
-  case IMG_ORDER_BRGA: return "brga";
+  case IMG_ORDER_BRGA: return "bgra";
   case IMG_ORDER_ARGB: return "argb";
   case IMG_ORDER_ABGR: return "abgr";
   case IMG_ORDER_SRGB: return "srgb";
@@ -374,6 +382,7 @@ const char *ValueTypeString(ValueType type)
   case MV_UINT16X4: return "uint16x4";
   case MV_INT32X2: return "int32x2";
   case MV_UINT32X2: return "uint32x2";
+  case MV_UINT128: return "uint128";
   case MV_FLOAT16X2: return "halfx2";
   case MV_FLOAT16X4: return "halfx4";
   case MV_FLOATX2: return "floatx2";
@@ -409,6 +418,7 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_INT32: return ValueTypePrintWidth(MV_UINT32)+1;
   case MV_UINT32X2:
   case MV_UINT32: return std::strlen("4294967295");
+  case MV_UINT128: return ValueTypePrintWidth(MV_UINT64)*2+1;
   case MV_INT64: return ValueTypePrintWidth(MV_UINT64)+1;
   case MV_UINT64: return std::strlen("9223372036854775807");
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
@@ -645,6 +655,7 @@ void Value::WriteTo(void *dest) const
   case MV_UINT16X4: ((uint16_t *) dest)[0] = U16X4(0); ((uint16_t *) dest)[1] = U16X4(1); ((uint16_t *) dest)[2] = U16X4(2); ((uint16_t *) dest)[3] = U16X4(3); break;
   case MV_INT32X2: ((int32_t *) dest)[0] = S32X2(0); ((int32_t *) dest)[1] = S32X2(1); break;
   case MV_UINT32X2: ((uint32_t *) dest)[0] = U32X2(0); ((uint32_t *) dest)[1] = U32X2(1); break;
+  case MV_UINT128: ((uint64_t *) dest)[0] = U64X2(0); ((uint64_t *) dest)[1] = U64X2(1); break;
   case MV_FLOATX2: ((float *) dest)[0] = FX2(0); ((float *) dest)[1] = FX2(1); break;
   case MV_REF: *((uint32_t *) dest) = data.u32; break;
   case MV_POINTER: *((void **) dest) = data.p; break;

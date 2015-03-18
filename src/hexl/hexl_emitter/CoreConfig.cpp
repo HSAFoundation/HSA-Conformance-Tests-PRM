@@ -17,6 +17,7 @@
 #include "CoreConfig.hpp"
 #include "Emitter.hpp"
 #include "BrigEmitter.hpp"
+#include "RuntimeContext.hpp"
 
 namespace hexl {
 
@@ -31,6 +32,9 @@ CoreConfig::CoreConfig(
     model(model_), profile(profile_),
     wavesize(64),
     wavesPerGroup(4),
+    isDetectSupported(true),
+    isBreakSupported(true),
+    endianness(ENDIANNESS_LITTLE),
     grids(this),
     segments(this),
     types(this),
@@ -42,6 +46,16 @@ CoreConfig::CoreConfig(
     images(this),
     samplers(this)
 {
+}
+
+void CoreConfig::Init(Context *context) {
+  RuntimeContext* runtimeContext = context->Runtime();
+  profile = runtimeContext->IsFullProfile() ? BRIG_PROFILE_FULL : BRIG_PROFILE_BASE;
+  wavesize = runtimeContext->Wavesize();
+  wavesPerGroup = runtimeContext->WavesPerGroup();
+  endianness = runtimeContext->IsLittleEndianness() ? ENDIANNESS_LITTLE : ENDIANNESS_BIG;
+  isBreakSupported = runtimeContext->IsBreakSupported();
+  isDetectSupported = runtimeContext->IsDetectSupported();
 }
 
 CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)

@@ -14,6 +14,7 @@
    limitations under the License.
 */
 
+#include <sstream>
 #include "Utils.hpp"
 #include "HSAILItems.h"
 #include "HSAILParser.h"
@@ -219,6 +220,18 @@ BrigType Value2BrigType(hexl::ValueType type)
 
 bool Is128Bit(BrigType type) {
   return HSAIL_ASM::getBrigTypeNumBytes(type) == 16;
+}
+
+std::string ExceptionsNumber2Str(uint32_t exceptionsNumber) {
+  std::stringstream sstream;
+  // 'v' - INVALID_OPERATION, 'd' - DIVIDE_BY_ZERO, 'o' - OVERFLOW, 'u' - underflow, 'e' - INEXACT
+  if ((exceptionsNumber & 0x10) != 0) { sstream << 'e'; }
+  if ((exceptionsNumber & 0x08) != 0) { sstream << 'u'; }
+  if ((exceptionsNumber & 0x04) != 0) { sstream << 'o'; }
+  if ((exceptionsNumber & 0x02) != 0) { sstream << 'd'; }
+  if ((exceptionsNumber & 0x01) != 0) { sstream << 'v'; }
+  if (exceptionsNumber == 0) { sstream << '0'; }
+  return sstream.str();
 }
 
 uint32_t ImageGeometryDims(BrigImageGeometry geometry) {

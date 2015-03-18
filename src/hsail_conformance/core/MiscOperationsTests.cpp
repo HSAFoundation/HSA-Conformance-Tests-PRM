@@ -18,10 +18,12 @@
 #include "HCTests.hpp"
 #include "BrigEmitter.hpp"
 #include "CoreConfig.hpp"
+#include "UtilTests.hpp"
 
 using namespace hexl;
 using namespace hexl::emitter;
 using namespace HSAIL_ASM;
+using namespace hsail_conformance::utils;
 
 namespace hsail_conformance {
 
@@ -825,6 +827,19 @@ public:
   }
 };
 
+class DebugTrapTest : public SkipTest {
+public:
+  DebugTrapTest(bool) : SkipTest(Location::KERNEL) {}
+  
+  void Name(std::ostream& out) const override {}
+
+  TypedReg Result() override {
+    auto src = be.AddInitialTReg(BRIG_TYPE_U32, 0);
+    be.EmitDebugTrap(src);
+
+    return SkipTest::Result();
+  }
+};
 
 
 void MiscOperationsTests::Iterate(TestSpecIterator& it)
@@ -857,6 +872,8 @@ void MiscOperationsTests::Iterate(TestSpecIterator& it)
 
   TestForEach<LaneidLessWavesizeTest>(ap, it, "misc/laneid/lessmax", CodeLocations(), cc->Grids().SimpleSet());
   TestForEach<LaneidSequenceTest>(ap, it, "misc/laneid/sequence", CodeLocations(), cc->Grids().SimpleSet());
+
+  TestForEach<DebugTrapTest>(ap, it, "misc/debugtrap", Bools::Value(true));
 }
 
 }
