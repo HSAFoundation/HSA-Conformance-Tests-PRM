@@ -579,13 +579,21 @@ private:
   int GetTexelIndex(float f, unsigned _dimSize) const;
   int GetTexelArrayIndex(float f, unsigned dimSize) const;
   void LoadBorderData(Value* _color) const;
-  uint32_t GetRawColorData() const;
+  uint32_t GetRawPixelData(int x_ind, int y_ind, int z_ind) const;
+  uint32_t GetRawChannelData(int x_ind, int y_ind, int z_ind, int channel) const;
   int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
   int32_t ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const;
   uint32_t ConvertionLoadUnsignedClamp(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadHalfFloat(uint32_t data) const;
+  float ConvertionLoadFloat(uint32_t data) const;
+  int32_t ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const;
+  uint32_t ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const;
+  int32_t ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const;
+  uint32_t ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_size) const;
+  half ConvertionStoreHalfFloat(float f) const;
+  float ConvertionStoreFloat(float f) const;
   Value ConvertRawData(uint32_t data) const;
   float GammaCorrection(float f) const;
   void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
@@ -640,6 +648,7 @@ public:
 
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
 
+  void InitMemValue(Value v);
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
@@ -782,7 +791,12 @@ public:
       kerninp(0), funcinp(0), condBuffer(0)
       { }
     
+  ConditionType Type() { return type; }
+  BrigType IType() { return itype; }
   ConditionInput Input() { return input; }
+  BrigWidth Width() { return width; }
+  std::string EndLabel() { return lEnd; }
+  std::string ThenLabel() { return lThen; }
 
   void Name(std::ostream& out) const;
   void Reset(TestEmitter* te);
@@ -805,6 +819,9 @@ public:
 
   HSAIL_ASM::Operand EmitIfCond();
   void EmitIfThenStart();
+  void EmitIfThenStartSand(Condition condition);
+  void EmitIfThenStartSor();
+  void EmitIfThenStartSor(Condition condition);
   void EmitIfThenEnd();
   bool ExpectThenPath(uint64_t wi);
   bool ExpectThenPath(const Dim& point) { return ExpectThenPath(Geometry()->WorkitemFlatAbsId(point)); }
