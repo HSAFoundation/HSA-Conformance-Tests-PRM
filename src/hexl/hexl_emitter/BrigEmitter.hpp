@@ -271,6 +271,7 @@ public:
   HSAIL_ASM::InstBasic EmitClearDetectExcept(uint32_t exceptionNumber);
   HSAIL_ASM::InstBasic EmitGetDetectExcept(TypedReg dest);
   HSAIL_ASM::InstBasic EmitSetDetectExcept(uint32_t exceptionNumber);
+  HSAIL_ASM::InstBasic EmitDebugTrap(TypedReg src);
 
   // Dispatch packet operations
   TypedReg EmitCurrentWorkgroupSize(uint32_t dim);

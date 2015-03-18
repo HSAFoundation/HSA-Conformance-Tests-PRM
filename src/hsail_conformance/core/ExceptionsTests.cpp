@@ -128,7 +128,6 @@ public:
   }
 };
 
-
 void ExceptionsTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);

@@ -1575,6 +1575,12 @@ InstBasic BrigEmitter::EmitSetDetectExcept(uint32_t exceptionNumber) {
   return inst;
 }
 
+InstBasic BrigEmitter::EmitDebugTrap(TypedReg src) {
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_DEBUGTRAP, BRIG_TYPE_U32);
+  inst.operands() = Operands(src->Reg());
+  return inst;
+}
+
 void BrigEmitter::EmitAgentId(TypedReg dest)
 {
   EmitMov(dest, Immed(BRIG_TYPE_U32, 0));
