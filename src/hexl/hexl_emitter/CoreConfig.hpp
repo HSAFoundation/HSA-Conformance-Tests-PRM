@@ -228,7 +228,9 @@ namespace hexl {
         hexl::Sequence<BrigMemoryOrder>* AllMemoryOrders() { return allMemoryOrders; }
         hexl::Sequence<BrigMemoryOrder>* SignalSendMemoryOrders() { return signalSendMemoryOrders; }
         hexl::Sequence<BrigMemoryOrder>* SignalWaitMemoryOrders() { return signalWaitMemoryOrders; }
+        hexl::Sequence<BrigMemoryOrder>* MemfenceMemoryOrders() { return memfenceMemoryOrders; }
         hexl::Sequence<BrigMemoryScope>* AllMemoryScopes() { return allMemoryScopes; }
+        hexl::Sequence<BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
         hexl::Sequence<BrigAtomicOperation>* AllAtomics() { return allAtomics; }
         hexl::Sequence<BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
         hexl::Sequence<BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
@@ -236,8 +238,6 @@ namespace hexl {
         hexl::Sequence<BrigSegment>* MemfenceSegments() { return memfenceSegments; }
         hexl::Sequence<BrigOpcode>* LdStOpcodes() { return ldStOpcodes; }
         hexl::Sequence<BrigOpcode>* AtomicOpcodes() { return atomicOpcodes; }
-        hexl::Sequence<BrigMemoryOrder>* MemfenceMemoryOrders() { return memfenceMemoryOrders; }
-        hexl::Sequence<BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
       };
 
       class ControlDirectivesConfig : public ConfigBase {
