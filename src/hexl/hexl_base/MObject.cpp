@@ -1237,7 +1237,7 @@ bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, cons
   }
   case CM_ULPS: {
     error = Value(MV_UINT16, U16((std::max)(v1.U16(), v2.U16()) - (std::min)(v1.U16(), v2.U16())));
-    return error.U32() <= precision.D();
+    return error.U16() <= precision.U64();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
@@ -1287,7 +1287,7 @@ bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, con
   }
   case CM_ULPS: {
     error = Value(MV_UINT32, U32((std::max)(v1.U32(), v2.U32()) - (std::min)(v1.U32(), v2.U32())));
-    return error.U32() <= precision.D();
+    return error.U32() <= precision.U64();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
@@ -1384,7 +1384,7 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
       return error.D() < precision.D();
     case CM_ULPS:
       error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
-      return error.U64() <= precision.D();
+      return error.U64() <= precision.U64();
     case CM_RELATIVE: {
       double eps = precision.D();
       if (v1.D() == 0.0f) {

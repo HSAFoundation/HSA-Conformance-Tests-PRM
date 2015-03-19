@@ -194,7 +194,7 @@ private:
     static unsigned maxGridSize;    // 0 if unlimited
     static bool     groupTests;
     static bool     groupImms;
-    static bool     enableF16;
+    static bool     enableFtzF16;
 
     //==========================================================================
 private:
@@ -246,13 +246,13 @@ public:
 
     static TestDataProvider* getProvider(unsigned opcode, unsigned dstType, unsigned srcType, AluMod aluMod = AluMod(), unsigned srcNum = 0);
 
-    static void init(bool group, bool groupImms, unsigned rndTestNum, unsigned ws, unsigned maxGridSz, bool testF16);
+    static void init(bool group, bool groupImms, unsigned rndTestNum, unsigned ws, unsigned maxGridSz, bool testFtzF16);
     static void clean();
 
     static unsigned getMaxGridSize() { return maxGridSize; }
     static unsigned getWavesize()    { return wavesize; }
     static bool groupTestsWithImm()  { return groupImms; }
-    static bool testF16()            { return enableF16; }
+    static bool testFtzF16()         { return enableFtzF16; }
 
     //==========================================================================
 private:

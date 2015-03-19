@@ -178,6 +178,13 @@ template<typename T> static T fract_impl(T val)
     return 0;
 }
 
+static f16_t fract_impl(f16_t val)
+{
+    Val fv = fract_impl(val.f32()); // leverage float version
+    if (fv.getAsB32() == 0x3F7FFFFF) return Val(BRIG_TYPE_F16, 0x3bffULL); // largest representable number which is less than 1.0
+    return f16_t(fv.f32());
+}
+
 template<typename T> static T ceil_impl(T val)
 {
     if (Val(val).isNan() || Val(val).isInf()) return val;
@@ -186,6 +193,12 @@ template<typename T> static T ceil_impl(T val)
     T fract = std::modf(val, &res);
 
     return (fract != 0 && val >= 0)? res + 1 : res;
+}
+
+static f16_t ceil_impl(f16_t val)
+{
+    Val fv = ceil_impl(val.f32()); // leverage float version
+    return f16_t(fv.f32());
 }
 
 template<typename T> static T floor_impl(T val)
@@ -198,6 +211,12 @@ template<typename T> static T floor_impl(T val)
     return (fract != 0 && val < 0)? res - 1 : res;
 }
 
+static f16_t floor_impl(f16_t val)
+{
+    Val fv = floor_impl(val.f32()); // leverage float version
+    return f16_t(fv.f32());
+}
+
 template<typename T> static T trunc_impl(T val)
 {
     if (Val(val).isNan() || Val(val).isInf()) return val;
@@ -205,6 +224,12 @@ template<typename T> static T trunc_impl(T val)
     T res;
     std::modf(val, &res);
     return res;
+}
+
+static f16_t trunc_impl(f16_t val)
+{
+    Val fv = trunc_impl(val.f32()); // leverage float version
+    return f16_t(fv.f32());
 }
 
 template<typename T> static T rint_impl(T val)
@@ -219,6 +244,12 @@ template<typename T> static T rint_impl(T val)
     else fract = static_cast<T>((val < 0)? -1 : 1);
 
     return res + fract;
+}
+
+static f16_t rint_impl(f16_t val)
+{
+    Val fv = rint_impl(val.f32()); // leverage float version
+    return f16_t(fv.f32());
 }
 
 //==============================================================================
@@ -420,14 +451,14 @@ u64_t emulate_f2i(f32_t val, unsigned dstType, unsigned intRounding, bool& isVal
 u64_t emulate_f2i(f64_t val, unsigned dstType, unsigned intRounding, bool& isValid) { return f2i_impl(val, dstType, intRounding, isValid); }
 
 f16_t emulate_f2f16(f16_t,     unsigned)          {                               return f16_unsupported(); }
-f16_t emulate_f2f16(f32_t val, unsigned rounding) { validateFpRounding(rounding); return f16_todo(); }
+f16_t emulate_f2f16(f32_t val, unsigned rounding) { validateFpRounding(rounding); return f16_t(val, rounding); }
 f16_t emulate_f2f16(f64_t val, unsigned rounding) { validateFpRounding(rounding); return f16_t(val, rounding); }
 
-f32_t emulate_f2f32(f16_t val, unsigned rounding) { validateRoundingNone(rounding); f16_todo(); return 0.0f; }
+f32_t emulate_f2f32(f16_t val, unsigned rounding) { validateRoundingNone(rounding); return static_cast<f32_t>(val); }
 f32_t emulate_f2f32(f32_t,     unsigned)          {                                 return f32_unsupported(); }
 f32_t emulate_f2f32(f64_t val, unsigned rounding) { validateFpRounding(rounding);   return static_cast<f32_t>(val); }
 
-f64_t emulate_f2f64(f16_t val, unsigned rounding) { validateRoundingNone(rounding); return val.f64(); }
+f64_t emulate_f2f64(f16_t val, unsigned rounding) { validateRoundingNone(rounding); return static_cast<f64_t>(val); }
 f64_t emulate_f2f64(f32_t val, unsigned rounding) { validateRoundingNone(rounding); return static_cast<f64_t>(val); }
 f64_t emulate_f2f64(f64_t,     unsigned)          {                                 return f64_unsupported(); }
 
@@ -445,23 +476,23 @@ int emulate_cmp(f64_t val1, f64_t val2) { return val1 < val2 ? -1 : val1 > val2 
 //==============================================================================
 // Truncations
 
-f16_t emulate_fract(f16_t val, unsigned rounding) { validateFpRounding(rounding); return f16_todo(); }      //TODO: add rounding support
+f16_t emulate_fract(f16_t val, unsigned rounding) { validateFpRounding(rounding); return fract_impl(val); } //TODO: add rounding support
 f32_t emulate_fract(f32_t val, unsigned rounding) { validateFpRounding(rounding); return fract_impl(val); } //TODO: add rounding support
 f64_t emulate_fract(f64_t val, unsigned rounding) { validateFpRounding(rounding); return fract_impl(val); } //TODO: add rounding support
 
-f16_t emulate_ceil(f16_t val) { return f16_todo(); }
+f16_t emulate_ceil(f16_t val) { return ceil_impl(val); }
 f32_t emulate_ceil(f32_t val) { return ceil_impl(val); }
 f64_t emulate_ceil(f64_t val) { return ceil_impl(val); }
 
-f16_t emulate_floor(f16_t val) { return f16_todo(); }
+f16_t emulate_floor(f16_t val) { return floor_impl(val); }
 f32_t emulate_floor(f32_t val) { return floor_impl(val); }
 f64_t emulate_floor(f64_t val) { return floor_impl(val); }
 
-f16_t emulate_trunc(f16_t val) { return f16_todo(); }
+f16_t emulate_trunc(f16_t val) { return trunc_impl(val); }
 f32_t emulate_trunc(f32_t val) { return trunc_impl(val); }
 f64_t emulate_trunc(f64_t val) { return trunc_impl(val); }
 
-f16_t emulate_rint(f16_t val) { return f16_todo(); }
+f16_t emulate_rint(f16_t val) { return rint_impl(val); }
 f32_t emulate_rint(f32_t val) { return rint_impl(val); }
 f64_t emulate_rint(f64_t val) { return rint_impl(val); }
 

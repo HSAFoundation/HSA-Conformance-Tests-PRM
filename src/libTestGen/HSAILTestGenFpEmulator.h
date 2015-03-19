@@ -35,7 +35,7 @@ void validateFpRounding(unsigned rounding);
 //==============================================================================
 // HSAIL Floating-Point Library: Conversions
 
-template<typename T> f16_t emulate_i2f16(T val, unsigned fpRounding) { validateFpRounding(fpRounding); return f16_todo(); } //TODO
+template<typename T> f16_t emulate_i2f16(T val, unsigned fpRounding) { validateFpRounding(fpRounding); return f16_t(0.0f + val); } //TODO: rounding
 template<typename T> f32_t emulate_i2f32(T val, unsigned fpRounding) { validateFpRounding(fpRounding); return 0.0f + val; } //TODO: rounding
 template<typename T> f64_t emulate_i2f64(T val, unsigned fpRounding) { validateFpRounding(fpRounding); return 0.0  + val; } //TODO: rounding
 

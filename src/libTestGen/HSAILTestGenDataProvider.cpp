@@ -484,13 +484,13 @@ int TestDataProvider::getLastOperandIdx()     { return lastSrcOperand; }      //
 
 void TestDataProvider::clean()                { OperandTestDataFactory::clean(); OperandTestData::clean(); }
 
-void TestDataProvider::init(bool grpTests, bool grpImms, unsigned rndTestNum, unsigned ws, unsigned maxGridSz, bool testF16)
+void TestDataProvider::init(bool grpTests, bool grpImms, unsigned rndTestNum, unsigned ws, unsigned maxGridSz, bool testFtzF16)
 {
     wavesize = ws;
     groupTests = grpTests;
     groupImms = grpTests && grpImms;
     maxGridSize = (maxGridSz > 0)? maxGridSz : MAX_GRID_SIZE;
-    enableF16 = testF16;
+    enableFtzF16 = testFtzF16;
 
     OperandTestDataFactory::init();
     OperandTestData::init(rndTestNum);
@@ -500,7 +500,7 @@ unsigned TestDataProvider::wavesize    = TestDataProvider::DEFAULT_WAVESIZE;
 unsigned TestDataProvider::maxGridSize = TestDataProvider::DEFAULT_GRID_SIZE;
 bool     TestDataProvider::groupTests  = true;
 bool     TestDataProvider::groupImms   = true;
-bool     TestDataProvider::enableF16   = false;
+bool     TestDataProvider::enableFtzF16= false;
 
 //=============================================================================
 //=============================================================================
