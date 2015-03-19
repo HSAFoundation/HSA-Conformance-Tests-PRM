@@ -184,7 +184,7 @@ public:
   }
 
   bool Finish() {
-    if (code) { delete code; code = 0; }
+/// \todo assertion in dbgheap.c:1424 if (code) { delete code; code = 0; }
     return true;
   }
 
