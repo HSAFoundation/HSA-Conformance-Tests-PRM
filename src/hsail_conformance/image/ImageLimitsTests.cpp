@@ -169,7 +169,7 @@ public:
     imageSpec.Depth(std::max<uint32_t>(LimitDepth(), 1));
     imageSpec.ArraySize(std::max<uint32_t>(LimitArraySize(), 1));
     image = kernel->NewImage("image", &imageSpec);
-    image->InitMemValue(Value(MV_UINT32, INITIAL_VALUE));
+    image->AddData(image->GenMemValue(Value(MV_UINT32, INITIAL_VALUE)));
     image->LimitEnable(true);
   }
 
@@ -289,7 +289,7 @@ public:
     Image image;
     for (uint32_t i = 0; i < LIMIT; ++i) {
       image = kernel->NewImage("image" + std::to_string(i), &imageSpec);
-      image->InitMemValue(Value(MV_UINT32, InitialValue()));
+      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
   }
@@ -374,7 +374,7 @@ public:
     Image image;
     for (uint32_t i = 0; i < numberRW; ++i) {
       image = kernel->NewImage("rw_image" + std::to_string(i), &rwImageSpec);
-      image->InitMemValue(Value(MV_UINT32, InitialValue()));
+      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
 
@@ -389,7 +389,7 @@ public:
     woImageSpec.ArraySize(1);
     for (uint32_t i = 0; i < Limit() - numberRW; ++i) {
       image = kernel->NewImage("wo_image" + std::to_string(i), &woImageSpec);
-      image->InitMemValue(Value(MV_UINT32, InitialValue()));
+      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
   }
@@ -496,7 +496,7 @@ public:
     imageSpec.Depth(1);
     imageSpec.ArraySize(1);
     image = kernel->NewImage("image", &imageSpec);
-    image->InitMemValue(Value(static_cast<float>(INITIAL_VALUE)));
+    image->AddData(image->GenMemValue(Value(static_cast<float>(INITIAL_VALUE))));
 
     samplers.reserve(LIMIT);
     ESamplerSpec samplerSpec(BRIG_SEGMENT_GLOBAL, Location::KERNEL);
@@ -507,7 +507,7 @@ public:
       samplers.push_back(kernel->NewSampler("sampler" + std::to_string(i), &samplerSpec));
     }
 
-    image->InitImageCalculator(samplers[0], image->GetRawData());
+    image->InitImageCalculator(samplers[0]);
     Value readColor[4];
     Value readCoords[3];
     readCoords[0] = Value(0.0F);

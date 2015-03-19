@@ -488,7 +488,7 @@ typedef IEEE754
 class uint128
 {
 public:
-  typedef struct { uint64_t l; uint64_t h; } Type;
+  typedef struct { uint64_t h; uint64_t l; } Type;
 private:
     uint64_t val[2];
 

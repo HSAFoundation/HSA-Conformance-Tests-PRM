@@ -35,6 +35,7 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
+  Value color[4];
 
 public:
   ImageLdTest(Location codeLocation, 
@@ -48,23 +49,29 @@ public:
     out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType));
   }
   
-  uint32_t InitialValue() const { return 0x00000032; }
+  uint32_t InitialValue() const { return 0x30313233; }
 
   void Init() {
-   Test::Init();
+    Test::Init();
 
-   EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
-   imageSpec.Geometry(imageGeometryProp);
-   imageSpec.ChannelOrder(imageChannelOrder);
-   imageSpec.ChannelType(imageChannelType);
-   imageSpec.Width(imageGeometry.ImageWidth());
-   imageSpec.Height(imageGeometry.ImageHeight());
-   imageSpec.Depth(imageGeometry.ImageDepth());
-   imageSpec.ArraySize(imageGeometry.ImageArray());
-   imgobj = kernel->NewImage("%roimage", &imageSpec);
-   imgobj->InitMemValue(Value(MV_UINT32, InitialValue()));
+    EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
+    imageSpec.Geometry(imageGeometryProp);
+    imageSpec.ChannelOrder(imageChannelOrder);
+    imageSpec.ChannelType(imageChannelType);
+    imageSpec.Width(imageGeometry.ImageWidth());
+    imageSpec.Height(imageGeometry.ImageHeight());
+    imageSpec.Depth(imageGeometry.ImageDepth());
+    imageSpec.ArraySize(imageGeometry.ImageArray());
+    imgobj = kernel->NewImage("%roimage", &imageSpec);
+    imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
    
-   imgobj->InitImageCalculator(NULL, imgobj->GetRawData());
+    imgobj->InitImageCalculator(NULL);
+
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    imgobj->ReadColor(coords, color);
   }
 
   void ModuleDirectives() override {
@@ -77,15 +84,16 @@ public:
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }
 
-  Value ExpectedResult() const {
-    Value color[4];
-    Value coords[3];
-    coords[0] = Value(0.0f);
-    coords[1] = Value(0.0f);
-    coords[2] = Value(0.0f);
-    imgobj->ReadColor(coords, color);
+  void ExpectedResults(Values* result) const {
+    for (unsigned i = 0; i < 4; i ++)
+    {
+      Value res = Value(MV_UINT32, color[i].U32());
+      result->push_back(res);
+    }
+  }
 
-    return (imageChannelOrder == BRIG_CHANNEL_ORDER_A) ? Value(MV_UINT32, color[3].U32()) : Value(MV_UINT32, color[0].U32());
+  uint64_t ResultDim() const override {
+    return 4;
   }
 
   size_t OutputBufferSize() const override {
@@ -122,25 +130,21 @@ public:
     return result;
   }
 
-  TypedReg Result() {
-    auto result = be.AddTReg(ResultType());
-    be.EmitMov(result, be.Immed(ResultType(), 0));
+  void KernelCode() override {
    // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
 
-    OperandOperandList regs_dest;
+    OperandOperandList regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
     auto reg_dest = be.AddTReg(BRIG_TYPE_U32, 1);
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
     case BRIG_GEOMETRY_1DB:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get1dCoord());
       break;
     case BRIG_GEOMETRY_1DA:
     case BRIG_GEOMETRY_2D:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get2dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_2DDEPTH:
@@ -148,7 +152,6 @@ public:
       break;
     case BRIG_GEOMETRY_3D:
     case BRIG_GEOMETRY_2DA:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
       imgobj->EmitImageLd(regs_dest, BRIG_TYPE_U32,  imageaddr, Get3dCoord(), BRIG_TYPE_U32);
       break;
     case BRIG_GEOMETRY_2DADEPTH:
@@ -158,20 +161,17 @@ public:
       assert(0);
     }
 
-    if ((imageGeometryProp == BRIG_GEOMETRY_2DDEPTH) || (imageGeometryProp == BRIG_GEOMETRY_2DADEPTH)) {
-      be.EmitMov(result, reg_dest);
+    auto outputAddr = output->Address();
+    auto storeAddr = be.AddAReg(outputAddr->Segment());
+    auto offsetBase = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    auto offset = be.AddTReg(offsetBase->Type());
+
+    for (unsigned i = 0; i < regs_dest.elementCount(); i++) {
+      be.EmitMov(offset, be.Immed(offsetBase->Type(), i));
+      be.EmitArith(BRIG_OPCODE_MUL, offset, offset->Reg(), be.Immed(offsetBase->Type(), 4));
+      be.EmitArith(BRIG_OPCODE_ADD, storeAddr, outputAddr, offset->Reg());
+      be.EmitStore(BRIG_TYPE_U32, regs_dest.elements(i), storeAddr);
     }
-    else {
-      if (imageChannelOrder == BRIG_CHANNEL_ORDER_A)
-      {
-        be.EmitMov(result, regs_dest.elements(3));
-      }
-      else
-      {
-        be.EmitMov(result, regs_dest.elements(0));
-      }
-    }
-    return result;
   }
 };
 
