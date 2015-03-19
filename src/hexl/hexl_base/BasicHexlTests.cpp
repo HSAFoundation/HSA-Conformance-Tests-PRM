@@ -102,7 +102,7 @@ void ValidateDispatchTest::Run()
     context->Info() << "Validating results " << std::endl;
     if (dispatch->MState()->Validate() != 0) { SetFailed(); }
   } while (0);
-  if (code) { delete code; }
+/// \todo if (code) { delete code; }
   if (state) { delete state; state = 0; }
 }
 

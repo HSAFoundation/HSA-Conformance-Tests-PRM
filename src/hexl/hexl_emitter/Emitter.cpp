@@ -1721,19 +1721,59 @@ float EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
   float f;
 
   if(samplerCoord == BRIG_COORD_UNNORMALIZED){
-    f = c->F();
+	switch(c->Type())
+	{
+	case MV_UINT32:
+		assert(samplerFilter == BRIG_FILTER_NEAREST); //only nearest filter is allowed for u32 unnormalized mode
+		f = (float)(c->U32());
+		break;
+
+	case MV_INT32:
+		f = (float)(c->S32());
+		break;
+
+	case MV_FLOAT:
+		f = c->F();
+		break;
+
+	default:
+		assert(0); //illegal coord type
+		break;
+	}
   } else {
     assert(c->Type() == MV_FLOAT); //only f32 is allowed in normilized mode
     f = c->F() * dimSize;
   }
+
   if(samplerFilter == BRIG_FILTER_LINEAR)
     f -= 0.5f;
+
   return f;
 }
 
 float EImageCalc::UnnormalizeArrayCoord(Value* c) const
 {
-  return c->F();
+	float f;
+	switch (c->Type())
+	{
+	case MV_INT32:
+		f = (float)(c->S32());
+		break;
+
+	case MV_UINT32:
+		f = (float)(c->U32());
+		break;
+
+	case MV_FLOAT:
+		f = c->F();
+		break;
+
+	default:
+		assert(0); //illegal coord type
+		break;
+	}
+	
+	return f;
 }
 
 int EImageCalc::round_downi(float f) const
@@ -1924,7 +1964,7 @@ float EImageCalc::ConvertionLoadHalfFloat(uint32_t data) const
   ValueData bits;
   bits.u32 = data;
   half h = half::make(bits.h_bits);
-
+  //todo test for NaNs
   return h.f32();
 }
 
@@ -1938,34 +1978,52 @@ float EImageCalc::ConvertionLoadFloat(uint32_t data) const
 	return f.f;
 }
 
-int32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const
+uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const
 {
-	return 0;
+	int scale = (1 << (bit_size-1)) - 1;
+	int val = round_neari(f * scale);
+	val = clamp_i(val, -scale - 1, scale);
+
+	return val;
 }
 
 uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const
 {
-	return 0;
+	int scale = (1 << bit_size) - 1;
+	int val = round_neari(f * scale);
+	val = clamp_i(val, 0, scale);
+
+	return val;
 }
 
-int32_t EImageCalc::ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const
+uint32_t EImageCalc::ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const
 {
-	return 0;
+	int max = (1 << (bit_size-1)) - 1;
+	int min = -max - 1;
+	uint32_t val = clamp_i(c, min, max);
+
+	return val;
 }
 
 uint32_t EImageCalc::ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_size) const
 {
-	return 0;
+	uint32_t max = (1 << bit_size) - 1;
+	return (c < max) ? c : max;
 }
 
-half EImageCalc::ConvertionStoreHalfFloat(float f) const
+uint32_t EImageCalc::ConvertionStoreHalfFloat(float f) const
 {
-	return half::make(0);
+	half h(f);
+	//todo test for NaNs and denorms
+	return h.getBits();
 }
 
-float EImageCalc::ConvertionStoreFloat(float f) const
+uint32_t EImageCalc::ConvertionStoreFloat(float f) const
 {
-	return 0;
+	ValueData v;
+	v.f = f;
+	//todo test for NaNs and denorms
+	return v.u32;
 }
 
 Value EImageCalc::ConvertRawData(uint32_t data) const
@@ -2018,8 +2076,7 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
     c = Value(ConvertionLoadHalfFloat(data));
     break;
   case BRIG_CHANNEL_TYPE_FLOAT:
-    c = Value(MV_INT32, S32(data));
-    c = Value(c.F());
+    c = Value(ConvertionLoadFloat(data));
     break;
   default:
     assert(0);
@@ -2436,6 +2493,229 @@ EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler, Value val)
 void EImageCalc::ReadColor(Value* _coords, Value* _color) const
 {
   EmulateReadColor(_coords, _color);
+}
+
+Value EImageCalc::EmulateStoreColor(Value* _color) const
+{
+	Value rgba[4];
+	Value raw_data;
+	//uint64_t raw_bits[2];
+	int bits_per_channel = -1;
+	uint32_t packed_rgb = 0;
+	uint32_t unpacked_r, unpacked_g, unpacked_b;
+
+	//convert channel data
+	switch (imageChannelType)
+	{
+	case BRIG_CHANNEL_TYPE_SNORM_INT8:
+		bits_per_channel = 8;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedNormalize(_color[i].F(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_SNORM_INT16:
+		bits_per_channel = 16;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedNormalize(_color[i].F(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNORM_INT8:
+		bits_per_channel = 8;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[i].F(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNORM_INT16:
+		bits_per_channel = 16;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[i].F(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNORM_INT24:
+		bits_per_channel = 24;
+		//todo add depth support
+		return Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[0].F(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
+		packed_rgb = (unpacked_r << 10) || (unpacked_g << 5) || unpacked_b;
+		return Value(MV_UINT16, packed_rgb);
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 6);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
+		packed_rgb = (unpacked_r << 11) || (unpacked_g << 6) || unpacked_b;
+		return Value(MV_UINT16, packed_rgb);
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
+		packed_rgb = (unpacked_r << 20) || (unpacked_g << 10) || unpacked_b;
+		return Value(MV_UINT32, packed_rgb);
+		break;
+
+	case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+		bits_per_channel = 8;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S8(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+		bits_per_channel = 16;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S16(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+		bits_per_channel = 32;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, _color[i].U32());
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+		bits_per_channel = 8;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U8(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+		bits_per_channel = 16;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U16(), bits_per_channel));
+		break;
+
+	case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+		bits_per_channel = 32;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, _color[i].U32());
+		break;
+
+	case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+		bits_per_channel = 16;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreHalfFloat(_color[i].F()));
+		break;
+
+	case BRIG_CHANNEL_TYPE_FLOAT:
+		bits_per_channel = 32;
+		for(int i=0; i<4; i++)
+			rgba[i] = Value(MV_UINT32, ConvertionStoreFloat(_color[i].F()));
+		break;
+
+	default:
+		assert(0); //illeral channel type
+		break;
+	}
+
+
+	//assemble channels
+	switch (imageChannelOrder)
+	{
+	case BRIG_CHANNEL_ORDER_A:
+		switch (bits_per_channel)
+		{
+		case 8:
+			raw_data = Value(MV_UINT8, rgba[3].U8());
+			break;
+		case 16:
+			raw_data = Value(MV_UINT16, rgba[3].U16());
+			break;
+		case 32:
+			raw_data = Value(MV_UINT32, rgba[3].U32());
+			break;
+		default:
+			assert(0);
+			break;
+		}
+		break;
+	
+	case BRIG_CHANNEL_ORDER_R:
+	case BRIG_CHANNEL_ORDER_RX:
+	case BRIG_CHANNEL_ORDER_INTENSITY:
+	case BRIG_CHANNEL_ORDER_LUMINANCE:
+		switch (bits_per_channel)
+		{
+		case 8:
+			raw_data = Value(MV_UINT8, rgba[0].U8());
+			break;
+		case 16:
+			raw_data = Value(MV_UINT16, rgba[0].U16());
+			break;
+		case 32:
+			raw_data = Value(MV_UINT32, rgba[0].U32());
+			break;
+		default:
+			assert(0);
+			break;
+		}
+		break;
+
+	case BRIG_CHANNEL_ORDER_RG:
+		break;
+	case BRIG_CHANNEL_ORDER_RGX:
+		break;
+	case BRIG_CHANNEL_ORDER_RA:
+		break;
+	case BRIG_CHANNEL_ORDER_RGB:
+		break;
+	case BRIG_CHANNEL_ORDER_RGBX:
+		break;
+	case BRIG_CHANNEL_ORDER_RGBA:
+		break;
+	case BRIG_CHANNEL_ORDER_BGRA:
+		break;
+	case BRIG_CHANNEL_ORDER_ARGB:
+		break;
+	case BRIG_CHANNEL_ORDER_ABGR:
+		break;
+
+	case BRIG_CHANNEL_ORDER_SRGB:
+	case BRIG_CHANNEL_ORDER_SRGBX:
+	case BRIG_CHANNEL_ORDER_SRGBA:
+	case BRIG_CHANNEL_ORDER_SBGRA:
+		assert(0); //todo add srgb support
+		break;
+
+	case BRIG_CHANNEL_ORDER_DEPTH:
+	case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
+		assert(0); //todo add depth support
+		break;
+
+	default:
+		assert(0); //illegal channel order
+		break;
+	}
+
+	return raw_data;
+}
+
+Value EImageCalc::StoreColor(Value* _coords, Value* _color) const
+{
+	if(_coords){
+		//only u32 coordinate type is supported for image store
+		assert(_coords[0].Type() == MV_UINT32);
+
+		uint32_t u, v, w;
+		u = _coords[0].U32();
+		v = _coords[1].U32();
+		w = _coords[2].U32();
+		
+		uint32_t uSize = imageGeometry.ImageSize(0);
+		uint32_t vSize = imageGeometry.ImageSize(1);
+		uint32_t wSize = imageGeometry.ImageSize(2);
+
+		//It is undefined if a coordinate is out of bounds
+		assert((u < uSize) && (v < vSize) && (w < wSize));
+	}
+
+	return EmulateStoreColor(_color);
 }
 
 void ESignal::ScenarioInit()

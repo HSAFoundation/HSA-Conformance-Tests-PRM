@@ -1461,8 +1461,19 @@ private:
     static bool testableTypes(Inst inst)
     {
         assert(inst);
-        return TestDataProvider::testF16() || 
-               (!isF16(getType(inst)) && !isF16(getSrcType(inst)));
+        if (isF16(getType(inst)) || isF16(getSrcType(inst)))
+            if (isHavingFtz(inst))
+              return TestDataProvider::testFtzF16();
+        return true;
+    }
+
+    static bool isHavingFtz(const Inst& inst)
+    {
+      if (! instSupportsFtz(Inst(inst).opcode())) { return false; }
+      if (InstCmp i = inst) { return i.modifier().ftz(); }
+      if (InstCvt i = inst) { return i.modifier().ftz(); }
+      if (InstMod i = inst) { return i.modifier().ftz(); }
+      return false;
     }
 
     static bool isF16(unsigned type)

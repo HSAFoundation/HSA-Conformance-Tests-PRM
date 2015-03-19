@@ -80,32 +80,34 @@ typedef double   f64_t;
 //  ----------------------------------------------
 //
 
-template<typename T, T sign_mask, T exponent_mask, T mantissa_mask, T mantissa_msb_mask, unsigned exponent_bias, unsigned mantissa_width>
+template<typename T, T sign_mask, T exponent_mask, T mantissa_mask, T mantissa_msb_mask, int exponent_bias, int mantissa_width>
 class IEEE754
 {
 public:
     typedef T Type;
 
-    static const T SIGN_MASK         = sign_mask;
-    static const T EXPONENT_MASK     = exponent_mask;
-    static const T MANTISSA_MASK     = mantissa_mask;
-    static const T MANTISSA_MSB_MASK = mantissa_msb_mask;
-    static const T NAN_TYPE_MASK     = mantissa_msb_mask;
+    static const Type SIGN_MASK         = sign_mask;
+    static const Type EXPONENT_MASK     = exponent_mask;
+    static const Type MANTISSA_MASK     = mantissa_mask;
+    static const Type MANTISSA_MSB_MASK = mantissa_msb_mask;
+    static const Type NAN_TYPE_MASK     = mantissa_msb_mask;
 
-    static const unsigned EXPONENT_BIAS  = exponent_bias;
-    static const unsigned MANTISSA_WIDTH = mantissa_width;
+    static const int EXPONENT_BIAS  = exponent_bias;
+    static const int MANTISSA_WIDTH = mantissa_width;
 
 private:
-    T bits;
+    Type bits;
 
 public:
-    IEEE754(T val) : bits(val) {}
-    IEEE754(bool isPositive, u64_t mantissa, s64_t decodedExponent)
+    explicit IEEE754(Type val) : bits(val) {}
+    IEEE754(bool isPositive, uint64_t mantissa, int64_t decodedExponent)
     {
-        T exponent = (T)(decodedExponent + EXPONENT_BIAS) << MANTISSA_WIDTH;
+        Type exponent = (Type)(decodedExponent + EXPONENT_BIAS) << MANTISSA_WIDTH;
 
         assert((exponent & ~EXPONENT_MASK) == 0);
         assert((mantissa & ~MANTISSA_MASK) == 0);
+        assert((Type)(-1) > 0 && "Type must be unsigned integer");
+        assert(EXPONENT_BIAS >= 0 && MANTISSA_WIDTH > 0 && MANTISSA_WIDTH <= sizeof(Type)*8); // rudementary checks
 
         bits = (isPositive? 0 : SIGN_MASK) | 
                (exponent & EXPONENT_MASK)  | 
@@ -113,13 +115,13 @@ public:
     }
 
 public:
-    T getBits() const { return bits; }
+    Type getBits() const { return bits; }
 
 public:
-    T getSign()      const { return bits & SIGN_MASK; }
-    T getMantissa()  const { return bits & MANTISSA_MASK; }
-    T getExponent()  const { return bits & EXPONENT_MASK; }
-    T getNanType()   const { return bits & NAN_TYPE_MASK; }
+    Type getSign()      const { return bits & SIGN_MASK; }
+    Type getMantissa()  const { return bits & MANTISSA_MASK; }
+    Type getExponent()  const { return bits & EXPONENT_MASK; }
+    Type getNanType()   const { return bits & NAN_TYPE_MASK; }
 
 public:
     bool isPositive()          const { return getSign() == 0; }
@@ -150,24 +152,24 @@ public:
     bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANTISSA_WIDTH) >= EXPONENT_BIAS); } //F1.0 optimize old code using decodeExponent() etc
 
 public:
-    static T getQuietNan()     { return EXPONENT_MASK | NAN_TYPE_MASK; }
-    static T getNegativeZero() { return SIGN_MASK; }
-    static T getPositiveZero() { return 0; }
-    static T getNegativeInf()  { return SIGN_MASK | EXPONENT_MASK; }
-    static T getPositiveInf()  { return             EXPONENT_MASK; }
+    static Type getQuietNan()     { return EXPONENT_MASK | NAN_TYPE_MASK; }
+    static Type getNegativeZero() { return SIGN_MASK; }
+    static Type getPositiveZero() { return 0; }
+    static Type getNegativeInf()  { return SIGN_MASK | EXPONENT_MASK; }
+    static Type getPositiveInf()  { return             EXPONENT_MASK; }
 
-    static bool isValidExponent(s64_t exponenValue) // check _decoded_ exponent value
+    static bool isValidExponent(int64_t exponenValue) // check _decoded_ exponent value
     {
-        s64_t minExp = - (s64_t)EXPONENT_BIAS;      // Reserved for subnormals
-        s64_t maxExp =   (s64_t)EXPONENT_BIAS + 1;  // Reserved for Infs and NaNs
+        const int64_t minExp = -EXPONENT_BIAS;     // Reserved for subnormals
+        const int64_t maxExp = EXPONENT_BIAS + 1;  // Reserved for Infs and NaNs
         return minExp < exponenValue && exponenValue < maxExp;
     }
 
-    static s64_t decodedSubnormalExponent() { return - (s64_t)EXPONENT_BIAS; }   // Decoded exponent value which indicates a subnormal
-    static s64_t actualSubnormalExponent()  { return 1 - (s64_t)EXPONENT_BIAS; } // Actual decoded exponent value for subnormals
+    static int64_t decodedSubnormalExponent() { return 0 - EXPONENT_BIAS; } // Decoded exponent value which indicates a subnormal
+    static int64_t actualSubnormalExponent()  { return 1 - EXPONENT_BIAS; } // Actual decoded exponent value for subnormals
 
 public:
-    template<typename TargetType> u64_t mapSpecialValues()
+    template<typename TargetType> typename TargetType::Type mapSpecialValues() const
     {
         assert(!isRegular());
 
@@ -182,10 +184,10 @@ public:
         return 0;
     }
 
-    template<typename TargetType> u64_t mapNormalizedMantissa() // map to target type
+    template<typename TargetType> uint64_t mapNormalizedMantissa() const // map to target type
     {
-        u64_t mantissa = getMantissa();
-        u64_t targetMantissaWidth = TargetType::MANTISSA_WIDTH;
+        uint64_t mantissa = getMantissa();
+        int targetMantissaWidth = TargetType::MANTISSA_WIDTH;
 
         assert(targetMantissaWidth != MANTISSA_WIDTH);
 
@@ -193,18 +195,18 @@ public:
         else                                      return mantissa << (targetMantissaWidth - MANTISSA_WIDTH);
     }
 
-    template<typename TargetType> u64_t normalizeMantissa(s64_t& exponent)
+    template<typename TargetType> uint64_t normalizeMantissa(int64_t& exponent) const
     {
-        assert(sizeof(T) != sizeof(typename TargetType::Type));
+        assert(sizeof(Type) != sizeof(typename TargetType::Type));
 
-        if (sizeof(T) < sizeof(typename TargetType::Type)) // Map subnormal to a larger type
+        if (sizeof(Type) < sizeof(typename TargetType::Type)) // Map subnormal to a larger type
         {
             assert(isSubnormal());
 
             // unused: unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
 
-            u64_t mantissa = getMantissa();
-            mantissa <<= 64 - MANTISSA_WIDTH;
+            uint64_t mantissa = getMantissa();
+            mantissa <<= sizeof(mantissa)*8 - MANTISSA_WIDTH;
 
             assert(mantissa != 0);
 
@@ -217,7 +219,7 @@ public:
             }
             if (!found) exponent = TargetType::decodedSubnormalExponent(); // subnormal -> subnormal
 
-            return mantissa >> (64 - TargetType::MANTISSA_WIDTH);
+            return mantissa >> (sizeof(mantissa)*8 - TargetType::MANTISSA_WIDTH);
         }
         else // Map regular value with large negative mantissa to a smaller type (resulting in subnormal or 0)
         {
@@ -225,7 +227,7 @@ public:
             assert(!TargetType::isValidExponent(exponent));
             assert(sizeof(T) > sizeof(typename TargetType::Type));
 
-            u64_t mantissa = getMantissa();
+            uint64_t mantissa = getMantissa();
 
             // Add hidden bit of mantissa
             mantissa = MANTISSA_MSB_MASK | (mantissa >> 1);
@@ -238,39 +240,40 @@ public:
             }
 
             exponent = TargetType::decodedSubnormalExponent();
-            unsigned delta = (MANTISSA_WIDTH - TargetType::MANTISSA_WIDTH);
+            int delta = (MANTISSA_WIDTH - TargetType::MANTISSA_WIDTH);
+            assert(delta >= 0);
             return mantissa >> delta;
         }
     }
 
     // Return exponent as a signed number
-    s64_t decodeExponent()
+    int64_t decodeExponent() const
     {
-        s64_t e = getExponent() >> MANTISSA_WIDTH;
+        int64_t e = getExponent() >> MANTISSA_WIDTH;
         return e - EXPONENT_BIAS;
     }
 
     // Return fractional part of fp number
     // normalized so that x-th digit is at (63-x)-th bit of u64_t
-    u64_t getNormalizedFract(int x = 0) const
+    uint64_t getNormalizedFract(int x = 0) const
     {
         if (isZero() || isInf() || isNan()) return 0;
 
         //F1.0 "MANTISSA_MASK + 1" looks like a bug because there is no hidden bit for subnormals.
-        u64_t mantissa = getMantissa() | (MANTISSA_MASK + 1); // Highest bit of mantissa is not encoded but assumed
+        uint64_t mantissa = getMantissa() | (MANTISSA_MASK + 1); // Highest bit of mantissa is not encoded but assumed
         int exponent = static_cast<int>(getExponent() >> MANTISSA_WIDTH);
 
         // Compute shift required to place 1st fract bit at 63d bit of u64_t
-        int width = static_cast<int>(sizeof(u64_t) * 8);
+        int width = static_cast<int>(sizeof(mantissa) * 8);
         int shift = (exponent - EXPONENT_BIAS) + (width - MANTISSA_WIDTH) + x;
         if (shift <= -width || width <= shift) return 0;
         return (shift >= 0)? mantissa << shift : mantissa >> (-shift);
     }
 
-    T negate()      const { return (getSign()? 0 : SIGN_MASK) | getExponent() | getMantissa(); }
-    T copySign(T v) const { return (v & SIGN_MASK) | getExponent() | getMantissa(); }
+    Type negate()      const { return (getSign()? 0 : SIGN_MASK) | getExponent() | getMantissa(); }
+    Type copySign(Type v) const { return (v & SIGN_MASK) | getExponent() | getMantissa(); }
 
-    T normalize(bool discardNanSign) const // Clear NaN payload and sign
+    Type normalize(bool discardNanSign) const // Clear NaN payload and sign
     {
         if (isQuietNan())
         {
@@ -361,7 +364,7 @@ public:
 
 typedef IEEE754
     <
-        u16_t,
+        uint16_t,
         0x8000,  // Sign
         0x7C00,  // Exponent
         0x03ff,  // Mantissa
@@ -372,7 +375,7 @@ typedef IEEE754
 
 typedef IEEE754
     <
-        u32_t,
+        uint32_t,
         0x80000000,  // Sign
         0x7f800000,  // Exponent
         0x007fffff,  // Mantissa
@@ -383,7 +386,7 @@ typedef IEEE754
 
 typedef IEEE754
     <
-        u64_t,
+        uint64_t,
         0x8000000000000000ULL,  // Sign
         0x7ff0000000000000ULL,  // Exponent
         0x000fffffffffffffULL,  // Mantissa
@@ -397,11 +400,10 @@ typedef IEEE754
 //==============================================================================
 // F16 type
 
-class f16_t;
-f16_t f16_todo();
-
 class f16_t
 {
+public:
+    typedef FloatProp16::Type bits_t;
 private:
     static const unsigned RND_NEAR = BRIG_ROUND_FLOAT_NEAR_EVEN;
     static const unsigned RND_ZERO = BRIG_ROUND_FLOAT_ZERO;
@@ -409,17 +411,18 @@ private:
     static const unsigned RND_DOWN = BRIG_ROUND_FLOAT_MINUS_INFINITY;
 
 private:
-    u16_t bits;
+    bits_t bits;
 
 public:
     f16_t() {}
-
-    explicit f16_t(f64_t x, unsigned rounding = RND_NEAR);
-    explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) { f16_todo(); }
-    explicit f16_t(s32_t x) { bits = f16_t((f64_t)x).bits; }
+    explicit f16_t(double x, unsigned rounding = RND_NEAR);
+    explicit f16_t(float x, unsigned rounding = RND_NEAR);
+    //explicit f16_t(f64_t x, unsigned rounding = RND_NEAR) : f16_t(double(x), rounding) {};
+    //explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) : f16_t(float(x), rounding) {};
+    explicit f16_t(int32_t x) { bits = f16_t((f64_t)x).getBits(); }
 
 public:
-    bool operator>  (const f16_t& x) const { return f64() >  x.f64(); }
+    bool operator>  (const f16_t& x) const { return f64() >  x.f64(); } /// \todo reimplement all via f32 at least
     bool operator<  (const f16_t& x) const { return f64() <  x.f64(); }
     bool operator>= (const f16_t& x) const { return f64() >= x.f64(); }
     bool operator<= (const f16_t& x) const { return f64() <= x.f64(); }
@@ -429,16 +432,17 @@ public:
     f16_t& operator+= (f16_t x) { bits = f16_t(f64() + x.f64()).bits; return *this; }
 
 public:
-    f32_t f32()      const { f16_todo(); return 0; };
-    f64_t f64()      const;
-    operator f32_t() const { return f32(); }
-    operator f64_t() const { return f64(); }
+    f32_t f32() const;
+    f64_t f64() const;
+    operator float() const { return f32(); }
+    operator double() const { return f64(); }
 
 public:
     f16_t neg() const { return make(FloatProp16(bits).negate()); }
 
 public:
-    static f16_t make(u16_t bits) { f16_t res; res.bits = bits; return res; }
+    static f16_t make(bits_t bits) { f16_t res; res.bits = bits; return res; }
+    bits_t getBits() const { return bits; }
 
 public:
     static void sanityTests();
@@ -447,13 +451,6 @@ public:
 
 inline f16_t operator+ (f16_t l, f16_t r) { return f16_t(l.f64() + r.f64()); }
 inline f16_t operator- (f16_t l, f16_t r) { return f16_t(l.f64() - r.f64()); }
-
-inline f16_t f16_todo()
-{
-    //assert(false);
-    return f16_t(666.0);
-}
-
 
 // ============================================================================
 // ============================================================================
@@ -476,11 +473,23 @@ public:
         return reinterpret_cast<const T*>(this)[idx];
     }
 
+    f16_t get(unsigned idx = 0) const
+    {
+        assert(idx < 16 / sizeof(f16_t::bits_t));
+        return f16_t::make(reinterpret_cast<const f16_t::bits_t*>(this)[idx]);
+    }
+
     template<typename T>
     void set(T val, unsigned idx = 0)
     {
         assert(idx < 16 / sizeof(T));
         reinterpret_cast<T*>(this)[idx] = val;
+    }
+
+    void set(f16_t val, unsigned idx = 0)
+    {
+        assert(idx < 16 / sizeof(f16_t::bits_t));
+        reinterpret_cast<f16_t::bits_t*>(this)[idx] = val.getBits();
     }
 
 public:

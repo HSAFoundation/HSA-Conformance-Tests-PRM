@@ -21,6 +21,8 @@
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenDataProvider.h"
 
+#define TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
+
 using namespace TESTGEN;
 using namespace HSAIL_ASM;
 
@@ -67,6 +69,19 @@ private:
   string getSrcArrayName(unsigned idx, string prefix = "")
   { return prefix + "src" + index2str(idx); }
 
+#ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
+  static bool isDestF16(Inst inst) {
+      assert(inst);
+      switch(getType(inst)) {
+      case BRIG_TYPE_F16:
+      case BRIG_TYPE_F16X2:
+      case BRIG_TYPE_F16X4:
+      case BRIG_TYPE_F16X8: return true;
+      default: return false;
+      }
+  }
+#endif
+
   TestSpec* CreateTestSpec(TestDesc& testDesc)
   {
     brig_container_t brig = CreateBrigFromContainer(testDesc.getContainer());
@@ -81,10 +96,18 @@ private:
       id = defSrcArray(dsetup, testGroup, id, i);
     }
     if (map->getDstArgsNum() == 1) {
-      id = defResultArray(dsetup, testGroup, id, "dst", true);
+      id = defResultArray(dsetup, testGroup, id, "dst", true
+#ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
+        , isDestF16(testDesc.getInst())
+#endif
+        );
     }
     if (map->getMemArgsNum() == 1) {
-      id = defResultArray(dsetup, testGroup, id, "mem", false);
+      id = defResultArray(dsetup, testGroup, id, "mem", false
+#ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
+        , isDestF16(testDesc.getInst())
+#endif
+        );
     }
     std::ostringstream ss;
     ss << dumpInst(testDesc.getInst()) << "_" << std::setw(5) << std::setfill('0') << index++;
@@ -113,7 +136,11 @@ private:
     return id;
   }
 
-  unsigned defResultArray(DispatchSetup* dsetup, TestGroupArray* testGroup, unsigned id, std::string name, bool isDst) {
+  unsigned defResultArray(DispatchSetup* dsetup, TestGroupArray* testGroup, unsigned id, std::string name, bool isDst
+#ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
+    , bool isDstF16
+#endif
+  ) {
     TestData& data = testGroup->getData(0);
     unsigned vecSize = isDst? data.dst.getDim() : data.mem.getDim();
     BrigType type = (BrigType) (isDst? data.dst.getValType() : data.mem.getValType());
@@ -124,7 +151,11 @@ private:
     dsetup->MSetup().Add(mb);
     dsetup->MSetup().Add(NewMValue(id++, std::string("Arg ") + name,
                                 MEM_KERNARG, MV_REF, R(mb->Id())));
-    MRBuffer* mr = new MRBuffer(id++, name + " (check)", mb->VType(), mb->Id());
+    MRBuffer* mr = new MRBuffer(id++, name + " (check)", mb->VType(), mb->Id()
+#ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
+      , Values(), isDstF16 ? Comparison(CM_ULPS, Value(MV_UINT64, U64(1))) : Comparison()
+#endif
+      );
     for (unsigned flatIdx = 0; flatIdx < testGroup->getFlatSize(); ++flatIdx) {
       TestData& data = testGroup->getData(flatIdx);
       for (unsigned k = 0; k < vecSize; ++k) {
@@ -263,7 +294,7 @@ private:
 
 void TestGenTestSet::Iterate(TestSpecIterator& it)
 {
-  TestDataProvider::init(true, true, 0, 64, 0, context->Opts()->IsSet("XtestF16"));
+  TestDataProvider::init(true, true, 0, 64, 0, context->Opts()->IsSet("XtestFtzF16"));
   TestGenConfig* testGenConfig = context->Get<TestGenConfig*>(TestGenConfig::ID);
   assert(testGenConfig);
   BrigSettings::init(testGenConfig->Model(), testGenConfig->Profile(), true, false, false, context->IsDumpEnabled("hsail"));

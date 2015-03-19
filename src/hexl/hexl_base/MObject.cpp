@@ -1237,7 +1237,7 @@ bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, cons
   }
   case CM_ULPS: {
     error = Value(MV_UINT16, U16((std::max)(v1.U16(), v2.U16()) - (std::min)(v1.U16(), v2.U16())));
-    return error.U32() <= precision.D();
+    return error.U16() <= precision.U64();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
@@ -1287,7 +1287,7 @@ bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, con
   }
   case CM_ULPS: {
     error = Value(MV_UINT32, U32((std::max)(v1.U32(), v2.U32()) - (std::min)(v1.U32(), v2.U32())));
-    return error.U32() <= precision.D();
+    return error.U32() <= precision.U64();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
@@ -1384,7 +1384,7 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
       return error.D() < precision.D();
     case CM_ULPS:
       error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
-      return error.U64() <= precision.D();
+      return error.U64() <= precision.U64();
     case CM_RELATIVE: {
       double eps = precision.D();
       if (v1.D() == 0.0f) {
@@ -1650,40 +1650,60 @@ void DispatchSetup::Deserialize(std::istream& in)
 /// \todo copy-paste from HSAILTestGenEmulatorTypes
 namespace HSAIL_X { // experimental
 
-// Type-safe re-interpretation of floating values as unsigned integers
+// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
 namespace impl {
-  template<typename T> struct Floating2BitsTraits;
-  template<> struct Floating2BitsTraits<float> { typedef uint32_t BitsType; };
-  template<> struct Floating2BitsTraits<double> { typedef uint64_t BitsType; };
-  template<typename T> struct Floating2Bits {
-    typedef typename Floating2BitsTraits<T>::BitsType B;
-  private:
-    union val {
-      B b_;
-      T f_;
-      explicit val(T f) : f_(f) {}
-    } const u;
-  public:
-    explicit Floating2Bits(T f) : u(f) { };
-    B Get() const { return u.b_; }
+  template<typename T1, typename T2> union Unionier { // provides ctor for const union
+    T1 val; T2 reinterpreted;
+    explicit Unionier(T1 x) : val(x) {}
   };
-} // namespace
+  template<typename T> struct AsBitsTraits; // allowed pairs of types:
+  template<> struct AsBitsTraits<float> { typedef uint32_t DestType; };
+  template<> struct AsBitsTraits<double> { typedef uint64_t DestType; };
+  template<typename T> struct AsBits {
+    typedef typename AsBitsTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsBits(T x) : u(x) { };
+    DestType Get() const { return u.reinterpreted; }
+  };
+  template<typename T> struct AsFloatingTraits;
+  template<> struct AsFloatingTraits<uint32_t> { typedef float DestType; };
+  template<> struct AsFloatingTraits<uint64_t> { typedef double DestType; };
+  template<typename T> struct AsFloating {
+    typedef typename AsFloatingTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsFloating(T x) : u(x) {}
+    DestType Get() const { return u.reinterpreted; }
+  };
+}
 
+template <typename T> // select T and instantiate specialized class
+typename impl::AsBits<T>::DestType asBits(T f) { return impl::AsBits<T>(f).Get(); }
 template <typename T>
-impl::Floating2Bits<T> floating2bits(T f) { return impl::Floating2Bits<T>(f); }
+typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating<T>(x).Get(); }
 
-/// \todo Make it so
-static inline float bitsToFloat(const uint32_t bits_) {
-  union { uint32_t bits; float floating; } val;
-  val.bits = bits_;
-  return val.floating;
-}
 
-static inline double bitsToDouble(const uint64_t bits_) {
-  union { uint64_t bits; double floating; } val;
-  val.bits = bits_;
-  return val.floating;
+#if 0
+// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
+namespace impl {
+  template<typename T1, typename T2> union Unionier { // provides ctor for const union
+    T1 val; T2 reinterpreted;
+    explicit Unionier(T1 x) : val(x) {}
+  };
+  template<typename T> struct ReinterpreterTraits; // allowed pairs of types
+  template<> struct ReinterpreterTraits<float> { typedef uint32_t DestType; };
+  template<> struct ReinterpreterTraits<double> { typedef uint64_t DestType; };
+  template<> struct ReinterpreterTraits<uint32_t> { typedef float DestType; };
+  template<> struct ReinterpreterTraits<uint64_t> { typedef double DestType; };
+  template<typename T> struct Reinterpreter { // reinterprets within allowed pairs only
+    typedef typename ReinterpreterTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit Reinterpreter(T x) : u(x) { };
+    DestType Get() const { return u.reinterpreted; }
+  };
 }
+template <typename T> // select T and instantiate specialized class
+typename impl::Reinterpreter<T>::DestType reinterpret(T f) { return impl::Reinterpreter<T>(f).Get(); }
+#endif
 
 //==============================================================================
 //==============================================================================
@@ -1692,7 +1712,7 @@ static inline double bitsToDouble(const uint64_t bits_) {
 
 f16_t::f16_t(double x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
 { 
-    const FloatProp64 input(floating2bits(x).Get());
+    const FloatProp64 input(asBits(x));
 
     if (!input.isRegular())
     {
@@ -1731,7 +1751,7 @@ f16_t::f16_t(double x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
 
 f16_t::f16_t(float x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
 { 
-    const FloatProp32 input(floating2bits(x).Get());
+    const FloatProp32 input(asBits(x));
 
     if (!input.isRegular())
     {
@@ -1794,7 +1814,7 @@ f64_t f16_t::f64() const
         bits64 = f64.getBits();
     }
 
-    return bitsToDouble(bits64);
+    return asFloating(bits64);
 }
 
 f32_t f16_t::f32() const 
@@ -1823,7 +1843,7 @@ f32_t f16_t::f32() const
         outbits = outprop.getBits();
     }
 
-    return bitsToFloat(outbits);
+    return asFloating(outbits);
 }
 
 } // namespace

@@ -572,6 +572,7 @@ private:
   Value color_one;
   bool bWithoutSampler;
   Value existVal;
+  int bits_per_channel;
 
   void SetupDefaultColors();
   float UnnormalizeCoord(Value* c, unsigned dimSize) const;
@@ -592,22 +593,24 @@ private:
   uint32_t ConvertionLoadUnsignedClamp(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadHalfFloat(uint32_t data) const;
   float ConvertionLoadFloat(uint32_t data) const;
-  int32_t ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const;
+  uint32_t ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const;
   uint32_t ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const;
-  int32_t ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const;
+  uint32_t ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const;
   uint32_t ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_size) const;
-  half ConvertionStoreHalfFloat(float f) const;
-  float ConvertionStoreFloat(float f) const;
+  uint32_t ConvertionStoreHalfFloat(float f) const;
+  uint32_t ConvertionStoreFloat(float f) const;
   Value ConvertRawData(uint32_t data) const;
   float GammaCorrection(float f) const;
   void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
   void LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const;
   void LoadFloatTexel(int x, int y, int z, double* const f) const;
   void EmulateReadColor(Value* _coords, Value* _color) const;
+  Value EmulateStoreColor(Value* _color) const;
 
 public:
   EImageCalc(EImage * eimage, ESampler* esampler, Value val);
   void ReadColor(Value* _coords, Value* _color) const;
+  Value StoreColor(Value* _coords, Value* _color) const;
 };
 
 class EImage : public EImageSpec {

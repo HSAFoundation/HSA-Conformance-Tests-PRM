@@ -10,45 +10,115 @@ using std::numeric_limits;
 
 namespace TESTGEN {
 
+// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
+namespace impl {
+  template<typename T1, typename T2> union Unionier { // provides ctor for const union
+    T1 val; T2 reinterpreted;
+    explicit Unionier(T1 x) : val(x) {}
+  };
+  template<typename T> struct AsBitsTraits; // allowed pairs of types:
+  template<> struct AsBitsTraits<float> { typedef uint32_t DestType; };
+  template<> struct AsBitsTraits<double> { typedef uint64_t DestType; };
+  template<typename T> struct AsBits {
+    typedef typename AsBitsTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsBits(T x) : u(x) { };
+    DestType Get() const { return u.reinterpreted; }
+  };
+  template<typename T> struct AsFloatingTraits;
+  template<> struct AsFloatingTraits<uint32_t> { typedef float DestType; };
+  template<> struct AsFloatingTraits<uint64_t> { typedef double DestType; };
+  template<typename T> struct AsFloating {
+    typedef typename AsFloatingTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsFloating(T x) : u(x) {}
+    DestType Get() const { return u.reinterpreted; }
+  };
+}
+
+template <typename T> // select T and instantiate specialized class
+typename impl::AsBits<T>::DestType asBits(T f) { return impl::AsBits<T>(f).Get(); }
+template <typename T>
+typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating<T>(x).Get(); }
+
 //==============================================================================
 //==============================================================================
 //==============================================================================
 // Implementation of F16 type
 
-f16_t::f16_t(f64_t x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
+f16_t::f16_t(double x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
 { 
-    FloatProp64 f64(F64_2U(x));
+    const FloatProp64 input(asBits(x));
 
-    if (!f64.isRegular())
+    if (!input.isRegular())
     {
-        bits = (u16_t)f64.mapSpecialValues<FloatProp16>();
+        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
     }
-    else if (f64.isSubnormal()) // f64 subnormal should be mapped to (f16)0
+    else if (input.isSubnormal()) // f64 subnormal should be mapped to (f16)0
     {
-        FloatProp16 f16(f64.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
+        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
         bits = f16.getBits();
     }
     else
     {
-        s64_t exponent = f64.decodeExponent();
-        u64_t mantissa = f64.mapNormalizedMantissa<FloatProp16>();
+        int64_t exponent = input.decodeExponent();
+        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
 
         if (!FloatProp16::isValidExponent(exponent))
         {
             if (exponent > 0)
             {
-                bits = f64.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
+                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
             }
             else
             {
-                u64_t mantissa16 = f64.normalizeMantissa<FloatProp16>(exponent);
-                FloatProp16 f16(f64.isPositive(), mantissa16, exponent);
+                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
+                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
                 bits = f16.getBits();
             }
         }
         else
         {
-            FloatProp16 f16(f64.isPositive(), mantissa, exponent);
+            FloatProp16 f16(input.isPositive(), mantissa, exponent);
+            bits = f16.getBits();
+        }
+    }
+}
+
+f16_t::f16_t(float x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
+{ 
+    const FloatProp32 input(asBits(x));
+
+    if (!input.isRegular())
+    {
+        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
+    }
+    else if (input.isSubnormal()) // subnormal -> (f16)0
+    {
+        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
+        bits = f16.getBits();
+    }
+    else
+    {
+        int64_t exponent = input.decodeExponent();
+        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
+
+        if (!FloatProp16::isValidExponent(exponent))
+        {
+            if (exponent > 0)
+            {
+                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
+            }
+            else
+            {
+                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
+                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
+                bits = f16.getBits();
+            }
+        }
+        else
+        {
+            FloatProp16 f16(input.isPositive(), mantissa, exponent);
             bits = f16.getBits();
         }
     }
@@ -57,7 +127,7 @@ f16_t::f16_t(f64_t x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
 f64_t f16_t::f64() const 
 { 
     FloatProp16 f16(bits);
-    u64_t bits64;
+    uint64_t bits64;
 
     if (!f16.isRegular())
     {
@@ -65,23 +135,52 @@ f64_t f16_t::f64() const
     }
     else if (f16.isSubnormal())
     {
-        s64_t exponent = f16.decodeExponent();
+        int64_t exponent = f16.decodeExponent();
         assert(exponent == FloatProp16::decodedSubnormalExponent());
         exponent = FloatProp16::actualSubnormalExponent();
-        u64_t mantissa = f16.normalizeMantissa<FloatProp64>(exponent);
+        uint64_t mantissa = f16.normalizeMantissa<FloatProp64>(exponent);
         FloatProp64 f64(f16.isPositive(), mantissa, exponent);
         bits64 = f64.getBits();
     }
     else
     {
-        s64_t exponent = f16.decodeExponent();
-        u64_t mantissa = f16.mapNormalizedMantissa<FloatProp64>();
+        int64_t exponent = f16.decodeExponent();
+        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp64>();
         FloatProp64 f64(f16.isPositive(), mantissa, exponent);
         bits64 = f64.getBits();
     }
 
-    return HEX2F64(bits64);
-};
+    return asFloating(bits64);
+}
+
+f32_t f16_t::f32() const 
+{ 
+    FloatProp16 f16(bits);
+    uint32_t outbits;
+
+    if (!f16.isRegular())
+    {
+        outbits = f16.mapSpecialValues<FloatProp32>();
+    }
+    else if (f16.isSubnormal())
+    {
+        int64_t exponent = f16.decodeExponent();
+        assert(exponent == FloatProp16::decodedSubnormalExponent());
+        exponent = FloatProp16::actualSubnormalExponent();
+        uint64_t mantissa = f16.normalizeMantissa<FloatProp32>(exponent);
+        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        outbits = outprop.getBits();
+    }
+    else
+    {
+        int64_t exponent = f16.decodeExponent();
+        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp32>();
+        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        outbits = outprop.getBits();
+    }
+
+    return asFloating(outbits);
+}
 
 //==============================================================================
 //==============================================================================

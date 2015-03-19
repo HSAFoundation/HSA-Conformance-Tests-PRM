@@ -169,7 +169,7 @@ void HCRunner::Run()
   optReg.RegisterBooleanOption("dump.brig");
   optReg.RegisterBooleanOption("dump.hsail");
   optReg.RegisterBooleanOption("dump.dispatchsetup");
-  optReg.RegisterBooleanOption("XtestF16"); // eXperimental
+  optReg.RegisterBooleanOption("XtestFtzF16"); // eXperimental
   optReg.RegisterOption("match");
   {
     int n = hexl::ParseOptions(argc, argv, optReg, options);
