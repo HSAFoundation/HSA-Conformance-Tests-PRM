@@ -47,7 +47,11 @@ public:
   void Name(std::ostream& out) const {
     out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType));
   }
-  
+
+  uint32_t InitialValue() const { return 0x00000032; }
+
+  uint32_t StorePerRegValue() const { return 0x00000080; }
+
   void Init() {
    Test::Init();
    EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_RWIMG);
@@ -59,9 +63,9 @@ public:
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
    imgobj = kernel->NewImage("%rwimage", &imageSpec);
-   imgobj->InitMemValue(Value(MV_UINT32, 0x00000032));
+   imgobj->InitMemValue(Value(MV_UINT32, InitialValue()));
 
-   imgobj->InitImageCalculator(NULL, Value(MV_UINT32, 0x80808080));
+   imgobj->InitImageCalculator(NULL, Value(MV_UINT32, StorePerRegValue()));
   }
 
   void ModuleDirectives() override {
@@ -120,14 +124,11 @@ public:
     return result;
   }
 
-  unsigned char GetReplacedVal() {
-    return 0x80;
-  }
 
   OperandOperandList StoreValues(int cnt) {
     auto result = be.AddVec(BRIG_TYPE_U32, cnt);
     for (int i = 0; i < cnt; i++)
-      be.EmitMov(result.elements(i), be.Immed(ResultType(), GetReplacedVal()), 32);
+      be.EmitMov(result.elements(i), be.Immed(ResultType(), StorePerRegValue()), 32);
     return result;
   }
 
@@ -140,7 +141,7 @@ public:
 
     OperandOperandList regs_dest;
     auto reg_dest = be.AddTReg(BRIG_TYPE_U32, 1);
-    be.EmitMov(result, be.Immed(ResultType(), GetReplacedVal()));
+    be.EmitMov(result, be.Immed(ResultType(), StorePerRegValue()));
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
