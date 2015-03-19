@@ -55,6 +55,8 @@ namespace emitter {
 Sequence<Location>* CodeLocations();
 Sequence<Location>* KernelLocation();
 
+BrigLinkage Location2Linkage(Location loc);
+
 enum BufferType {
   HOST_INPUT_BUFFER,
   HOST_RESULT_BUFFER,
@@ -408,6 +410,7 @@ public:
   }
 
   std::string IdData() const { return id + ".data"; }
+  std::string BufferName() const { return id; }
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
@@ -416,6 +419,7 @@ public:
   PointerReg Address(bool flat = false);
 
   size_t Count() const { return count; }
+  ValueType VType() const { return vtype; }
   size_t TypeSize() const { return ValueTypeSize(vtype); }
   size_t Size() const;
 
@@ -739,6 +743,7 @@ public:
   void StartKernel();
   void StartKernelBody();
   void EndKernel();
+  void Declaration();
 };
 
 class EFunction : public EmittableContainer {

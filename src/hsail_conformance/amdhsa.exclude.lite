@@ -34,5 +34,7 @@ prm/core/special/misc/kernargbaseptr/identity/function
 prm/core/special/misc/debugtrap
 prm/core/special/exception
 prm/core/limits/wgnumber
+prm/core/libraries/linkage/variable/module_readonly
+prm/core/libraries/linkage/variable/program_readonly
 prm/image/initializer/sampler
 prm/image/limits/sampler_number

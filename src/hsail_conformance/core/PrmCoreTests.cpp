@@ -30,6 +30,7 @@
 #include "DirectiveTests.hpp"
 #include "LimitsTests.hpp"
 #include "ExceptionsTests.hpp"
+#include "LibrariesTests.hpp"
 #ifdef ENABLE_HEXL_HSAILTESTGEN
 #include "HexlTestGen.hpp"
 #endif // ENABLE_HEXL_HSAILTESTGEN
@@ -200,6 +201,14 @@ LimitsTestsUnion::LimitsTestsUnion()
   Add(new LimitsTests());
 }
 
+DECLARE_TESTSET_UNION(LibrariesTestsUnion);
+
+LibrariesTestsUnion::LibrariesTestsUnion()
+  : TestSetUnion("libraries")
+{
+  Add(new LibrariesTests());
+}
+
 
 DECLARE_TESTSET_UNION(PrmCoreTests);
 
@@ -215,6 +224,8 @@ PrmCoreTests::PrmCoreTests()
   Add(new VariablesTests());
   Add(new DirectiveTestsUnion());
   Add(new LimitsTestsUnion());
+  Add(new LimitsTestsUnion());
+  Add(new LibrariesTestsUnion());
 }
 
 hexl::TestSet* NewPrmCoreTests()
