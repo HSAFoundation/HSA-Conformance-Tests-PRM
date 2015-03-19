@@ -132,6 +132,21 @@ Sequence<Location>* KernelLocation()
   return &sequence;
 }
 
+BrigLinkage Location2Linkage(Location loc) {
+  switch (loc) {
+  case MODULE: 
+    return BRIG_LINKAGE_PROGRAM;
+  case KERNEL: 
+  case FUNCTION:
+    return BRIG_LINKAGE_FUNCTION;
+  case ARGSCOPE:
+    return BRIG_LINKAGE_ARG;
+  default:
+    assert(false); 
+    return BRIG_LINKAGE_NONE;
+  }
+}
+
 Grid Emittable::Geometry() { return te->InitialContext()->Get<Grid>("geometry"); }
 
 void EmittableContainer::Name(std::ostream& out) const
@@ -2747,6 +2762,13 @@ void EKernel::StartKernelBody()
   EmittableContainer::StartKernelBody();
 }
 
+void EKernel::Declaration()
+{
+  kernel = te->Brig()->StartKernel(KernelName());
+  kernel.modifier().isDefinition() = false;
+  KernelArguments();
+}
+
 void EFunction::StartFunction()
 {
   function = te->Brig()->StartFunction(FunctionName());
@@ -2759,7 +2781,7 @@ void EFunction::EndFunction()
 
 void EFunction::Declaration()
 {
-  te->Brig()->StartFunction();
+  function = te->Brig()->StartFunction(FunctionName());
   FunctionFormalOutputArguments();
   FunctionFormalInputArguments();
 }

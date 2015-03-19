@@ -130,6 +130,7 @@ namespace hexl {
         hexl::Sequence<BrigSegment>* variable;
         hexl::Sequence<BrigSegment>* atomic;
         hexl::Sequence<BrigSegment>* initializable;
+        hexl::Sequence<BrigSegment>* moduleScope;
         hexl::Sequence<BrigSegment>* singleList[BRIG_SEGMENT_MAX];
 
       public:
@@ -145,6 +146,7 @@ namespace hexl {
         hexl::Sequence<BrigSegment>* Variable() { return variable; }
         hexl::Sequence<BrigSegment>* Atomic() { return atomic; }
         hexl::Sequence<BrigSegment>* InitializableSegments() { return initializable; }
+        hexl::Sequence<BrigSegment>* ModuleScopeVariableSegments() { return moduleScope; }
         hexl::Sequence<BrigSegment>* Single(BrigSegment segment);
       };
 
@@ -172,6 +174,7 @@ namespace hexl {
         hexl::Sequence<VariableSpec>* byTypeDimensionAlign[BRIG_SEGMENT_MAX];
         hexl::Sequence<uint64_t> *dim0, *dims, *initializerDims;
         hexl::Sequence<Location> *autoLocation, *initializerLocations;
+        hexl::Sequence<BrigLinkage> *moduleScopeLinkage;
         hexl::VectorSequence<BrigAlignment> allAlignment;
 
       public:
@@ -189,6 +192,8 @@ namespace hexl {
         hexl::Sequence<Location>* InitializerLocations() { return initializerLocations; }
 
         hexl::Sequence<BrigAlignment>* AllAlignment() { return &allAlignment; }
+        
+        hexl::Sequence<BrigLinkage>* ModuleScopeLinkage() { return moduleScopeLinkage; }
       };
 
       class QueuesConfig : public ConfigBase {

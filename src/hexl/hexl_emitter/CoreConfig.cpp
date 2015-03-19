@@ -338,11 +338,19 @@ static const BrigSegment initializableSegments[] = {
   BRIG_SEGMENT_READONLY,
 };
 
+static const BrigSegment moduleScopeArray[] = {
+  BRIG_SEGMENT_GLOBAL,
+  BRIG_SEGMENT_GROUP,
+  BRIG_SEGMENT_PRIVATE,
+  BRIG_SEGMENT_READONLY,
+};
+
 CoreConfig::SegmentsConfig::SegmentsConfig(CoreConfig* cc)
   : ConfigBase(cc),
     all(NEWA hexl::ArraySequence<BrigSegment>(allSegments, NELEM(allSegments))),
     variable(NEWA hexl::ArraySequence<BrigSegment>(variableSegments, NELEM(variableSegments))),
     atomic(NEWA hexl::ArraySequence<BrigSegment>(atomicSegments, NELEM(atomicSegments))),
+    moduleScope(NEWA hexl::ArraySequence<BrigSegment>(moduleScopeArray, NELEM(moduleScopeArray))),
     initializable(NEWA hexl::ArraySequence<BrigSegment>(initializableSegments, NELEM(initializableSegments)))
 {
   for (unsigned segment = BRIG_SEGMENT_NONE; segment != BRIG_SEGMENT_MAX; ++segment) {
@@ -539,6 +547,11 @@ static const Location initializerLocationsArray[] = {
   Location::FUNCTION
 };
 
+static const BrigLinkage moduleScopeLinkageArray[] = {
+  BRIG_LINKAGE_MODULE,
+  BRIG_LINKAGE_PROGRAM
+};
+
 CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
   : ConfigBase(cc),
   bySegmentType(SequenceMap<EVariableSpec>(ap, SequenceProduct(ap, cc->Segments().Variable(), cc->Types().Compound()))),
@@ -546,7 +559,8 @@ CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
   dims(NEWA ArraySequence<uint64_t>(smallDimensions, NELEM(smallDimensions))),
   initializerDims(NEWA ArraySequence<uint64_t>(initializerDimensions, NELEM(initializerDimensions))),
   autoLocation(NEWA OneValueSequence<Location>(AUTO)),
-  initializerLocations(NEWA ArraySequence<Location>(initializerLocationsArray, NELEM(initializerLocationsArray)))
+  initializerLocations(NEWA ArraySequence<Location>(initializerLocationsArray, NELEM(initializerLocationsArray))),
+  moduleScopeLinkage(NEWA ArraySequence<BrigLinkage>(moduleScopeLinkageArray, NELEM(moduleScopeLinkageArray)))
 {
   for (unsigned a = BRIG_ALIGNMENT_1; a != BRIG_ALIGNMENT_LAST; a++) {
     allAlignment.Add((BrigAlignment) a);
