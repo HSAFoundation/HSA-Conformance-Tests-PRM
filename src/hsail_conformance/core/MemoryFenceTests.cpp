@@ -67,7 +67,7 @@ protected:
 
   virtual uint64_t GetInputValueForWI(uint64_t wi) const {
     switch (opcode) {
-      case BRIG_OPCODE_ST: return wi;
+      case BRIG_OPCODE_ST: return 7;
       default: return wi;
     }
   }
@@ -75,7 +75,7 @@ protected:
   Value ExpectedResult(uint64_t i) const {
     switch (opcode) {
       case BRIG_OPCODE_LD: return Value(MV_UINT32, i);
-      case BRIG_OPCODE_ST: return Value(MV_UINT32, workgroupSizeX - 1);
+      case BRIG_OPCODE_ST: return Value(MV_UINT32, 7);
       default: return Value(MV_UINT32, 2);
     }
   }
@@ -118,11 +118,25 @@ protected:
     TypedReg result = be.AddTReg(ResultType());
     inputReg = be.AddTReg(type);
     input->EmitLoadData(inputReg);
+    TypedReg wiID = be.EmitWorkitemFlatAbsId(false);
+//    be.EmitArith(BRIG_OPCODE_REM, wiID, wiID, be.Immed(wiID->Type(), 2));
+    TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
+    SRef s_label_skip_store = "@skip_store";
+    SRef s_label_skip_load = "@skip_load";
+    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_NE);
+    be.EmitCbr(cReg, s_label_skip_store);
     EmitInstrToTest();
-    be.EmitMemfence(memoryOrder, memoryScope, BRIG_MEMORY_SCOPE_NONE, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitLabel(s_label_skip_store);
+
+    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_EQ);
+    be.EmitCbr(cReg, s_label_skip_load);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitLabel(s_label_skip_load);
     TypedReg destReg = be.AddTReg(globalVar.type());
-    if (opcode != BRIG_OPCODE_LD)
-      be.EmitAtomic(destReg, globalVarAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, be.AtomicMemoryScope(memoryScope, segment), segment, false);
+//    if (opcode != BRIG_OPCODE_LD)
+//      be.EmitAtomic(destReg, globalVarAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, be.AtomicMemoryScope(memoryScope, segment), segment, false);
+    be.EmitLoad(segment, type, destReg->Reg(), globalVarAddr);
 //    if (result->Type() != addrReg->Type())
     be.EmitCvt(result, destReg);
     return result;
@@ -131,9 +145,9 @@ protected:
 
 void MemoryFenceTests::Iterate(TestSpecIterator& it)
 {
-//  CoreConfig* cc = CoreConfig::Get(context);
-//  Arena* ap = cc->Ap();
-//  TestForEach<MemoryFenceTest>(ap, it, "memfence", cc->Grids().SeveralWavesSet(), cc->Memory().LdStOpcodes(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
+  CoreConfig* cc = CoreConfig::Get(context);
+  Arena* ap = cc->Ap();
+  TestForEach<MemoryFenceTest>(ap, it, "memfence", cc->Grids().SeveralWavesSet(), cc->Memory().LdStOpcodes(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
 }
 
 }
