@@ -96,7 +96,7 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, *images;
+          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, *images, *memfence;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -122,6 +122,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* SingleGroupSet() { return singleGroup; }
         hexl::Sequence<hexl::Grid>* AtomicSet() { return atomic; }
         hexl::Sequence<hexl::Grid>* ImagesSet() { return images; }
+        hexl::Sequence<hexl::Grid>* MemfenceSet() { return memfence; }
       };
 
       class SegmentsConfig : public ConfigBase {
@@ -152,7 +153,7 @@ namespace hexl {
 
       class TypesConfig : public ConfigBase {
       private:
-        hexl::Sequence<BrigType> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128, *atomic;
+        hexl::Sequence<BrigType> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128, *atomic, *memfence;
         hexl::Sequence<size_t>* registerSizes;
 
       public:
@@ -162,6 +163,7 @@ namespace hexl {
         hexl::Sequence<BrigType>* Packed() { return packed; }
         hexl::Sequence<BrigType>* Packed128Bit() { return packed128; }
         hexl::Sequence<BrigType>* Atomic() { return atomic; }
+        hexl::Sequence<BrigType>* Memfence() { return memfence; }
         hexl::Sequence<BrigType>* CompoundIntegral() { return compoundIntegral; }
         hexl::Sequence<BrigType>* CompoundFloating() { return compoundFloating; }
         hexl::Sequence<size_t>* RegisterSizes() { return registerSizes; }

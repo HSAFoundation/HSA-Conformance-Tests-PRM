@@ -29,26 +29,24 @@ using namespace hexl::emitter;
 
 class MemoryFenceTest : public Test {
 public:
-  static const uint32_t workgroupSizeX = 256;
-  static const BrigType type = BRIG_TYPE_U64;
-
-  MemoryFenceTest(Grid geometry_, BrigOpcode opcode_, BrigMemoryOrder memoryOrder_, BrigSegment segment_, BrigMemoryScope memoryScope_)
-  : Test(KERNEL, geometry_), opcode(opcode_), memoryOrder(memoryOrder_), segment(segment_), memoryScope(memoryScope_),
-    initialValue(0), expectedValue(1) {}
+  MemoryFenceTest(Grid geometry_, BrigType type_, BrigMemoryOrder memoryOrder1_, BrigMemoryOrder memoryOrder2_, BrigSegment segment_, BrigMemoryScope memoryScope_)
+  : Test(KERNEL, geometry_), type(type_), memoryOrder1(memoryOrder1_), memoryOrder2(memoryOrder2_), segment(segment_), memoryScope(memoryScope_),
+    initialValue(0) {}
 
   void Name(std::ostream& out) const {
-    out << opcode2str(opcode) << "_" << segment2str(segment) << "_" << type2str(type) << "/"
-        << opcode2str(BRIG_OPCODE_MEMFENCE) << "_" << memoryOrder2str(memoryOrder) << "_" << memoryScope2str(memoryScope);
+    out << segment2str(segment) << "_" << type2str(type) << "/"
+        << opcode2str(BRIG_OPCODE_ST) << "_" << opcode2str(BRIG_OPCODE_MEMFENCE) << "_" << memoryOrder2str(memoryOrder1) << "_" << memoryScope2str(memoryScope) << "__"
+        << opcode2str(BRIG_OPCODE_LD) << "_" << opcode2str(BRIG_OPCODE_MEMFENCE) << "_" << memoryOrder2str(memoryOrder2) << "_" << memoryScope2str(memoryScope)
+        << "/" << geometry;
   }
 
 protected:
-  // Instruction opcode to test with memfence
-  BrigOpcode opcode;
-  BrigMemoryOrder memoryOrder;
+  BrigType type;
+  BrigMemoryOrder memoryOrder1;
+  BrigMemoryOrder memoryOrder2;
   BrigSegment segment;
   BrigMemoryScope memoryScope;
   int64_t initialValue;
-  int64_t expectedValue;
   DirectiveVariable globalVar;
   OperandAddress globalVarAddr;
   Buffer input;
@@ -58,26 +56,21 @@ protected:
   BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   bool IsValid() const {
-    // TODO: memfence on ld.
-    // [Note] it looks from the first sight like at least 2 kernels are needed:
-    // 1 stores, 2 loads and memfence for both.
-    if (BRIG_OPCODE_LD == opcode) return false;
+    if (BRIG_SEGMENT_GROUP == segment && geometry->WorkgroupSize() != geometry->GridSize())
+      return false;
+    if (BRIG_MEMORY_ORDER_SC_ACQUIRE == memoryOrder1)
+      return false;
+    if (BRIG_MEMORY_ORDER_SC_RELEASE == memoryOrder2)
+      return false;
     return true;
   }
 
   virtual uint64_t GetInputValueForWI(uint64_t wi) const {
-    switch (opcode) {
-      case BRIG_OPCODE_ST: return 7;
-      default: return wi;
-    }
+    return 7;
   }
 
   Value ExpectedResult(uint64_t i) const {
-    switch (opcode) {
-      case BRIG_OPCODE_LD: return Value(MV_UINT32, i);
-      case BRIG_OPCODE_ST: return Value(MV_UINT32, 7);
-      default: return Value(MV_UINT32, 2);
-    }
+    return Value(MV_UINT32, 7);
   }
 
   void Init() {
@@ -99,15 +92,13 @@ protected:
       globalVar.init() = be.Immed(type, initialValue);
   }
 
-  void EmitInstrToTest() {
+  void EmitInstrToTest(BrigOpcode opcode) {
     globalVarAddr = be.Address(globalVar);
     switch (opcode) {
       case BRIG_OPCODE_LD:
-//        destReg = be.AddTReg(ResultType());
-//        be.EmitLoad(segment, destReg, globalVarAddr);
+        be.EmitLoad(segment, type, destReg->Reg(), globalVarAddr);
         break;
       case BRIG_OPCODE_ST:
-        destReg = be.AddTReg(globalVar.type());
         be.EmitStore(segment, type, inputReg->Reg(), globalVarAddr);
         break;
       default: assert(false); break;
@@ -119,26 +110,30 @@ protected:
     inputReg = be.AddTReg(type);
     input->EmitLoadData(inputReg);
     TypedReg wiID = be.EmitWorkitemFlatAbsId(false);
-//    be.EmitArith(BRIG_OPCODE_REM, wiID, wiID, be.Immed(wiID->Type(), 2));
     TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
     SRef s_label_skip_store = "@skip_store";
     SRef s_label_skip_load = "@skip_load";
+    destReg = be.AddTReg(globalVar.type());
     be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_NE);
     be.EmitCbr(cReg, s_label_skip_store);
-    EmitInstrToTest();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+
+    EmitInstrToTest(BRIG_OPCODE_ST);
+    be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
     be.EmitLabel(s_label_skip_store);
 
     be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_EQ);
     be.EmitCbr(cReg, s_label_skip_load);
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(memoryOrder2, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
     be.EmitLabel(s_label_skip_load);
-    TypedReg destReg = be.AddTReg(globalVar.type());
-//    if (opcode != BRIG_OPCODE_LD)
-//      be.EmitAtomic(destReg, globalVarAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, be.AtomicMemoryScope(memoryScope, segment), segment, false);
-    be.EmitLoad(segment, type, destReg->Reg(), globalVarAddr);
-//    if (result->Type() != addrReg->Type())
-    be.EmitCvt(result, destReg);
+
+    EmitInstrToTest(BRIG_OPCODE_LD);
+    if (type != BRIG_TYPE_U32 && type != BRIG_TYPE_S32) {
+      if (type != BRIG_TYPE_F32 && type != BRIG_TYPE_F64) {
+        be.EmitCvt(result, destReg);
+      } else {
+        be.EmitCvt(result, destReg, BRIG_ROUND_INTEGER_NEAR_EVEN);
+      }
+    }
     return result;
   }
 };
@@ -147,7 +142,7 @@ void MemoryFenceTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<MemoryFenceTest>(ap, it, "memfence", cc->Grids().SeveralWavesSet(), cc->Memory().LdStOpcodes(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
+  TestForEach<MemoryFenceTest>(ap, it, "memfence", cc->Grids().MemfenceSet(), cc->Types().Memfence(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
 }
 
 }

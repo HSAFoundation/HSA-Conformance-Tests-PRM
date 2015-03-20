@@ -78,7 +78,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
     barrier(NEWA hexl::VectorSequence<hexl::Grid>()),
     fbarrier(NEWA hexl::VectorSequence<hexl::Grid>()),
-    images(NEWA hexl::VectorSequence<hexl::Grid>())
+    images(NEWA hexl::VectorSequence<hexl::Grid>()),
+    memfence(NEWA hexl::VectorSequence<hexl::Grid>())
 {
   dimensions.Add(0);
   dimensions.Add(1);
@@ -151,6 +152,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   images->Add(NEWA GridGeometry(1, 100, 1, 1, 100, 1, 1));
   images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
   images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
+  memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*4,  1,   1,  cc->Wavesize(),  1,   1));
+  memfence->Add(NEWA GridGeometry(1,  cc->Wavesize(),  1,   1,  cc->Wavesize(),  1,   1));
 }
 
 
@@ -523,6 +526,15 @@ static const BrigType atomicTypes[] = {
   BRIG_TYPE_B64
 };
 
+static const BrigType memfenceTypes[] = {
+  BRIG_TYPE_U32,
+  BRIG_TYPE_U64,
+  BRIG_TYPE_S32,
+  BRIG_TYPE_S64,
+//  BRIG_TYPE_F32,
+//  BRIG_TYPE_F64
+};
+
 static const size_t registerSizesArr[] = {
   32, 64, 128
 };
@@ -535,6 +547,7 @@ CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
     packed(NEWA ArraySequence<BrigType>(packedTypes, NELEM(packedTypes))),
     packed128(NEWA ArraySequence<BrigType>(packed128BitTypes, NELEM(packed128BitTypes))),
     atomic(NEWA ArraySequence<BrigType>(atomicTypes, NELEM(atomicTypes))),
+    memfence(NEWA ArraySequence<BrigType>(memfenceTypes, NELEM(memfenceTypes))),
     registerSizes(NEWA ArraySequence<size_t>(registerSizesArr, NELEM(registerSizesArr)))
 {
 }
