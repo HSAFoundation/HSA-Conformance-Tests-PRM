@@ -2014,7 +2014,7 @@ uint32_t EImageCalc::ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size
 {
 	int max = (1 << (bit_size-1)) - 1;
 	int min = -max - 1;
-	uint32_t val = clamp_i(c, min, max);
+  uint32_t val = clamp_i((c & (0xFFFFFFFF>>(32-bit_size))) , min, max);
 
 	return val;
 }
@@ -2512,6 +2512,33 @@ void EImageCalc::ReadColor(Value* _coords, Value* _color) const
 Value EImageCalc::EmulateStoreColor(Value* _color) const
 {
 	Value rgba[4];
+  union RawData {
+    uint8_t data8;
+    uint16_t data16;
+    uint32_t data32;
+    uint64_t data64;
+    uint128_t::Type data128;
+    struct RawChData8 {
+      uint8_t ch1;
+      uint8_t ch2;
+      uint8_t ch3;
+      uint8_t ch4;
+    } ch8;
+    struct RawChData16 {
+      uint16_t ch1;
+      uint16_t ch2;
+      uint16_t ch3;
+      uint16_t ch4;
+    } ch16;
+    struct RawChData32 {
+      uint32_t ch1;
+      uint32_t ch2;
+      uint32_t ch3;
+      uint32_t ch4;
+    } ch32;
+  };
+  RawData Raw;
+
 	Value raw_data;
 	int bits_per_channel = -1;
 	uint32_t packed_rgb = 0;
@@ -2577,7 +2604,7 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 	case BRIG_CHANNEL_TYPE_SIGNED_INT8:
 		bits_per_channel = 8;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S8(), bits_per_channel));
+			rgba[i] = Value(MV_INT8, ConvertionStoreSignedClamp(_color[i].S8(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_SIGNED_INT16:
@@ -2627,6 +2654,10 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 		break;
 	}
 
+  Raw.data128.h = 0;
+  Raw.data128.l = 0;
+
+  raw_data = Value(MV_UINT32, 0);
 
 	//assemble channels
 	switch (imageChannelOrder)
@@ -2635,10 +2666,10 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 		switch (bits_per_channel)
 		{
 		case 8:
-			raw_data = Value(MV_UINT8, rgba[3].U8());
+			raw_data = Value(MV_UINT32, rgba[3].U8());
 			break;
 		case 16:
-			raw_data = Value(MV_UINT16, rgba[3].U16());
+			raw_data = Value(MV_UINT32, rgba[3].U16());
 			break;
 		case 32:
 			raw_data = Value(MV_UINT32, rgba[3].U32());
@@ -2656,10 +2687,10 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 		switch (bits_per_channel)
 		{
 		case 8:
-			raw_data = Value(MV_UINT8, rgba[0].U8());
+			raw_data = Value(MV_UINT32, rgba[0].U8());
 			break;
 		case 16:
-			raw_data = Value(MV_UINT16, rgba[0].U16());
+			raw_data = Value(MV_UINT32, rgba[0].U16());
 			break;
 		case 32:
 			raw_data = Value(MV_UINT32, rgba[0].U32());
@@ -2669,24 +2700,173 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 			break;
 		}
 		break;
-
 	case BRIG_CHANNEL_ORDER_RG:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[0].U8();
+      Raw.ch8.ch2 = rgba[1].U8();
+      raw_data = Value(MV_UINT16, Raw.data16);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[0].U16();
+      Raw.ch16.ch2 = rgba[1].U16();
+      raw_data = Value(MV_UINT32, Raw.data32);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[0].U32();
+      Raw.ch32.ch2 = rgba[1].U32();
+      raw_data = Value(MV_UINT64, Raw.data64);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_RGX:
 		break;
 	case BRIG_CHANNEL_ORDER_RA:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[0].U8();
+      Raw.ch8.ch2 = rgba[3].U8();
+      raw_data = Value(MV_UINT16, Raw.data16);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[0].U16();
+      Raw.ch16.ch2 = rgba[3].U16();
+      raw_data = Value(MV_UINT32, Raw.data32);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[0].U32();
+      Raw.ch32.ch2 = rgba[3].U32();
+      raw_data = Value(MV_UINT64, Raw.data64);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_RGB:
 		break;
 	case BRIG_CHANNEL_ORDER_RGBX:
 		break;
 	case BRIG_CHANNEL_ORDER_RGBA:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[0].U8();
+      Raw.ch8.ch2 = rgba[1].U8();
+      Raw.ch8.ch3 = rgba[2].U8();
+      Raw.ch8.ch4 = rgba[3].U8();
+      raw_data = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[0].U16();
+      Raw.ch16.ch2 = rgba[1].U16();
+      Raw.ch16.ch3 = rgba[2].U16();
+      Raw.ch16.ch4 = rgba[3].U16();
+      raw_data = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[0].U32();
+      Raw.ch32.ch2 = rgba[1].U32();
+      Raw.ch32.ch3 = rgba[2].U32();
+      Raw.ch32.ch4 = rgba[3].U32();
+      raw_data = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_BGRA:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[2].U8();
+      Raw.ch8.ch2 = rgba[1].U8();
+      Raw.ch8.ch3 = rgba[0].U8();
+      Raw.ch8.ch4 = rgba[3].U8();
+      raw_data = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[2].U16();
+      Raw.ch16.ch2 = rgba[1].U16();
+      Raw.ch16.ch3 = rgba[0].U16();
+      Raw.ch16.ch4 = rgba[3].U16();
+      raw_data = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[2].U32();
+      Raw.ch32.ch2 = rgba[1].U32();
+      Raw.ch32.ch3 = rgba[0].U32();
+      Raw.ch32.ch4 = rgba[3].U32();
+      raw_data = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_ARGB:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[3].U8();
+      Raw.ch8.ch2 = rgba[0].U8();
+      Raw.ch8.ch3 = rgba[1].U8();
+      Raw.ch8.ch4 = rgba[2].U8();
+      raw_data = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[3].U16();
+      Raw.ch16.ch2 = rgba[0].U16();
+      Raw.ch16.ch3 = rgba[1].U16();
+      Raw.ch16.ch4 = rgba[2].U16();
+      raw_data = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[3].U32();
+      Raw.ch32.ch2 = rgba[0].U32();
+      Raw.ch32.ch3 = rgba[1].U32();
+      Raw.ch32.ch4 = rgba[2].U32();
+      raw_data = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_ABGR:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[3].U8();
+      Raw.ch8.ch2 = rgba[2].U8();
+      Raw.ch8.ch3 = rgba[1].U8();
+      Raw.ch8.ch4 = rgba[0].U8();
+      raw_data = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[3].U16();
+      Raw.ch16.ch2 = rgba[2].U16();
+      Raw.ch16.ch3 = rgba[1].U16();
+      Raw.ch16.ch4 = rgba[0].U16();
+      raw_data = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[3].U32();
+      Raw.ch32.ch2 = rgba[2].U32();
+      Raw.ch32.ch3 = rgba[1].U32();
+      Raw.ch32.ch4 = rgba[0].U32();
+      raw_data = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 
 	case BRIG_CHANNEL_ORDER_SRGB:

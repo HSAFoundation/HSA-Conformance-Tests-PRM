@@ -73,9 +73,9 @@ public:
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     Value channels[4];
-    for (unsigned i = 0; i < 4; i++) { channels[i] = imgobj->GenMemValue(Value(MV_UINT32, StorePerRegValue())); }
+    for (unsigned i = 0; i < 4; i++) { channels[i] = Value(MV_UINT32, StorePerRegValue()); }
     Value Val_store = imgobj->StoreColor(NULL, channels);
-    imgobj->SetValueForCalculator(Val_store);
+    imgobj->SetValueForCalculator(imgobj->GenMemValue(Val_store));
     imgobj->ReadColor(coords, color);
   }
 
