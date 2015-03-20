@@ -243,6 +243,134 @@ public:
   }
 };
 
+class FunctionLinkageTest : public Test {
+private:
+  EKernel* secondKernel;
+  EFunction* secondFunction;
+
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE = 123456789;
+
+protected:
+  EKernel* SecondKernel() const { return secondKernel; }
+  EFunction* SecondFunction() const { return secondFunction; }
+  uint32_t ResultValue() const { return VALUE; }
+
+  virtual void SecondKernelBody() {}
+  virtual void SecondFunctionBody() {}
+
+public:
+  FunctionLinkageTest() : Test(Location::KERNEL) {}
+
+  void Init() override {
+    Test::Init();
+    secondKernel = te->NewKernel("second_kernel");
+    secondFunction = te->NewFunction("second_function");
+  }
+
+  BrigType ResultType() const override { return VALUE_TYPE; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
+
+  void Executables() override {
+    // emit second function
+    secondFunction->StartFunction();
+    secondFunction->FunctionFormalOutputArguments();
+    secondFunction->FunctionFormalInputArguments();
+    secondFunction->StartFunctionBody();
+    secondFunction->FunctionVariables();
+    SecondFunctionBody();
+    secondFunction->EndFunction();
+
+    // emit second kernel
+    // DO NO EMIT second kernel until conformance support it
+    // secondKernel->StartKernel();
+    // secondKernel->KernelArguments();
+    // secondKernel->StartKernelBody();
+    // secondKernel->KernelVariables();
+    // SecondKernelBody();
+    // secondKernel->EndKernel();
+
+    Test::Executables();
+  }
+};
+
+class FunctionLinkageVariableTest : public FunctionLinkageTest {
+private:
+  Variable firstKernelVar;
+  Variable secondKernelVar;
+  Variable secondFunctionVar;
+
+  BrigSegment segment;
+
+  static const uint32_t SECOND_VALUE = 987654321;
+  static const uint32_t THIRD_VALUE = 456789123;
+
+protected:
+  void SecondKernelBody() override {
+    if (segment != BRIG_SEGMENT_READONLY) {
+      be.EmitStore(segment, ResultType(), be.Immed(ResultType(), SECOND_VALUE), be.Address(secondKernelVar->Variable()));
+    }
+  }
+
+  void SecondFunctionBody() override {
+    if (segment != BRIG_SEGMENT_READONLY) {
+      be.EmitStore(segment, ResultType(), be.Immed(ResultType(), THIRD_VALUE), be.Address(secondFunctionVar->Variable()));
+    }
+  }
+
+public:
+  FunctionLinkageVariableTest(BrigSegment segment_) : FunctionLinkageTest(), segment(segment_) {}
+
+  bool IsValid() const override {
+    return FunctionLinkageTest::IsValid()
+        && (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_GROUP || 
+            segment == BRIG_SEGMENT_PRIVATE || segment == BRIG_SEGMENT_SPILL || 
+            segment == BRIG_SEGMENT_READONLY);
+  }
+
+  void Name(std::ostream& out) const override {
+    out << segment2str(segment);
+  }
+
+  void Init() override {
+    FunctionLinkageTest::Init();
+    firstKernelVar = kernel->NewVariable("var", segment, ResultType(), Location::KERNEL);
+    secondKernelVar = SecondKernel()->NewVariable("var", segment, ResultType(), Location::KERNEL);
+    secondFunctionVar = SecondFunction()->NewVariable("var", segment, ResultType(), Location::FUNCTION);
+    if (segment == BRIG_SEGMENT_READONLY) {
+      firstKernelVar->PushBack(Value(Brig2ValueType(ResultType()), ResultValue()));
+      secondKernelVar->PushBack(Value(Brig2ValueType(ResultType()), SECOND_VALUE));
+      secondFunctionVar->PushBack(Value(Brig2ValueType(ResultType()), THIRD_VALUE));
+    }
+  }
+
+  TypedReg Result() override {
+    // emit call to second function
+    auto emptyArgs = be.AddTRegList();
+    be.EmitCallSeq(SecondFunction(), emptyArgs, emptyArgs);
+
+    // store result value in variable
+    if (segment != BRIG_SEGMENT_READONLY) {
+      be.EmitStore(segment, ResultType(), be.Immed(ResultType(), ResultValue()), be.Address(firstKernelVar->Variable()));
+    }
+
+    // load from variable and return it
+    auto result = be.AddTReg(ResultType());
+    be.EmitLoad(segment, result, be.Address(firstKernelVar->Variable()));
+    return result;
+  }
+
+  void EndProgram() override {
+    firstKernelVar->Variable().linkage() = BRIG_LINKAGE_FUNCTION;
+
+    // DO NO DO THIS until conformance support multiple kernels
+    //secondKernelVar->Variable().linkage() = BRIG_LINKAGE_FUNCTION;
+
+    secondFunctionVar->Variable().linkage() = BRIG_LINKAGE_FUNCTION;
+    FunctionLinkageTest::EndProgram();
+  }
+};
+
 void LibrariesTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -253,6 +381,8 @@ void LibrariesTests::Iterate(TestSpecIterator& it)
   TestForEach<ModuleScopeFunctionLinkageTest>(ap, it, "linkage/function", cc->Variables().ModuleScopeLinkage());
   TestForEach<ModuleScopeKernelLinkageTest>(ap, it, "linkage/kernel", cc->Variables().ModuleScopeLinkage());
   TestForEach<ModuleScopeFBarrierLinkageTest>(ap, it, "linkage/fbarrier", cc->Variables().ModuleScopeLinkage());
+
+  TestForEach<FunctionLinkageVariableTest>(ap, it, "linkage/variable/function", cc->Segments().FunctionScopeVariableSegments());
 }
 
 }

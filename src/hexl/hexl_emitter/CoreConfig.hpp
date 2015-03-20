@@ -131,6 +131,7 @@ namespace hexl {
         hexl::Sequence<BrigSegment>* atomic;
         hexl::Sequence<BrigSegment>* initializable;
         hexl::Sequence<BrigSegment>* moduleScope;
+        hexl::Sequence<BrigSegment>* functionScope;
         hexl::Sequence<BrigSegment>* singleList[BRIG_SEGMENT_MAX];
 
       public:
@@ -147,6 +148,7 @@ namespace hexl {
         hexl::Sequence<BrigSegment>* Atomic() { return atomic; }
         hexl::Sequence<BrigSegment>* InitializableSegments() { return initializable; }
         hexl::Sequence<BrigSegment>* ModuleScopeVariableSegments() { return moduleScope; }
+        hexl::Sequence<BrigSegment>* FunctionScopeVariableSegments() { return functionScope; }
         hexl::Sequence<BrigSegment>* Single(BrigSegment segment);
       };
 

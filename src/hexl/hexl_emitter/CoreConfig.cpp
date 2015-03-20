@@ -345,12 +345,21 @@ static const BrigSegment moduleScopeArray[] = {
   BRIG_SEGMENT_READONLY,
 };
 
+static const BrigSegment functionScopeArray[] = {
+  BRIG_SEGMENT_GLOBAL,
+  BRIG_SEGMENT_GROUP,
+  BRIG_SEGMENT_PRIVATE,
+  BRIG_SEGMENT_SPILL,
+  BRIG_SEGMENT_READONLY
+};
+
 CoreConfig::SegmentsConfig::SegmentsConfig(CoreConfig* cc)
   : ConfigBase(cc),
     all(NEWA hexl::ArraySequence<BrigSegment>(allSegments, NELEM(allSegments))),
     variable(NEWA hexl::ArraySequence<BrigSegment>(variableSegments, NELEM(variableSegments))),
     atomic(NEWA hexl::ArraySequence<BrigSegment>(atomicSegments, NELEM(atomicSegments))),
     moduleScope(NEWA hexl::ArraySequence<BrigSegment>(moduleScopeArray, NELEM(moduleScopeArray))),
+    functionScope(NEWA hexl::ArraySequence<BrigSegment>(functionScopeArray, NELEM(functionScopeArray))),
     initializable(NEWA hexl::ArraySequence<BrigSegment>(initializableSegments, NELEM(initializableSegments)))
 {
   for (unsigned segment = BRIG_SEGMENT_NONE; segment != BRIG_SEGMENT_MAX; ++segment) {
