@@ -636,7 +636,7 @@ public:
   Value& operator=(const Value& v) { type = v.type; data = v.data; printExtraHex = v.printExtraHex; return *this; }
   /// \todo HIGHLY unsafe, take care! Example: Value(MV_FLOAT, 1.5F) will cast 1.5F to uint64 1 (0x1), which means float denorm.
   Value(ValueType _type, uint64_t _value) : type(_type), printExtraHex(false) { data.u64 = _value;  data.u128.h = 0;}
-  Value(ValueType _type, uint128_t _value) : type(_type), printExtraHex(false) { data.u128.h = _value.U64H(); data.u128.l = _value.U64L();}
+  Value(ValueType _type, uint128_t _value) : type(_type), printExtraHex(false) { data.u128.h = _value.U64H(); data.u128.h = _value.U64L();}
   explicit Value(float value_) : type(MV_FLOAT), printExtraHex(false)  { data.f = value_;  data.u128.h = 0;}
   explicit Value(double value_) : type(MV_DOUBLE), printExtraHex(false) { data.d = value_;  data.u128.h = 0;}
   ~Value();

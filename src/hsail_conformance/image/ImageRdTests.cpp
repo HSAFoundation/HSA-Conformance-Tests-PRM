@@ -69,7 +69,7 @@ public:
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
    imgobj = kernel->NewImage("%roimage", &imageSpec);
-   imgobj->InitMemValue(Value(MV_UINT32, 0x00000032));
+   imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, 0x00000032)));
  
    ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
    samplerSpec.CoordNormalization(samplerCoord);
@@ -77,7 +77,7 @@ public:
    samplerSpec.Addresing(samplerAddressing);
    smpobj = kernel->NewSampler("%sampler", &samplerSpec);
 
-   imgobj->InitImageCalculator(smpobj, imgobj->GetRawData());
+   imgobj->InitImageCalculator(smpobj);
   }
 
   void ModuleDirectives() override {

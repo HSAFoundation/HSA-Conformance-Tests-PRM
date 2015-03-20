@@ -35,6 +35,7 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
+  Value color[4];
 
 public:
   ImageStTest(Location codeLocation, 
@@ -48,24 +49,34 @@ public:
     out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType));
   }
 
-  uint32_t InitialValue() const { return 0x00000032; }
+  uint32_t InitialValue() const { return 0x30313233; }
 
   uint32_t StorePerRegValue() const { return 0x00000080; }
 
   void Init() {
-   Test::Init();
-   EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_RWIMG);
-   imageSpec.Geometry(imageGeometryProp);
-   imageSpec.ChannelOrder(imageChannelOrder);
-   imageSpec.ChannelType(imageChannelType);
-   imageSpec.Width(imageGeometry.ImageWidth());
-   imageSpec.Height(imageGeometry.ImageHeight());
-   imageSpec.Depth(imageGeometry.ImageDepth());
-   imageSpec.ArraySize(imageGeometry.ImageArray());
-   imgobj = kernel->NewImage("%rwimage", &imageSpec);
-   imgobj->InitMemValue(Value(MV_UINT32, InitialValue()));
+    Test::Init();
+    EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_RWIMG);
+    imageSpec.Geometry(imageGeometryProp);
+    imageSpec.ChannelOrder(imageChannelOrder);
+    imageSpec.ChannelType(imageChannelType);
+    imageSpec.Width(imageGeometry.ImageWidth());
+    imageSpec.Height(imageGeometry.ImageHeight());
+    imageSpec.Depth(imageGeometry.ImageDepth());
+    imageSpec.ArraySize(imageGeometry.ImageArray());
+    imgobj = kernel->NewImage("%rwimage", &imageSpec);
+    imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
 
-   imgobj->InitImageCalculator(NULL, Value(MV_UINT32, StorePerRegValue()));
+    imgobj->InitImageCalculator(NULL);
+
+    Value coords[3];
+    coords[0] = Value(0.0f);
+    coords[1] = Value(0.0f);
+    coords[2] = Value(0.0f);
+    Value channels[4];
+    for (unsigned i = 0; i < 4; i++) { channels[i] = imgobj->GenMemValue(Value(MV_UINT32, StorePerRegValue())); }
+    Value Val_store = imgobj->StoreColor(NULL, channels);
+    imgobj->SetValueForCalculator(Val_store);
+    imgobj->ReadColor(coords, color);
   }
 
   void ModuleDirectives() override {
@@ -78,16 +89,16 @@ public:
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }
 
-  Value ExpectedResult() const {
-    Value color[4];
-    Value coords[3];
-    coords[0] = Value(0.0f);
-    coords[1] = Value(0.0f);
-    coords[2] = Value(0.0f);
-
-    imgobj->ReadColor(coords, color);
-
-    return (imageChannelOrder == BRIG_CHANNEL_ORDER_A) ? Value(MV_UINT32, color[3].U8()) : Value(MV_UINT32, color[0].U8());
+  void ExpectedResults(Values* result) const {
+    for (unsigned i = 0; i < 4; i ++)
+    {
+      Value res = Value(MV_UINT32, color[i].U32());
+      result->push_back(res);
+    }
+  }
+  
+  uint64_t ResultDim() const override {
+    return 4;
   }
 
   size_t OutputBufferSize() const override {
@@ -132,7 +143,7 @@ public:
     return result;
   }
 
-  TypedReg Result() {
+  void KernelCode() override {
     auto result = be.AddTReg(ResultType());
     be.EmitMov(result, be.Immed(ResultType(), 0));
     // Load input
@@ -178,20 +189,17 @@ public:
     default:
       assert(0);
     }
-    if ((imageGeometryProp == BRIG_GEOMETRY_2DDEPTH) || (imageGeometryProp == BRIG_GEOMETRY_2DADEPTH)) {
-      be.EmitMov(result, reg_dest);
+    auto outputAddr = output->Address();
+    auto storeAddr = be.AddAReg(outputAddr->Segment());
+    auto offsetBase = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    auto offset = be.AddTReg(offsetBase->Type());
+
+    for (unsigned i = 0; i < regs_dest.elementCount(); i++) {
+      be.EmitMov(offset, be.Immed(offsetBase->Type(), i));
+      be.EmitArith(BRIG_OPCODE_MUL, offset, offset->Reg(), be.Immed(offsetBase->Type(), 4));
+      be.EmitArith(BRIG_OPCODE_ADD, storeAddr, outputAddr, offset->Reg());
+      be.EmitStore(BRIG_TYPE_U32, regs_dest.elements(i), storeAddr);
     }
-    else {
-      if (imageChannelOrder == BRIG_CHANNEL_ORDER_A)
-      {
-        be.EmitMov(result, regs_dest.elements(3));
-      }
-      else
-      {
-        be.EmitMov(result, regs_dest.elements(0));
-      }
-    }
-    return result;
   }
 };
 

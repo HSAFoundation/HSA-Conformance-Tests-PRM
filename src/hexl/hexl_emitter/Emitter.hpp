@@ -608,9 +608,11 @@ private:
   Value EmulateStoreColor(Value* _color) const;
 
 public:
-  EImageCalc(EImage * eimage, ESampler* esampler, Value val);
+  EImageCalc(EImage * eimage, ESampler* esampler);
+  
+  void ValueSet(Value val) { existVal = val; }
   void ReadColor(Value* _coords, Value* _color) const;
-  Value StoreColor(Value* _coords, Value* _color) const;
+  Value StoreColor(Value* _coords, Value* _channels) const;
 };
 
 class EImage : public EImageSpec {
@@ -655,14 +657,16 @@ public:
 
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
 
-  void InitMemValue(Value v);
+  Value GenMemValue(Value v);
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
   Value GetRawData() { return (*data).at(0); }
   void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
-  void InitImageCalculator(Sampler pSampler, Value val) { calculator = new EImageCalc(this, pSampler, val); }
+  void InitImageCalculator(Sampler pSampler) { calculator = new EImageCalc(this, pSampler); }
+  void SetValueForCalculator(Value val) { assert(calculator); calculator->ValueSet(val); }
   void ReadColor(Value* _coords, Value* _color) const { assert(calculator); calculator->ReadColor(_coords, _color); }
+  Value StoreColor(Value* _coords, Value* _channels) const { assert(calculator); return calculator->StoreColor(_coords, _channels); }
 };
 
 class ESamplerSpec : public EVariableSpec {

@@ -983,7 +983,7 @@ Location EImage::RealLocation() const
   }
 }
 
-void EImage::InitMemValue(Value v)
+Value EImage::GenMemValue(Value v)
 {
   Value result;
   switch (ChannelOrder())
@@ -1075,7 +1075,7 @@ void EImage::InitMemValue(Value v)
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      result = Value(MV_UINT32, v.U32());
+      result = Value(MV_UINT32,  (v.U32() & 0xFFFF0000) + (v.U32() >> 16));
       break;
     case BRIG_CHANNEL_TYPE_SNORM_INT16:
     case BRIG_CHANNEL_TYPE_UNORM_INT16:
@@ -1107,7 +1107,8 @@ void EImage::InitMemValue(Value v)
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      result = Value(MV_UINT32, v.U32());
+      //fix write sequence
+      result = Value(MV_UINT32,  (v.U32() & 0xFFFF0000) + (v.U32() >> 16));
       break;
     default:
       assert(0); //illegal channel
@@ -1226,7 +1227,7 @@ void EImage::InitMemValue(Value v)
     break;
   }
   //store value
-  AddData(result);
+  return result;
 }
 
 void EImage::SetupDispatch(DispatchSetup* dispatch) 
@@ -1688,27 +1689,27 @@ void EImageCalc::SetupDefaultColors()
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, S32(0x7F));
+    color_one  = Value(MV_INT32, 1);
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
     color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, S32(0x7FFF));
+    color_one  = Value(MV_INT32, 1);
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, S32(0x7FFFFFFF));
+    color_one  = Value(MV_INT32, 1);
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
     color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, U32(0xFF));
+    color_one  = Value(MV_UINT32, 1);
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
     color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, U32(0xFFFF));
+    color_one  = Value(MV_UINT32, 1);
     break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, U32(0xFFFFFFFF));
+    color_one  = Value(MV_UINT32, 1);
     break;
   default:
     assert(0); //illegal channel type
@@ -1889,25 +1890,38 @@ uint32_t EImageCalc::GetRawChannelData(int x_ind, int y_ind, int z_ind, int chan
   case BRIG_CHANNEL_TYPE_UNORM_INT16:
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    return (existVal.U32() >> channel*8) & 0xFFFF;
+    return (existVal.U64() >> channel*16) & 0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    return (existVal.U32() >> channel*8) & 0xFFFF;
+    return (existVal.U64() >> channel*16) & 0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT24:
-    return (existVal.U32() >> channel*8) & 0x00FFFFFF;
+    return (existVal.U64() >> channel*24) & 0x00FFFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
     return (existVal.U32() >> channel*8) & 0x1F;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    return (existVal.U32() >> channel*8) & 0x3FF;
+    return (existVal.U64() >> channel*16) & 0x3FF;
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
   case BRIG_CHANNEL_TYPE_FLOAT:
-    return existVal.U32();
+    if (imageChannelOrder == BRIG_CHANNEL_ORDER_RGBA)
+    {
+      if (channel < 2)
+      {
+        return existVal.U128().U64H() >> channel*32;
+      }
+      else
+      {
+        channel-=2;
+        return existVal.U128().U64L() >> channel*32;
+      }
+    }
+    else
+      return existVal.U64() >> channel*32;
     break;
   default:
     assert(0); //illegal channel
@@ -2465,12 +2479,9 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   }
 }
 
-EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler, Value val)
+EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler)
 {
   assert(eimage);
-
-  existVal = val;
- 
   imageGeometry = eimage->ImageGeometry();
   imageGeometryProp = eimage->Geometry();
   imageChannelOrder = eimage->ChannelOrder();
@@ -2488,6 +2499,9 @@ EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler, Value val)
     bWithoutSampler = true;
   }
   SetupDefaultColors();
+
+  //set default
+  existVal = eimage->GetRawData();
 }
 
 void EImageCalc::ReadColor(Value* _coords, Value* _color) const
@@ -2499,7 +2513,6 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 {
 	Value rgba[4];
 	Value raw_data;
-	//uint64_t raw_bits[2];
 	int bits_per_channel = -1;
 	uint32_t packed_rgb = 0;
 	uint32_t unpacked_r, unpacked_g, unpacked_b;
