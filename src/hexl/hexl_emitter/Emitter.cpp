@@ -1075,7 +1075,7 @@ Value EImage::GenMemValue(Value v)
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      result = Value(MV_UINT32, v.U32());
+      result = Value(MV_UINT32,  (v.U32() & 0xFFFF0000) + (v.U32() >> 16));
       break;
     case BRIG_CHANNEL_TYPE_SNORM_INT16:
     case BRIG_CHANNEL_TYPE_UNORM_INT16:
@@ -1107,7 +1107,8 @@ Value EImage::GenMemValue(Value v)
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      result = Value(MV_UINT32, v.U32());
+      //fix write sequence
+      result = Value(MV_UINT32,  (v.U32() & 0xFFFF0000) + (v.U32() >> 16));
       break;
     default:
       assert(0); //illegal channel

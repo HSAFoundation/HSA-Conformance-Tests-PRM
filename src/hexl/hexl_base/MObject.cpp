@@ -655,7 +655,7 @@ void Value::WriteTo(void *dest) const
   case MV_UINT16X4: ((uint16_t *) dest)[0] = U16X4(0); ((uint16_t *) dest)[1] = U16X4(1); ((uint16_t *) dest)[2] = U16X4(2); ((uint16_t *) dest)[3] = U16X4(3); break;
   case MV_INT32X2: ((int32_t *) dest)[0] = S32X2(0); ((int32_t *) dest)[1] = S32X2(1); break;
   case MV_UINT32X2: ((uint32_t *) dest)[0] = U32X2(0); ((uint32_t *) dest)[1] = U32X2(1); break;
-  case MV_UINT128: ((uint64_t *) dest)[0] = U64X2(0); ((uint64_t *) dest)[1] = U64X2(1); break;
+  case MV_UINT128: ((uint64_t *) dest)[0] = data.u128.h; ((uint64_t *) dest)[1] = data.u128.l; break;
   case MV_FLOATX2: ((float *) dest)[0] = FX2(0); ((float *) dest)[1] = FX2(1); break;
   case MV_REF: *((uint32_t *) dest) = data.u32; break;
   case MV_POINTER: *((void **) dest) = data.p; break;
@@ -691,6 +691,7 @@ void Value::ReadFrom(const void *src, ValueType type)
   case MV_UINT16X4: data.u64 = *((uint64_t *) src); break;
   case MV_INT32X2: data.u64 = *((uint64_t *) src); break;
   case MV_UINT32X2: data.u64 = *((uint64_t *) src); break;
+  case MV_UINT128: data.u128.l = *((uint64_t *) src); data.u128.h = ((uint64_t *)src)[1]; break;
   case MV_FLOATX2: data.u64 = *((uint64_t *) src); break;
   case MV_REF: case MV_IMAGEREF: data.u32 = *((uint32_t *) src); break;
   case MV_POINTER: data.p = *((void **) src); break;
