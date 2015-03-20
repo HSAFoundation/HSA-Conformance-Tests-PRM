@@ -1113,9 +1113,13 @@ bool HsailRuntimeContext::Init() {
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_system_get_info failed", status); return false; }
   uint16_t exceptionMask;
   status = Hsa()->hsa_agent_get_exception_policies(agent, profile, &exceptionMask);
-  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_exception_policies failed", status); return false; }
-  isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
-  isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
+  if (status != HSA_STATUS_SUCCESS) { // in case hsa_agent_get_exception_policies function is not supported
+    isBreakSupported = false;
+    isDetectSupported = false;
+  } else {
+    isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
+    isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
+  }
 
   context->Put("queueid", Value(MV_UINT32, Queue()->id));
   context->Put("queueptr", Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) Queue()));
