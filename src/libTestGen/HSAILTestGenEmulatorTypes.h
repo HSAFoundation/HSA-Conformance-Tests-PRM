@@ -186,16 +186,16 @@ public:
 
     template<typename TargetType> uint64_t mapNormalizedMantissa() const // map to target type
     {
-        uint64_t mantissa = getMantissa();
-        int targetMantissaWidth = TargetType::MANTISSA_WIDTH;
-
-        assert(targetMantissaWidth != MANTISSA_WIDTH);
-
-        if (targetMantissaWidth < MANTISSA_WIDTH) return mantissa >> (MANTISSA_WIDTH - targetMantissaWidth);
-        else                                      return mantissa << (targetMantissaWidth - MANTISSA_WIDTH);
+        int tmw = TargetType::MANTISSA_WIDTH; // must assign to var && no 'const' here, otherwise warning and undefined behavior in MSVC
+        assert(tmw != MANTISSA_WIDTH);
+        const uint64_t mantissa = getMantissa();
+        if (tmw < MANTISSA_WIDTH) {
+          return mantissa >> (MANTISSA_WIDTH - tmw);
+        }
+        return mantissa << (tmw - MANTISSA_WIDTH);
     }
 
-    template<typename TargetType> uint64_t normalizeMantissa(int64_t& exponent) const
+    template<typename TargetType> uint64_t tryNormalizeMantissaUpdateExponent(int64_t& exponent) const
     {
         assert(sizeof(Type) != sizeof(typename TargetType::Type));
 
@@ -210,14 +210,14 @@ public:
 
             assert(mantissa != 0);
 
-            bool found = false;
-            for (; !found && TargetType::isValidExponent(exponent - 1); )
+            bool normalized = false;
+            for (; !normalized && TargetType::isValidExponent(exponent - 1); )
             {
-                found = (mantissa & 0x8000000000000000ULL) != 0;
-                mantissa <<= 1;
+                normalized = (mantissa & 0x8000000000000000ULL) != 0;
+                mantissa <<= 1; // it is ok to throw away found '1' bit (it is implied in normalized numbers)
                 exponent--;
             }
-            if (!found) exponent = TargetType::decodedSubnormalExponent(); // subnormal -> subnormal
+            if (!normalized) exponent = TargetType::decodedSubnormalExponent(); // subnormal -> subnormal
 
             return mantissa >> (sizeof(mantissa)*8 - TargetType::MANTISSA_WIDTH);
         }
@@ -225,7 +225,6 @@ public:
         {
             assert(exponent < 0);
             assert(!TargetType::isValidExponent(exponent));
-            assert(sizeof(T) > sizeof(typename TargetType::Type));
 
             uint64_t mantissa = getMantissa();
 
@@ -240,9 +239,9 @@ public:
             }
 
             exponent = TargetType::decodedSubnormalExponent();
-            int delta = (MANTISSA_WIDTH - TargetType::MANTISSA_WIDTH);
-            assert(delta >= 0);
-            return mantissa >> delta;
+            int nExtraBits = (MANTISSA_WIDTH - TargetType::MANTISSA_WIDTH);
+            assert(nExtraBits >= 0);
+            return mantissa >> nExtraBits;
         }
     }
 
@@ -415,11 +414,13 @@ private:
 
 public:
     f16_t() {}
-    explicit f16_t(double x, unsigned rounding = RND_NEAR);
-    explicit f16_t(float x, unsigned rounding = RND_NEAR);
+    explicit f16_t(double x, unsigned rounding = RND_NEAR) { f16_t_impl(x,rounding); }
+    explicit f16_t(float x, unsigned rounding = RND_NEAR) { f16_t_impl(x,rounding); }
     //explicit f16_t(f64_t x, unsigned rounding = RND_NEAR) : f16_t(double(x), rounding) {};
     //explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) : f16_t(float(x), rounding) {};
     explicit f16_t(int32_t x) { bits = f16_t((f64_t)x).getBits(); }
+private:
+    template<class T> void f16_t_impl(T x, unsigned rounding);
 
 public:
     bool operator>  (const f16_t& x) const { return f64() >  x.f64(); } /// \todo reimplement all via f32 at least
@@ -432,10 +433,12 @@ public:
     f16_t& operator+= (f16_t x) { bits = f16_t(f64() + x.f64()).bits; return *this; }
 
 public:
-    f32_t f32() const;
-    f64_t f64() const;
+    f32_t f32() const { return convertTo<float>(); };
+    f64_t f64() const { return convertTo<double>(); };
     operator float() const { return f32(); }
     operator double() const { return f64(); }
+private:
+    template<typename T> T convertTo() const;
 
 public:
     f16_t neg() const { return make(FloatProp16(bits).negate()); }

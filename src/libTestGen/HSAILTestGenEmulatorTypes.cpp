@@ -46,136 +46,71 @@ typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating
 //==============================================================================
 // Implementation of F16 type
 
-f16_t::f16_t(double x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
-{ 
-    const FloatProp64 input(asBits(x));
+template<typename T> struct FloatProp; // allowed pairs of types:
+template<> struct FloatProp<float>  { typedef FloatProp32 PropType; };
+template<> struct FloatProp<double> { typedef FloatProp64 PropType; };
 
-    if (!input.isRegular())
-    {
-        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
+template<typename T>
+void f16_t::f16_t_impl(T x, unsigned rounding) //TODO: rounding
+{
+    const typename FloatProp<T>::PropType input(asBits(x));
+
+    if (!input.isRegular()) {
+        bits = input.mapSpecialValues<FloatProp16>();
+        return;
     }
-    else if (input.isSubnormal()) // f64 subnormal should be mapped to (f16)0
-    {
+
+    if (input.isSubnormal()) { // f64 subnormal should be mapped to (f16)0
         FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
         bits = f16.getBits();
+        return;
     }
-    else
-    {
-        int64_t exponent = input.decodeExponent();
-        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
 
-        if (!FloatProp16::isValidExponent(exponent))
-        {
-            if (exponent > 0)
-            {
-                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
-            }
-            else
-            {
-                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
-                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
-                bits = f16.getBits();
-            }
+    int64_t exponent = input.decodeExponent();
+
+    if (!FloatProp16::isValidExponent(exponent)) {
+        if (exponent > 0) { // inf or nan
+            /// \todo nans
+            bits = input.isPositive() ? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
+            return;
         }
-        else
-        {
-            FloatProp16 f16(input.isPositive(), mantissa, exponent);
-            bits = f16.getBits();
-        }
-    }
-}
-
-f16_t::f16_t(float x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
-{ 
-    const FloatProp32 input(asBits(x));
-
-    if (!input.isRegular())
-    {
-        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
-    }
-    else if (input.isSubnormal()) // subnormal -> (f16)0
-    {
-        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
+        // subnormals
+        /// \todo rounding
+        uint64_t mantissa16 = input.tryNormalizeMantissaUpdateExponent<FloatProp16>(exponent);
+        FloatProp16 f16(input.isPositive(), mantissa16, exponent);
         bits = f16.getBits();
+        return;
     }
-    else
-    {
-        int64_t exponent = input.decodeExponent();
-        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
 
-        if (!FloatProp16::isValidExponent(exponent))
-        {
-            if (exponent > 0)
-            {
-                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
-            }
-            else
-            {
-                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
-                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
-                bits = f16.getBits();
-            }
-        }
-        else
-        {
-            FloatProp16 f16(input.isPositive(), mantissa, exponent);
-            bits = f16.getBits();
-        }
-    }
+    uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
+    FloatProp16 f16(input.isPositive(), mantissa, exponent);
+    bits = f16.getBits();
 }
 
-f64_t f16_t::f64() const 
+template<typename T>
+T f16_t::convertTo() const
 { 
     FloatProp16 f16(bits);
-    uint64_t bits64;
+    typedef typename FloatProp<T>::PropType OutFloatProp;
+    OutFloatProp::Type outbits;
 
     if (!f16.isRegular())
     {
-        bits64 = f16.mapSpecialValues<FloatProp64>();
+        outbits = f16.mapSpecialValues<OutFloatProp>();
     }
     else if (f16.isSubnormal())
     {
-        int64_t exponent = f16.decodeExponent();
-        assert(exponent == FloatProp16::decodedSubnormalExponent());
-        exponent = FloatProp16::actualSubnormalExponent();
-        uint64_t mantissa = f16.normalizeMantissa<FloatProp64>(exponent);
-        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
-        bits64 = f64.getBits();
-    }
-    else
-    {
-        int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp64>();
-        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
-        bits64 = f64.getBits();
-    }
-
-    return asFloating(bits64);
-}
-
-f32_t f16_t::f32() const 
-{ 
-    FloatProp16 f16(bits);
-    uint32_t outbits;
-
-    if (!f16.isRegular())
-    {
-        outbits = f16.mapSpecialValues<FloatProp32>();
-    }
-    else if (f16.isSubnormal())
-    {
-        int64_t exponent = f16.decodeExponent();
-        assert(exponent == FloatProp16::decodedSubnormalExponent());
-        exponent = FloatProp16::actualSubnormalExponent();
-        uint64_t mantissa = f16.normalizeMantissa<FloatProp32>(exponent);
-        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        assert(f16.decodeExponent() == f16.decodedSubnormalExponent());
+        int64_t exponent = f16.actualSubnormalExponent();
+        uint64_t mantissa = f16.tryNormalizeMantissaUpdateExponent<OutFloatProp>(exponent);
+        OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
         outbits = outprop.getBits();
     }
     else
     {
         int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp32>();
-        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
+        uint64_t mantissa = f16.mapNormalizedMantissa<OutFloatProp>();
+        OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
         outbits = outprop.getBits();
     }
 
