@@ -334,9 +334,9 @@ public:
 
   void Init() override {
     FunctionLinkageTest::Init();
-    firstKernelVar = kernel->NewVariable("var", segment, ResultType(), Location::KERNEL);
-    secondKernelVar = SecondKernel()->NewVariable("var", segment, ResultType(), Location::KERNEL);
-    secondFunctionVar = SecondFunction()->NewVariable("var", segment, ResultType(), Location::FUNCTION);
+    firstKernelVar = kernel->NewVariable("var1", segment, ResultType(), Location::KERNEL);
+    secondKernelVar = SecondKernel()->NewVariable("var2", segment, ResultType(), Location::KERNEL);
+    secondFunctionVar = SecondFunction()->NewVariable("var3", segment, ResultType(), Location::FUNCTION);
     if (segment == BRIG_SEGMENT_READONLY) {
       firstKernelVar->PushBack(Value(Brig2ValueType(ResultType()), ResultValue()));
       secondKernelVar->PushBack(Value(Brig2ValueType(ResultType()), SECOND_VALUE));
