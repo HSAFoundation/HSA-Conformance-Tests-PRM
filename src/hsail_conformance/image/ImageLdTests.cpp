@@ -68,10 +68,10 @@ public:
     imgobj->InitImageCalculator(NULL);
 
     Value coords[3];
-    coords[0] = Value(0.0f);
-    coords[1] = Value(0.0f);
-    coords[2] = Value(0.0f);
-    imgobj->ReadColor(coords, color);
+    coords[0] = Value(MV_UINT32, 0);
+    coords[1] = Value(MV_UINT32, 0);
+    coords[2] = Value(MV_UINT32, 0);
+    imgobj->LoadColor(coords, color);
   }
 
   void ModuleDirectives() override {

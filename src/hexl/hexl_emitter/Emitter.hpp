@@ -570,7 +570,6 @@ private:
 
   Value color_zero;
   Value color_one;
-  bool bWithoutSampler;
   Value existVal;
   int bits_per_channel;
 
@@ -604,15 +603,15 @@ private:
   void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
   void LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const;
   void LoadFloatTexel(int x, int y, int z, double* const f) const;
-  void EmulateReadColor(Value* _coords, Value* _color) const;
-  Value EmulateStoreColor(Value* _color) const;
+  Value PackChannelDataToMemoryFormat(Value* _color) const;
 
 public:
   EImageCalc(EImage * eimage, ESampler* esampler);
   
   void ValueSet(Value val) { existVal = val; }
-  void ReadColor(Value* _coords, Value* _color) const;
-  Value StoreColor(Value* _coords, Value* _channels) const;
+  void EmulateImageRd(Value* _coords, Value* _channels) const;
+  void EmulateImageLd(Value* _coords, Value* _channels) const;
+  Value EmulateImageSt(Value* _coords, Value* _channels) const;
 };
 
 class EImage : public EImageSpec {
@@ -665,8 +664,9 @@ public:
   void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
   void InitImageCalculator(Sampler pSampler) { calculator = new EImageCalc(this, pSampler); }
   void SetValueForCalculator(Value val) { assert(calculator); calculator->ValueSet(val); }
-  void ReadColor(Value* _coords, Value* _color) const { assert(calculator); calculator->ReadColor(_coords, _color); }
-  Value StoreColor(Value* _coords, Value* _channels) const { assert(calculator); return calculator->StoreColor(_coords, _channels); }
+  void ReadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageRd(_coords, _channels); }
+  void LoadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageLd(_coords, _channels); }
+  Value StoreColor(Value* _coords, Value* _channels) const { assert(calculator); return calculator->EmulateImageSt(_coords, _channels); }
 };
 
 class ESamplerSpec : public EVariableSpec {
