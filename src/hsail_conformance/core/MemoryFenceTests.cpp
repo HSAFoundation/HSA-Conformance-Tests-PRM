@@ -53,7 +53,7 @@ protected:
   TypedReg inputReg;
   TypedReg destReg;
 
-  BrigType ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return type; }
 
   bool IsValid() const {
     if (BRIG_SEGMENT_GROUP == segment && geometry->WorkgroupSize() != geometry->GridSize())
@@ -65,19 +65,19 @@ protected:
     return true;
   }
 
-  virtual uint64_t GetInputValueForWI(uint64_t wi) const {
-    return 7;
+  Value GetInputValueForWI(uint64_t wi) const {
+    return Value(Brig2ValueType(type), 7);
   }
 
   Value ExpectedResult(uint64_t i) const {
-    return Value(MV_UINT32, 7);
+    return Value(Brig2ValueType(type), 7);
   }
 
   void Init() {
     Test::Init();
-    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, MV_UINT64, geometry->GridSize());
+    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, Brig2ValueType(type), geometry->GridSize());
     for (uint64_t i = 0; i < uint64_t(geometry->GridSize()); ++i) {
-      input->AddData(Value(MV_UINT64, GetInputValueForWI(i)));
+      input->AddData(GetInputValueForWI(i));
     }
   }
 
@@ -127,13 +127,6 @@ protected:
     be.EmitLabel(s_label_skip_load);
 
     EmitInstrToTest(BRIG_OPCODE_LD);
-    if (type != BRIG_TYPE_U32 && type != BRIG_TYPE_S32) {
-      if (type != BRIG_TYPE_F32 && type != BRIG_TYPE_F64) {
-        be.EmitCvt(result, destReg);
-      } else {
-        be.EmitCvt(result, destReg, BRIG_ROUND_INTEGER_NEAR_EVEN);
-      }
-    }
     return result;
   }
 };

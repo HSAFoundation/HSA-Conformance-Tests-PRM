@@ -540,8 +540,8 @@ static const BrigType memfenceTypes[] = {
   BRIG_TYPE_U64,
   BRIG_TYPE_S32,
   BRIG_TYPE_S64,
-//  BRIG_TYPE_F32,
-//  BRIG_TYPE_F64
+  BRIG_TYPE_F32,
+  BRIG_TYPE_F64
 };
 
 static const size_t registerSizesArr[] = {
