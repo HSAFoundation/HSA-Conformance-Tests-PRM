@@ -1687,26 +1687,16 @@ void EImageCalc::SetupDefaultColors()
     color_zero = Value(0.0f);
     color_one  = Value(1.0f);
     break;
+
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-    color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, 1);
-    break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-    color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, 1);
-    break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     color_zero = Value(MV_INT32, 0);
     color_one  = Value(MV_INT32, 1);
     break;
+
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-    color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, 1);
-    break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, 1);
-    break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     color_zero = Value(MV_UINT32, 0);
     color_one  = Value(MV_UINT32, 1);
@@ -2014,7 +2004,7 @@ uint32_t EImageCalc::ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size
 {
 	int max = (1 << (bit_size-1)) - 1;
 	int min = -max - 1;
-  uint32_t val = clamp_i((c & (0xFFFFFFFF>>(32-bit_size))) , min, max);
+  uint32_t val = clamp_i(c, min, max);
 
 	return val;
 }
@@ -2604,13 +2594,13 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 	case BRIG_CHANNEL_TYPE_SIGNED_INT8:
 		bits_per_channel = 8;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_INT8, ConvertionStoreSignedClamp(_color[i].S8(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_SIGNED_INT16:
 		bits_per_channel = 16;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S16(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_SIGNED_INT32:
@@ -2622,13 +2612,13 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 	case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
 		bits_per_channel = 8;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U8(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
 		bits_per_channel = 16;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U16(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
