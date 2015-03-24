@@ -572,38 +572,46 @@ private:
   Value color_one;
   Value existVal;
   int bits_per_channel;
+  bool isSRGB;
 
   void SetupDefaultColors();
-  double UnnormalizeCoord(Value* c, unsigned dimSize) const;
-  double UnnormalizeArrayCoord(Value* c) const;
   int round_downi(float f) const;
   int round_neari(float f) const;
   int clamp_i(int a, int min, int max) const; //todo use std and templates
   float clamp_f(float a, float min, float max) const;
   uint32_t clamp_u(uint32_t a, uint32_t min, uint32_t max) const;
+  
+  //Addressing
+  double UnnormalizeCoord(Value* c, unsigned dimSize) const;
+  double UnnormalizeArrayCoord(Value* c) const;
   uint32_t GetTexelIndex(double f, uint32_t dimSize) const;
   uint32_t GetTexelArrayIndex(double f, uint32_t dimSize) const;
+
+  //Load
+  Value ConvertRawData(uint32_t data) const;
+  void LoadBorderData(Value* channels) const;
+  void LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
+  void LoadTexel(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
+  void LoadFloatTexel(uint32_t x, uint32_t y, uint32_t z, double* const df) const;
+  float SRGBtoLinearRGB(float f) const;
   uint32_t GetRawPixelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind) const;
   uint32_t GetRawChannelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, uint32_t channel) const;
   int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
-  float ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
-  float ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
-  int32_t ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const;
+  float    ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
+  float    ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
+  int32_t  ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const;
   uint32_t ConvertionLoadUnsignedClamp(uint32_t c, unsigned int bit_size) const;
-  float ConvertionLoadHalfFloat(uint32_t data) const;
-  float ConvertionLoadFloat(uint32_t data) const;
+  float    ConvertionLoadHalfFloat(uint32_t data) const;
+  float    ConvertionLoadFloat(uint32_t data) const;
+
+  //Store
   uint32_t ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const;
   uint32_t ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const;
   uint32_t ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const;
   uint32_t ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_size) const;
   uint32_t ConvertionStoreHalfFloat(float f) const;
   uint32_t ConvertionStoreFloat(float f) const;
-  Value ConvertRawData(uint32_t data) const;
-  float GammaCorrection(float f) const;
-  void LoadBorderData(Value* channels) const;
-  void LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
-  void LoadTexel(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
-  void LoadFloatTexel(uint32_t x, uint32_t y, uint32_t z, double* const df) const;
+  float LinearRGBtoSRGB(float f) const;
   Value PackChannelDataToMemoryFormat(Value* _color) const;
 
 public:

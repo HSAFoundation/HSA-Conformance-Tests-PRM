@@ -1964,7 +1964,6 @@ uint32_t EImageCalc::GetRawChannelData(uint32_t x_ind, uint32_t y_ind, uint32_t 
 int32_t EImageCalc::SignExtend(uint32_t c, unsigned int bit_size) const
 {
   union {
-    float f32;
     int32_t s32;
     uint32_t u32;
   } r;
@@ -1992,6 +1991,43 @@ float EImageCalc::ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_s
   float f = static_cast<float>(c) / ((1U << bit_size) - 1);
 
   return clamp_f(f, 0.0f, 1.0f);
+}
+
+float EImageCalc::SRGBtoLinearRGB(float f) const
+{
+  double df = f;
+
+  //all magic numbers are from PRM section 7.1.4.1.2
+  if (df < 0.04045)
+    return static_cast<float>(df / 12.92);
+
+  df = (df + 0.055) / 1.055;
+  df = pow(df, 2.4);
+
+  if(df > 1.0)
+    return 1.0f;
+
+  return static_cast<float>(df);
+}
+
+float EImageCalc::LinearRGBtoSRGB(float f) const
+{
+  if(f != f) return 0.0f; //check for NaN
+  if(f <= 0.0f) return 0.0f;
+  if(f >= 1.0f) return 1.0f;
+
+  //all magic numbers are from PRM section 7.1.4.1.2
+  double df = f;
+  if(df < 0.0031308)
+  {
+    df *= 12.92;
+    return static_cast<float>(df);
+  }
+
+  df = 1.055 * pow(df, 1/2.4);
+  df -= 0.055;
+
+  return static_cast<float>(df);
 }
 
 int32_t EImageCalc::ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const
@@ -2028,6 +2064,7 @@ uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_si
 	int scale = (1 << (bit_size-1)) - 1;
 	int val = round_neari(f * scale);
 	val = clamp_i(val, -scale - 1, scale);
+  //todo NaN and INF handling
 
 	return val;
 }
@@ -2037,6 +2074,7 @@ uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_
 	int scale = (1 << bit_size) - 1;
 	int val = round_neari(f * scale);
 	val = clamp_i(val, 0, scale);
+  //todo NaN and INF handling
 
 	return val;
 }
@@ -2131,18 +2169,12 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
   return c;
 }
 
-float EImageCalc::GammaCorrection(float f) const
-{
-  assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-* types
-  return 0.3f; //todo
-}
-
 void EImageCalc::LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const
 {
   Value c;
   uint32_t packed_color;
   uint32_t unpacked_r, unpacked_g, unpacked_b;
-  float fr, fg, fb;
+  float fr, fg, fb, fa;
 
   switch (imageChannelOrder)
   {
@@ -2237,9 +2269,9 @@ void EImageCalc::LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, V
     fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
     fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
-    _color[0] = Value(GammaCorrection(fr));
-    _color[1] = Value(GammaCorrection(fg));
-    _color[2] = Value(GammaCorrection(fb));
+    _color[0] = Value(SRGBtoLinearRGB(fr));
+    _color[1] = Value(SRGBtoLinearRGB(fg));
+    _color[2] = Value(SRGBtoLinearRGB(fb));
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_SRGBA:
@@ -2247,20 +2279,22 @@ void EImageCalc::LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, V
     fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
     fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
-    _color[0] = Value(GammaCorrection(fr));
-    _color[1] = Value(GammaCorrection(fg));
-    _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
+    fa = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 3), 8);
+    _color[0] = Value(SRGBtoLinearRGB(fr));
+    _color[1] = Value(SRGBtoLinearRGB(fg));
+    _color[2] = Value(SRGBtoLinearRGB(fb));
+    _color[3] = Value(fa);
     break;
   case BRIG_CHANNEL_ORDER_SBGRA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
     fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
     fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
-    _color[0] = Value(GammaCorrection(fr));
-    _color[1] = Value(GammaCorrection(fg));
-    _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
+    fa = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 3), 8);
+    _color[0] = Value(SRGBtoLinearRGB(fr));
+    _color[1] = Value(SRGBtoLinearRGB(fg));
+    _color[2] = Value(SRGBtoLinearRGB(fb));
+    _color[3] = Value(fa);
     break;
   case BRIG_CHANNEL_ORDER_INTENSITY:
     c = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
@@ -2524,6 +2558,19 @@ EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler)
   }
   SetupDefaultColors();
 
+  switch (imageChannelOrder)
+  {
+  case BRIG_CHANNEL_ORDER_SRGB:
+  case BRIG_CHANNEL_ORDER_SRGBX:
+  case BRIG_CHANNEL_ORDER_SRGBA:
+  case BRIG_CHANNEL_ORDER_SBGRA:
+    isSRGB = true;
+    break;
+  default:
+    isSRGB = false;
+    break;
+  }
+
   //set default
   existVal = eimage->GetRawData();
 }
@@ -2581,7 +2628,11 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 	case BRIG_CHANNEL_TYPE_UNORM_INT8:
 		bits_per_channel = 8;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[i].F(), bits_per_channel));
+    {
+      float f = _color[i].F();
+      if (isSRGB) f = LinearRGBtoSRGB(f);
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(f, bits_per_channel));
+    }
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_INT16:
