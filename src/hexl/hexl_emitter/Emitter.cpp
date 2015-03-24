@@ -2771,6 +2771,7 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 		}
 		break;
 	case BRIG_CHANNEL_ORDER_RG:
+  case BRIG_CHANNEL_ORDER_RGX:
     switch (bits_per_channel)
 		{
 		case 8:
@@ -2792,8 +2793,6 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 			assert(0);
 			break;
 		}
-		break;
-	case BRIG_CHANNEL_ORDER_RGX:
 		break;
 	case BRIG_CHANNEL_ORDER_RA:
     switch (bits_per_channel)
@@ -2819,10 +2818,11 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 		}
 		break;
 	case BRIG_CHANNEL_ORDER_RGB:
-		break;
 	case BRIG_CHANNEL_ORDER_RGBX:
+    assert(0); //should never happen, coz 555, 565 and 101010 formats are handled earlier
 		break;
 	case BRIG_CHANNEL_ORDER_RGBA:
+  case BRIG_CHANNEL_ORDER_SRGBA:
     switch (bits_per_channel)
 		{
 		case 8:
@@ -2852,6 +2852,7 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 		}
 		break;
 	case BRIG_CHANNEL_ORDER_BGRA:
+  case BRIG_CHANNEL_ORDER_SBGRA:
     switch (bits_per_channel)
 		{
 		case 8:
@@ -2938,12 +2939,13 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 			break;
 		}
 		break;
-
 	case BRIG_CHANNEL_ORDER_SRGB:
 	case BRIG_CHANNEL_ORDER_SRGBX:
-	case BRIG_CHANNEL_ORDER_SRGBA:
-	case BRIG_CHANNEL_ORDER_SBGRA:
-		assert(0); //todo add srgb support
+    Raw.ch8.ch1 = rgba[0].U8();
+    Raw.ch8.ch2 = rgba[1].U8();
+    Raw.ch8.ch3 = rgba[2].U8();
+    Raw.ch8.ch4 = 0;
+		texel = Value(MV_UINT32, Raw.data32); //add uint24?
 		break;
 
 	case BRIG_CHANNEL_ORDER_DEPTH:
