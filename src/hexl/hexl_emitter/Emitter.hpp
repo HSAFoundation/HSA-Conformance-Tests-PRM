@@ -574,17 +574,17 @@ private:
   int bits_per_channel;
 
   void SetupDefaultColors();
-  float UnnormalizeCoord(Value* c, unsigned dimSize) const;
-  float UnnormalizeArrayCoord(Value* c) const;
+  double UnnormalizeCoord(Value* c, unsigned dimSize) const;
+  double UnnormalizeArrayCoord(Value* c) const;
   int round_downi(float f) const;
   int round_neari(float f) const;
-  int clamp_i(int a, int min, int max) const;
+  int clamp_i(int a, int min, int max) const; //todo use std and templates
   float clamp_f(float a, float min, float max) const;
-  int GetTexelIndex(float f, unsigned _dimSize) const;
-  int GetTexelArrayIndex(float f, unsigned dimSize) const;
-  void LoadBorderData(Value* _color) const;
-  uint32_t GetRawPixelData(int x_ind, int y_ind, int z_ind) const;
-  uint32_t GetRawChannelData(int x_ind, int y_ind, int z_ind, int channel) const;
+  uint32_t clamp_u(uint32_t a, uint32_t min, uint32_t max) const;
+  uint32_t GetTexelIndex(double f, uint32_t dimSize) const;
+  uint32_t GetTexelArrayIndex(double f, uint32_t dimSize) const;
+  uint32_t GetRawPixelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind) const;
+  uint32_t GetRawChannelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, uint32_t channel) const;
   int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
   float ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
@@ -600,9 +600,10 @@ private:
   uint32_t ConvertionStoreFloat(float f) const;
   Value ConvertRawData(uint32_t data) const;
   float GammaCorrection(float f) const;
-  void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
-  void LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const;
-  void LoadFloatTexel(int x, int y, int z, double* const f) const;
+  void LoadBorderData(Value* channels) const;
+  void LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
+  void LoadTexel(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
+  void LoadFloatTexel(uint32_t x, uint32_t y, uint32_t z, double* const df) const;
   Value PackChannelDataToMemoryFormat(Value* _color) const;
 
 public:
