@@ -34,25 +34,63 @@
 		case _FPCLASS_ND:
 		case _FPCLASS_PD:
 			return true;
+    default:
+      return false;
+      break;
 		}
 		return false;
 	}
+
+  bool isNanOrInf(double df)
+  {
+    switch (_fpclass(df))
+    {
+    case _FPCLASS_SNAN:
+    case _FPCLASS_QNAN:
+    case _FPCLASS_NINF:
+    case _FPCLASS_PINF:
+      return true;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
 #else //assume Linux
-	#if _XOPEN_SOURCE >= 600 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
-	//fpclassify() supported
-	bool isNanOrDenorm(float f)
-	{
-		switch(std::fpclassify(f)){
-		case FP_NAN:
-		case FP_SUBNORMAL:
-			return true;
-			break;
-		}
-		return false;
-	}
-	#else
-	#error "fpclassify() is not guaranteed to be supported"
-#endif
+  #if __cplusplus >= 201103L
+  //std::fpclassify() supported
+  bool isNanOrDenorm(float f)
+  {
+    switch(std::fpclassify(f))
+    {
+    case FP_NAN:
+    case FP_SUBNORMAL:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
+
+  bool isNanOrInf(double df)
+  {
+    switch(std::fpclassify(df))
+    {
+    case FP_NAN:
+    case FP_INFINITE:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
+  #else
+  #error "std::fpclassify() is not guaranteed to be supported. Check your compiler for c++11 support."
+  #endif
 #endif // _WIN32
 
 
@@ -1729,9 +1767,12 @@ double EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
     assert(c->Type() == MV_FLOAT); //only f32 is allowed in normilized mode
     df *= dimSize;
   }
-  //todo add assert for NaN and INF
+
   if(samplerFilter == BRIG_FILTER_LINEAR)
     df -= 0.5;
+
+  //coordinates are undefined in case of NaN or INF (PRM 7.1.6.1)
+  assert(!isNanOrInf(df));
 
   return df;
 }
@@ -1746,7 +1787,9 @@ double EImageCalc::UnnormalizeArrayCoord(Value* c) const
 		break;
 
 	case MV_FLOAT:
-		df = static_cast<double>(c->F()); //todo add assert for NaN and INF
+		df = static_cast<double>(c->F());
+    //coordinates are undefined in case of NaN or INF (PRM 7.1.6.1)
+    assert(!isNanOrInf(df));
 		break;
 
 	default:
@@ -2309,6 +2352,9 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
   uint32_t vSize = imageGeometry.ImageSize(1);
   uint32_t wSize = imageGeometry.ImageSize(2);
 
+  //1DB images are not supported by rdimage instruction (PRM 7.1.6)
+  assert(imageGeometryProp != BRIG_GEOMETRY_1DB);
+
   //unnormalize and apply addresing mode
   u = UnnormalizeCoord(x, uSize);
   v = w = 0.0f;
@@ -2373,7 +2419,6 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
   switch (imageGeometryProp)
   {
   case BRIG_GEOMETRY_1D:
-  case BRIG_GEOMETRY_1DB:
   case BRIG_GEOMETRY_1DA:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
