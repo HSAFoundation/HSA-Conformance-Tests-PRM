@@ -34,25 +34,63 @@
 		case _FPCLASS_ND:
 		case _FPCLASS_PD:
 			return true;
+    default:
+      return false;
+      break;
 		}
 		return false;
 	}
+
+  bool isNanOrInf(double df)
+  {
+    switch (_fpclass(df))
+    {
+    case _FPCLASS_SNAN:
+    case _FPCLASS_QNAN:
+    case _FPCLASS_NINF:
+    case _FPCLASS_PINF:
+      return true;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
 #else //assume Linux
-	#if _XOPEN_SOURCE >= 600 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
-	//fpclassify() supported
-	bool isNanOrDenorm(float f)
-	{
-		switch(std::fpclassify(f)){
-		case FP_NAN:
-		case FP_SUBNORMAL:
-			return true;
-			break;
-		}
-		return false;
-	}
-	#else
-	#error "fpclassify() is not guaranteed to be supported"
-#endif
+  #if __cplusplus >= 201103L
+  //std::fpclassify() supported
+  bool isNanOrDenorm(float f)
+  {
+    switch(std::fpclassify(f))
+    {
+    case FP_NAN:
+    case FP_SUBNORMAL:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
+
+  bool isNanOrInf(double df)
+  {
+    switch(std::fpclassify(df))
+    {
+    case FP_NAN:
+    case FP_INFINITE:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
+  #else
+  #error "std::fpclassify() is not guaranteed to be supported. Check your compiler for c++11 support."
+  #endif
 #endif // _WIN32
 
 
@@ -1707,47 +1745,51 @@ void EImageCalc::SetupDefaultColors()
   }
 }
 
-float EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
+double EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
 {
-  float f;
+  double df, tmp;
 
-  if(samplerCoord == BRIG_COORD_UNNORMALIZED){
-    switch(c->Type())
-    {
-    case MV_INT32:
-	    f = (float)(c->S32());
-	    break;
-
-    case MV_FLOAT:
-	    f = c->F();
-	    break;
-
-    default:
-	    assert(0); //only f32 and s32 are allowed for rdimage
-	    break;
-    }
-  } else {
+  switch(c->Type())
+  {
+  case MV_INT32:
+	  df = static_cast<double>(c->S32());
+	  break;
+  case MV_FLOAT:
+	  df = static_cast<double>(c->F());
+	  break;
+  default:
+	  assert(0); //only f32 and s32 are allowed for rdimage
+	  break;
+  }
+  
+  if(samplerCoord == BRIG_COORD_NORMALIZED)
+  {
     assert(c->Type() == MV_FLOAT); //only f32 is allowed in normilized mode
-    f = c->F() * dimSize;
+    df *= dimSize;
   }
 
   if(samplerFilter == BRIG_FILTER_LINEAR)
-    f -= 0.5f;
+    df -= 0.5;
 
-  return f;
+  //coordinates are undefined in case of NaN or INF (PRM 7.1.6.1)
+  assert(!isNanOrInf(df));
+
+  return df;
 }
 
-float EImageCalc::UnnormalizeArrayCoord(Value* c) const
+double EImageCalc::UnnormalizeArrayCoord(Value* c) const
 {
-	float f;
+	double df;
 	switch (c->Type())
 	{
 	case MV_INT32:
-		f = (float)(c->S32());
+		df = static_cast<double>(c->S32());
 		break;
 
 	case MV_FLOAT:
-		f = c->F();
+		df = static_cast<double>(c->F());
+    //coordinates are undefined in case of NaN or INF (PRM 7.1.6.1)
+    assert(!isNanOrInf(df));
 		break;
 
 	default:
@@ -1755,7 +1797,7 @@ float EImageCalc::UnnormalizeArrayCoord(Value* c) const
 		break;
 	}
 	
-	return f;
+	return df;
 }
 
 int EImageCalc::round_downi(float f) const
@@ -1768,6 +1810,11 @@ int EImageCalc::round_neari(float f) const
   return static_cast<int>(f);
 }
 
+uint32_t EImageCalc::clamp_u(uint32_t a, uint32_t min, uint32_t max) const
+{
+  return (a < min) ? min : ((a > max) ? max : a);
+}
+
 int EImageCalc::clamp_i(int a, int min, int max) const
 {
   return (a < min) ? min : ((a > max) ? max : a);
@@ -1778,37 +1825,40 @@ float EImageCalc::clamp_f(float a, float min, float max) const
   return (a < min) ? min : ((a > max) ? max : a);
 }
 
-int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
+uint32_t EImageCalc::GetTexelIndex(double df, uint32_t dimSize) const
 {
-  int rounded_coord = round_downi(f);
-  int dimSize = _dimSize; //todo unshit it
-  bool out_of_range = (rounded_coord < 0) || ( rounded_coord > dimSize - 1);
+  int rounded_coord = round_downi(df);
+  bool out_of_range = (df < 0.0) || ( df > static_cast<double>(dimSize - 1));
   if(!out_of_range){
     return rounded_coord;
   };
   int tile;
-  float mirrored_coord;
+  double mirrored_coord;
+
   switch(samplerAddressing){
   case BRIG_ADDRESSING_UNDEFINED:
 	//we should never use undefined addressing
 	//in case of out of range coordinates
 	//because it, well, undefined
-	//assert(0); //todo uncomment
+	assert(0);
 	break;
   case BRIG_ADDRESSING_CLAMP_TO_EDGE:
-    return clamp_i(rounded_coord, 0, dimSize -1);
+    if (df < 0.0) return 0;
+    if (df > static_cast<double>(dimSize - 1)) return (dimSize - 1);
+    return clamp_u(rounded_coord, 0, dimSize - 1);
     break;
   case BRIG_ADDRESSING_CLAMP_TO_BORDER:
-    return clamp_i(rounded_coord, -1, dimSize);
+    if (out_of_range) return dimSize;
+    return clamp_u(rounded_coord, 0, dimSize);
     break;
   case BRIG_ADDRESSING_REPEAT:
-    tile = round_downi(f / dimSize);
-    return round_downi(f - (tile * dimSize));
+    tile = round_downi(df / dimSize);
+    return round_downi(df - tile * static_cast<double>(dimSize));
     break;
   case BRIG_ADDRESSING_MIRRORED_REPEAT:
-    mirrored_coord = (f < 0) ? (-f - 1.0f) : f;
+    mirrored_coord = (df < 0) ? (-df - 1.0f) : df;
     tile = round_downi(mirrored_coord / dimSize);
-    rounded_coord = round_downi(mirrored_coord - (tile * dimSize));
+    rounded_coord = round_downi(mirrored_coord - tile * static_cast<double>(dimSize));
     if(tile & 1){
       rounded_coord = (dimSize - 1) - rounded_coord;
     }
@@ -1821,9 +1871,11 @@ int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
   return -1;
 }
 
-int EImageCalc::GetTexelArrayIndex(float f, unsigned dimSize) const
+uint32_t EImageCalc::GetTexelArrayIndex(double df, uint32_t dimSize) const
 {
-  return clamp_i( round_neari(f), 0, dimSize - 1 );
+  if (df < 0.0) return 0;
+  if (df > static_cast<double>(dimSize-1)) return (dimSize - 1);
+  return clamp_u( round_neari(df), 0, dimSize - 1 );
 }
 
 void EImageCalc::LoadBorderData(Value* _color) const
@@ -1852,12 +1904,12 @@ void EImageCalc::LoadBorderData(Value* _color) const
   return;
 }
 
-uint32_t EImageCalc::GetRawPixelData(int x_ind, int y_ind, int z_ind) const
+uint32_t EImageCalc::GetRawPixelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind) const
 {
   return existVal.U32();
 }
 
-uint32_t EImageCalc::GetRawChannelData(int x_ind, int y_ind, int z_ind, int channel) const
+uint32_t EImageCalc::GetRawChannelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, uint32_t channel) const
 {
   switch (imageChannelType)
   {
@@ -2085,7 +2137,7 @@ float EImageCalc::GammaCorrection(float f) const
   return 0.3f; //todo
 }
 
-void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const
+void EImageCalc::LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const
 {
   Value c;
   uint32_t packed_color;
@@ -2236,12 +2288,12 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
   }
 }
 
-void EImageCalc::LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const
+void EImageCalc::LoadTexel(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const
 {
-  int dimSizeX = imageGeometry.ImageSize(0);
-  int dimSizeY = imageGeometry.ImageSize(1);
-  int dimSizeZ = imageGeometry.ImageSize(2);
-  bool out_of_range = (x_ind < 0) || (y_ind < 0) || (z_ind < 0) || (x_ind > dimSizeX - 1) || (y_ind > dimSizeY - 1) || (z_ind > dimSizeZ - 1);
+  uint32_t dimSizeX = imageGeometry.ImageSize(0);
+  uint32_t dimSizeY = imageGeometry.ImageSize(1);
+  uint32_t dimSizeZ = imageGeometry.ImageSize(2);
+  bool out_of_range = (x_ind >= dimSizeX) || (y_ind >= dimSizeY) || (z_ind >= dimSizeZ);
   if(out_of_range){
     assert(samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER);
     LoadBorderData(_color);
@@ -2251,31 +2303,31 @@ void EImageCalc::LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const
   }
 }
 
-void EImageCalc::LoadFloatTexel(int x, int y, int z, double* const f) const
+void EImageCalc::LoadFloatTexel(uint32_t x, uint32_t y, uint32_t z, double* const df) const
 {
   Value color[4];
   LoadTexel(x, y, z, color);
   switch (color[0].Type())
   {
   case MV_FLOAT:
-    f[0] = color[0].F();
-    f[1] = color[1].F();
-    f[2] = color[2].F();
-    f[3] = color[3].F();
+    df[0] = color[0].F();
+    df[1] = color[1].F();
+    df[2] = color[2].F();
+    df[3] = color[3].F();
     break;
 
   case MV_INT32:
-    f[0] = color[0].S32();
-    f[1] = color[1].S32();
-    f[2] = color[2].S32();
-    f[3] = color[3].S32();
+    df[0] = color[0].S32();
+    df[1] = color[1].S32();
+    df[2] = color[2].S32();
+    df[3] = color[3].S32();
     break;
 
   case MV_UINT32:
-    f[0] = color[0].U32();
-    f[1] = color[1].U32();
-    f[2] = color[2].U32();
-    f[3] = color[3].U32();
+    df[0] = color[0].U32();
+    df[1] = color[1].U32();
+    df[2] = color[2].U32();
+    df[3] = color[3].U32();
     break;
 
   default:
@@ -2284,9 +2336,12 @@ void EImageCalc::LoadFloatTexel(int x, int y, int z, double* const f) const
   }
 }
 
-void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const {
-     
-  float u, v, w; //unnormalized coordinates
+void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
+{
+  //PRM states that in some modes texel index must be computed with
+  //no loss of precision (7.1.6.3 Image Filters).
+  //Therefore we are using doubles for coordinates.
+  double u, v, w; //unnormalized coordinates
   int ind[3]; //element location
 
   Value* x = &_coords[0];
@@ -2296,6 +2351,9 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const {
   uint32_t uSize = imageGeometry.ImageSize(0);
   uint32_t vSize = imageGeometry.ImageSize(1);
   uint32_t wSize = imageGeometry.ImageSize(2);
+
+  //1DB images are not supported by rdimage instruction (PRM 7.1.6)
+  assert(imageGeometryProp != BRIG_GEOMETRY_1DB);
 
   //unnormalize and apply addresing mode
   u = UnnormalizeCoord(x, uSize);
@@ -2361,7 +2419,6 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const {
   switch (imageGeometryProp)
   {
   case BRIG_GEOMETRY_1D:
-  case BRIG_GEOMETRY_1DB:
   case BRIG_GEOMETRY_1DA:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
@@ -2401,7 +2458,7 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const {
               + (1 - x_frac)  * y_frac    * z_frac    * colors[6][i]
               + x_frac    * y_frac    * z_frac    * colors[7][i];
     }
-    break;      
+    break;
   case BRIG_GEOMETRY_2DDEPTH:
   case BRIG_GEOMETRY_2DADEPTH:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
@@ -2437,14 +2494,10 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const {
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-    //for(int i=0; i<4; i++) _color[i] = Value(MV_INT32, S32(static_cast<int32_t>(filtered_color[i])));
-    assert(0); //linear filter for all access types other then f32 is undefined
-    break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-    //for(int i=0; i<4; i++) _color[i] = Value(MV_UINT32, U32(static_cast<uint32_t>(filtered_color[i])));
-    assert(0); //linear filter for all access types other then f32 is undefined
+    assert(0); //linear filter is defined only for channel types with f32 access type (PRM table 7-6)
     break;
   default:
     assert(0);
