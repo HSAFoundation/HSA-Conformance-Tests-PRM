@@ -2045,8 +2045,10 @@ float EImageCalc::ConvertionLoadHalfFloat(uint32_t data) const
   ValueData bits;
   bits.u32 = data;
   half h = half::make(bits.h_bits);
-  //todo test for NaNs
-  return h.f32();
+
+  float f = h.f32();
+  assert(f==f); //handling NaNs is implementation defined
+  return f;
 }
 
 float EImageCalc::ConvertionLoadFloat(uint32_t data) const
@@ -2055,16 +2057,18 @@ float EImageCalc::ConvertionLoadFloat(uint32_t data) const
 	f.u32 = data;
 	//handling NaNs and subnormals is implementation defined
 	//therefore we should avoid such tests
-	//assert(isNanOrDenorm(f.f)); //todo uncomment
+	assert(!isNanOrDenorm(f.f));
 	return f.f;
 }
 
 uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const
 {
 	int scale = (1 << (bit_size-1)) - 1;
+  if (f >=  1.0f) return scale;
+  if (f <= -1.0f) return -scale - 1;
+  if (f != f) return 0;
 	int val = round_neari(f * scale);
 	val = clamp_i(val, -scale - 1, scale);
-  //todo NaN and INF handling
 
 	return val;
 }
@@ -2072,9 +2076,11 @@ uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_si
 uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const
 {
 	int scale = (1 << bit_size) - 1;
+  if (f >= 1.0f) return scale;
+  if (f <= 0.0f) return 0;
+  if (f != f) return 0;
 	int val = round_neari(f * scale);
 	val = clamp_i(val, 0, scale);
-  //todo NaN and INF handling
 
 	return val;
 }
@@ -2096,8 +2102,9 @@ uint32_t EImageCalc::ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_s
 
 uint32_t EImageCalc::ConvertionStoreHalfFloat(float f) const
 {
-	half h(f);
-	//todo test for NaNs and denorms
+	half h(f); //Achtung! Rounding is implementation defined!
+  assert(f==f); //handling NaNs is implementation difined
+  //todo test for fp16 denorm
 	return h.getBits();
 }
 
@@ -2105,7 +2112,7 @@ uint32_t EImageCalc::ConvertionStoreFloat(float f) const
 {
 	ValueData v;
 	v.f = f;
-	//todo test for NaNs and denorms
+	assert(!isNanOrDenorm(f));
 	return v.u32;
 }
 
@@ -2646,25 +2653,25 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 
 	case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
 		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		packed_rgb = (unpacked_r << 10) || (unpacked_g << 5) || unpacked_b;
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[1].F(), 5);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[2].F(), 5);
+		packed_rgb = (unpacked_r << 10) | (unpacked_g << 5) | unpacked_b;
 		return Value(MV_UINT16, packed_rgb);
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
 		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 6);
-		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		packed_rgb = (unpacked_r << 11) || (unpacked_g << 6) || unpacked_b;
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[1].F(), 6);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[2].F(), 5);
+		packed_rgb = (unpacked_r << 11) | (unpacked_g << 6) | unpacked_b;
 		return Value(MV_UINT16, packed_rgb);
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
 		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
-		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
-		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
-		packed_rgb = (unpacked_r << 20) || (unpacked_g << 10) || unpacked_b;
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[1].F(), 10);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[2].F(), 10);
+		packed_rgb = (unpacked_r << 20) | (unpacked_g << 10) | unpacked_b;
 		return Value(MV_UINT32, packed_rgb);
 		break;
 
