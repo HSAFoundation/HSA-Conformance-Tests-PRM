@@ -536,10 +536,13 @@ static const BrigType atomicTypes[] = {
 };
 
 static const BrigType memfenceTypes[] = {
+  BRIG_TYPE_U16,
   BRIG_TYPE_U32,
   BRIG_TYPE_U64,
+  BRIG_TYPE_S16,
   BRIG_TYPE_S32,
   BRIG_TYPE_S64,
+  BRIG_TYPE_F16,
   BRIG_TYPE_F32,
   BRIG_TYPE_F64
 };
