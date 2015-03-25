@@ -130,7 +130,7 @@ public:
 	  if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
 		  return false;
     }
-    return IsImageSupported(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
+    return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
  
   BrigType ResultType() const {

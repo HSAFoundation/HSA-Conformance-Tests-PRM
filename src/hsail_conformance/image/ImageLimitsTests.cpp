@@ -83,7 +83,7 @@ public:
   }
 
   bool IsValid() const override {
-    return IsImageSupported(imageGeometry, channelOrder, channelType);
+    return IsImageLegal(imageGeometry, channelOrder, channelType);
   }
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
