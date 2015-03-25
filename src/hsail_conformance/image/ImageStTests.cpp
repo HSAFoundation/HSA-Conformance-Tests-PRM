@@ -69,14 +69,14 @@ public:
     imgobj->InitImageCalculator(NULL);
 
     Value coords[3];
-    coords[0] = Value(0.0f);
-    coords[1] = Value(0.0f);
-    coords[2] = Value(0.0f);
+    coords[0] = Value(MV_UINT32, 0);
+    coords[1] = Value(MV_UINT32, 0);
+    coords[2] = Value(MV_UINT32, 0);
     Value channels[4];
     for (unsigned i = 0; i < 4; i++) { channels[i] = Value(MV_UINT32, StorePerRegValue()); }
     Value Val_store = imgobj->StoreColor(NULL, channels);
     imgobj->SetValueForCalculator(imgobj->GenMemValue(Val_store));
-    imgobj->ReadColor(coords, color);
+    imgobj->LoadColor(coords, color);
   }
 
   void ModuleDirectives() override {

@@ -570,49 +570,57 @@ private:
 
   Value color_zero;
   Value color_one;
-  bool bWithoutSampler;
   Value existVal;
   int bits_per_channel;
+  bool isSRGB;
 
   void SetupDefaultColors();
-  float UnnormalizeCoord(Value* c, unsigned dimSize) const;
-  float UnnormalizeArrayCoord(Value* c) const;
-  int round_downi(float f) const;
-  int round_neari(float f) const;
-  int clamp_i(int a, int min, int max) const;
+  int round_downi(float f) const; //todo make true rounding
+  int round_neari(float f) const; //todo make true rounding
+  int clamp_i(int a, int min, int max) const; //todo use std and templates
   float clamp_f(float a, float min, float max) const;
-  int GetTexelIndex(float f, unsigned _dimSize) const;
-  int GetTexelArrayIndex(float f, unsigned dimSize) const;
-  void LoadBorderData(Value* _color) const;
-  uint32_t GetRawPixelData(int x_ind, int y_ind, int z_ind) const;
-  uint32_t GetRawChannelData(int x_ind, int y_ind, int z_ind, int channel) const;
+  uint32_t clamp_u(uint32_t a, uint32_t min, uint32_t max) const;
+  
+  //Addressing
+  double UnnormalizeCoord(Value* c, unsigned dimSize) const;
+  double UnnormalizeArrayCoord(Value* c) const;
+  uint32_t GetTexelIndex(double f, uint32_t dimSize) const;
+  uint32_t GetTexelArrayIndex(double f, uint32_t dimSize) const;
+
+  //Load
+  Value ConvertRawData(uint32_t data) const;
+  void LoadBorderData(Value* channels) const;
+  void LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
+  void LoadTexel(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const;
+  void LoadFloatTexel(uint32_t x, uint32_t y, uint32_t z, double* const df) const;
+  float SRGBtoLinearRGB(float f) const;
+  uint32_t GetRawPixelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind) const;
+  uint32_t GetRawChannelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, uint32_t channel) const;
   int32_t SignExtend(uint32_t c, unsigned int bit_size) const;
-  float ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
-  float ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
-  int32_t ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const;
+  float    ConvertionLoadSignedNormalize(uint32_t c, unsigned int bit_size) const;
+  float    ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_size) const;
+  int32_t  ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const;
   uint32_t ConvertionLoadUnsignedClamp(uint32_t c, unsigned int bit_size) const;
-  float ConvertionLoadHalfFloat(uint32_t data) const;
-  float ConvertionLoadFloat(uint32_t data) const;
+  float    ConvertionLoadHalfFloat(uint32_t data) const;
+  float    ConvertionLoadFloat(uint32_t data) const;
+
+  //Store
   uint32_t ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const;
   uint32_t ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const;
   uint32_t ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const;
   uint32_t ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_size) const;
   uint32_t ConvertionStoreHalfFloat(float f) const;
   uint32_t ConvertionStoreFloat(float f) const;
-  Value ConvertRawData(uint32_t data) const;
-  float GammaCorrection(float f) const;
-  void LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const;
-  void LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const;
-  void LoadFloatTexel(int x, int y, int z, double* const f) const;
-  void EmulateReadColor(Value* _coords, Value* _color) const;
-  Value EmulateStoreColor(Value* _color) const;
+  float LinearRGBtoSRGB(float f) const;
+  Value PackChannelDataToMemoryFormat(Value* _color) const;
 
 public:
   EImageCalc(EImage * eimage, ESampler* esampler);
   
   void ValueSet(Value val) { existVal = val; }
-  void ReadColor(Value* _coords, Value* _color) const;
-  Value StoreColor(Value* _coords, Value* _channels) const;
+  void EmulateImageRd(Value* _coords, Value* _channels) const;
+  void EmulateImageLd(Value* _coords, Value* _channels) const;
+  Value EmulateImageSt(Value* _coords, Value* _channels) const;
 };
 
 class EImage : public EImageSpec {
@@ -665,8 +673,9 @@ public:
   void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
   void InitImageCalculator(Sampler pSampler) { calculator = new EImageCalc(this, pSampler); }
   void SetValueForCalculator(Value val) { assert(calculator); calculator->ValueSet(val); }
-  void ReadColor(Value* _coords, Value* _color) const { assert(calculator); calculator->ReadColor(_coords, _color); }
-  Value StoreColor(Value* _coords, Value* _channels) const { assert(calculator); return calculator->StoreColor(_coords, _channels); }
+  void ReadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageRd(_coords, _channels); }
+  void LoadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageLd(_coords, _channels); }
+  Value StoreColor(Value* _coords, Value* _channels) const { assert(calculator); return calculator->EmulateImageSt(_coords, _channels); }
 };
 
 class ESamplerSpec : public EVariableSpec {
