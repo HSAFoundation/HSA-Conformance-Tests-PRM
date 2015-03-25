@@ -573,6 +573,7 @@ private:
   Value existVal;
   int bits_per_channel;
   bool isSRGB;
+  bool isDepth;
 
   void SetupDefaultColors();
   int round_downi(float f) const; //todo make true rounding

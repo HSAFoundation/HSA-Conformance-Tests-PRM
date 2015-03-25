@@ -2329,10 +2329,12 @@ void EImageCalc::LoadTexel(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value
   uint32_t dimSizeZ = imageGeometry.ImageSize(2);
   bool out_of_range = (x_ind >= dimSizeX) || (y_ind >= dimSizeY) || (z_ind >= dimSizeZ);
   if(out_of_range){
+    //could only happen in case of ADDRESSING_CLAMP_TO_BORDER
     assert(samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER);
+    //currently border color for depth images is implementation defined (PRM table 7-2 Channel Order Properties)
+    assert(!isDepth);
     LoadBorderData(_color);
-    }
-  else{
+  } else {
     LoadColorData(x_ind, y_ind, z_ind, _color);
   }
 }
@@ -2422,7 +2424,6 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
     ind[2] = GetTexelIndex(w, wSize);
     break;
   default:
-    assert(0);
     break;
   }
 
@@ -2462,11 +2463,13 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
     break;
   case BRIG_GEOMETRY_2D:
   case BRIG_GEOMETRY_2DA:
+  case BRIG_GEOMETRY_2DDEPTH:
+  case BRIG_GEOMETRY_2DADEPTH:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
     LoadFloatTexel(x1_index, y1_index, z0_index, colors[3]);
-    for(int i=0; i<4; i++){
+    for(int i=0; i< (isDepth ? 1 : 4); i++){
       filtered_color[i] = (1 - x_frac)  * (1 - y_frac)  * colors[0][i]
               + x_frac    * (1 - y_frac)  * colors[1][i]
               + (1 - x_frac)  * y_frac    * colors[2][i]
@@ -2493,17 +2496,7 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
               + x_frac    * y_frac    * z_frac    * colors[7][i];
     }
     break;
-  case BRIG_GEOMETRY_2DDEPTH:
-  case BRIG_GEOMETRY_2DADEPTH:
-    LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
-    LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
-    LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
-    LoadFloatTexel(x1_index, y1_index, z0_index, colors[3]);
-    filtered_color[0] = (1 - x_frac)  * (1 - y_frac)  * colors[0][0]
-            + x_frac    * (1 - y_frac)  * colors[1][0]
-            + (1 - x_frac)  * y_frac    * colors[2][0]
-            + x_frac    * y_frac    * colors[3][0];
-    break;
+  
   default:
     assert(0);
     break;
@@ -2521,8 +2514,7 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
   case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
   case BRIG_CHANNEL_TYPE_FLOAT:
-    //todo add depth images support
-    for(int i=0; i<4; i++)
+    for(int i=0; i<(isDepth ? 1 : 4); i++)
       _color[i] = Value(static_cast<float>(filtered_color[i]));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
@@ -2558,6 +2550,8 @@ EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler)
   }
   SetupDefaultColors();
 
+  assert(IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType));
+
   switch (imageChannelOrder)
   {
   case BRIG_CHANNEL_ORDER_SRGB:
@@ -2570,6 +2564,8 @@ EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler)
     isSRGB = false;
     break;
   }
+
+  isDepth = IsImageDepth(imageGeometryProp);
 
   //set default
   existVal = eimage->GetRawData();
@@ -2637,13 +2633,14 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 
 	case BRIG_CHANNEL_TYPE_UNORM_INT16:
 		bits_per_channel = 16;
+    if(isDepth)
+      return Value(MV_UINT16, ConvertionStoreUnsignedNormalize(_color[0].F(), bits_per_channel));
 		for(int i=0; i<4; i++)
 			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[i].F(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_INT24:
 		bits_per_channel = 24;
-		//todo add depth support
 		return Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[0].F(), bits_per_channel));
 		break;
 
@@ -2715,7 +2712,9 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 
 	case BRIG_CHANNEL_TYPE_FLOAT:
 		bits_per_channel = 32;
-		for(int i=0; i<4; i++)
+    if(isDepth)
+      return Value(MV_UINT32, ConvertionStoreFloat(_color[0].F()));
+		for(int i=0; i < (isDepth ? 1 : 4); i++)
 			rgba[i] = Value(MV_UINT32, ConvertionStoreFloat(_color[i].F()));
 		break;
 
@@ -2819,7 +2818,9 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 		break;
 	case BRIG_CHANNEL_ORDER_RGB:
 	case BRIG_CHANNEL_ORDER_RGBX:
-    assert(0); //should never happen, coz 555, 565 and 101010 formats are handled earlier
+  case BRIG_CHANNEL_ORDER_DEPTH:
+	case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
+    assert(0); //should never happen, coz these formats are handled earlier
 		break;
 	case BRIG_CHANNEL_ORDER_RGBA:
   case BRIG_CHANNEL_ORDER_SRGBA:
@@ -2946,11 +2947,6 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
     Raw.ch8.ch3 = rgba[2].U8();
     Raw.ch8.ch4 = 0;
 		texel = Value(MV_UINT32, Raw.data32); //add uint24?
-		break;
-
-	case BRIG_CHANNEL_ORDER_DEPTH:
-	case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
-		assert(0); //todo add depth support
 		break;
 
 	default:
