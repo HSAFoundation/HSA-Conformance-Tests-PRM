@@ -218,16 +218,26 @@ public:
     input->EmitLoadData(inputReg);
     input2->EmitLoadData(inputReg2);
     TypedReg wiID = be.EmitWorkitemFlatAbsId(true);
+    be.EmitArith(BRIG_OPCODE_DIV, wiID, wiID, be.Wavesize());
     TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_NE);
+    uint64_t lastWaveFront = geometry->GridSize()/te->CoreCfg()->Wavesize() - 1;
+    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), lastWaveFront), BRIG_COMPARE_NE);
+    TypedReg flagReg = be.AddTReg(be.PointerType());
     be.EmitCbr(cReg, s_label_skip_store);
 
     EmitInstrToTest(BRIG_OPCODE_ST, segment, type, inputReg, globalVar);
     EmitInstrToTest(BRIG_OPCODE_ST, segment2, type2, inputReg2, globalVar2);
+    be.EmitMov(flagReg->Reg(), be.Immed(flagReg->Type(), 1), flagReg->TypeSizeBits());
     be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+    OperandAddress flagAddr = be.Address(globalFlag);
+    be.EmitAtomic(NULL, flagAddr, flagReg, NULL, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
     be.EmitBr(s_label_skip_memfence);
     be.EmitLabel(s_label_skip_store);
 
+    TypedReg flagReg2 = be.AddTReg(be.PointerType());
+    be.EmitAtomic(flagReg2, flagAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
+    be.EmitCmp(cReg->Reg(), flagReg2, be.Immed(flagReg2->Type(), 1), BRIG_COMPARE_NE);
+    be.EmitCbr(cReg, s_label_skip_store);
     be.EmitMemfence(memoryOrder2, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
     be.EmitLabel(s_label_skip_memfence);
 
