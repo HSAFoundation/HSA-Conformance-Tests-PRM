@@ -204,41 +204,39 @@ private:
         }
         else
         {
-            if (!backend->beginTestSet(inst)) return;
-
-            if (!startTest(inst)) return;
-
-            if (!backend->initTestData()) return;
-
-            for (;;)
+            if (backend->beginTestSet(inst) && startTest(inst) && backend->initTestData())
             {
-                Context* ctx = new Context(positiveSample, true);
-                if (backend->beginTestGroup(ctx, getTestName()))
+                for (;;)
                 {
-                    ctx->defineTestKernel();
-                    backend->defKernelArgs();
-
-                    ctx->startKernelBody();
-
-                    Sample res;
-                    for (unsigned tstIdx = 0; tstIdx < backend->getTestGroupSize(); ++tstIdx)
+                    Context* ctx = new Context(positiveSample, true);
+                    if (backend->beginTestGroup(ctx, getTestName()))
                     {
-                        backend->beginTestCode(tstIdx);
-                        res = ctx->cloneSample(positiveSample);
-                        backend->makeTestInst(res.getInst(), tstIdx);
-                        backend->endTestCode(tstIdx);
+                        ctx->defineTestKernel();
+                        backend->defKernelArgs();
+
+                        ctx->startKernelBody();
+
+                        Sample res;
+                        for (unsigned tstIdx = 0; tstIdx < backend->getTestGroupSize(); ++tstIdx)
+                        {
+                            backend->beginTestCode(tstIdx);
+                            res = ctx->cloneSample(positiveSample);
+                            backend->makeTestInst(res.getInst(), tstIdx);
+                            backend->endTestCode(tstIdx);
+                        }
+
+                        ctx->finishKernelBody();
+
+                        registerTest(ctx, res.getInst());
+                        ++testIdx;
                     }
 
-                    ctx->finishKernelBody();
-
-                    registerTest(ctx, res.getInst());
-                    ++testIdx;
+                    delete ctx;
+                    backend->endTestGroup();
+                    if (!backend->genNextTestGroup()) break;
                 }
-
-                delete ctx;
-                backend->endTestGroup();
-                if (!backend->genNextTestGroup()) break;
             }
+
             backend->endTestSet();
         }
     }

@@ -337,182 +337,80 @@ bool IsImageGeometrySupported(BrigImageGeometry imageGeometryProp, ImageGeometry
   return true;
 }
 
-bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, 
-                      BrigImageChannelType channelType) {
-  switch (geometry) {
+bool IsImageLegal(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, BrigImageChannelType channelType)
+{
+  switch (geometry)
+  {
   case BRIG_GEOMETRY_1D:  case BRIG_GEOMETRY_2D:
   case BRIG_GEOMETRY_3D:  case BRIG_GEOMETRY_1DA:
   case BRIG_GEOMETRY_2DA: case BRIG_GEOMETRY_1DB:
-    switch (channelOrder) {
+    switch (channelOrder)
+    {
     case BRIG_CHANNEL_ORDER_A:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_R:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_RX:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_RG:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_RGX:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_RA:
+    case BRIG_CHANNEL_ORDER_RGBA:
       switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
+      case BRIG_CHANNEL_TYPE_SNORM_INT8:   case BRIG_CHANNEL_TYPE_UNORM_INT8:
+      case BRIG_CHANNEL_TYPE_SNORM_INT16:  case BRIG_CHANNEL_TYPE_UNORM_INT16:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT8:  case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT16: case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT32: case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+      case BRIG_CHANNEL_TYPE_HALF_FLOAT:   case BRIG_CHANNEL_TYPE_FLOAT:
+        return true;
       default:
-        return true;;
+        return false;
       }
 
     case BRIG_CHANNEL_ORDER_RGB:
+    case BRIG_CHANNEL_ORDER_RGBX:
       switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+      case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
       case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
         return true;
       default:
         return false;
       }
-
-    case BRIG_CHANNEL_ORDER_RGBX:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
-    case BRIG_CHANNEL_ORDER_RGBA:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
+    
     case BRIG_CHANNEL_ORDER_BGRA:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return true;
-      default:
-        return false;
-      }
-
     case BRIG_CHANNEL_ORDER_ARGB:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-        return true;
-      default:
-        return false;
-      }
-
     case BRIG_CHANNEL_ORDER_ABGR:
       switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_INT8:  case BRIG_CHANNEL_TYPE_SNORM_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      case BRIG_CHANNEL_TYPE_SNORM_INT8: case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+      case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
         return true;
       default:
         return false;
       }
 
     case BRIG_CHANNEL_ORDER_SRGB:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_SRGBX:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_SRGBA:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
-
     case BRIG_CHANNEL_ORDER_SBGRA:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-      case BRIG_CHANNEL_TYPE_UNORM_INT_101010: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-        return false;
-      default:
-        return true;
-      }
+      return (channelType == BRIG_CHANNEL_TYPE_UNORM_INT8) ? true : false;
 
     case BRIG_CHANNEL_ORDER_INTENSITY:
-      switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNORM_INT16:
-      case BRIG_CHANNEL_TYPE_SNORM_INT8: case BRIG_CHANNEL_TYPE_SNORM_INT16:
-      case BRIG_CHANNEL_TYPE_HALF_FLOAT: case BRIG_CHANNEL_TYPE_FLOAT:
-        return true;
-      default:
-        return false;
-      }
-
     case BRIG_CHANNEL_ORDER_LUMINANCE:
       switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNORM_INT16:
       case BRIG_CHANNEL_TYPE_SNORM_INT8: case BRIG_CHANNEL_TYPE_SNORM_INT16:
+      case BRIG_CHANNEL_TYPE_UNORM_INT8: case BRIG_CHANNEL_TYPE_UNORM_INT16:
       case BRIG_CHANNEL_TYPE_HALF_FLOAT: case BRIG_CHANNEL_TYPE_FLOAT:
         return true;
       default:
         return false;
       }
-
-    default: return false;
+    
+    default:
+      return false;
     }
 
   case BRIG_GEOMETRY_2DDEPTH: case BRIG_GEOMETRY_2DADEPTH:
-    switch (channelOrder) {
+    switch (channelOrder)
+    {
     case BRIG_CHANNEL_ORDER_DEPTH:
       switch (channelType) {
       case BRIG_CHANNEL_TYPE_UNORM_INT16: case BRIG_CHANNEL_TYPE_UNORM_INT24:
@@ -524,8 +422,7 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
 
     case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
       switch (channelType) {
-      case BRIG_CHANNEL_TYPE_UNORM_INT16: case BRIG_CHANNEL_TYPE_UNORM_INT24:
-      case BRIG_CHANNEL_TYPE_FLOAT:
+      case BRIG_CHANNEL_TYPE_UNORM_INT24: case BRIG_CHANNEL_TYPE_FLOAT:
         return true;
       default:
         return false;
@@ -534,8 +431,77 @@ bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelO
     default: return false;
     }
 
-  default: assert(false); return false;
+  default:
+    assert(0);
+    break;
   }
+
+  return false;
+}
+
+bool IsImageOptional(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, BrigImageChannelType channelType, BrigType accessPermission)
+{
+  bool bRO = (accessPermission == BRIG_TYPE_ROIMG) || (accessPermission == BRIG_TYPE_ROIMG_ARRAY);
+  bool bRW = (accessPermission == BRIG_TYPE_RWIMG) || (accessPermission == BRIG_TYPE_RWIMG_ARRAY);
+  bool bWO = (accessPermission == BRIG_TYPE_WOIMG) || (accessPermission == BRIG_TYPE_WOIMG_ARRAY);
+
+  assert(bRO || bRW || bWO); //you should set one of the ro,wo,rw image access permission
+
+  switch (geometry)
+  {
+  case BRIG_GEOMETRY_1D:
+  case BRIG_GEOMETRY_2D:
+  case BRIG_GEOMETRY_3D:
+  case BRIG_GEOMETRY_1DA:
+  case BRIG_GEOMETRY_2DA:
+  case BRIG_GEOMETRY_1DB:
+    switch (channelOrder) {
+    case BRIG_CHANNEL_ORDER_R:
+    case BRIG_CHANNEL_ORDER_RGBA:
+    case BRIG_CHANNEL_ORDER_RG:
+      if(bRW && (channelOrder == BRIG_CHANNEL_ORDER_RG))
+        return true;
+      if( ((channelType == BRIG_CHANNEL_TYPE_UNORM_INT16) ||
+           (channelType == BRIG_CHANNEL_TYPE_SNORM_INT16) ||
+           (channelType == BRIG_CHANNEL_TYPE_SNORM_INT8) ) && (bRO || bWO) )
+           return false;
+      switch (channelType) {
+      case BRIG_CHANNEL_TYPE_UNORM_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT8:  case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT16: case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+      case BRIG_CHANNEL_TYPE_SIGNED_INT32: case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+      case BRIG_CHANNEL_TYPE_HALF_FLOAT:   case BRIG_CHANNEL_TYPE_FLOAT:
+        return false;
+      default:
+        return true;
+      }
+
+    case BRIG_CHANNEL_ORDER_BGRA:
+      if( (bRO || bWO) && (channelType == BRIG_CHANNEL_TYPE_UNORM_INT8) )
+        return false;
+      return true;
+    
+    case BRIG_CHANNEL_ORDER_SRGBA:
+      if(bRO && (channelType == BRIG_CHANNEL_TYPE_UNORM_INT8))
+        return false;
+      return true;
+    
+    default:
+      return true;
+    }
+
+  case BRIG_GEOMETRY_2DDEPTH:
+  case BRIG_GEOMETRY_2DADEPTH:
+    if((channelOrder == BRIG_CHANNEL_ORDER_DEPTH) && (bRO || bWO) &&
+       ((channelType == BRIG_CHANNEL_TYPE_UNORM_INT16) || (channelType == BRIG_CHANNEL_TYPE_FLOAT)) )
+       return false;
+    return true;
+  
+  default:
+    return true;
+  }
+
+  return true;
 }
 
 }

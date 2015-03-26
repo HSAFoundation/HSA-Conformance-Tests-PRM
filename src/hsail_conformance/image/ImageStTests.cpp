@@ -51,7 +51,7 @@ public:
 
   uint32_t InitialValue() const { return 0x30313233; }
 
-  uint32_t StorePerRegValue() const { return 0x00000080; }
+  uint32_t StorePerRegValue() const { return 0x1922aaba; }
 
   void Init() {
     Test::Init();
@@ -84,7 +84,7 @@ public:
   }
 
    bool IsValid() const  {
-    return IsImageSupported(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
+    return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }

@@ -96,20 +96,20 @@ public:
   Value ExpectedResult() const { return Value(MV_UINT64, 1); }
 
   TypedReg Result() {
-    Operand src0, src1;
-    TypedReg index = be.AddTReg(BRIG_TYPE_U64);
-    src0 = be.Brigantine().createImmed(0,ResultType());
+    TypedReg dest = be.AddTReg(BRIG_TYPE_U64);
+    TypedReg result = be.AddTReg(BRIG_TYPE_U64);
     switch (opcode) {
-    case BRIG_OPCODE_ADDQUEUEWRITEINDEX:  queue->EmitAddQueueWriteIndex(segment, memoryOrder, index, src0); break;
+    case BRIG_OPCODE_ADDQUEUEWRITEINDEX: 
+      queue->EmitAddQueueWriteIndex(segment, memoryOrder, dest, be.Immed(dest->Type(), 1)); 
+      be.EmitCmpTo(result, dest, be.Immed(dest->Type(), 0), BRIG_COMPARE_GE);
+      break;
     case BRIG_OPCODE_CASQUEUEWRITEINDEX: 
-      src1 = be.Brigantine().createImmed(1,ResultType());
-      queue->EmitCasQueueWriteIndex(segment, memoryOrder, index, src0, src1); 
+      queue->EmitCasQueueWriteIndex(segment, memoryOrder, dest, be.Immed(dest->Type(), 0), be.Immed(dest->Type(), 1)); 
+      be.EmitCmpTo(result, dest, be.Immed(dest->Type(), 0), BRIG_COMPARE_GE);
       break;
     default:
       assert(0);
     }
-    TypedReg result = be.AddTReg(ResultType());
-    be.EmitCmpTo(result, index, be.Immed(index->Type(), 0), BRIG_COMPARE_EQ);
     return result;
   }
 };

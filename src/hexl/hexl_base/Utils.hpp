@@ -41,8 +41,8 @@ bool IsImageGeometryArray(BrigImageGeometry geometry);
 bool IsImageDepth(BrigImageGeometry geometry);
 bool IsImageQueryGeometrySupport(BrigImageGeometry imageGeometryProp, BrigImageQuery imageQuery);
 bool IsImageGeometrySupported(BrigImageGeometry imageGeometryProp, ImageGeometry imageGeometry);
-bool IsImageSupported(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, 
-                      BrigImageChannelType channelType);
+bool IsImageLegal(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, BrigImageChannelType channelType);
+bool IsImageOptional(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, BrigImageChannelType channelType, BrigType accessPermission);
 
 template <>
 struct Serializer<brig_container_t> {

@@ -189,7 +189,7 @@ static const BrigImageChannelOrder supportedChannelOrder[] = {
     BRIG_CHANNEL_ORDER_RGBA,
     BRIG_CHANNEL_ORDER_BGRA,
     BRIG_CHANNEL_ORDER_ARGB,
-    BRIG_CHANNEL_ORDER_ABGR,
+    //BRIG_CHANNEL_ORDER_ABGR,
     BRIG_CHANNEL_ORDER_INTENSITY,
     BRIG_CHANNEL_ORDER_LUMINANCE,
 };
@@ -536,12 +536,15 @@ static const BrigType atomicTypes[] = {
 };
 
 static const BrigType memfenceTypes[] = {
+  BRIG_TYPE_U16,
   BRIG_TYPE_U32,
   BRIG_TYPE_U64,
+  BRIG_TYPE_S16,
   BRIG_TYPE_S32,
   BRIG_TYPE_S64,
-//  BRIG_TYPE_F32,
-//  BRIG_TYPE_F64
+  BRIG_TYPE_F16,
+  BRIG_TYPE_F32,
+  BRIG_TYPE_F64
 };
 
 static const size_t registerSizesArr[] = {
