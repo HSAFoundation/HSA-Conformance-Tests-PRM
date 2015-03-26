@@ -299,12 +299,12 @@ public:
     secondFunction->EndFunction();
 
     // emit second kernel
-     secondKernel->StartKernel();
-     secondKernel->KernelArguments();
-     secondKernel->StartKernelBody();
-     secondKernel->KernelVariables();
-     SecondKernelBody();
-     secondKernel->EndKernel();
+    secondKernel->StartKernel();
+    secondKernel->KernelArguments();
+    secondKernel->StartKernelBody();
+    secondKernel->KernelVariables();
+    SecondKernelBody();
+    secondKernel->EndKernel();
 
     Test::Executables();
   }
@@ -487,6 +487,81 @@ public:
   }
 };
 
+class FunctionLinkageFBarrierTest : public FunctionLinkageTest {
+private:
+  FBarrier firstFunctionFBarrier;
+  Variable firstFunctionFBarrierOutArg;
+  FBarrier secondFunctionFBarrier;
+  Variable secondFunctionFBarrierOutArg;
+
+  static const uint32_t SECOND_VALUE = 987654321;
+
+protected:
+  void FirstFunctionBody() override {
+    firstFunctionFBarrier->EmitInitfbarInFirstWI();
+    firstFunctionFBarrier->EmitJoinfbar();
+    be.EmitBarrier();
+    firstFunctionFBarrier->EmitWaitfbar();
+    auto addr = be.AddTReg(BRIG_TYPE_U32);
+    firstFunctionFBarrier->EmitLdf(addr);
+    be.EmitStore(BRIG_SEGMENT_ARG, addr, be.Address(firstFunctionFBarrierOutArg->Variable()));
+  }
+
+  void SecondFunctionBody() override {
+    secondFunctionFBarrier->EmitInitfbarInFirstWI();
+    secondFunctionFBarrier->EmitJoinfbar();
+    be.EmitBarrier();
+    secondFunctionFBarrier->EmitWaitfbar();
+    be.EmitBarrier();
+    secondFunctionFBarrier->EmitLeavefbar();
+    be.EmitBarrier();
+    secondFunctionFBarrier->EmitReleasefbarInFirstWI();
+    auto addr = be.AddTReg(BRIG_TYPE_U32);
+    secondFunctionFBarrier->EmitLdf(addr);
+    be.EmitStore(BRIG_SEGMENT_ARG, addr, be.Address(secondFunctionFBarrierOutArg->Variable()));
+  }
+
+public:
+  FunctionLinkageFBarrierTest(bool) : FunctionLinkageTest() {}
+
+  void Init() override {
+    FunctionLinkageTest::Init();
+    firstFunctionFBarrier = FirstFunction()->NewFBarrier("fbar", Location::FUNCTION);
+    firstFunctionFBarrierOutArg = FirstFunction()->NewVariable("fbar_addr", BRIG_SEGMENT_ARG, 
+      BRIG_TYPE_U32, Location::FUNCTION, BRIG_ALIGNMENT_NONE, 0, false, true);
+    secondFunctionFBarrier = SecondFunction()->NewFBarrier("fbar", Location::FUNCTION);
+    secondFunctionFBarrierOutArg = SecondFunction()->NewVariable("fbar_addr", BRIG_SEGMENT_ARG, 
+      BRIG_TYPE_U32, Location::FUNCTION, BRIG_ALIGNMENT_NONE, 0, false, true);
+  }
+
+  void Name(std::ostream& out) const override {
+    FunctionLinkageTest::Name(out);
+    out << "/fbarrier";
+  }
+
+  TypedReg Result() override {
+    // call first function
+    auto fbarAddr = be.AddTReg(BRIG_TYPE_U32);
+    auto inArgs = be.AddTRegList();
+    auto outArgs = be.AddTRegList();
+    outArgs->Add(fbarAddr);
+    be.EmitCallSeq(FirstFunction(), inArgs, outArgs);
+
+    // leave and release fbrarier
+    be.EmitBarrier();
+    be.EmitLeavefbar(fbarAddr);
+    be.EmitBarrier();
+    be.EmitReleasefbarInFirstWI(fbarAddr);
+    return be.AddInitialTReg(ResultType(), ResultValue());
+  }
+
+  void EndProgram() override {
+    firstFunctionFBarrier->FBarrier().linkage() = BRIG_LINKAGE_FUNCTION;
+    secondFunctionFBarrier->FBarrier().linkage() = BRIG_LINKAGE_FUNCTION;
+    FunctionLinkageTest::EndProgram();
+  }
+};
+
 
 void LibrariesTests::Iterate(TestSpecIterator& it)
 {
@@ -502,6 +577,7 @@ void LibrariesTests::Iterate(TestSpecIterator& it)
   TestForEach<FunctionLinkageVariableTest>(ap, it, "linkage", cc->Segments().FunctionScopeVariableSegments());
   TestForEach<FunctionLinkageKernargTest>(ap, it, "linkage", Bools::Value(true));
   TestForEach<FunctionLinkageArgTest>(ap, it, "linkage", Bools::Value(true));
+  TestForEach<FunctionLinkageFBarrierTest>(ap, it, "linkage", Bools::Value(true));
 }
 
 }
