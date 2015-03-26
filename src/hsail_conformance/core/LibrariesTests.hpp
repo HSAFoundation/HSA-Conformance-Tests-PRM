@@ -21,7 +21,7 @@
 
 namespace hsail_conformance {
 
-DECLARE_TESTSET(LibrariesTests, "libaries");
+DECLARE_TESTSET(LibrariesTests, "libraries");
 
 }
 
