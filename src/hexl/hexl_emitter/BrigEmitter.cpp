@@ -289,14 +289,13 @@ Operand BrigEmitter::Wavesize()
 InstBasic BrigEmitter::EmitMov(Operand dst, Operand src, unsigned sizeBits)
 {
   BrigType16_t movType;
-  switch (sizeBits) {
-  case 1: movType = BRIG_TYPE_B1; break;
-  case 8:
-  case 16:
-  case 32: movType = BRIG_TYPE_B32; break;
-  case 64: movType = BRIG_TYPE_B64; break;
-  case 128: movType = BRIG_TYPE_B128; break;
-  default: assert(false); movType = BRIG_TYPE_NONE; break;
+  if (OperandConstantBytes c = src) {
+    movType = c.type();
+  } else {
+    assert(OperandRegister(src) || OperandWavesize(src));
+    OperandRegister reg = dst;
+    assert(reg);
+    movType = getBitType(getRegSize(reg));
   }
   InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_MOV, movType);
   inst.operands() = Operands(dst, src);
@@ -305,7 +304,7 @@ InstBasic BrigEmitter::EmitMov(Operand dst, Operand src, unsigned sizeBits)
 
 void BrigEmitter::EmitMov(TypedReg dst, TypedReg src)
 {
-  assert(dst->Type() == src->Type());
+  assert(dst->RegSizeBits() == src->RegSizeBits());
   assert(dst->Count() == src->Count());
   for (unsigned i = 0; i < dst->Count(); ++i) {
     EmitMov(dst->Reg(i), src->Reg(i), dst->TypeSizeBits());
@@ -807,12 +806,13 @@ InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound
    return inst;
 }
 
-void BrigEmitter::EmitCvtOrMov(const TypedReg& dst, const TypedReg& src) 
+void BrigEmitter::EmitCvtOrMov(const TypedReg& dst, const TypedReg& src)
 {
-  if (dst->Type() != src->Type()) {
-    EmitCvt(dst, src);
-  } else {
+  // Table 5–27 Conversion Methods
+  if (dst->Type() == src->Type() || (src->TypeSizeBits() == dst->TypeSizeBits() && isIntType(src->Type()) && isIntType(dst->Type()))) {
     EmitMov(dst, src);
+  } else {
+    EmitCvt(dst, src);
   }
 }
 
