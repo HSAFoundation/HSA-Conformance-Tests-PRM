@@ -1747,7 +1747,7 @@ void EImageCalc::SetupDefaultColors()
 
 double EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
 {
-  double df, tmp;
+  double df;
 
   switch(c->Type())
   {
@@ -1800,22 +1800,17 @@ double EImageCalc::UnnormalizeArrayCoord(Value* c) const
 	return df;
 }
 
-int EImageCalc::round_downi(float f) const
+int32_t EImageCalc::round_downi(float f) const
 {
-  return static_cast<int>(floorf(f));
+  return static_cast<int32_t>(floorf(f));
 }
 
-int EImageCalc::round_neari(float f) const
+int32_t EImageCalc::round_neari(float f) const
 {
-  return static_cast<int>(f);
+  return static_cast<int32_t>(f);
 }
 
-uint32_t EImageCalc::clamp_u(uint32_t a, uint32_t min, uint32_t max) const
-{
-  return (a < min) ? min : ((a > max) ? max : a);
-}
-
-int EImageCalc::clamp_i(int a, int min, int max) const
+int32_t EImageCalc::clamp_i(int32_t a, int32_t min, int32_t max) const
 {
   return (a < min) ? min : ((a > max) ? max : a);
 }
@@ -1827,12 +1822,12 @@ float EImageCalc::clamp_f(float a, float min, float max) const
 
 uint32_t EImageCalc::GetTexelIndex(double df, uint32_t dimSize) const
 {
-  int rounded_coord = round_downi(df);
+  int32_t rounded_coord = round_downi(df);
   bool out_of_range = (df < 0.0) || ( df > static_cast<double>(dimSize - 1));
   if(!out_of_range){
     return rounded_coord;
   };
-  int tile;
+  int32_t tile;
   double mirrored_coord;
 
   switch(samplerAddressing){
@@ -1845,20 +1840,22 @@ uint32_t EImageCalc::GetTexelIndex(double df, uint32_t dimSize) const
   case BRIG_ADDRESSING_CLAMP_TO_EDGE:
     if (df < 0.0) return 0;
     if (df > static_cast<double>(dimSize - 1)) return (dimSize - 1);
-    return clamp_u(rounded_coord, 0, dimSize - 1);
+    return clamp_i(rounded_coord, 0, dimSize - 1);
     break;
   case BRIG_ADDRESSING_CLAMP_TO_BORDER:
     if (out_of_range) return dimSize;
-    return clamp_u(rounded_coord, 0, dimSize);
+    return clamp_i(rounded_coord, 0, dimSize);
     break;
   case BRIG_ADDRESSING_REPEAT:
     tile = round_downi(df / dimSize);
-    return round_downi(df - tile * static_cast<double>(dimSize));
+    rounded_coord = round_downi(df - tile * static_cast<double>(dimSize)); 
+    return clamp_i(rounded_coord, 0, dimSize - 1);
     break;
   case BRIG_ADDRESSING_MIRRORED_REPEAT:
     mirrored_coord = (df < 0) ? (-df - 1.0f) : df;
     tile = round_downi(mirrored_coord / dimSize);
     rounded_coord = round_downi(mirrored_coord - tile * static_cast<double>(dimSize));
+    rounded_coord = clamp_i(rounded_coord, 0, dimSize - 1);
     if(tile & 1){
       rounded_coord = (dimSize - 1) - rounded_coord;
     }
@@ -1875,7 +1872,7 @@ uint32_t EImageCalc::GetTexelArrayIndex(double df, uint32_t dimSize) const
 {
   if (df < 0.0) return 0;
   if (df > static_cast<double>(dimSize-1)) return (dimSize - 1);
-  return clamp_u( round_neari(df), 0, dimSize - 1 );
+  return clamp_i( round_neari(df), 0, dimSize - 1 );
 }
 
 void EImageCalc::LoadBorderData(Value* _color) const
@@ -2063,11 +2060,11 @@ float EImageCalc::ConvertionLoadFloat(uint32_t data) const
 
 uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const
 {
-	int scale = (1 << (bit_size-1)) - 1;
+	int32_t scale = (1 << (bit_size-1)) - 1;
   if (f >=  1.0f) return scale;
   if (f <= -1.0f) return -scale - 1;
   if (f != f) return 0;
-	int val = round_neari(f * scale);
+	int32_t val = round_neari(f * scale);
 	val = clamp_i(val, -scale - 1, scale);
 
 	return val;
@@ -2075,11 +2072,11 @@ uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_si
 
 uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const
 {
-	int scale = (1 << bit_size) - 1;
+	int32_t scale = (1 << bit_size) - 1;
   if (f >= 1.0f) return scale;
   if (f <= 0.0f) return 0;
   if (f != f) return 0;
-	int val = round_neari(f * scale);
+	int32_t val = round_neari(f * scale);
 	val = clamp_i(val, 0, scale);
 
 	return val;
@@ -2087,8 +2084,8 @@ uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_
 
 uint32_t EImageCalc::ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const
 {
-	int max = (1 << (bit_size-1)) - 1;
-	int min = -max - 1;
+	int32_t max = (1 << (bit_size-1)) - 1;
+	int32_t min = -max - 1;
   uint32_t val = clamp_i(c, min, max);
 
 	return val;
@@ -2385,7 +2382,7 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
   //no loss of precision (7.1.6.3 Image Filters).
   //Therefore we are using doubles for coordinates.
   double u, v, w; //unnormalized coordinates
-  int ind[3]; //element location
+  uint32_t ind[3]; //element location
 
   Value* x = &_coords[0];
   Value* y = &_coords[1];
@@ -2443,16 +2440,16 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
 
   //linear filtering
   assert(samplerFilter == BRIG_FILTER_LINEAR); //we are supporting only nearest and linear filters
-  int x0_index = ind[0];
-  int x1_index = GetTexelIndex(u + 1.0f, imageGeometry.ImageSize(0));
+  uint32_t x0_index = ind[0];
+  uint32_t x1_index = GetTexelIndex(u + 1.0f, imageGeometry.ImageSize(0));
   float x_frac = u - floorf(u);
 
-  int y0_index = ind[1];
-  int y1_index = GetTexelIndex(v + 1.0f, imageGeometry.ImageSize(1));
+  uint32_t y0_index = ind[1];
+  uint32_t y1_index = GetTexelIndex(v + 1.0f, imageGeometry.ImageSize(1));
   float y_frac = v - floorf(v);
 
-  int z0_index = ind[2];
-  int z1_index = GetTexelIndex(w + 1.0f, imageGeometry.ImageSize(2));
+  uint32_t z0_index = ind[2];
+  uint32_t z1_index = GetTexelIndex(w + 1.0f, imageGeometry.ImageSize(2));
   float z_frac = w - floorf(w);
 
   double filtered_color[4];
