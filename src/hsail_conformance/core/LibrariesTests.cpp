@@ -562,6 +562,123 @@ public:
   }
 };
 
+class ArgLinkageTest: public Test {
+private:
+  Variable firstVar;
+  Variable secondVar;
+  Variable functionInput;
+  Variable functionVar;
+  
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE = 123456789;
+  static const uint32_t SECOND_VALUE = 987654321;
+  static const uint32_t THIRD_VALUE = 456789123;
+  
+public:
+  ArgLinkageTest(bool): Test(Location::KERNEL) {}
+
+  void Init() override {
+    Test::Init();
+    function = te->NewFunction("function");
+    functionInput = function->NewVariable("input", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::FUNCTION);
+    functionVar = function->NewVariable("var", BRIG_SEGMENT_GLOBAL, VALUE_TYPE, Location::FUNCTION);
+    functionVar->PushBack(Value(Brig2ValueType(VALUE_TYPE), THIRD_VALUE));
+    firstVar = te->NewVariable("var", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::ARGSCOPE);
+    secondVar = te->NewVariable("var", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::ARGSCOPE);
+  } 
+
+  void Name(std::ostream& out) const override {
+    out << "arg";
+  }
+
+  BrigType ResultType() const override { return VALUE_TYPE; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
+
+  void Executables() override {
+    //emit function
+    function->StartFunction();
+    function->FunctionFormalOutputArguments();
+    function->FunctionFormalInputArguments();
+    function->StartFunctionBody();
+    function->FunctionVariables();
+    function->EndFunction();
+    Test::Executables();
+  }
+
+  TypedReg Result() override {
+    auto result = be.AddTReg(VALUE_TYPE);
+
+    // first arg scope: store VALUE in result
+    be.StartArgScope();
+    firstVar->EmitDefinition();
+    be.EmitStore(firstVar->Segment(), VALUE_TYPE, be.Immed(VALUE_TYPE, VALUE), be.Address(firstVar->Variable()));
+    be.EmitLoad(firstVar->Segment(), result, be.Address(firstVar->Variable()));
+    ItemList ins;
+    ins.push_back(firstVar->Variable());
+    be.EmitCall(function->Directive(), ins, ItemList());
+    be.EndArgScope();
+
+    // second arg scope
+    be.StartArgScope();
+    secondVar->EmitDefinition();
+    be.EmitStore(secondVar->Segment(), VALUE_TYPE, be.Immed(VALUE_TYPE, SECOND_VALUE), be.Address(secondVar->Variable()));
+    ins.clear();
+    ins.push_back(secondVar->Variable());
+    be.EmitCall(function->Directive(), ins, ItemList());
+    be.EndArgScope();
+
+    return result;
+  }
+
+  void EndProgram() override {
+    firstVar->Variable().linkage() = BRIG_LINKAGE_ARG;
+    secondVar->Variable().linkage() = BRIG_LINKAGE_ARG;
+    Test::EndProgram();
+  }
+};
+
+class NoneLinkageTest: public Test {
+private:
+  Variable firstArg;
+  Variable secondArg;
+
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
+  static const uint32_t VALUE = 123456789;
+
+public:
+  NoneLinkageTest(bool) : Test(Location::KERNEL) {}
+
+  void Name(std::ostream& out) const override {
+    out << "none";
+  }
+
+  void Init() override {
+    Test::Init();
+    firstArg = te->NewVariable("arg", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::FUNCTION);
+    secondArg = te->NewVariable("arg", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::FUNCTION);
+  }
+
+  BrigType ResultType() const override { return VALUE_TYPE; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
+
+  void Executables() override {
+    // emit first signature
+    be.Brigantine().declSignature("&first_sig");
+    be.StartFunctioinArgScope();
+    firstArg->EmitDefinition();
+
+    // emit second signature
+    auto signature = be.Brigantine().declSignature("&second_sig");
+    be.StartFunctioinArgScope();
+    secondArg->EmitDefinition();
+    Test::Executables();
+  }
+
+  TypedReg Result() override {
+    return be.AddInitialTReg(VALUE_TYPE, VALUE);
+  }
+};
+
 
 void LibrariesTests::Iterate(TestSpecIterator& it)
 {
@@ -578,6 +695,10 @@ void LibrariesTests::Iterate(TestSpecIterator& it)
   TestForEach<FunctionLinkageKernargTest>(ap, it, "linkage", Bools::Value(true));
   TestForEach<FunctionLinkageArgTest>(ap, it, "linkage", Bools::Value(true));
   TestForEach<FunctionLinkageFBarrierTest>(ap, it, "linkage", Bools::Value(true));
+
+  TestForEach<ArgLinkageTest>(ap, it, "linkage", Bools::Value(true));
+
+  TestForEach<NoneLinkageTest>(ap, it, "linkage", Bools::Value(true));
 }
 
 }

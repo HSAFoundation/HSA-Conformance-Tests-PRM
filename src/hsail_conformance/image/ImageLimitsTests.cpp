@@ -468,13 +468,13 @@ public:
   bool IsValid() const override {
     if (filter == BRIG_FILTER_LINEAR) // only f32 access type is supported for linear filter
     {
-	    //currently rd test will generate coordinate 0, which will sample out of range texel
-	    //for linear filtering. We should not test it, because it implementation defined.
-	    //TODO:
-	    //Change rd test with linear filter and undefined addressing
-	    //to not read from edge of an image
-	    if(addresing == BRIG_ADDRESSING_UNDEFINED)
-		    return false;
+      //currently rd test will generate coordinate 0, which will sample out of range texel
+      //for linear filtering. We should not test it, because it implementation defined.
+      //TODO:
+      //Change rd test with linear filter and undefined addressing
+      //to not read from edge of an image
+      if(addresing == BRIG_ADDRESSING_UNDEFINED)
+        return false;
     }
     if (coord == BRIG_COORD_UNNORMALIZED && 
        (addresing == BRIG_ADDRESSING_REPEAT || addresing == BRIG_ADDRESSING_MIRRORED_REPEAT)) {
@@ -550,7 +550,7 @@ public:
       be.EmitLoad(sampler->Segment(), samplerAddr->Type(), samplerAddr->Reg(), be.Address(sampler->Variable())); 
 
       // check query sampler filter mode
-      sampler->EmitSamplerQuery(query, imageAddr, BRIG_SAMPLER_QUERY_FILTER);
+      sampler->EmitSamplerQuery(query, samplerAddr, BRIG_SAMPLER_QUERY_FILTER);
       be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), filter), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
 

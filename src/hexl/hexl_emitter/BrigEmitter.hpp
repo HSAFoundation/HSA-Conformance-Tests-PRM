@@ -305,6 +305,8 @@ public:
   std::string GetVariableNameHere(const std::string& name);
   BrigLinkage GetVariableLinkageHere();
   EmitterScope Scope() const { return currentScope; }
+
+  void StartFunctioinArgScope() { currentScope = ES_FUNCARG; }
 };
 
 }
