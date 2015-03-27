@@ -576,11 +576,10 @@ private:
   bool isDepth;
 
   void SetupDefaultColors();
-  int round_downi(float f) const; //todo make true rounding
-  int round_neari(float f) const; //todo make true rounding
-  int clamp_i(int a, int min, int max) const; //todo use std and templates
+  int32_t round_downi(float f) const; //todo make true rounding
+  int32_t round_neari(float f) const; //todo make true rounding
+  int32_t clamp_i(int32_t a, int32_t min, int32_t max) const;
   float clamp_f(float a, float min, float max) const;
-  uint32_t clamp_u(uint32_t a, uint32_t min, uint32_t max) const;
   
   //Addressing
   double UnnormalizeCoord(Value* c, unsigned dimSize) const;

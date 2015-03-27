@@ -50,6 +50,7 @@ protected:
   std::string s_label_skip_store;
   std::string s_label_skip_memfence;
   DirectiveVariable globalVar;
+  DirectiveVariable globalFlag;
   Buffer input;
   TypedReg inputReg;
 
@@ -83,16 +84,19 @@ protected:
 
   virtual void ModuleVariables() {
     std::string globalVarName = "global_var";
+    std::string globalFlagName = "global_flag";
     switch (segment) {
       case BRIG_SEGMENT_GROUP: globalVarName = "group_var"; break;
       default: break;
     }
     globalVar = be.EmitVariableDefinition(globalVarName, segment, type);
-    if (segment != BRIG_SEGMENT_GROUP)
+    globalFlag = be.EmitVariableDefinition(globalFlagName, BRIG_SEGMENT_GLOBAL, be.PointerType());
+    if (segment != BRIG_SEGMENT_GROUP) {
       globalVar.init() = be.Immed(type, initialValue);
+    }
   }
 
-  virtual void EmitInstrToTest(BrigOpcode opcode, BrigSegment seg, BrigType t, TypedReg reg, DirectiveVariable var) {
+  void EmitInstrToTest(BrigOpcode opcode, BrigSegment seg, BrigType t, TypedReg reg, DirectiveVariable var) {
     OperandAddress globalVarAddr = be.Address(var);
     switch (opcode) {
       case BRIG_OPCODE_LD:
@@ -110,23 +114,123 @@ protected:
     inputReg = be.AddTReg(type);
     input->EmitLoadData(inputReg);
     TypedReg wiID = be.EmitWorkitemFlatAbsId(true);
+    be.EmitArith(BRIG_OPCODE_DIV, wiID, wiID, be.Wavesize());
     TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_NE);
+    uint64_t lastWaveFront = geometry->GridSize()/te->CoreCfg()->Wavesize() - 1;
+    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), lastWaveFront), BRIG_COMPARE_NE);
+    TypedReg flagReg = be.AddTReg(be.PointerType());
     be.EmitCbr(cReg, s_label_skip_store);
 
     EmitInstrToTest(BRIG_OPCODE_ST, segment, type, inputReg, globalVar);
+    be.EmitMov(flagReg->Reg(), be.Immed(flagReg->Type(), 1), flagReg->TypeSizeBits());
     be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+
+    OperandAddress flagAddr = be.Address(globalFlag);
+    be.EmitAtomic(NULL, flagAddr, flagReg, NULL, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
     be.EmitBr(s_label_skip_memfence);
+
     be.EmitLabel(s_label_skip_store);
-
+    TypedReg flagReg2 = be.AddTReg(be.PointerType());
+    be.EmitAtomic(flagReg2, flagAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
+    be.EmitCmp(cReg->Reg(), flagReg2, be.Immed(flagReg2->Type(), 1), BRIG_COMPARE_NE);
+    be.EmitCbr(cReg, s_label_skip_store);
     be.EmitMemfence(memoryOrder2, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
-    be.EmitLabel(s_label_skip_memfence);
 
+    be.EmitLabel(s_label_skip_memfence);
     EmitInstrToTest(BRIG_OPCODE_LD, segment, type, result, globalVar);
     return result;
   }
 };
 
+class MemoryFenceArrayTest : public MemoryFenceTest {
+public:
+  MemoryFenceArrayTest(Grid geometry_, BrigType type_, BrigMemoryOrder memoryOrder1_, BrigMemoryOrder memoryOrder2_, BrigSegment segment_, BrigMemoryScope memoryScope_)
+  : MemoryFenceTest(geometry_, type_, memoryOrder1_, memoryOrder2_, segment_, memoryScope_) {}
+
+protected:
+
+  Value GetInputValueForWI(uint64_t wi) const {
+    return Value(Brig2ValueType(type), wi);
+  }
+
+  Value ExpectedResult(uint64_t i) const {
+    return Value(Brig2ValueType(type), i);//geometry->GridSize()-i-1);
+  }
+
+  void Init() {
+    Test::Init();
+    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, Brig2ValueType(type), geometry->GridSize());
+    for (uint64_t i = 0; i < uint64_t(geometry->GridSize()); ++i) {
+      input->AddData(GetInputValueForWI(i));
+    }
+  }
+
+  bool IsValid() const {
+    if (isFloatType(type))
+      return false;
+    if (segment == BRIG_SEGMENT_GROUP)
+      return false;
+    return true;
+  }
+
+  virtual void ModuleVariables() {
+    std::string globalVarName = "global_var";
+    std::string globalFlagName = "global_flag";
+    switch (segment) {
+      case BRIG_SEGMENT_GROUP: globalVarName = "group_var"; break;
+      default: break;
+    }
+    globalVar = be.EmitVariableDefinition(globalVarName, segment, elementType2arrayType(type), 0, geometry->GridSize());
+    globalFlag = be.EmitVariableDefinition(globalFlagName, BRIG_SEGMENT_GLOBAL, elementType2arrayType(type), 0, geometry->GridSize());
+//    if (segment != BRIG_SEGMENT_GROUP) {
+//      globalVar.init() = be.Immed(type, initialValue);
+//    }
+  }
+
+  void EmitVectorInstrToTest(BrigOpcode opcode, BrigSegment seg, BrigType t, TypedReg reg, DirectiveVariable var, TypedReg offsetReg) {
+    switch (opcode) {
+      case BRIG_OPCODE_LD:
+        be.EmitLoad(reg, var, offsetReg->Reg(), 0, true);
+        break;
+      case BRIG_OPCODE_ST:
+        be.EmitStore(reg, var, offsetReg->Reg(), 0, true);
+        break;
+      default: assert(false); break;
+    }
+  }
+
+  TypedReg Result() {
+    TypedReg result = be.AddTReg(ResultType());
+    //inputReg = be.AddTReg(type);
+    //input->EmitLoadData(inputReg);
+    TypedReg wiID = be.EmitWorkitemFlatAbsId(true);
+//    be.EmitArith(BRIG_OPCODE_DIV, wiID, wiID, be.Wavesize());
+    //TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
+//    uint64_t lastWaveFront = geometry->GridSize()/te->CoreCfg()->Wavesize() - 1;
+//    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), lastWaveFront), BRIG_COMPARE_NE);
+//    TypedReg flagReg = be.AddTReg(be.PointerType());
+//    be.EmitCbr(cReg, s_label_skip_store);
+
+    EmitVectorInstrToTest(BRIG_OPCODE_ST, segment, type, wiID, globalVar, wiID);
+//    be.EmitMov(flagReg->Reg(), be.Immed(flagReg->Type(), 1), flagReg->TypeSizeBits());
+///    be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+
+//    OperandAddress flagAddr = be.Address(globalFlag);
+///   be.EmitAtomic(NULL, be.Address(globalFlag, wiID->Reg(), 0), wiID, NULL, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
+//    be.EmitBr(s_label_skip_memfence);
+
+///    be.EmitLabel(s_label_skip_store);
+///    TypedReg flagReg2 = be.AddTReg(be.PointerType());
+///    be.EmitAtomic(flagReg2, be.Address(globalFlag, wiID->Reg(), 0), NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
+///    be.EmitCmp(cReg->Reg(), flagReg2, wiID->Reg(), BRIG_COMPARE_NE);
+///    be.EmitCbr(cReg, s_label_skip_store);
+///    be.EmitMemfence(memoryOrder2, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+
+//    be.EmitLabel(s_label_skip_memfence);
+    EmitVectorInstrToTest(BRIG_OPCODE_LD, segment, type, result, globalVar, wiID);
+    return result;
+  }
+};
 
 class MemoryFenceCompoundTest : public MemoryFenceTest {
 protected:
@@ -203,16 +307,26 @@ public:
     input->EmitLoadData(inputReg);
     input2->EmitLoadData(inputReg2);
     TypedReg wiID = be.EmitWorkitemFlatAbsId(true);
+    be.EmitArith(BRIG_OPCODE_DIV, wiID, wiID, be.Wavesize());
     TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), 1), BRIG_COMPARE_NE);
+    uint64_t lastWaveFront = geometry->GridSize()/te->CoreCfg()->Wavesize() - 1;
+    be.EmitCmp(cReg->Reg(), wiID, be.Immed(wiID->Type(), lastWaveFront), BRIG_COMPARE_NE);
+    TypedReg flagReg = be.AddTReg(be.PointerType());
     be.EmitCbr(cReg, s_label_skip_store);
 
     EmitInstrToTest(BRIG_OPCODE_ST, segment, type, inputReg, globalVar);
     EmitInstrToTest(BRIG_OPCODE_ST, segment2, type2, inputReg2, globalVar2);
+    be.EmitMov(flagReg->Reg(), be.Immed(flagReg->Type(), 1), flagReg->TypeSizeBits());
     be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
+    OperandAddress flagAddr = be.Address(globalFlag);
+    be.EmitAtomic(NULL, flagAddr, flagReg, NULL, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
     be.EmitBr(s_label_skip_memfence);
     be.EmitLabel(s_label_skip_store);
 
+    TypedReg flagReg2 = be.AddTReg(be.PointerType());
+    be.EmitAtomic(flagReg2, flagAddr, NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
+    be.EmitCmp(cReg->Reg(), flagReg2, be.Immed(flagReg2->Type(), 1), BRIG_COMPARE_NE);
+    be.EmitCbr(cReg, s_label_skip_store);
     be.EmitMemfence(memoryOrder2, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
     be.EmitLabel(s_label_skip_memfence);
 
@@ -246,6 +360,7 @@ void MemoryFenceTests::Iterate(TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<MemoryFenceTest>(ap, it, "memfence/basic", cc->Grids().MemfenceSet(), cc->Types().Memfence(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
+  TestForEach<MemoryFenceArrayTest>(ap, it, "memfence/array", cc->Grids().MemfenceSet(), cc->Types().Memfence(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
   TestForEach<MemoryFenceCompoundTest>(ap, it, "memfence/compound", cc->Grids().MemfenceSet(), cc->Types().Memfence(), cc->Types().Memfence(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceMemoryOrders(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceSegments(), cc->Memory().MemfenceMemoryScopes());
 }
 
