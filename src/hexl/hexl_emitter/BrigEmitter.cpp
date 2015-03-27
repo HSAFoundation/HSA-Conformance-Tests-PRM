@@ -409,6 +409,10 @@ void BrigEmitter::EmitLoad(TypedReg dst, PointerReg addr, int64_t offset, bool u
   EmitLoad(addr->Segment(), dst, Address(addr, offset), useVectorInstructions, equiv);
 }
 
+void BrigEmitter::EmitLoad(TypedReg dst, DirectiveVariable v, OperandRegister reg, int64_t offset, bool useVectorInstructions, uint8_t equiv)
+{
+  EmitLoad(v.segment(), dst, Address(v, reg, offset), useVectorInstructions, equiv);
+}
 
 void BrigEmitter::EmitLoads(TypedRegList dsts, ItemList vars, bool useVectorInstructions)
 {
@@ -462,12 +466,10 @@ void BrigEmitter::EmitStore(BrigSegment8_t segment, TypedReg src, OperandAddress
   }
 }
 
-/*
-void BrigEmitter::EmitStore(TypedReg src, DirectiveVariable v, int64_t offset, bool useVectorInstructions)
+void BrigEmitter::EmitStore(TypedReg src, DirectiveVariable v, OperandRegister reg, int64_t offset, bool useVectorInstructions)
 {
-  EmitStore(v.segment(), src, Address(v, offset), useVectorInstructions);
+  EmitStore(v.segment(), src, Address(v, reg, offset), useVectorInstructions);
 }
-*/
 
 void BrigEmitter::EmitStore(TypedReg src, PointerReg addr, int64_t offset, bool useVectorInstructions, uint8_t equiv)
 {
