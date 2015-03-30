@@ -67,7 +67,7 @@ public:
     //  return false;
     //}
 
-    return (codeLocation != FUNCTION);
+    return IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing) && (codeLocation != FUNCTION);
   }
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }

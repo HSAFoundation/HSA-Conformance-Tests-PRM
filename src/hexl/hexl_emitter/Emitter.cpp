@@ -2545,7 +2545,8 @@ EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler)
   if (esampler != NULL) {
     samplerCoord = esampler->CoordNormalization();
     samplerFilter = esampler->Filter();
-    samplerAddressing = esampler->Addresing();
+    samplerAddressing = esampler->Addresing();    
+    assert(IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing));
   }
   else {
     samplerCoord = BRIG_COORD_UNNORMALIZED;

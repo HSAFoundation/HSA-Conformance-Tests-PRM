@@ -504,4 +504,42 @@ bool IsImageOptional(BrigImageGeometry geometry, BrigImageChannelOrder channelOr
   return true;
 }
 
+bool IsSamplerLegal(BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing)
+{
+  switch (coord)
+  {
+  case BRIG_COORD_UNNORMALIZED:
+  case BRIG_COORD_NORMALIZED:
+    break;
+  default:
+    return false;
+  }
+
+  switch (filter)
+  {
+  case BRIG_FILTER_NEAREST:
+  case BRIG_FILTER_LINEAR:
+    break;
+  default:
+    return false;
+  }
+
+  //see PRM Table 7-6 Image Instruction Combination
+  switch (addressing)
+  {
+  case BRIG_ADDRESSING_UNDEFINED:
+  case BRIG_ADDRESSING_CLAMP_TO_EDGE:
+  case BRIG_ADDRESSING_CLAMP_TO_BORDER:
+    return true;
+  case BRIG_ADDRESSING_REPEAT:
+  case BRIG_ADDRESSING_MIRRORED_REPEAT:
+    return (coord == BRIG_COORD_NORMALIZED) ? true : false;
+  default:
+    return false;
+  }
+
+  assert(0);
+  return false;
+}
+
 }
