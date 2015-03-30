@@ -43,6 +43,7 @@ bool IsImageQueryGeometrySupport(BrigImageGeometry imageGeometryProp, BrigImageQ
 bool IsImageGeometrySupported(BrigImageGeometry imageGeometryProp, ImageGeometry imageGeometry);
 bool IsImageLegal(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, BrigImageChannelType channelType);
 bool IsImageOptional(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, BrigImageChannelType channelType, BrigType accessPermission);
+bool IsSamplerLegal(BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing);
 
 template <>
 struct Serializer<brig_container_t> {
