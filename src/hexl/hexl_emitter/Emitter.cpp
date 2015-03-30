@@ -1823,7 +1823,7 @@ float EImageCalc::clamp_f(float a, float min, float max) const
 uint32_t EImageCalc::GetTexelIndex(double df, uint32_t dimSize) const
 {
   int32_t rounded_coord = round_downi(df);
-  bool out_of_range = (df < 0.0) || ( df > static_cast<double>(dimSize - 1));
+  bool out_of_range = (df < 0.0) || ( df >= static_cast<double>(dimSize));
   if(!out_of_range){
     return rounded_coord;
   };
