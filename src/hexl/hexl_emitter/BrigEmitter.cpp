@@ -565,7 +565,24 @@ void BrigEmitter::EmitStoresToBuffers(TypedRegList srcs, ItemList buffers, BrigS
 
 BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const
 {
+  // todo: add isArithmInst to HSAILUtils
   switch (opcode) {
+    // todo: add isIntArithmInst to HSAILUtils
+    case BRIG_OPCODE_ABS:
+    case BRIG_OPCODE_ADD:
+    case BRIG_OPCODE_BORROW:
+    case BRIG_OPCODE_CARRY:
+    case BRIG_OPCODE_DIV:
+    case BRIG_OPCODE_MAX:
+    case BRIG_OPCODE_MIN:
+    case BRIG_OPCODE_MUL:
+    case BRIG_OPCODE_MULHI:
+    case BRIG_OPCODE_NEG:
+    case BRIG_OPCODE_REM:
+    case BRIG_OPCODE_SUB: {
+      return expandSubwordType(operandType);
+    }
+    // todo: add isIntShiftArithmInst to HSAILUtils
     case BRIG_OPCODE_SHL:
     case BRIG_OPCODE_SHR: {
       switch (operandType) {
@@ -574,15 +591,16 @@ BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandT
         default: return operandType;
       }
     }
-    case BRIG_OPCODE_AND: 
-    case BRIG_OPCODE_OR: 
-    case BRIG_OPCODE_XOR: 
+    // todo: add isBitArithmInst to HSAILUtils
+    case BRIG_OPCODE_AND:
+    case BRIG_OPCODE_OR:
+    case BRIG_OPCODE_XOR:
     case BRIG_OPCODE_NOT:{
       switch (operandType) {
         case BRIG_TYPE_U32: case BRIG_TYPE_S32: return BRIG_TYPE_B32;
         case BRIG_TYPE_U64: case BRIG_TYPE_S64: return BRIG_TYPE_B64;
         default: return operandType;
-      }                   
+      }
     } 
     default: return operandType;
   }
