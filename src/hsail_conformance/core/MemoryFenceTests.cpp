@@ -149,18 +149,12 @@ public:
 
 protected:
 
+  Value GetInputValueForWI(uint64_t wi) const {
+    return Value(Brig2ValueType(type), wi);
+  }
+
   Value ExpectedResult(uint64_t i) const {
-    uint64_t val = geometry->GridSize()-i-1;
-    ValueType valType = Brig2ValueType(type);
-    switch (valType) {
-#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
-      case MV_PLAIN_FLOAT16:
-#endif
-      case MV_FLOAT16: return Value(valType, H(hexl::half(float(val))));
-      case MV_FLOAT: return Value(float(val));
-      case MV_DOUBLE: return Value(double(val));
-      default: return Value(valType, val);
-    }
+    return Value(Brig2ValueType(type), geometry->GridSize()-i-1);
   }
 
   void Init() {
@@ -170,7 +164,7 @@ protected:
   bool IsValid() const {
     if (!MemoryFenceTest::IsValid())
       return false;
-    if (BRIG_TYPE_F16 == type)
+    if (isFloatType(type))
       return false;
     if (segment == BRIG_SEGMENT_GROUP)
       return false;
