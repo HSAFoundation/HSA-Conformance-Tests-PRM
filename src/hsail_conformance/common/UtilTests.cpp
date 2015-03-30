@@ -56,18 +56,6 @@ void BoundaryTest::KernelCode() {
   be.EmitLabel(endif);
 }
 
-
-void SkipTest::Init() {
-  Test::Init();
-  outputVar = kernel->NewVariable("output_var", BRIG_SEGMENT_GLOBAL, ResultType(), Location::MODULE);
-}
-
-void SkipTest::KernelCode() {
-  auto result = KernelResult();
-  assert(result);
-  outputVar->EmitStoreFrom(result);
-}
-
 TypedReg SkipTest::Result() {
   auto result = be.AddTReg(RESULT_TYPE);
   be.EmitMov(result, be.Immed(result->Type(), RESULT_VALUE));
