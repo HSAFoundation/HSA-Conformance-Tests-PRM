@@ -289,14 +289,10 @@ Operand BrigEmitter::Wavesize()
 InstBasic BrigEmitter::EmitMov(Operand dst, Operand src, unsigned sizeBits)
 {
   BrigType16_t movType;
-  if (OperandConstantBytes c = src) {
-    movType = c.type();
-  } else {
-    assert(OperandRegister(src) || OperandWavesize(src));
-    OperandRegister reg = dst;
-    assert(reg);
-    movType = getBitType(getRegSize(reg));
-  }
+  assert(OperandRegister(src) || OperandWavesize(src) || OperandConstantBytes(src));
+  OperandRegister reg = dst;
+  assert(reg);
+  movType = getBitType(getRegSize(reg));
   InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_MOV, movType);
   inst.operands() = Operands(dst, src);
   return inst;
