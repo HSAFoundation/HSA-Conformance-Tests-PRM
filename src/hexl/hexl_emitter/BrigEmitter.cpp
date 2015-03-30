@@ -782,15 +782,13 @@ InstCvt BrigEmitter::EmitCvt(Operand dst, BrigType16_t dstType, Operand src, Bri
    InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dstType);
    inst.sourceType() = srcType;
    inst.operands() = Operands(dst, src);
+   inst.round() = getDefRounding(inst, coreConfig->Model(), coreConfig->Profile());
    return inst;
 }
 
 InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src)
 {
-   InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dst->Type());
-   inst.sourceType() = src->Type();
-   inst.operands() = Operands(dst->Reg(), src->Reg());
-   return inst;
+   return EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
 }
 
 InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round)
