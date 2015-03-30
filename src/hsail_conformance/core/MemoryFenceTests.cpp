@@ -149,22 +149,24 @@ public:
 
 protected:
 
-  Value GetInputValueForWI(uint64_t wi) const {
-    return Value(Brig2ValueType(type), wi);
-  }
-
   Value ExpectedResult(uint64_t i) const {
-    return Value(Brig2ValueType(type), geometry->GridSize()-i-1);
-  }
-
-  void Init() {
-    Test::Init();
+    uint64_t val = geometry->GridSize()-i-1;
+    ValueType valType = Brig2ValueType(type);
+    switch (valType) {
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+      case MV_PLAIN_FLOAT16:
+#endif
+      case MV_FLOAT16: return Value(valType, H(hexl::half(float(val))));
+      case MV_FLOAT: return Value(float(val));
+      case MV_DOUBLE: return Value(double(val));
+      default: return Value(valType, val);
+    }
   }
 
   bool IsValid() const {
     if (!MemoryFenceTest::IsValid())
       return false;
-    if (isFloatType(type))
+    if (BRIG_TYPE_F16 == type)
       return false;
     if (segment == BRIG_SEGMENT_GROUP)
       return false;
@@ -205,7 +207,6 @@ protected:
     unsigned powFlag = unsigned(std::log(bytesFlag)/std::log(2));
     TypedReg offsetFlagReg = be.AddTReg(wiID->Type());
     be.EmitArith(BRIG_OPCODE_SHL, offsetFlagReg, wiID, be.Immed(BRIG_TYPE_U32, powFlag));
-
 
     TypedReg idReg = be.AddTReg(type);
     be.EmitCvtOrMov(idReg, wiID);
@@ -252,22 +253,18 @@ public:
         << "/" << geometry;
   }
 
-  BrigType ResultType() const { return type; }
-
   BrigType ResultType2() const { return type2; }
 
   bool IsValid() const {
+    if (!MemoryFenceTest::IsValid())
+      return false;
     if (type != type2)
       return false;
     //if (isFloatType(type) || isFloatType(type2))
     //  return false;
-    if (16 == getBrigTypeNumBits(type) || 16 == getBrigTypeNumBits(type2))
-      return false;
-    if ((BRIG_SEGMENT_GROUP == segment || BRIG_SEGMENT_GROUP == segment2) && geometry->WorkgroupSize() != geometry->GridSize())
-      return false;
-    if (BRIG_MEMORY_ORDER_SC_ACQUIRE == memoryOrder1)
-      return false;
-    if (BRIG_MEMORY_ORDER_SC_RELEASE == memoryOrder2)
+//    if (16 == getBrigTypeNumBits(type) || 16 == getBrigTypeNumBits(type2))
+//      return false;
+    if (BRIG_SEGMENT_GROUP == segment2 && geometry->WorkgroupSize() != geometry->GridSize())
       return false;
     return true;
   }
@@ -333,24 +330,10 @@ public:
 
     EmitInstrToTest(BRIG_OPCODE_LD, segment, type, result, globalVar);
     EmitInstrToTest(BRIG_OPCODE_LD, segment2, type2, result2, globalVar2);
-    if (type != type2) {
-      if (getBrigTypeNumBits(type) == getBrigTypeNumBits(type2) && isIntType(type) && isIntType(type2)) {
-        be.EmitArith(BRIG_OPCODE_ADD, result, result->Reg(), result2->Reg());
-      } else {
-        BrigRound round = BRIG_ROUND_NONE;
-        if (isIntType(type) && isFloatType(type2)) {
-          round = BRIG_ROUND_INTEGER_ZERO;
-        }
-        if (isIntType(type2) && isFloatType(type)) {
-          round = BRIG_ROUND_FLOAT_ZERO;
-        }
-        TypedReg result1 = be.AddTReg(ResultType());
-        be.EmitCvt(result1, result2, round);
-        be.EmitArith(BRIG_OPCODE_ADD, result, result->Reg(), result1->Reg());
-      }
-    } else {
-      be.EmitArith(BRIG_OPCODE_ADD, result, result->Reg(), result2->Reg());
-    }
+
+    TypedReg result1 = be.AddTReg(type);
+    be.EmitCvtOrMov(result1, result2);
+    be.EmitArith(BRIG_OPCODE_ADD, result, result->Reg(), result1->Reg());
     return result;
   }
 
