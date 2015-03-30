@@ -285,22 +285,22 @@ ol[type=i] {
 </ul>
 </div>
 <h1 id="hsa-prm-conformance-manual">HSA PRM Conformance Manual</h1>
-<p>HSA PRM Specification revision: 1.0 Provisional (2014-06-05)</p>
-<p>Test suite revision: 2014-12-12 (CL 1104888)</p>
+<p>HSA PRM Specification revision: 1.0 Final (2015-03-06)</p>
+<p>Test suite revision: 2015-03-27 (commit 0ecca4a05179f219c700069bbb18f7f78fc91730)</p>
 <h2 id="overview">Overview</h2>
 <p>HSA PRM Conformance test suite is used to validate an implementation of Heterogeneous System Architecture Intermediate Language (HSAIL) virtual machine and language as described in &quot;HSA Programmer's Reference Manual&quot;. The focus is on verification of ISA produced by HSAIL Finalizer and functionality of kernels on the agent. HSAIL Linking extension is used to finalize test programs while HSA Core Runtime is used to set up and invoke test kernels and to provide certain functionality for test code on the host (for some tests).</p>
-<p>A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for <code>add_u32</code> HSAIL instruction: one kernel, two input buffers and one output buffer.</p>
-<p>Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in <a href="#test-details">Test details</a>. For example, the test for abs instruction consists of several tests for <code>f32</code> and <code>f64</code> types.</p>
+<p>A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, agent(s) code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers (used to store test data and test results), one dispatch and validation of output buffer. An example of such test is a test for <code>add_u32</code> HSAIL instruction: one kernel, two input buffers and one output buffer.</p>
+<p>Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in <a href="#test-details">Test details</a>. For example, a test for the abs instruction consists of several tests for <code>f32</code> and <code>f64</code> types.</p>
 <h2 id="building-test-suite">Building test suite</h2>
 <p>HSA PRM Conformance test suite uses <a href="http://www.cmake.org/">CMake</a>. The following dependencies need to be made available before the build:</p>
 <ul>
 <li><code>HSAIL-Tools</code> can be obtained from HSA github repository. <code>HSAIL-Tools-PATH</code> needs to be set to point to it.</li>
 <li>HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. <code>HSA-Runtime-Inc-PATH</code> needs to be set to point to directory with <code>hsa.h</code>. <code>HSA-Runtime-Ext-PATH</code> needs to be set to point to directory with <code>hsa_ext_finalize.h</code>.</li>
 </ul>
-<p>cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.</p>
+<p><code>cmake_windows.sh</code> and <code>cmake_linux.sh</code> scripts contain examples of command lines that can be used to run CMake on Windows and Linux.</p>
 <h2 id="running-test-suite">Running test suite</h2>
 <p>The test suite can be invoked as &quot;hc&quot; program that runs on the host.</p>
-<p>To run the suite you should have a dynamic HSA RT libraries with corresponding bitness in the path (e.g. <code>PATH</code> variable for Windows, <code>LD_LIBRARY_PATH</code> - for Linux).</p>
+<p>To run the suite you should have a dynamic HSA RT libraries with corresponding bitness in the path (e.g. <code>PATH</code> variable for Windows, <code>LD_LIBRARY_PATH</code> for Linux).</p>
 <p>A simple scenario of running all the tests on Linux 64-bit may look like:</p>
 <pre><code>export LD_LIBRARY_PATH=&quot;$HSA_RT_LIB:$LD_LIBRARY_PATH&quot;
 bin/lnx64a/hc -tests prm/ 
@@ -323,7 +323,7 @@ prm/special/misc/laneid
 
 Testrun
   Passed: 13729   Failed:    0   Error:    0   NA:    0   Total: 13729</code></pre>
-<p>Using <code>-test</code> it is possible to specify a smaller set of tests, while <code>-exclude</code> allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).</p>
+<p>Using <code>-tests</code> it is possible to specify a smaller set of tests, while <code>-exclude</code> allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).</p>
 <h2 id="command-line-options">Command line options</h2>
 <p>The &quot;hc&quot; supports the following command line options:</p>
 <ul>
@@ -331,7 +331,7 @@ Testrun
 <li><code>-exclude File</code>: file containing a list of tests to be excluded from testing;</li>
 <li><code>-verbose</code>: enables detailed test output in a log file;</li>
 <li><code>-testlog File</code>: name for a log file, the default name is test.log;</li>
-<li><code>-runner hrunner</code>: a mode of test grouping. By default, tests are not grouped. See also option <code>-testloglevel</code> which also affects grouping.</li>
+<li><code>-runner Runner</code>: a mode of test grouping. May be either <code>hrunner</code> (default) or <code>simple</code>. By default tests are grouped by category. <code>simple</code> runner may be specified to avoid tests grouping. See option <code>-testloglevel</code> which also affects grouping.</li>
 <li><code>-testloglevel</code>: test grouping depth, the default is 4. See also <code>-runner</code> option;</li>
 <li><code>-dump</code>: dump HSAIL and BRIG test sources for each test under corresponding folder (prm/...);</li>
 <li><code>-results</code>: path to folder which will contain dumped test sources (prm/...), the default is the current folder.</li>
@@ -349,7 +349,7 @@ Testrun
 <li><code>kernel_1_200x1x1_64x1x1_ND</code>: Name/identifier of testcase within test. For <code>dim/basic</code> test, it is the testcase for dim instruction in kernel body with dispatch dimension <code>1</code>, grid sizes <code>200x1x1</code>, workgroup sizes <code>64x1x1</code> and no control directives.</li>
 </ul>
 <p>The naming scheme for testcases depends on test. For many tests, it contains text representation of parameters described in <a href="#test-details">Test details</a>, separated by underscore (_). For some tests, simple counter is used. Refer to documentation below for the list of parameters.</p>
-<p>A prefix of test names identifies a collection of tests that have names starting with this prefix. For example, <code>prm/special/dispatchpacket/</code> are the tests for dispatch packet operations.</p>
+<p>A prefix of test names identifies test category. For example, <code>prm/special/dispatchpacket/</code> are tests for dispatch packet operations. These categories may be used to select which tests to run (see option <code>-tests</code>).</p>
 <h2 id="test-parameters">Test parameters</h2>
 <h3 id="code-location-location-of-validated-code">Code Location: location of validated code</h3>
 <ul>
@@ -374,6 +374,10 @@ Testrun
 <li><code>Boundary32Set</code>: samples of geometry with sizes <code>&gt; 2^32</code><br /></li>
 <li><code>Boundary24Set</code>: samples of geometry with sizes <code>&gt; 2^24</code></li>
 <li><code>DegenerateSet</code>: samples of degenerated geometry when a dimension is used, but has size <code>1</code></li>
+<li><code>BarrierSet</code>: samples of one-dimensional geometries for barrier testing</li>
+<li><code>FBarrierSet</code>: special samples of geometries for fbarrier testing</li>
+<li><code>ImageSet</code>: special samples of geometries for testing operations with images and samples</li>
+<li><code>ImageRdSet</code>: special samples of geometries for testing rdimage operation</li>
 </ul></li>
 </ul>
 <h3 id="control-directives-control-directives-in-brig-modules">Control Directives: control directives in BRIG modules</h3>
@@ -381,7 +385,7 @@ Testrun
 <li>Control directives may be controlled with the following settings:</li>
 <li>Location: location of control directives (function, kernel or module).</li>
 <li>List of enabled control directives.</li>
-<li>A test shall use all possible combinations of enabled control directives. For example, if two directives are eabled - <code>requiredgridsize</code> and <code>requiredworkgroupsize</code>, the test shall use the following combinations:
+<li>A test shall use all possible combinations of enabled control directives. For example, if two directives are enabled - <code>requiredgridsize</code> and <code>requiredworkgroupsize</code>, the test shall use the following combinations:
 <ul>
 <li><code>[]</code> (no control directives)</li>
 <li><code>[ requiredgridsize ]</code></li>
@@ -405,6 +409,13 @@ Testrun
 <li><code>MemFence</code>: global, group</li>
 <li><code>Variable</code>: global, readonly, kernarg, group, private, spill, arg</li>
 <li><code>All</code>: all standard segments</li>
+</ul></li>
+</ul>
+<h3 id="linkage-variable-linkage">Linkage: variable linkage</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: program, module, linkage, arg</li>
 </ul></li>
 </ul>
 <h3 id="operand-kind-kind-of-instruction-operand">Operand Kind: kind of instruction operand</h3>
@@ -501,7 +512,6 @@ Testrun
 <li><code>All</code>: wi, wv, wg, cmp, sys</li>
 <li><code>Global</code>: wv, wg, cmp, sys</li>
 <li><code>Group</code>: wv, wg</li>
-<li><code>Image</code>: wi, wv, wg, cmp, sys</li>
 </ul></li>
 </ul>
 <h3 id="width-width-modifier">Width: width modifier</h3>
@@ -533,7 +543,83 @@ Testrun
 </ul></li>
 </ul></li>
 </ul>
+<h3 id="exceptions-mask-a-number-that-specifies-a-list-of-exceptions">Exceptions Mask: a number that specifies a list of exceptions</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="image-geometry-geometries-associated-with-images-chapter-7.1.3">Image Geometry: geometries associated with images [chapter 7.1.3]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="image-channel-order-channel-orders-associated-with-images-chapter-7.1.4.1">Image Channel Order: channel orders associated with images [chapter 7.1.4.1]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="image-channel-type-channel-types-associated-with-images-chapter-7.1.4.2">Image Channel Type: channel types associated with images [chapter 7.1.4.2]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="image-array-image-array-size">Image Array: image array size</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: 1, 2, 10</li>
+</ul></li>
+</ul>
+<h3 id="image-property-names-of-image-properties-chapter-7.5.2">Image Property: names of image properties [chapter 7.5.2]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="sampler-coord-sampler-coordinate-normalization-mode-chapter-7.1.8">Sampler Coord: sampler coordinate normalization mode [chapter 7.1.8]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="sampler-filter-sampler-filter-mode-chapter-7.1.8">Sampler Filter: sampler filter mode [chapter 7.1.8]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="sampler-addressing-sampler-addressing-mode-chapter-7.1.8">Sampler Addressing: sampler addressing mode [chapter 7.1.8]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
+<h3 id="sampler-property-names-of-sampler-properties-chapter-7.5.2">Sampler Property: names of sampler properties [chapter 7.5.2]</h3>
+<ul>
+<li>Used sets:
+<ul>
+<li><code>All</code>: all legal values</li>
+</ul></li>
+</ul>
 <h2 id="test-details">Test details</h2>
+<h3 id="initializer-variable-initializers-chapter-4.10">initializer: Variable Initializers [chapter 4.10]</h3>
+<ul>
+<li>Segment: Variable</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: Kernel</li>
+</ul>
 <h3 id="arithmetic-arithmetic-operations-chapter-5">arithmetic: Arithmetic operations [chapter 5]</h3>
 <h4 id="intfp-integerfloating-point-arithmetic-operations-chapters-5.2-and-5.11">intfp: Integer/floating point arithmetic operations [chapters 5.2 and 5.11]</h4>
 <ul>
@@ -586,7 +672,7 @@ Testrun
 </ul>
 <h4 id="bitstr-bit-string-operations-chapter-5.7">bitstr: Bit string operations [chapter 5.7]</h4>
 <ul>
-<li>Instructions: bitextract, bitinsert, bitask, bitrev, bitselect, firstbit, lastbit</li>
+<li>Instructions: bitextract, bitinsert, bitmask, bitrev, bitselect, firstbit, lastbit</li>
 <li>Operand Kind: All</li>
 <li>Dst Type: All</li>
 <li>Src Type: All</li>
@@ -722,15 +808,16 @@ Testrun
 <li>Instructions: atomic, atomicnoret</li>
 <li>Operand Kind: All</li>
 <li>Dst Type: All</li>
-<li>Atomic operation: All</li>
+<li>Atomic operation: All (except for ld)</li>
 <li>Segment: Atomic</li>
-<li>Memory Order: All</li>
-<li>Memory Scope: All</li>
-<li>Equiv: all</li>
+<li>Memory Order: All (except for rlx)</li>
+<li>Memory Scope: All (except for system)</li>
+<li>Equiv: 0</li>
 <li>Grid Geometry: OneGroupSet</li>
 <li>Code Location: Kernel</li>
 <li>Test Data: Standard</li>
 </ul>
+<p><em>More tests are to be implemented.</em></p>
 <h4 id="memorysignal-notification-operations-chapter-6.8">memory/signal: Notification operations [chapter 6.8]</h4>
 <ul>
 <li>Instructions: signal, signalnoret</li>
@@ -742,10 +829,78 @@ Testrun
 <li>Grid Geometry: OneGroupSet</li>
 <li>Segment: Memfence</li>
 <li>Memory Order: Memfence</li>
-<li>Memory Scope: Global, Group, Image</li>
+<li>Memory Scope: Global, Group</li>
 </ul>
 <h3 id="image-operations-chapter-7">Image operations [chapter 7]</h3>
-<p><em>Tests to be implemented.</em></p>
+<h5 id="initializerimage-image-creation-and-image-handles-chapter-7.1.7">initializer/image: Image Creation and Image Handles [chapter 7.1.7]</h5>
+<p><em>Tests are to be implemented.</em></p>
+<h5 id="initializersampler-sampler-creation-and-sampler-handles-chapter-7.1.8">initializer/sampler: Sampler Creation and Sampler Handles [chapter 7.1.8]</h5>
+<ul>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: All</li>
+<li>Sampler Coord: All</li>
+<li>Sampler Filter: All</li>
+<li>Sampler Addressing: All</li>
+</ul>
+<h5 id="image_rd-read-image-instruction-chapter-7.2">image_rd: Read Image Instruction [chapter 7.2]</h5>
+<ul>
+<li>Instructions: rdimage</li>
+<li>Grid Geometry: ImageRdSet</li>
+<li>Code Location: All</li>
+<li>Image Geometry: All</li>
+<li>Image Channel Order: All</li>
+<li>Image Channel Type: All</li>
+<li>Image Array: All</li>
+<li>Sampler Coord: All</li>
+<li>Sampler Filter: All</li>
+<li>Sampler Addressing: All</li>
+<li>Equiv: 0</li>
+</ul>
+<h5 id="image_ld-load-image-instruction-chapter-7.3">image_ld: Load Image Instruction [chapter 7.3]</h5>
+<ul>
+<li>Instructions: ldimage</li>
+<li>Grid Geometry: ImageSet</li>
+<li>Code Location: All</li>
+<li>Image Geometry: All</li>
+<li>Image Channel Order: All</li>
+<li>Image Channel Type: All</li>
+<li>Image Array: All</li>
+<li>Equiv: 0</li>
+</ul>
+<h5 id="image_st-store-image-instruction-chapter-7.4">image_st: Store Image Instruction [chapter 7.4]</h5>
+<ul>
+<li>Instructions: stimage</li>
+<li>Grid Geometry: ImageSet</li>
+<li>Code Location: All</li>
+<li>Image Geometry: All</li>
+<li>Image Channel Order: All</li>
+<li>Image Channel Type: All</li>
+<li>Image Array: All</li>
+<li>Equiv: 0</li>
+</ul>
+<h5 id="image_query-query-image-instruction-chapter-7.5">image_query: Query Image Instruction [chapter 7.5]</h5>
+<ul>
+<li>Instructions: queryimage</li>
+<li>Grid Geometry: ImageSet</li>
+<li>Code Location: All</li>
+<li>Image Geometry: All</li>
+<li>Image Channel Order: All</li>
+<li>Image Channel Type: All</li>
+<li>Image Array: All</li>
+<li>Image Property: All</li>
+</ul>
+<h5 id="image_query_sampler-query-sampler-instruction-chapter-7.5">image_query_sampler: Query Sampler Instruction [chapter 7.5]</h5>
+<ul>
+<li>Instructions: querysampler</li>
+<li>Grid Geometry: ImageSet</li>
+<li>Code Location: All</li>
+<li>Sampler Coord: All</li>
+<li>Sampler Filter: All</li>
+<li>Sampler Addressing: All</li>
+<li>Sampler Property: All</li>
+</ul>
+<h5 id="imagefence-image-fence-instruction-chapter-7.5">imagefence: Image Fence Instruction [chapter 7.5]</h5>
+<p><em>Tests are to be implemented.</em></p>
 <h3 id="branch-operations-chapter-8">Branch operations [chapter 8]</h3>
 <h5 id="basicbr-basic-unconditional-jump-verify-expected-result-by-setting-value-of-hsail-register-chapter-8">basic/br: Basic unconditional jump, verify expected result by setting value of HSAIL register [chapter 8]</h5>
 <ul>
@@ -775,18 +930,33 @@ Testrun
 </ul>
 <h3 id="parallel-synchronization-and-communication-operations-chapter-9">Parallel Synchronization and communication operations [chapter 9]</h3>
 <h4 id="barrier-barrier-operations-chapter-9.1">barrier: Barrier operations [chapter 9.1]</h4>
-<p><em>More tests to be implemented.</em></p>
+<ul>
+<li>Instructions: barrier</li>
+<li>Grid Geometry: BarrierSet</li>
+<li>Segment: Atomic</li>
+<li>Memory Scope: All</li>
+<li>Memory Order: All</li>
+</ul>
+<p><em>Tests for <code>wavebarrier</code> are to be implemented.</em></p>
 <h4 id="fine-grain-barrier-operations-chapter-9.2">Fine-grain barrier operations [chapter 9.2]</h4>
-<p><em>Tests to be implemented.</em></p>
+<ul>
+<li>Instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar, ldf</li>
+<li>Grid Geometry: FBarrierSet</li>
+</ul>
 <h4 id="crosslane-cross-lane-operations-chapter-9.4">crosslane: Cross-lane operations [chapter 9.4]</h4>
-<p><em>More tests to be implemented.</em></p>
+<ul>
+<li>Instructions: activelanecount, activelaneid, activelanemask</li>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: All</li>
+</ul>
+<p><em>Tests for <code>activelanepermute</code> are to be implemented.</em></p>
 <h3 id="function-operations-chapter-10">Function operations [chapter 10]</h3>
 <h3 id="direct-call-operation-chapter-10.6">Direct call operation [chapter 10.6]</h3>
 <h5 id="arguments-verify-passing-argumentreturning-result-of-given-type-chapter-10.2">arguments: Verify passing argument/returning result of given type [chapter 10.2]</h5>
 <ul>
 <li>Types: all BRIG types</li>
 </ul>
-<p><em>More tests to be implemented.</em></p>
+<p><em>More tests are to be implemented.</em></p>
 <h3 id="special-special-operations-chapter-11">special: Special operations [chapter 11]</h3>
 <h4 id="dispatchpacket-dispatch-packet-operations-chapter-11.1">dispatchpacket: Dispatch packet operations [chapter 11.1]</h4>
 <h5 id="basic-verify-result-of-dispatch-packet-operation">basic: Verify result of dispatch packet operation</h5>
@@ -811,7 +981,7 @@ Testrun
 <li>Code Location: All</li>
 <li>Grid Geometry: Boundary24Set</li>
 <li>Control Directives: Boundary24Set</li>
-<li>Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for others</li>
+<li>Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for other instructions</li>
 </ul>
 <h5 id="degenerate-verify-result-of-dispatch-packet-operation-for-used-dimension-that-dispatched-with-size-1">degenerate: Verify result of dispatch packet operation for used dimension that dispatched with size 1</h5>
 <ul>
@@ -819,12 +989,28 @@ Testrun
 <li>Code Location: All</li>
 <li>Grid Geometry: DegenerateSet</li>
 <li>Control Directives: DegenerateSet</li>
-<li>Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for others</li>
+<li>Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for other instructions</li>
 </ul>
 <h5 id="packetidbasic-compare-result-of-packetid-operation-with-value-on-the-host">packetid/basic: Compare result of packetid operation with value on the host</h5>
+<ul>
+<li>Instructions: packetid</li>
+<li>Code Location: All</li>
+<li>Grid Geometry: Boundary32Set</li>
+<li>Control Directives: None</li>
+</ul>
 <h5 id="packetcompletionsigbasic-compare-result-of-packetcompletionsig-operation-with-value-on-the-host">packetcompletionsig/basic: Compare result of packetcompletionsig operation with value on the host</h5>
+<ul>
+<li>Instructions: packetcompletionsig</li>
+<li>Code Location: All</li>
+<li>Grid Geometry: Boundary32Set</li>
+<li>Control Directives: None</li>
+</ul>
 <h4 id="exception-operations-chapter-11.2">Exception operations [chapter 11.2]</h4>
-<p><em>Tests to be implemented.</em></p>
+<ul>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: All or Kernel</li>
+<li>Exceptions mask: All (where applicable)</li>
+</ul>
 <h4 id="usermodequeue-user-mode-queue-operations-chapter-11.3">usermodequeue: User mode queue operations [chapter 11.3]</h4>
 <h5 id="basic-verify-result-of-queueid-queueptr-ldk-operation-for-a-dispatch-of-a-kernel">basic: Verify result of queueid, queueptr, ldk operation for a dispatch of a kernel</h5>
 <ul>
@@ -835,7 +1021,7 @@ Testrun
 <ul>
 <li>Instructions: ldqueuereadindex, ldqueuewriteindex, addqueuewriteindex, casqueuewriteindex, stqueuereadindex, stqueuewriteindex</li>
 <li>Code Location: All</li>
-<li>User mode queue type: separate, user-created</li>
+<li>User mode queue type: separate, customized for each test</li>
 </ul>
 <h4 id="misc-miscellaneous-operations-chapter-11.4">misc: Miscellaneous operations [chapter 11.4]</h4>
 <h5 id="kernargbaseptridentity-verify-accessing-memory-at-kernargbaseptr-address">kernargbaseptr/identity: Verify accessing memory at kernargbaseptr address</h5>
@@ -866,6 +1052,10 @@ Testrun
 <li>Grid Geometry: All</li>
 </ul>
 <h5 id="clockmonotonic-verify-that-result-of-clock-operation-increases-monotonically">clock/monotonic: Verify that result of clock operation increases monotonically</h5>
+<ul>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: All or Kernel</li>
+</ul>
 <h5 id="waveidlessmax-verify-that-result-of-waveid-operation-is-always-less-than-maxwaveid">waveid/lessmax: Verify that result of waveid operation is always less than maxwaveid</h5>
 <ul>
 <li>Code Locations: All</li>
@@ -892,17 +1082,29 @@ Testrun
 <li>Grid Geometry: All</li>
 </ul>
 <h3 id="exceptions-chapter-12">Exceptions: [chapter 12]</h3>
-<p><em>Tests to be implemented.</em></p>
+<p><em>Feature not implemented/not testable.</em></p>
 <h3 id="directives-chapter-13">Directives: [chapter 13]</h3>
-<p><em>Tests to be implemented.</em></p>
+<ul>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: All or Kernel</li>
+<li>Exceptions mask: All (where applicable)</li>
+</ul>
 <h3 id="version-chapter-14">Version: [chapter 14]</h3>
 <p><em>Tests to be implemented.</em></p>
 <h3 id="libraries-chapter-15">Libraries: [chapter 15]</h3>
-<p><em>Tests to be implemented.</em></p>
+<ul>
+<li>Grid Geometry: OneGroupSet</li>
+<li>Code Location: All</li>
+<li>Segment: Variable</li>
+<li>Linkage: All</li>
+</ul>
 <h3 id="profiles-chapter-16">Profiles: [chapter 16]</h3>
 <p><em>Configuration/tests to be implemented.</em></p>
 <h3 id="limits-appendix-a">Limits: [appendix A]</h3>
-<p><em>Tests to be implemented.</em></p>
+<ul>
+<li>Grid Geometry: All</li>
+<li>Code Location: Kernel</li>
+</ul>
 <h2 id="test-suite-internals">Test suite internals</h2>
 <p><em>Information to be added when the suite is finalized.</em></p>
 </body>

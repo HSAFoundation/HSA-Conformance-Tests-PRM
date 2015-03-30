@@ -1,40 +1,42 @@
-Release Notes
-HSA PRM Conformance Test Suite
+HSA Conformance Test Suite release notes
 
-Test suite revision: 2014-12-12 (CL 1104888)
+Test suite revision
 
-System Requirements:
- * Ubuntu 14.04 64 bit
- * HSA hardware
- * HSAIL Runtime software stack (KFD, HSA Runtime and Finalizer)
+ * Date: 03/27/2015
 
-HSA PRM version: 1.0 Provisional. Covered chapters: 
- * 5. "Arithmetic Operations"
- * 6. "Memory Operations"
- * 8. "Branch Operations"
- * 9. "Parallel Synchronization and Communication Operations" (partially)
- * 10. "Function Operations" (partially)
- * 11. "Special Operations"
+System Requirements
 
-This version of HSA PRM Conformance Test Suite was tested with
- * AMD HSA Runtime/Finalizer 64-bit built from Stg CL1104553
- * KFD Stg build a2e3fff
- * Thunk Stg build 32d6cc9
+ * Hardware architecture: HSA
+ * OS: Linux Ubuntu 14.04 64 bit
+ * Software stack: HSAIL Runtime (KFD, HSA Runtime and Finalizer)
+
+Tested configuration
+
+ * AMD HSAIL Runtime built from staging HSA_PRM CL 1134715 and RC2
+ * KFD RC3
+ * Thunk RC3 
  * Kaveri APU
  * Ubuntu 14.04 64 bit
- * exclude list "-exclude amdhsa.exclude"
+ * exclude list for staging HSA_PRM: Stg "-exclude amdhsa.exclude"
+ * exclude list for RC2: "-exclude amdhsa.exclude.rc2"
 
-Known issues:
- * AMD HSA Runtime on Linux 32 bit asserts (EPR 409618). Tests will not run
- * AMD HSA Runtime on Windows 32 and 64 bit uses deprecated non-AQL path. Tests 
-   will fail randomly 
- * Tests for f16 instructions are not implemented as there's no HW support in KV
- * Some tests will fail or hang due to AMD HSA implemenation bugs. Exclude list
-   "amdhsa.include" is provided
- * No makefiles in the source bundle. The test suite currently can be built in
-   perforce repository only
+Specifications coverage
 
-Installation: simply unpack binary package to a directory.
+ * Version: 1.0 Final
+ * HSA PRM: fully covered
+ * HSA SysArch: covered functional parts (except not supported by the existing hardware or software: 2.2, 2.7, 2.11)
 
-For more information about running test suite and details for the tests
-please refer to "HSA PRM Conformance Manual" document.
+Known issues
+
+ * Tests can't be executed on Linux 32 bit due to an assert in AMD HSA Runtime. EPR 409618
+ * Tests will fail randomly with AMD HSA Runtime on Windows 32 and 64 bit bacause it uses deprecated non-AQL path
+ * Exception and debugtrap instructions are not described clearly in the specification and are not implemented in AMD HSAIL Runtime
+ * Some tests will fail or hang due to AMD HSA implemenation bugs. Exclude list "amdhsa.exclude" is provided
+ * Test harness has a bug which results in Segmentation Fault after test run. This bug does not affect test execution or test results, 
+   and will be fixed in the production version
+
+Installation
+
+ * Unpack binary package to a directory
+
+For more information about running test suite and details for the tests please refer to the "HSA PRM Conformance Manual" document
