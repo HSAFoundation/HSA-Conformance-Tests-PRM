@@ -542,4 +542,34 @@ bool IsSamplerLegal(BrigSamplerCoordNormalization coord, BrigSamplerFilter filte
   return false;
 }
 
+BrigType ImageAccessType(BrigImageChannelType channelType)
+{
+  switch (channelType)
+  {
+  case BRIG_CHANNEL_TYPE_SNORM_INT8:
+  case BRIG_CHANNEL_TYPE_SNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT8:
+  case BRIG_CHANNEL_TYPE_UNORM_INT16:
+  case BRIG_CHANNEL_TYPE_UNORM_INT24:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+  case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+  case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+  case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+  case BRIG_CHANNEL_TYPE_FLOAT:
+    return BRIG_TYPE_F32;
+  case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    return BRIG_TYPE_S32;
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+  case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+    return BRIG_TYPE_U32;
+  default:
+    break;
+  }
+  assert(0);
+  return BRIG_TYPE_NONE;
+}
+
 }
