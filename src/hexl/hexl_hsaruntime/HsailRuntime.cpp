@@ -236,7 +236,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), code(code_) { }
       ~HsailCode()
       {
-#ifdef _WIN32
+#ifndef _WIN32
         // Temporarily disable due to crash on Windows.
         rt->CodeDestroy(code);
 #endif // _WIN32
