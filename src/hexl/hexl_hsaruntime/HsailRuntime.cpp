@@ -236,7 +236,10 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), code(code_) { }
       ~HsailCode()
       {
+#ifdef _WIN32
+        // Temporarily disable due to crash on Windows.
         rt->CodeDestroy(code);
+#endif // _WIN32
       }
 
       hsa_code_object_t Code() { return code; }
@@ -339,7 +342,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     {
       void *ptr = alignedMalloc(size, 32);
       hsa_status_t status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
-      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); free(ptr); return 0; }
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); alignedFree(ptr); return 0; }
       if (!initValuesId.empty()) {
         Values* initValues = context->Get<Values>(initValuesId);
         WriteTo(ptr, *initValues);
