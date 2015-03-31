@@ -606,7 +606,7 @@ BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandT
   }
 }
 
-HSAIL_ASM::InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2)
+InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t type, Operand dst, Operand src0, Operand src1, Operand src2)
 {
   InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, type));
   inst.operands() = Operands(dst, src0, src1, src2);
@@ -616,16 +616,12 @@ HSAIL_ASM::InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand o)
 {
   assert(dst->Type() == src0->Type());
-  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
-  inst.operands() = Operands(dst->Reg(), src0->Reg(), o);
-  return inst;
+  return EmitArith(opcode, dst, src0->Reg(), o);
 }
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, Operand src2) {
   assert(dst->Type() == src0->Type());
-  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
-  inst.operands() = Operands(dst->Reg(), src0->Reg(), src1, src2);
-  return inst;
+  return EmitArith(opcode, src0->Type(), dst->Reg(), src0->Reg(), src1, src2);
 }
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, Operand o)
@@ -797,25 +793,23 @@ void BrigEmitter::EmitVariableInitializer(HSAIL_ASM::DirectiveVariable var, HSAI
 
 InstCvt BrigEmitter::EmitCvt(Operand dst, BrigType16_t dstType, Operand src, BrigType16_t srcType)
 {
-   InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dstType);
-   inst.sourceType() = srcType;
-   inst.operands() = Operands(dst, src);
-   inst.round() = getDefRounding(inst, coreConfig->Model(), coreConfig->Profile());
-   return inst;
+  InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dstType);
+  inst.sourceType() = srcType;
+  inst.operands() = Operands(dst, src);
+  inst.round() = getDefRounding(inst, coreConfig->Model(), coreConfig->Profile());
+  return inst;
 }
 
 InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src)
 {
-   return EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
+  return EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
 }
 
 InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round)
 {
-   InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dst->Type());
-   inst.sourceType() = src->Type();
-   inst.operands() = Operands(dst->Reg(), src->Reg());
-   inst.round() = round;
-   return inst;
+  InstCvt inst = EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
+  inst.round() = round;
+  return inst;
 }
 
 void BrigEmitter::EmitCvtOrMov(const TypedReg& dst, const TypedReg& src)
