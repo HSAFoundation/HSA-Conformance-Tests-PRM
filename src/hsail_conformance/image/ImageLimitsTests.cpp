@@ -541,11 +541,11 @@ public:
 
     // coordinates where to read from image
     auto coord = be.AddTReg(BRIG_TYPE_F32);
-    be.EmitMov(coord, be.Immed(0.0F));
+    be.EmitMov(coord, be.Immed(BRIG_TYPE_U32, 0));
     
     auto imageElement = be.AddTReg(BRIG_TYPE_F32, 4);
 
-    auto samplerAddr = be.AddTReg(samplers[0]->Type());
+    auto samplerAddr = be.AddTReg(samplers[0]->Variable().type());
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
 
