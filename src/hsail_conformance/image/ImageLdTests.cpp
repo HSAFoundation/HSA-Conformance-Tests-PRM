@@ -135,7 +135,7 @@ public:
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
 
-    auto regs_dest = be.AddTReg(BRIG_TYPE_U32, 4);
+    auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:

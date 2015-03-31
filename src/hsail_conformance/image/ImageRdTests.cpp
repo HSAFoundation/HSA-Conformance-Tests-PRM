@@ -140,9 +140,13 @@ public:
     return BRIG_TYPE_U32; 
   }
 
+  BrigType CoordType() const {
+    return BRIG_TYPE_F32; 
+  }
+
   TypedReg Get1dCoord()
   {
-    auto result = be.AddTReg(BRIG_TYPE_U32);
+    auto result = be.AddTReg(CoordType());
     auto x = be.EmitWorkitemAbsId(0, false);
     be.EmitMov(result, x->Reg());
     return result;
@@ -150,7 +154,7 @@ public:
 
   TypedReg Get2dCoord()
   {
-    auto result = be.AddTReg(BRIG_TYPE_U32, 2);
+    auto result = be.AddTReg(CoordType(), 2);
     auto x = be.EmitWorkitemAbsId(1, false);
     auto y = be.EmitWorkitemAbsId(0, false);
     be.EmitMov(result->Reg(0), x->Reg(), 32);
@@ -160,7 +164,7 @@ public:
 
   TypedReg Get3dCoord()
   {
-    auto result = be.AddTReg(BRIG_TYPE_U32, 3);
+    auto result = be.AddTReg(CoordType(), 3);
     auto x = be.EmitWorkitemAbsId(2, false);
     auto y = be.EmitWorkitemAbsId(1, false);
     auto z = be.EmitWorkitemAbsId(0, false);
@@ -178,7 +182,7 @@ public:
     auto sampleraddr = be.AddTReg(smpobj->Variable().type());
     be.EmitLoad(smpobj->Segment(), sampleraddr->Type(), sampleraddr->Reg(), be.Address(smpobj->Variable())); 
 
-    auto regs_dest = be.AddTReg(BRIG_TYPE_U32, 4);
+    auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:

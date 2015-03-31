@@ -1351,7 +1351,6 @@ void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, TypedR
   }
   OptList.push_back(image->Reg());
   OptList.push_back(sampler->Reg());
-    OptList.push_back(image->Reg());
   if (coord->Count() == 1) {
     OptList.push_back(coord->Reg(0));
   } else {

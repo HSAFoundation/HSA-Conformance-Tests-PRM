@@ -146,7 +146,7 @@ public:
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
 
-    auto regs_dest = be.AddTReg(BRIG_TYPE_U32, 4);
+    auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     be.EmitMov(result, be.Immed(ResultType(), StorePerRegValue()));
     switch (imageGeometryProp)
     {
@@ -163,7 +163,7 @@ public:
       imgobj->EmitImageLd(regs_dest, imageaddr, Get2dCoord());
       break;
     case BRIG_GEOMETRY_2DDEPTH:
-      imgobj->EmitImageSt(regs_dest, imageaddr, Get2dCoord());
+      imgobj->EmitImageSt(StoreValues(1), imageaddr, Get2dCoord());
    //   be.EmitBarrier();
       imgobj->EmitImageLd(regs_dest, imageaddr, Get2dCoord());
       break;
@@ -174,7 +174,7 @@ public:
       imgobj->EmitImageLd(regs_dest, imageaddr, Get3dCoord());
       break;
     case BRIG_GEOMETRY_2DADEPTH:
-      imgobj->EmitImageSt(regs_dest, imageaddr, Get3dCoord());
+      imgobj->EmitImageSt(StoreValues(1), imageaddr, Get3dCoord());
     //  be.EmitBarrier();
       imgobj->EmitImageLd(regs_dest, imageaddr, Get3dCoord());
       break;

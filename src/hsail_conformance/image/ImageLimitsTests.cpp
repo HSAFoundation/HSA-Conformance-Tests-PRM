@@ -39,36 +39,38 @@ protected:
   BrigImageChannelOrder ChannelOrder() const { return channelOrder; }
   BrigImageChannelType ChannelType() const { return channelType; }
 
+  BrigType CoordType() { return BRIG_TYPE_U32; }
+
   TypedReg CreateCoordList(uint32_t x, uint32_t y, uint32_t z, uint32_t a) {
     TypedReg treg;
     switch (imageGeometry) {
     case BRIG_GEOMETRY_1D: 
     case BRIG_GEOMETRY_1DB:
-      treg = be.AddInitialTReg(BRIG_TYPE_U32, x);
+      treg = be.AddInitialTReg(CoordType(), x);
       break;
     case BRIG_GEOMETRY_1DA:
-      treg = be.AddTReg(BRIG_TYPE_U32, 2);
-      be.EmitMov(treg->Reg(0), be.Immed(BRIG_TYPE_U32, x), 32);
-      be.EmitMov(treg->Reg(1), be.Immed(BRIG_TYPE_U32, a), 32);
+      treg = be.AddTReg(CoordType(), 2);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), a), 32);
       break;
     case BRIG_GEOMETRY_2D:
     case BRIG_GEOMETRY_2DDEPTH:
-      treg = be.AddTReg(BRIG_TYPE_U32, 2);
-      be.EmitMov(treg->Reg(0), be.Immed(BRIG_TYPE_U32, x), 32);
-      be.EmitMov(treg->Reg(1), be.Immed(BRIG_TYPE_U32, y), 32);
+      treg = be.AddTReg(CoordType(), 2);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), y), 32);
       break;
     case BRIG_GEOMETRY_3D:
-      treg = be.AddTReg(BRIG_TYPE_U32, 3);
-      be.EmitMov(treg->Reg(0), be.Immed(BRIG_TYPE_U32, x), 32);
-      be.EmitMov(treg->Reg(1), be.Immed(BRIG_TYPE_U32, y), 32);
-      be.EmitMov(treg->Reg(2), be.Immed(BRIG_TYPE_U32, z), 32);
+      treg = be.AddTReg(CoordType(), 3);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), y), 32);
+      be.EmitMov(treg->Reg(2), be.Immed(CoordType(), z), 32);
       break;
     case BRIG_GEOMETRY_2DA:
     case BRIG_GEOMETRY_2DADEPTH:
-      treg = be.AddTReg(BRIG_TYPE_U32, 3);
-      be.EmitMov(treg->Reg(0), be.Immed(BRIG_TYPE_U32, x), 32);
-      be.EmitMov(treg->Reg(1), be.Immed(BRIG_TYPE_U32, y), 32);
-      be.EmitMov(treg->Reg(2), be.Immed(BRIG_TYPE_U32, a), 32);
+      treg = be.AddTReg(CoordType(), 3);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), y), 32);
+      be.EmitMov(treg->Reg(2), be.Immed(CoordType(), a), 32);
       break;
     default:
       assert(0);
@@ -538,7 +540,8 @@ public:
     be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(image->Variable())); 
 
     // coordinates where to read from image
-    auto coord = be.AddInitialTReg(BRIG_TYPE_U32, 0);
+    auto coord = be.AddTReg(BRIG_TYPE_F32);
+    be.EmitMov(coord, be.Immed(0.0F));
     
     auto imageElement = be.AddTReg(BRIG_TYPE_F32, 4);
 
