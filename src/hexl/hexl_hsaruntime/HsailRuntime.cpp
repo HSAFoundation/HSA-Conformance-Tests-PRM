@@ -191,7 +191,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), program(program_) { }
       ~HsailProgram()
       {
+#ifndef _WIN32
         rt->ProgramDestroy(program);
+#endif // _WIN32
       }
 
       hsa_ext_program_t Program() { return program; }
@@ -279,7 +281,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), executable(executable_) { }
       ~HsailExecutable()
       {
+#ifndef _WIN32
         rt->ExecutableDestroy(executable);
+#endif // _WIN32
       }
 
       hsa_executable_t Executable() { return executable; }
@@ -327,7 +331,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), ptr(ptr_) { }
       ~HsailBuffer()
       {
+#ifndef _WIN32
         rt->BufferDestroy(ptr);
+#endif // _WIN32
       }
 
       void* Ptr() { return ptr; }
@@ -335,16 +341,20 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
     void BufferDestroy(void *ptr)
     {
+      hsa_status_t status = Runtime()->Hsa()->hsa_memory_deregister(ptr);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister failed", status); }
       alignedFree(ptr);
     }
 
     virtual bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId) override
     {
-      void *ptr = alignedMalloc(size, 32);
+      size = (std::max)(size, (size_t) 256);
+      void *ptr = alignedMalloc(size, 256);
       hsa_status_t status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); alignedFree(ptr); return 0; }
       if (!initValuesId.empty()) {
         Values* initValues = context->Get<Values>(initValuesId);
+        assert(initValues->size() <= size);
         WriteTo(ptr, *initValues);
       }
       Put(bufferId, new HsailBuffer(this, ptr));
@@ -384,7 +394,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), image(image_), data(data_) { }
       ~HsailImage()
       {
+#ifndef _WIN32
         rt->ImageDestroy(image, data);
+#endif // _WIN32
       }
 
       hsa_ext_image_t Image() { return image; }
@@ -393,7 +405,13 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
     void ImageDestroy(hsa_ext_image_t image, void *data)
     {
-      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_destroy(Runtime()->Agent(), image);
+      hsa_status_t status;
+      /*
+      status = Runtime()->Hsa()->hsa_memory_deregister(data);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister (image data) failed", status); }
+      */
+
+      status = Runtime()->Hsa()->hsa_ext_image_destroy(Runtime()->Agent(), image);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_destroy failed", status); }
       alignedFree(data);
     }
@@ -417,11 +435,18 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       hsa_ext_image_t image = {0};
       void *imageData = NULL;
-      imageData = alignedMalloc(image_info.size, image_info.alignment);
+      size_t size = (std::max)(image_info.size, (size_t) 256);
+      imageData = alignedMalloc(size, image_info.alignment);
       if (!initValuesId.empty()) {
         const Values* initValues = context->Get<Values>(initValuesId);
         WriteTo(imageData, *initValues);
       }
+
+      /*
+      status = Runtime()->Hsa()->hsa_memory_register(imageData, size);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register (image data) failed", status); alignedFree(imageData); return 0; }
+      */
+
 /*
   hsa_region_t region = Runtime()->GetRegion(ImageRegionMatcher(image_info));
   if (!region.handle) { Runtime()->HsaError("Failed to find image region"); return 0; }
@@ -453,7 +478,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), sampler(sampler_) { }
       ~HsailSampler()
       {
+#ifndef _WIN32
         rt->SamplerDestroy(sampler);
+#endif // _WIN32
       }
 
       hsa_ext_sampler_t Sampler() { return sampler; }
@@ -492,7 +519,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_) { }
 
       ~HsailDispatch() {
+#ifndef _WIN32
         rt->DispatchDestroy(this);
+#endif // _WIN32
       }
     };
 
@@ -670,7 +699,6 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         clock_t clocks = clock() - beg;
         if (clocks > (clock_t) d->timeout && result != 0) {
           context->Error() << "Kernel execution timed out, elapsed time: " << (long) clocks << " clocks (clocks per second " << (long) CLOCKS_PER_SEC << ")" << std::endl;
-          Runtime()->Hsa()->hsa_signal_destroy(d->packet->completion_signal);
           return false;
         }
       } while (result!= 0);
@@ -687,7 +715,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), signal(signal_) { }
       ~HsailSignal()
       {
+#ifndef _WIN32
         rt->SignalDestroy(signal);
+#endif // _WIN32
       }
 
       hsa_signal_t Signal() { return signal; }
@@ -748,7 +778,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         : rt(rt_), queue(queue_) { }
       ~HsailQueue()
       {
+#ifndef _WIN32
         rt->QueueDestroy(queue);
+#endif // _WIN32
       }
 
       hsa_queue_t* Queue() { return queue; }
