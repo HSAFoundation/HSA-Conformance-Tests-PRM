@@ -163,6 +163,10 @@ protected:
     }
   }
 
+  void Init() {
+    Test::Init();
+  }
+
   bool IsValid() const {
     if (!MemoryFenceTest::IsValid())
       return false;
@@ -208,6 +212,13 @@ protected:
     TypedReg offsetFlagReg = be.AddTReg(wiID->Type());
     be.EmitArith(BRIG_OPCODE_SHL, offsetFlagReg, wiID, be.Immed(BRIG_TYPE_U32, powFlag));
 
+    TypedReg wiID_ld = be.AddTReg(wiID->Type());
+    TypedReg offsetReg_ld = be.AddTReg(wiID->Type());
+    TypedReg offsetFlagReg_ld = be.AddTReg(wiID->Type());
+    be.EmitArith(BRIG_OPCODE_SUB, wiID_ld, be.Immed(wiID->Type(), geometry->GridSize()-1), wiID->Reg());
+    be.EmitArith(BRIG_OPCODE_SHL, offsetReg_ld, wiID_ld, be.Immed(BRIG_TYPE_U32, pow));
+    be.EmitArith(BRIG_OPCODE_SHL, offsetFlagReg_ld, wiID_ld, be.Immed(BRIG_TYPE_U32, powFlag));
+
     TypedReg idReg = be.AddTReg(type);
     be.EmitCvtOrMov(idReg, wiID);
 
@@ -220,16 +231,14 @@ protected:
 
     be.EmitLabel(s_label_skip_store);
     TypedReg flagReg2 = be.AddTReg(be.PointerType());
-    be.EmitAtomic(flagReg2, be.Address(globalFlag, offsetFlagReg->Reg(), 0), NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
+    be.EmitAtomic(flagReg2, be.Address(globalFlag, offsetFlagReg_ld->Reg(), 0), NULL, NULL, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
     TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-    be.EmitCmp(cReg->Reg(), flagReg2, wiID->Reg(), BRIG_COMPARE_NE);
+    be.EmitCmp(cReg->Reg(), flagReg2, wiID_ld->Reg(), BRIG_COMPARE_NE);
     be.EmitCbr(cReg, s_label_skip_store);
     be.EmitMemfence(memoryOrder2, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
 //    be.EmitMemfence(memoryOrder2, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
 
-    be.EmitArith(BRIG_OPCODE_SUB, wiID, be.Immed(wiID->Type(), geometry->GridSize()-1), wiID->Reg());
-    be.EmitArith(BRIG_OPCODE_SHL, offsetReg, wiID, be.Immed(BRIG_TYPE_U32, pow));
-    EmitVectorInstrToTest(BRIG_OPCODE_LD, type, result, globalVar, offsetReg);
+    EmitVectorInstrToTest(BRIG_OPCODE_LD, type, result, globalVar, offsetReg_ld);
     return result;
   }
 };
