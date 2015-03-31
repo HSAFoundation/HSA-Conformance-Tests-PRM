@@ -185,7 +185,7 @@ public:
       LimitDepth() == 0 ? 0 : LimitDepth() - 1,
       LimitArraySize() == 0 ? 0 : LimitArraySize() - 1);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
+    auto imageElementList = imageElement->CreateOperandList(be.Brigantine());
 
     auto imageAddr = be.AddTReg(image->Type());
     be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(image->Variable())); 
@@ -238,8 +238,9 @@ public:
     // do nothing
   }
 
-  void SetupDispatch(DispatchSetup* setup) override {
-    ImageLimitTest::SetupDispatch(setup);
+  void SetupDispatch(const std::string& dispatchId) override {
+    ImageLimitTest::SetupDispatch(dispatchId);
+    /*
     unsigned count = setup->MSetup().Count();
     // allocate memory for buffer with image handles
     uint32_t sizes[] = {(uint32_t)images.size(), 1, 1};
@@ -251,6 +252,7 @@ public:
 
     // allocate memory for all images
     for (uint32_t i = 0; i < images.size(); ++i) {
+
       auto image = images[i];
       auto mimage = new MImage(count++, image->Id(), image->Segment(), image->Geometry(), 
                                image->ChannelOrder(), image->ChannelType(), image->Type(), 
@@ -261,6 +263,7 @@ public:
       mimage->VType() = value.Type();
       buffer->Data().push_back(Value(MV_IMAGEREF, mimage->Id()));
     }
+      */
   }
 };
 
@@ -306,7 +309,7 @@ public:
     auto imageAddr = be.AddTReg(images[0]->Type());
     auto coord = CreateCoordList(0, 0, 0, 0);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
+    auto imageElementList = imageElement->CreateOperandList(be.Brigantine());
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
 
@@ -406,7 +409,7 @@ public:
     auto imageAddr = be.AddTReg(images[0]->Type());
     auto coord = CreateCoordList(0, 0, 0, 0);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
+    auto imageElementList = imageElement->CreateOperandList(be.Brigantine());
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
 
@@ -539,7 +542,7 @@ public:
     auto imageCoordinateList = be.Brigantine().createOperandList(ilist);
     
     auto imageElement = be.AddTReg(BRIG_TYPE_F32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
+    auto imageElementList = imageElement->CreateOperandList(be.Brigantine());
 
     auto samplerAddr = be.AddTReg(samplers[0]->Type());
     auto query = be.AddTReg(BRIG_TYPE_U32);

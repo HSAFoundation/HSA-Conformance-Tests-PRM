@@ -17,19 +17,20 @@
 #ifndef HEXL_HSAIL_RUNTIME_HPP
 #define HEXL_HSAIL_RUNTIME_HPP
 
-#include "RuntimeContext.hpp"
+#include "RuntimeCommon.hpp"
 #include "Options.hpp"
 #include "DllApi.hpp"
 #include "hsa.h"
 #include "hsa_ext_finalize.h"
 #include "hsa_ext_image.h"
+#include "hsail_c.h"
 #include <functional>
 
 namespace hexl {
 
 class EnvContext;
 
-RuntimeContext* CreateHsailRuntimeContext(Context* context);
+runtime::RuntimeContext* CreateHsailRuntimeContext(Context* context);
 
 namespace hsail_runtime {
 
@@ -146,7 +147,7 @@ class HsailRuntimeContext;
 
 typedef std::function<bool(HsailRuntimeContext*, hsa_region_t)> RegionMatch;
 
-class HsailRuntimeContext : public RuntimeContext {
+class HsailRuntimeContext : public runtime::RuntimeContext {
 private:
   HsaApi hsaApi;
   hsa_agent_t agent;
@@ -174,7 +175,7 @@ public:
   }
 
   const Options* Opts() const { return context->Opts(); }
-  virtual RuntimeContextState* NewState(Context* context);
+  virtual runtime::RuntimeState* NewState(Context* context);
 
   void SetError() { error = true; }
   void ClearError() { error = false; }
@@ -212,10 +213,11 @@ public:
   bool IsDetectSupported() override { return isDetectSupported; }
 };
 
-HsailRuntimeContext* HsailRuntimeFromContext(RuntimeContext* runtime);
-const HsaApi& HsaApiFromContext(RuntimeContext* runtime);
+HsailRuntimeContext* HsailRuntimeFromContext(runtime::RuntimeContext* runtime);
+const HsaApi& HsaApiFromContext(runtime::RuntimeContext* runtime);
 
 }
+
 };
 
 #endif // HEXL_HSAIL_RUNTIME_HPP

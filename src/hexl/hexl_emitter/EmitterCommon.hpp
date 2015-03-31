@@ -42,6 +42,27 @@ namespace hexl {
       LOCATION_END,
     };
 
+    enum AnnotationLocation {
+      ANNOTATION_LOCATION_BEGIN = 0,
+      BEFORE_VERSION = ANNOTATION_LOCATION_BEGIN,
+      AFTER_VERSION,
+      END_MODULE,
+      BEFORE_MODULE_VARIABLE,
+      AFTER_MODULE_VARIABLE,
+      START_KERNEL,
+      END_KERNEL,
+      MIDDLE_KERNEL,
+      START_FUNCTION,
+      END_FUNCTION,
+      MIDDLE_FUNCTION,
+      START_ARG_BLOCK,
+      END_ARG_BLOCK,
+      MIDDLE_ARG_BLOCK,
+      ANNOTATION_LOCATION_END
+    };
+
+    std::string AnnotationLocationString(AnnotationLocation location);
+
     enum UserModeQueueType {
       SOURCE_START = 0,
       SEPARATE_QUEUE = SOURCE_START, // Queue created on the host separate from dispatch.
@@ -84,6 +105,7 @@ namespace hexl {
     class ESignal;
     class EKernel;
     class EFunction;
+    class EDispatch;
     class ECondition;
     class EImageSpec;
     class EImage;
@@ -105,12 +127,13 @@ namespace hexl {
     typedef ESignal* Signal;
     typedef EKernel* Kernel;
     typedef EFunction* Function;
+    typedef EDispatch* Dispatch;
     typedef ECondition* Condition;
     typedef EImageSpec* ImageSpec;
     typedef EImage* Image;
     typedef ESamplerSpec* SamplerSpec;
     typedef ESampler* Sampler;
-	typedef EImageCalc* ImageCalc;
+    typedef EImageCalc* ImageCalc;
   }
 }
 

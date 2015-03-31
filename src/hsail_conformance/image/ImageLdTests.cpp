@@ -85,9 +85,9 @@ public:
   BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   void ExpectedResults(Values* result) const {
-    for (unsigned i = 0; i < 4; i ++)
+    for (unsigned i = 0; i < 4 * imageGeometry.ImageSize(); i ++)
     {
-      Value res = Value(MV_UINT32, color[i].U32());
+      Value res = Value(MV_UINT32, color[i % 4].U32());
       result->push_back(res);
     }
   }

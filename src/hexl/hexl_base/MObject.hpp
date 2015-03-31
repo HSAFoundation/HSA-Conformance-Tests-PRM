@@ -17,6 +17,12 @@
 #ifndef MOBJECT_HPP
 #define MOBJECT_HPP
 
+#ifdef _WIN32
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
 //#include "HSAILTestGenEmulatorTypes.h" // for f16_t & related
 
 #include <stdint.h>
@@ -699,8 +705,7 @@ typedef std::vector<Value> Values;
 
 class ResourceManager;
 class TestFactory;
-class RuntimeContext;
-class RuntimeContextState;
+namespace runtime { class RuntimeContext; class RuntimeState; }
 class Options;
 class AllStats;
 
@@ -739,85 +744,6 @@ public:
   }
 };
 
-class Context {
-private:
-  std::map<std::string, Value> vmap;
-  Context* parent;
-
-  void *GetPointer(const std::string& key);
-  const void *GetPointer(const std::string& key) const;
-  void *RemovePointer(const std::string& key);
-
-public:
-  Context(Context* parent_ = 0) : parent(parent_) { }
-  ~Context() { Clear(); }
-
-  bool IsLarge() const { return sizeof(void *) == 8; }
-  bool IsSmall() const { return sizeof(void *) == 4; }
-
-  void Print(std::ostream& out) const;
-
-  void SetParent(Context* parent) { this->parent = parent; }
-
-  void Clear();
-  bool Contains(const std::string& key) const;
-
-  bool Has(const std::string& key) const;
-
-  void PutPointer(const std::string& key, void *value);
-  void PutValue(const std::string& key, Value value);
-  void PutString(const std::string& key, const std::string& value);
-
-  template<class T>
-  void Put(const std::string& key, T* value) { PutPointer(key, value); }
-
-  void Put(const std::string& key, Value value) { PutValue(key, value); }
-
-  void Put(const std::string& key, const std::string& value) { PutString(key, value); }
-
-  template<class T>
-  T Get(const std::string& key) { return static_cast<T>(GetPointer(key)); }
-
-  Value RemoveValue(const std::string& key);
-
-  template<class T>
-  T Remove(const std::string& key) { return static_cast<T>(RemovePointer(key)); }
-
-  template<class T>
-  void RemoveAndDelete(const std::string& key) { T res = Remove<T>(key); delete res; }
-
-  template<class T>
-  const T* GetConst(const std::string& key) const { return static_cast<const T*>(GetPointer(key)); }
-
-  Value GetValue(const std::string& key);
-  std::string GetString(const std::string& key);
-
-  // Helper methods. Include HexlTest.hpp to use them.
-  ResourceManager* RM() { return Get<ResourceManager*>("hexl.rm"); }
-  TestFactory* Factory() { return Get<TestFactory*>("hexl.testFactory"); }
-  RuntimeContextState* State() { return Get<RuntimeContextState*>("hexl.runtimestate"); }
-  RuntimeContext* Runtime() { return Get<RuntimeContext*>("hexl.runtime"); }
-  const Options* Opts() const { return GetConst<Options>("hexl.options"); }
-
-  // Logging helpers.
-  std::ostream& Debug() { return *Get<std::ostream*>("hexl.log.stream.debug"); }
-  std::ostream& Info() { return *Get<std::ostream*>("hexl.log.stream.info"); }
-  std::ostream& Error() { return *Get<std::ostream*>("hexl.log.stream.error"); }
-  void Error(const char *format, ...);
-  void vError(const char *format, va_list ap);
-  AllStats& Stats() { return *Get<AllStats*>("hexl.stats"); }
-
-  // Dumping helpers.
-  bool IsVerbose(const std::string& what) const;
-  bool IsDumpEnabled(const std::string& what, bool enableWithPlainDumpOption = true) const;
-  void SetOutputPath(const std::string& path) { Put("hexl.outputPath", path); }
-  std::string GetOutputName(const std::string& name, const std::string& what);
-  bool DumpTextIfEnabled(const std::string& name, const std::string& what, const std::string& text);
-  bool DumpBinaryIfEnabled(const std::string& name, const std::string& what, const void *buffer, size_t bufferSize);
-  void DumpBrigIfEnabled(const std::string& name, void* brig);
-  void DumpDispatchsetupIfEnabled(const std::string& name, const void* dsetup);
-};
-
 void WriteTo(void *dest, const Values& values);
 void ReadFrom(void *dest, ValueType type, size_t count, Values& values);
 void SerializeValues(std::ostream& out, const Values& values);
@@ -837,7 +763,7 @@ public:
   virtual void PrintWithBuffer(std::ostream& out) const;
   unsigned Dim() const { return dim; }
   size_t Count() const { return size[0] * size[1] * size[2]; }
-  size_t Size(Context* context) const;
+//  size_t Size(Context* context) const;
   Value GetRaw(size_t i) { return data[i]; }
 
   Values& Data() { return data; }
@@ -922,6 +848,8 @@ private:
 };
 
 std::ostream& operator<<(std::ostream& out, const Comparison& comparison);
+
+Comparison* NewComparison(const std::string& comparison, ValueType type);
 
 class MRBuffer : public MObject {
 public:
@@ -1129,81 +1057,6 @@ public:
 
 typedef std::vector<MObject*> MemState;
 
-class DispatchSetup {
-public:
-  DispatchSetup()
-    : dimensions(0) {
-    for (unsigned i = 0; i < 3; ++i) {
-      gridSize[i] = 0;
-      workgroupSize[i] = 0;
-      globalOffset[i] = 0;
-    }
-  }
-
-  void Print(std::ostream& out) const;
-  void PrintWithBuffers(std::ostream& out) const;
-      
-  void SetDimensions(uint32_t dimensions) { this->dimensions = dimensions; }
-  uint32_t Dimensions() const { return dimensions; }
-
-  void SetGridSize(const uint32_t* size) {
-    gridSize[0] = size[0];
-    gridSize[1] = size[1];
-    gridSize[2] = size[2];
-  }
-
-  void SetGridSize(uint32_t x, uint32_t y = 1, uint32_t z = 1) {
-    gridSize[0] = x;
-    gridSize[1] = y;
-    gridSize[2] = z;
-  }
-
-  uint32_t GridSize(unsigned dim) const { assert(dim < 3); return gridSize[dim]; }
-  const uint32_t* GridSize() const { return gridSize; }
-
-  void SetWorkgroupSize(const uint16_t* size) {
-    workgroupSize[0] = size[0];
-    workgroupSize[1] = size[1];
-    workgroupSize[2] = size[2];
-  }
-  void SetWorkgroupSize(uint16_t x, uint16_t y = 1, uint16_t z = 1) {
-    workgroupSize[0] = x;
-    workgroupSize[1] = y;
-    workgroupSize[2] = z;
-  }
-  uint16_t WorkgroupSize(unsigned dim) const { assert(dim < 3); return workgroupSize[dim]; }
-  const uint16_t* WorkgroupSize() const { return workgroupSize; }
-
-  void SetGlobalOffset(const uint64_t* size) {
-    globalOffset[0] = size[0];
-    globalOffset[1] = size[1];
-    globalOffset[2] = size[2];
-  }
-  void SetGlobalOffset(uint64_t x, uint64_t y = 0, uint64_t z = 0) {
-    globalOffset[0] = x;
-    globalOffset[1] = y;
-    globalOffset[2] = z;
-  }
-
-  uint64_t GlobalOffset(unsigned dim) const { assert(dim < 3); return globalOffset[dim]; }
-  const uint64_t* GlobalOffset() const { return globalOffset; }
-
-  const MemorySetup& MSetup() const { return msetup; }
-  MemorySetup& MSetup() { return msetup; }
-
-  void Serialize(std::ostream& out) const;
-  void Deserialize(std::istream& in);
-
-private:
-  uint32_t dimensions;
-  uint32_t gridSize[3];
-  uint16_t workgroupSize[3];
-  uint64_t globalOffset[3];
-  MemorySetup msetup;
-
-  void PrintImpl(std::ostream& out, bool withBuffers) const;
-};
-
 // Serialization helpers
 template <typename T>
 class Serializer;
@@ -1308,7 +1161,6 @@ struct Serializer<MObject*> {
 };
 
 MEMBER_SERIALIZER(MemorySetup);
-MEMBER_SERIALIZER(DispatchSetup);
 MEMBER_SERIALIZER(Value);
 
 }

@@ -35,6 +35,9 @@ public:
 };
 
 class TestRunnerBase : public TestRunner {
+private:
+  clock_t t_begin, t_end;
+
 protected:
   Context* context;
   Context* testContext;
@@ -53,13 +56,13 @@ protected:
 public:
   TestRunnerBase(Context* context_);
   virtual void RunTest(const std::string& path, Test* test);
+  virtual void RunTestSpec(const std::string& path, TestSpec* spec);
   virtual bool RunTests(TestSet& tests);
 };
 
 class SimpleTestRunner : public TestRunnerBase {
 protected:
   virtual bool AfterTestSet(TestSet& testSet);
-  virtual void BeforeTest(const std::string& path, Test* test);
   virtual void AfterTest(const std::string& path, Test* test, const TestResult& result);
 
 public:

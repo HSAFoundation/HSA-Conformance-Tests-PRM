@@ -21,21 +21,23 @@ namespace hexl {
 
 Test* DefaultTestFactory::CreateTest(const std::string& type, const std::string& name, const Options& options)
 {
+  /*
   if (type == "finalize") {
     std::string hsail = options.GetString("hsail", name + ".hsail");
     return new FinalizeHsailResourceTest(hsail);
-  } else {
+  } else */ {
     return 0;
   }
 }
 
 Test* DefaultTestFactory::CreateTestDeserialize(const std::string& type, std::istream& in)
 {
+  /*
   if (type == "finalize") {
     return new FinalizeHsailResourceTest(in);
   } else if (type == "validate_brig_container") {
     return new ValidateBrigContainerTest(in);
-  } else {
+  } else */ {
     return 0;
   }
 }

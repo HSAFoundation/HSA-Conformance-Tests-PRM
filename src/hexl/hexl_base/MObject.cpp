@@ -21,6 +21,7 @@
 #include <sstream>
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 
 #ifdef _WIN32
 #define isnan _isnan
@@ -580,7 +581,10 @@ void Value::Print(std::ostream& out) const
     out << "(" << U32X2(0) << ", " << U32X2(1) << ")";
     break;
   case MV_FLOATX2:
-    out << "(" << PrintFloat(FX2(0), U32X2(0), out, printExtraHex) << ", " << PrintFloat(FX2(1), U32X2(1), out, printExtraHex) << ")";
+    out << "(";  PrintFloat(FX2(0), U32X2(0), out, printExtraHex);
+    out << ", ";
+    PrintFloat(FX2(1), U32X2(1), out, printExtraHex);
+    out << ")";
     break;
   case MV_REF:
   case MV_IMAGEREF:
@@ -765,6 +769,8 @@ size_t MBuffer::GetDim(size_t pos, unsigned d) const
   }
 }
 
+/*
+
 void Context::Print(std::ostream& out) const
 {
   for (std::map<std::string, Value>::const_iterator i = vmap.begin(); i != vmap.end(); ++i) {
@@ -807,6 +813,12 @@ std::string Context::GetString(const std::string& key)
   return v.Str();
 }
 
+uint64_t Context::GetHandle(const std::string& key)
+{
+  Value v = GetValue(key);
+  assert(v.Type() == MV_UINT64);
+  return v.U64();
+}
 
 const void *Context::GetPointer(const std::string& key) const
 {
@@ -889,6 +901,7 @@ size_t MBuffer::Size(Context* context) const
     return Count() * ValueTypeSize(vtype);
   }
 }
+*/
 
 std::string MBuffer::GetPosStr(size_t pos) const
 {
@@ -1238,7 +1251,7 @@ bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, cons
   }
   case CM_ULPS: {
     error = Value(MV_UINT16, U16((std::max)(v1.U16(), v2.U16()) - (std::min)(v1.U16(), v2.U16())));
-    return error.U16() <= precision.U64();
+    return error.U16() <= precision.U16();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
@@ -1561,6 +1574,37 @@ std::ostream& operator<<(std::ostream& out, const Comparison& comparison)
   return out;
 }
 
+unsigned str2u(const std::string& s)
+{
+  std::istringstream ss(s);
+  unsigned n;
+  ss >> n;
+  return n;
+}
+
+Comparison* NewComparison(const std::string& c, ValueType type)
+{
+  std::string comparison(c);
+  if (comparison.empty()) { comparison = "0ulp"; }
+  if (comparison.length() >= 4 && (comparison.compare(comparison.length() - 3, 3, "ulp") == 0)) {
+    unsigned ulps = str2u(comparison.substr(0, comparison.length() - 3));
+    switch (type) {
+    case MV_FLOAT16:
+    case MV_PLAIN_FLOAT16:
+      return new Comparison(CM_ULPS, Value(MV_UINT16, U16(ulps)));
+    case MV_FLOAT:
+      return new Comparison(CM_ULPS, Value(MV_UINT32, U32(ulps)));
+    case MV_DOUBLE:
+      return new Comparison(CM_ULPS, Value(MV_UINT64, U64(ulps)));
+    default:
+      return new Comparison(CM_DECIMAL, Value(MV_UINT64, U32(0)));
+    }
+  } else {
+    assert(false);
+    return 0;
+  }
+}
+
 void MemorySetup::Print(std::ostream& out) const
 {
   for (const std::unique_ptr<MObject>& mo : mos) {
@@ -1593,57 +1637,6 @@ void MemorySetup::Deserialize(std::istream& in) {
     Serializer<MObject*>::Read(in, mo);
     mos[i].reset(mo);
   }
-}
-
-void DispatchSetup::Print(std::ostream& out) const {
-  PrintImpl(out, false);
-}
-
-void DispatchSetup::PrintWithBuffers(std::ostream& out) const {
-  PrintImpl(out, true);
-}
-
-void DispatchSetup::PrintImpl(std::ostream& out, const bool withBuffers) const
-{
-  {
-    out << "Dispatch setup:" << std::endl;
-    IndentStream indent(out);
-    out << "Dimensions: " << dimensions << std::endl
-        << "Grid:       " << "(" << gridSize[0] << ", " << gridSize[1] << ", " << gridSize[2] << ")" << std::endl
-        << "Workgroup:  " << "(" << workgroupSize[0] << ", " << workgroupSize[1] << ", " << workgroupSize[2] << ")" << std::endl
-        << "Offsets:    " << "(" << globalOffset[0] << ", " << globalOffset[1] << ", " << globalOffset[2] << ")" << std::endl;
-  }
-  {
-    out << "Memory setup:" << std::endl;
-    IndentStream indent(out);
-    if (withBuffers) {
-      msetup.PrintWithBuffers(out);
-    } else {
-      msetup.Print(out);
-    }
-  }
-}
-
-void DispatchSetup::Serialize(std::ostream& out) const
-{
-  WriteData(out, dimensions);
-  for (unsigned i = 0; i < 3; ++i) {
-    WriteData(out, gridSize[i]);
-    WriteData(out, workgroupSize[i]);
-    WriteData(out, globalOffset[i]);
-  }
-  WriteData(out, msetup);
-}
-
-void DispatchSetup::Deserialize(std::istream& in)
-{
-  ReadData(in, dimensions);
-  for (unsigned i = 0; i < 3; ++i) {
-    ReadData(in, gridSize[i]);
-    ReadData(in, workgroupSize[i]);
-    ReadData(in, globalOffset[i]);
-  }
-  ReadData(in, msetup);
 }
 
 }
@@ -1846,5 +1839,6 @@ f32_t f16_t::f32() const
 
     return asFloating(outbits);
 }
+
 
 } // namespace

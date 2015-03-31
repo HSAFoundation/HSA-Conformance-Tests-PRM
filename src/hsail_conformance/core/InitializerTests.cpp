@@ -215,7 +215,7 @@ private:
   void PushInitial() {
     auto val = generator.Generate(ValueType());
     data.push_back(val);
-    Var()->PushBack(val);
+    Var()->AddData(val);
   }
 
 protected:
@@ -489,9 +489,9 @@ public:
     InitVar();
     for (uint32_t i = 0; i < DataSize(); ++i) {
       if (signalType == BRIG_TYPE_SIG64) {
-        Var()->PushBack(Value(MV_UINT64, 0));
+        Var()->AddData(Value(MV_UINT64, 0));
       } else {
-        Var()->PushBack(Value(MV_UINT32, 0));
+        Var()->AddData(Value(MV_UINT32, 0));
       }
     }
   }

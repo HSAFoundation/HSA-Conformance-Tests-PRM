@@ -18,6 +18,7 @@
 #define CORE_CONFIG_HPP
 
 #include "Brig.h"
+#include "HexlContext.hpp"
 #include "Arena.hpp"
 #include "MObject.hpp"
 #include "Sequence.hpp"
@@ -39,7 +40,7 @@ namespace hexl {
 
     class CoreConfig {
     private:
-      Arena* ap;
+      std::unique_ptr<Arena> ap;
       BrigVersion32_t majorVersion;
       BrigVersion32_t minorVersion;
       BrigMachineModel8_t model;
@@ -53,7 +54,7 @@ namespace hexl {
     public:
       static const char *CONTEXT_KEY;
 
-      static CoreConfig* Get(hexl::Context *context) { return context->Get<CoreConfig*>(CONTEXT_KEY); }
+      static CoreConfig* Get(hexl::Context *context) { return context->Get<CoreConfig>(CONTEXT_KEY); }
 
       CoreConfig(BrigVersion32_t majorVersion_ = BRIG_VERSION_HSAIL_MAJOR,
                  BrigVersion32_t minorVersion_ = BRIG_VERSION_HSAIL_MINOR,
@@ -62,7 +63,7 @@ namespace hexl {
 
       void Init(hexl::Context *context);
 
-      Arena* Ap() { return ap; }
+      Arena* Ap() { return ap.get(); }
       BrigVersion32_t MajorVersion() const { return majorVersion; }
       BrigVersion32_t MinorVersion() const { return minorVersion; }
       BrigMachineModel8_t Model() const { return model; }
@@ -92,7 +93,7 @@ namespace hexl {
 
       class GridsConfig : public ConfigBase {
       private:
-        hexl::VectorSequence<uint32_t> dimensions;
+        hexl::VectorSequence<uint32_t> *dimensions;
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
@@ -101,7 +102,7 @@ namespace hexl {
       public:
         GridsConfig(CoreConfig* cc);
 
-        hexl::Sequence<uint32_t>* Dimensions() { return &dimensions; }
+        hexl::Sequence<uint32_t>* Dimensions() { return dimensions; }
 
         hexl::Grid DefaultGeometry() { return &defaultGeometry; }
         hexl::Grid TrivialGeometry() { return &trivialGeometry; }
@@ -179,7 +180,8 @@ namespace hexl {
         hexl::Sequence<uint64_t> *dim0, *dims, *initializerDims;
         hexl::Sequence<Location> *autoLocation, *initializerLocations;
         hexl::Sequence<BrigLinkage> *moduleScopeLinkage;
-        hexl::VectorSequence<BrigAlignment> allAlignment;
+        hexl::VectorSequence<BrigAlignment>* allAlignment;
+        hexl::EnumSequence<AnnotationLocation>* annotationLocations;
 
       public:
         VariablesConfig(CoreConfig* cc);
@@ -195,9 +197,11 @@ namespace hexl {
         hexl::Sequence<Location>* AutoLocation() { return autoLocation; }
         hexl::Sequence<Location>* InitializerLocations() { return initializerLocations; }
 
-        hexl::Sequence<BrigAlignment>* AllAlignment() { return &allAlignment; }
+        hexl::Sequence<BrigAlignment>* AllAlignment() { return allAlignment; }
         
         hexl::Sequence<BrigLinkage>* ModuleScopeLinkage() { return moduleScopeLinkage; }
+
+        hexl::Sequence<AnnotationLocation>* AnnotationLocations() { return annotationLocations; }
       };
 
       class QueuesConfig : public ConfigBase {
@@ -399,6 +403,9 @@ namespace hexl {
     };
 
   }
+
+  template <>
+  inline void Print(const emitter::CoreConfig& cc, std::ostream& out) { /* cc.Print(out); */ }
 }
 
 #endif // CORE_CONFIG_HPP

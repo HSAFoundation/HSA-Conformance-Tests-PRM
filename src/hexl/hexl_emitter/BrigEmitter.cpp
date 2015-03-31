@@ -147,14 +147,14 @@ TypedReg BrigEmitter::AddTReg(BrigType16_t type, unsigned count)
   assert(count <= 16);
   TypedReg regs = new(ap) ETypedReg(type);
   for (unsigned i = 0; i < count; ++i) {
-    regs->Regs().push_back(AddReg(type));
+    regs->Add(AddReg(type));
   }
   return regs;
 }
 
 TypedRegList BrigEmitter::AddTRegList()
 {
-  return new(ap) ETypedRegList();
+  return new(ap) ETypedRegList(ap);
 }
 
 std::string BrigEmitter::GenVariableName(BrigSegment segment, bool output)
@@ -1379,7 +1379,7 @@ void BrigEmitter::EmitActiveLaneMask(TypedReg dest, Operand src)
 {
   InstLane inst = brigantine.addInst<InstLane>(BRIG_OPCODE_ACTIVELANEMASK, dest->Type());
   inst.sourceType() = BRIG_TYPE_B1;
-  inst.operands() = Operands(brigantine.createOperandList(dest->Regs()), src);
+  inst.operands() = Operands(dest->CreateOperandList(Brigantine()), src);
   inst.width() = BRIG_WIDTH_1;
 }
 

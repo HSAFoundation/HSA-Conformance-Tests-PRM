@@ -28,9 +28,9 @@
 
 namespace hexl {
 
-RuntimeContext* CreateRuntimeContext(Context* context) {
+runtime::RuntimeContext* CreateRuntimeContext(Context* context) {
   const Options* options = context->Opts();
-  RuntimeContext* runtime;
+  runtime::RuntimeContext* runtime;
   std::string rt = options->GetString("rt", "hsa");
 #ifdef ENABLE_HEXL_HSARUNTIMEOLD
   if (rt == "hsaold") {
@@ -47,6 +47,9 @@ RuntimeContext* CreateRuntimeContext(Context* context) {
     runtime = CreateOrcaRuntimeContext(context);
   } else
 #endif // ENABLE_HEXL_ORCA
+  if (rt == "none") {
+    runtime = CreateNoneRuntime(context);
+  } else
   {
     context->Error() << "Unsupported runtime: " << rt << std::endl;
     return 0;

@@ -18,6 +18,7 @@
 #define HC_ARENA_HPP
 
 #include <cstddef>
+#include <memory>
 
 namespace hexl {
 
@@ -42,6 +43,27 @@ private:
   void Grow(size_t size);
   void EnsureSpace(size_t size);
 };
+
+template <typename Tp>
+struct ArenaAllocator : public std::allocator<Tp> {
+  Arena* ap;
+  typedef Tp value_type;
+  ArenaAllocator(Arena* ap_ = 0)
+    : ap(ap_) { }
+  template <typename T> ArenaAllocator(const ArenaAllocator<T>& other)
+    : ap(other.ap) { }
+
+  template <typename U> struct rebind { typedef ArenaAllocator<U> other; };
+
+  Tp* allocate(std::size_t n) { return (Tp*) ap->Malloc(n * sizeof(Tp)); }
+  void deallocate(Tp* p, std::size_t n) { }
+};
+
+template <class T, class U>
+bool operator==(const ArenaAllocator<T>& a1, const ArenaAllocator<U>& a2) { return a1.ap == a2.ap; }
+
+template <class T, class U>
+bool operator!=(const ArenaAllocator<T>& a1, const ArenaAllocator<U>& a2) { return a1.ap == a2.ap; }
 
 #define ARENAMEM                                                            \
 public:                                                                     \

@@ -54,12 +54,15 @@ public:
   virtual void Name(std::ostream& out) const { out << path << "/" << prefix; }
   virtual void Description(std::ostream& out) const { out << path << "/" << prefix; }
   virtual void Iterate(TestSpecIterator& it);
-  virtual TestSet* Filter(TestNameFilter* filter) { return new FilteredTestSet(this, filter); }
+  virtual TestSet* Filter(TestNameFilter* filter);
   virtual TestSet* Filter(ExcludeListFilter* filter) { return new FilteredTestSet(this, filter); }
 
 };
 
 }
+
+  template <>
+  inline void Print(const TestGen::TestGenConfig& o, std::ostream& out) { }
 
 }
 

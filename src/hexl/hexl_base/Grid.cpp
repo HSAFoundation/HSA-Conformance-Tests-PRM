@@ -15,6 +15,7 @@
 */
 
 #include "Grid.hpp"
+#include "HexlContext.hpp"
 
 namespace hexl {
 

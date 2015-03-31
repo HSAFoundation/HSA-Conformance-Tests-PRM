@@ -26,6 +26,7 @@
 
 namespace hexl {
 
+/*
 void FinalizeProgramTest::Run()
 {
   assert(!state && context && context->Runtime());
@@ -195,5 +196,6 @@ void ValidateBrigContainerTest::DeserializeData(std::istream& in)
   ReadData(in, *dsetup);
   ReadData(in, brig);
 }
+*/
 
 }
