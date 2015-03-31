@@ -1013,10 +1013,11 @@ EImageSpec::EImageSpec(
   size_t width_,
   size_t height_,
   size_t depth_,
-  size_t arraySize_
+  size_t arraySize_,
+  bool bLimitTest_
   )
   : EVariableSpec(brigseg_, imageType_, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_),
-    ImageParams(imageType_, geometry_, channelOrder_, channelType_, width_, height_, depth_, arraySize_) {
+    ImageParams(imageType_, geometry_, channelOrder_, channelType_, width_, height_, depth_, arraySize_, bLimitTest_) {
   // Init rowPitch and slicePitch Params (depend of chanel_order and channel_type)
   //rowPitch = 
   //slicePitch = 
@@ -1049,7 +1050,7 @@ bool EImageSpec::IsValid() const
 }
 
 EImage::EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec)
-  : EImageSpec(*spec), id(id_, te_->Ap()), data(new Values()), bLimitTestOn(false), calculator(NULL)
+  : EImageSpec(*spec), id(id_, te_->Ap()), data(new Values())
 {
   te = te_;
 }
@@ -1334,66 +1335,27 @@ void EImage::SetupDispatch(const std::string& dispatchId)
   }
 }
 
-void EImage::EmitImageRd(OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, TypedReg coord)
+void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(sampler->Reg());
-  OptList.push_back(coord->Reg());
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(sampler->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
-  } else {
-    OptList.push_back(coord);
-  }
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
   inst.type() = dest->Type();
   ItemList OptList;
-  OptList.push_back(dest->Reg());
+  if (dest->Count() == 1) {
+    OptList.push_back(dest->Reg(0));
+  } else {
+    OptList.push_back(dest->CreateOperandList(te->Brig()->Brigantine()));
+  }
   OptList.push_back(image->Reg());
   OptList.push_back(sampler->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
+    OptList.push_back(image->Reg());
+  if (coord->Count() == 1) {
+    OptList.push_back(coord->Reg(0));
   } else {
-    OptList.push_back(coord);
+    OptList.push_back(coord->CreateOperandList(te->Brig()->Brigantine()));
   }
   inst.operands() = OptList;
 }
@@ -1411,124 +1373,48 @@ void  EImage::EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageLd(OperandOperandList dest, BrigType destType, TypedReg image, TypedReg coord)
+void EImage::EmitImageLd(TypedReg dest, TypedReg image, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(coord->Reg());
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageLd(TypedReg dest, TypedReg image, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
   inst.type() = dest->Type();
   ItemList OptList;
-  OptList.push_back(dest->Reg());
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
+  if (dest->Count() == 1) {
+    OptList.push_back(dest->Reg(0));
   } else {
-    OptList.push_back(coord);
+    OptList.push_back(dest->CreateOperandList(te->Brig()->Brigantine()));
+  }
+  OptList.push_back(image->Reg());
+  if (coord->Count() == 1) {
+    OptList.push_back(coord->Reg(0));
+  } else {
+    OptList.push_back(coord->CreateOperandList(te->Brig()->Brigantine()));
   }
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
-  } else {
-    OptList.push_back(coord);
-  }
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageSt(OperandOperandList src, BrigType srcType, TypedReg image, TypedReg coord)
+void EImage::EmitImageSt(TypedReg src, TypedReg image, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
-  inst.type() = srcType;
-  ItemList OptList;
-  if (src.elementCount() == 1) {
-    OptList.push_back(src.elements(0));
-  } else {
-    OptList.push_back(src);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(coord->Reg());
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = srcType;
-  ItemList OptList;
-  if (src.elementCount() == 1) {
-    OptList.push_back(src.elements(0));
-  } else {
-    OptList.push_back(src);
-  }
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
-  } else {
-    OptList.push_back(coord);
-  }
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
   inst.type() = src->Type();
   ItemList OptList;
-  OptList.push_back(src->Reg());
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
+  if (src->Count() == 1) {
+    OptList.push_back(src->Reg(0));
   } else {
-    OptList.push_back(coord);
+    OptList.push_back(src->CreateOperandList(te->Brig()->Brigantine()));
+  }
+  OptList.push_back(image->Reg()); 
+  if (coord->Count() == 1) {
+    OptList.push_back(coord->Reg(0));
+  } else {
+    OptList.push_back(coord->CreateOperandList(te->Brig()->Brigantine()));
   }
   inst.operands() = OptList;
 }
@@ -2601,7 +2487,7 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
   }
 }
 
-EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler)
+void EImageCalc::Init(EImage * eimage, ESampler* esampler)
 {
   assert(eimage);
   imageGeometry = eimage->ImageGeometry();

@@ -151,8 +151,9 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
   fbarrier->Add(NEWA GridGeometry(3, 3, 9, 13, 2, 7, 11));
   images->Add(NEWA GridGeometry(1, 1, 1, 1, 1, 1, 1));
-  //images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
-  //images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
+  images->Add(NEWA GridGeometry(1, 100, 1, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*4,  1,   1,  cc->Wavesize(),  1,   1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*4,  1,   1,  cc->Wavesize()*4,  1,   1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));

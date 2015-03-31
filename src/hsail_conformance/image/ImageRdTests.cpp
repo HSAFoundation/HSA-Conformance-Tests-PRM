@@ -140,41 +140,37 @@ public:
     return BRIG_TYPE_U32; 
   }
 
-  size_t OutputBufferSize() const override {
-    return imageGeometry.ImageSize()*4;
-  }
-
   TypedReg Get1dCoord()
   {
-    auto result = be.AddTReg(BRIG_TYPE_F32);
+    auto result = be.AddTReg(BRIG_TYPE_U32);
     auto x = be.EmitWorkitemAbsId(0, false);
     be.EmitMov(result, x->Reg());
     return result;
   }
 
-  OperandOperandList Get2dCoord()
+  TypedReg Get2dCoord()
   {
-    auto result = be.AddVec(BRIG_TYPE_F32, 2);
+    auto result = be.AddTReg(BRIG_TYPE_U32, 2);
     auto x = be.EmitWorkitemAbsId(1, false);
     auto y = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result.elements(0), x->Reg(), 32);
-    be.EmitMov(result.elements(1), y->Reg(), 32);
+    be.EmitMov(result->Reg(0), x->Reg(), 32);
+    be.EmitMov(result->Reg(1), y->Reg(), 32);
     return result;
   }
 
-  OperandOperandList Get3dCoord()
+  TypedReg Get3dCoord()
   {
-    auto result = be.AddVec(BRIG_TYPE_F32, 3);
+    auto result = be.AddTReg(BRIG_TYPE_U32, 3);
     auto x = be.EmitWorkitemAbsId(2, false);
     auto y = be.EmitWorkitemAbsId(1, false);
     auto z = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result.elements(0), x->Reg(), 32);
-    be.EmitMov(result.elements(1), y->Reg(), 32);
-    be.EmitMov(result.elements(2), z->Reg(), 32);
+    be.EmitMov(result->Reg(0), x->Reg(), 32);
+    be.EmitMov(result->Reg(1), y->Reg(), 32);
+    be.EmitMov(result->Reg(2), z->Reg(), 32);
     return result;
   }
 
-  void KernelCode() override {
+  TypedReg Result() {
    // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
@@ -182,46 +178,32 @@ public:
     auto sampleraddr = be.AddTReg(smpobj->Variable().type());
     be.EmitLoad(smpobj->Segment(), sampleraddr->Type(), sampleraddr->Reg(), be.Address(smpobj->Variable())); 
 
-    OperandOperandList regs_dest;
-    auto reg_dest = be.AddTReg(BRIG_TYPE_U32, 1);
+    auto regs_dest = be.AddTReg(BRIG_TYPE_U32, 4);
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
     case BRIG_GEOMETRY_1DB:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, Get1dCoord());
+      imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, Get1dCoord());
       break;
     case BRIG_GEOMETRY_1DA:
     case BRIG_GEOMETRY_2D:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, Get2dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get2dCoord());
       break;
     case BRIG_GEOMETRY_2DDEPTH:
-      imgobj->EmitImageRd(reg_dest, imageaddr, sampleraddr, Get2dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get2dCoord());
       break;
     case BRIG_GEOMETRY_3D:
     case BRIG_GEOMETRY_2DA:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, Get3dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, Get3dCoord());
       break;
     case BRIG_GEOMETRY_2DADEPTH:
-      imgobj->EmitImageRd(reg_dest, imageaddr, sampleraddr, Get3dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get3dCoord());
       break;
     default:
       assert(0);
     }
 
-    auto outputAddr = output->Address();
-    auto storeAddr = be.AddAReg(outputAddr->Segment());
-    auto offsetBase = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    auto offset = be.AddTReg(offsetBase->Type());
-
-    for (unsigned i = 0; i < regs_dest.elementCount(); i++) {
-      be.EmitMov(offset, be.Immed(offsetBase->Type(), i));
-      be.EmitArith(BRIG_OPCODE_MUL, offset, offset->Reg(), be.Immed(offsetBase->Type(), 4));
-      be.EmitArith(BRIG_OPCODE_ADD, storeAddr, outputAddr, offset->Reg());
-      be.EmitStore(BRIG_TYPE_U32, regs_dest.elements(i), storeAddr);
-    }
+    return regs_dest;
   }
 };
 

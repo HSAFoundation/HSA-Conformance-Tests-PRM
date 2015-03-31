@@ -416,6 +416,44 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       alignedFree(data);
     }
 
+    void ImageWriter(void* ptr, Values InitValues, hsa_ext_image_t image, const std::string imageParamsId, size_t image_size)
+    {
+      assert(ptr);
+      const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
+      char *p = (char *) ptr;
+      Value value = Value(MV_UINT8, 0);
+      if (InitValues.size() > 0) {
+        value = InitValues[0];
+      }
+      
+      if (ip->bLimitTest)
+      {
+        hsa_ext_image_region_t img_region;
+
+        img_region.offset.x = (uint32_t)ip->width - 1;
+        img_region.offset.y = (uint32_t)ip->height - 1;
+        img_region.offset.z = (uint32_t)ip->depth - 1;
+
+        img_region.range.x = 1;
+        img_region.range.y = 1;
+        img_region.range.z = 1;
+
+        char* pBuff = new char[value.Size()];
+        value.WriteTo(pBuff);
+        hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), pBuff, value.Size(), 1, image, &img_region);
+        delete[] pBuff;
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return; }
+      }
+      else
+      {
+        size_t size_val = value.Size();
+        for (size_t i = 0; i < image_size/size_val; ++i) {
+          value.WriteTo(p);
+          p += size_val;
+        }
+      }
+    }
+
     virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId) override
     {
       const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
@@ -438,8 +476,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       size_t size = (std::max)(image_info.size, (size_t) 256);
       imageData = alignedMalloc(size, image_info.alignment);
       if (!initValuesId.empty()) {
-        const Values* initValues = context->Get<Values>(initValuesId);
-        WriteTo(imageData, *initValues);
+        ImageWriter(imageData, *context->Get<Values>(initValuesId), image, imageParamsId, image_info.size);
       }
 
       /*

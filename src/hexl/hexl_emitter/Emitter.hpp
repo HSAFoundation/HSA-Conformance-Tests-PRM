@@ -553,7 +553,8 @@ public:
     size_t width_ = 0, 
     size_t height_ = 0, 
     size_t depth_ = 0, 
-    size_t array_size_ = 0
+    size_t array_size_ = 0,
+    bool bLimitTest = false
     );
 
   bool IsValid() const;
@@ -565,7 +566,7 @@ public:
   size_t Height() { return height; }
   size_t Depth() { return depth; }
   size_t ArraySize() { return arraySize; }
-  
+  bool IsLimitTest() { return bLimitTest; }
   void Geometry(BrigImageGeometry geometry_) { geometry = geometry_; }
   void ChannelOrder(BrigImageChannelOrder channelOrder_) { channelOrder = channelOrder_; }
   void ChannelType(BrigImageChannelType channelType_) { channelType = channelType_; }
@@ -573,6 +574,7 @@ public:
   void Height(size_t height_) { height = height_; }
   void Depth(size_t depth_) { depth = depth_; }
   void ArraySize(size_t arraySize_) { arraySize = arraySize_; }
+  void LimitTest(bool bLimitTest_) { bLimitTest = bLimitTest_; }
 
   hexl::ImageGeometry ImageGeometry() { return hexl::ImageGeometry((unsigned)width, (unsigned)height, (unsigned)depth, (unsigned)arraySize); }
 };
@@ -634,8 +636,9 @@ private:
   Value PackChannelDataToMemoryFormat(Value* _color) const;
 
 public:
-  EImageCalc(EImage * eimage, ESampler* esampler);
+  EImageCalc() { };
   
+  void Init(EImage * eimage, ESampler* esampler);
   void ValueSet(Value val) { existVal = val; }
   void EmulateImageRd(Value* _coords, Value* _channels) const;
   void EmulateImageLd(Value* _coords, Value* _channels) const;
@@ -648,8 +651,7 @@ private:
   HSAIL_ASM::DirectiveVariable var;
   MImage* image;
   std::unique_ptr<Values> data;
-  bool bLimitTestOn;
-  ImageCalc calculator;
+  EImageCalc calculator;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitInitializer();
@@ -659,7 +661,7 @@ private:
 
 public:
   EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec);
-  ~EImage() { if (calculator) delete calculator; }
+  ~EImage() {}
 
   const char *Id() const { return id; }
   std::string IdData() const { return id.str() + ".data"; }
@@ -674,15 +676,9 @@ public:
 
   void ScenarioInit();
   void SetupDispatch(const std::string& dispatchId);
-  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, TypedReg coord);
-  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg coord);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageLd(TypedReg dest, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, TypedReg coord);
-  void EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, TypedReg coord);
+  void EmitImageLd(TypedReg dest, TypedReg image, TypedReg coord);
+  void EmitImageSt(TypedReg src, TypedReg image, TypedReg coord);
   void EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query);
 
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
@@ -692,12 +688,11 @@ public:
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
   Value GetRawData() { return (*data).at(0); }
-  void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
-  void InitImageCalculator(Sampler pSampler) { calculator = new EImageCalc(this, pSampler); }
-  void SetValueForCalculator(Value val) { assert(calculator); calculator->ValueSet(val); }
-  void ReadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageRd(_coords, _channels); }
-  void LoadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageLd(_coords, _channels); }
-  Value StoreColor(Value* _coords, Value* _channels) const { assert(calculator); return calculator->EmulateImageSt(_coords, _channels); }
+  void InitImageCalculator(Sampler pSampler) { calculator.Init(this, pSampler); }
+  void SetValueForCalculator(Value val) { calculator.ValueSet(val); }
+  void ReadColor(Value* _coords, Value* _channels) const { calculator.EmulateImageRd(_coords, _channels); }
+  void LoadColor(Value* _coords, Value* _channels) const { calculator.EmulateImageLd(_coords, _channels); }
+  Value StoreColor(Value* _coords, Value* _channels) const {  return calculator.EmulateImageSt(_coords, _channels); }
 };
 
 class ESamplerSpec : public EVariableSpec, protected SamplerParams {

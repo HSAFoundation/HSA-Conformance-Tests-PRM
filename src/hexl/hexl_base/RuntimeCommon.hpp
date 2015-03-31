@@ -35,6 +35,7 @@ namespace hexl {
     size_t height;
     size_t depth;
     size_t arraySize;
+    bool bLimitTest;
 
     ImageParams(
       BrigType imageType_,
@@ -44,10 +45,11 @@ namespace hexl {
       size_t width_,
       size_t height_,
       size_t depth_,
-      size_t arraySize_)
+      size_t arraySize_,
+      bool bLimitTest_)
       : imageType(imageType_),
         geometry(geometry_), channelOrder(channelOrder_), channelType(channelType_),
-        width(width_), height(height_), depth(depth_), arraySize(arraySize_) { }
+        width(width_), height(height_), depth(depth_), arraySize(arraySize_), bLimitTest(bLimitTest_) { }
     ImageParams() { }
     void Print(std::ostream& out) const;
   };
