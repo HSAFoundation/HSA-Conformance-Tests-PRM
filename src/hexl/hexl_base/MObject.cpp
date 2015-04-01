@@ -538,6 +538,9 @@ void Value::Print(std::ostream& out) const
   case MV_UINT64:
     out << U64();
     break;
+   case MV_UINT128:
+     out << "hidword " << U128().U64H() << ", lodword " << U128().U64L() ;
+    break;
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16:
 #endif
