@@ -649,7 +649,6 @@ class EImage : public EImageSpec {
 private:
   EString id;
   HSAIL_ASM::DirectiveVariable var;
-  MImage* image;
   std::unique_ptr<Values> data;
   EImageCalc calculator;
 
@@ -732,7 +731,6 @@ class ESampler : public ESamplerSpec {
 private:
   EString id;
   HSAIL_ASM::DirectiveVariable var;
-  MSampler* sampler;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitInitializer();
