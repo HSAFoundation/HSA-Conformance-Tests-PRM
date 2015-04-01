@@ -22,7 +22,7 @@
 #include "hsa.h"
 #include <cmath>
 
-///\todo Generalize (move to libHSAIL?)
+///\todo (Artem) Generalize (move to libHSAIL?)
 #ifdef _WIN32
 	bool isNanOrDenorm(float f)
 	{
@@ -1751,14 +1751,14 @@ double EImageCalc::UnnormalizeArrayCoord(Value* c) const
 	return df;
 }
 
-int32_t EImageCalc::round_downi(float f) const
+int32_t EImageCalc::round_downi(float f) const ///\todo (Artem) 
 {
-  return static_cast<int32_t>(floorf(f));
+  return static_cast<int32_t>(floorf(f)); //it seems to be correct
 }
 
-int32_t EImageCalc::round_neari(float f) const
+int32_t EImageCalc::round_neari(float f) const ///\todo (Artem) 
 {
-  return static_cast<int32_t>(f);
+  return static_cast<int32_t>(f); //incorrect!!
 }
 
 int32_t EImageCalc::clamp_i(int32_t a, int32_t min, int32_t max) const

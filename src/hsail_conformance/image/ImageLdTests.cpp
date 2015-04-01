@@ -72,6 +72,38 @@ public:
     coords[1] = Value(MV_UINT32, 0);
     coords[2] = Value(MV_UINT32, 0);
     imgobj->LoadColor(coords, color);
+
+    switch (imageChannelType)
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+      output->SetComparisonMethod("2ulp,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
+      break;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+      output->SetComparisonMethod("2ulp,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+      //integer types are compared for equality
+      break;
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+      output->SetComparisonMethod("0ulp"); //f16 denorms should not be flushed (as it will produce normalized f32)
+      break;
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      output->SetComparisonMethod("0ulp,flushDenorms"); //flushDenorms
+      break;
+    default:
+      break;
+    }
   }
 
   void ModuleDirectives() override {
@@ -82,22 +114,20 @@ public:
     return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
 
-  BrigType ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return ImageAccessType(imageChannelType); }
 
-  void ExpectedResults(Values* result) const {
+  void ExpectedResults(Values* result) const
+  {
+    uint16_t channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
       for(uint16_t y = 0; y < geometry->GridSize(1); y++)
-        for(uint16_t x = 0; x < geometry->GridSize(0); x++) {
-          for (unsigned i = 0; i < 4; i ++)
-          {
-            Value res = Value(MV_UINT32, color[i].U32());
-            result->push_back(res);
-          }
-        }
+        for(uint16_t x = 0; x < geometry->GridSize(0); x++)
+          for (unsigned i = 0; i < channels; i++)
+            result->push_back(color[i]);
   }
 
   uint64_t ResultDim() const override {
-    return 4;
+    return IsImageDepth(imageGeometryProp) ? 1 : 4;
   }
 
   TypedReg Get1dCoord()
