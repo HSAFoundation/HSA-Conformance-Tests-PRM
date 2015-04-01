@@ -30,11 +30,6 @@ TestRunnerBase::TestRunnerBase(Context* context_)
 
 void TestRunnerBase::Init()
 {
-  if (!context->Has("hexl.log.stream.debug")) {
-    context->Put("hexl.log.stream.debug", TestOut());
-    context->Put("hexl.log.stream.info", TestOut());
-    context->Put("hexl.log.stream.error", TestOut());
-  }
 }
 
 void TestRunnerBase::RunTest(const std::string& path, Test* test)
@@ -42,45 +37,84 @@ void TestRunnerBase::RunTest(const std::string& path, Test* test)
   assert(test);
   Init();
   BeforeTest(path, test);
-  if (testContext->Opts()->GetString("rt") != "none") {
-    clock_t t_begin, t_end;
-    t_begin = clock();
-    TestResult result = ExecuteTest(test);
-    t_end = clock();
-    result.SetTime(t_begin, t_end);
-    AfterTest(path, test, result);
-  }
+  TestResult result = ExecuteTest(test);
+  t_end = clock();
+  result.SetTime(t_begin, t_end);
+  AfterTest(path, test, result);
+}
+
+void TestRunnerBase::RunTestSpec(const std::string& path, TestSpec* spec)
+{
+  spec->InitContext(context);
+  t_begin = clock();
+  Test *test = spec->Create();
+  RunTest(path, test);
+  if (test) { delete test; }
+  delete spec;
 }
 
 void TestRunnerBase::BeforeTest(const std::string& path, Test* test)
 {
-  testContext = new Context(context);
-  std::string fullPath = path + "/" + test->TestName();
-  testContext->Put("hexl.outputPath", fullPath);
-  test->InitContext(testContext);
-  test->DumpIfEnabled();
+  std::string fullTestName = path + "/" + test->TestName();
+  test->InitContext(context);
+  testContext = test->GetContext();
+  testContext->Put("hexl.outputPath", fullTestName);
+  testContext->Put("hexl.log.stream.debug", TestOut());
+  testContext->Put("hexl.log.stream.info", TestOut());
+  testContext->Put("hexl.log.stream.error", TestOut());
+  testContext->Info() << "START:  " << fullTestName << std::endl;
+  if (testContext->IsVerbose("description")) {
+    testContext->Info() << "Test description:" << std::endl;
+    IndentStream indent(testContext->Info());
+    test->Description(testContext->Info());
+  }
+  testContext->PrintIfVerbose("context", "Test context", test->GetContext());
+  if (testContext->IsDumpEnabled("context")) {
+    testContext->Dump();
+  }
+  if (testContext->IsDumpEnabled("hxl", false)) {
+    std::ostream* out = testContext->RM()->GetOutput(testContext->GetOutputName(fullTestName, "hxl"));
+    if (out) {
+      test->Serialize(*out);
+      delete out;
+    }
+  }
+  testContext->Stats().Clear();
 }
 
 void TestRunnerBase::AfterTest(const std::string& path, Test* test, const TestResult& result)
 {
   result.IncStats(stats);
-  delete testContext; testContext = 0;
+  std::string fullTestName = path + "/" + test->TestName();
+  test->GetContext()->Info() <<
+    result.StatusString() << ": " <<
+    fullTestName << std::endl;
 }
+
+class TestRunnerExecute : public TestSpecIterator {
+private:
+  TestRunnerBase* runner;
+
+public:
+  explicit TestRunnerExecute(TestRunnerBase* runner_)
+    : runner(runner_) { }
+
+  void operator()(const std::string& path, TestSpec* spec) override
+  {
+    if (spec->IsValid()) {
+      runner->RunTestSpec(path, spec);
+    } else {
+      delete spec;
+    }
+  }
+};
 
 bool TestRunnerBase::RunTests(TestSet& tests)
 {
   Init();
   if (!BeforeTestSet(tests)) { return false; }
-  TestSpecList specs;
-  tests.Iterate(specs);
-  for (size_t i = 0; i < specs.Count(); ++i) {
-    std::string path = specs.GetPath(i);
-    TestSpec* spec = specs.GetSpec(i);
-    spec->InitContext(context);
-    Test *test = spec->Create();
-    RunTest(path, test);
-    if (test) { delete test; }
-  }
+  TestRunnerExecute exec(this);
+  tests.Iterate(exec);
   if (!AfterTestSet(tests)) { return false; }
   return true;
 }
@@ -99,39 +133,10 @@ bool SimpleTestRunner::AfterTestSet(TestSet& testSet)
   return true;
 }
 
-void SimpleTestRunner::BeforeTest(const std::string& path, Test* test)
-{
-  TestRunnerBase::BeforeTest(path, test);
-  std::string fullTestName = path + "/" + test->TestName();
-  std::cout << "START:  " << fullTestName << std::endl;
-  if (testContext->IsVerbose("description")) {
-    std::cout << "Test description:" << std::endl;
-    IndentStream indent(std::cout);
-    test->Description(std::cout);
-  }
-  if (testContext->IsVerbose("context")) {
-    std::cout << "Test context:" << std::endl;
-    IndentStream indent(std::cout);
-    test->GetContext()->Print(std::cout);
-  }
-  if (testContext->IsDumpEnabled("hxl", false)) {
-    std::ostream* out = testContext->RM()->GetOutput(testContext->GetOutputName(fullTestName, "hxl"));
-    if (out) {
-      test->Serialize(*out);
-      delete out;
-    }
-  }
-  testContext->Stats().Clear();
-}
-
 void SimpleTestRunner::AfterTest(const std::string& path, Test* test, const TestResult& result)
 {
-  std::string fullTestName = path + "/" + test->TestName();
-  std::cout <<
-    result.StatusString() << ": " <<
-    fullTestName << std::endl;
-  std::cout << std::endl;
   TestRunnerBase::AfterTest(path, test, result);
+  std::cout << std::endl;
 }
 
 HTestRunner::HTestRunner(Context* context_)
@@ -185,7 +190,7 @@ bool HTestRunner::AfterTestSet(TestSet& testSet)
 
 void HTestRunner::AfterTest(const std::string& path, Test* test, const TestResult& result)
 {
-  if (!result.IsPassed() || context->Opts()->IsSet("hexl.log.test.all")) {
+  if (!result.IsPassed() || context->IsVerbose("testlog", false)) {
     testLog << testOut.str();
   }
   std::string fullTestName = path + "/" + test->TestName();
@@ -195,8 +200,8 @@ void HTestRunner::AfterTest(const std::string& path, Test* test, const TestResul
     result.ExecutionTime() << "s" << std::endl;
   testLog << std::endl;
   result.IncStats(pathStats);
-  testOut.str(std::string());
   TestRunnerBase::AfterTest(path, test, result);
+  testOut.str(std::string());
 }
 
 }

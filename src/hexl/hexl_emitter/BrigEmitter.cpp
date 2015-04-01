@@ -147,14 +147,14 @@ TypedReg BrigEmitter::AddTReg(BrigType16_t type, unsigned count)
   assert(count <= 16);
   TypedReg regs = new(ap) ETypedReg(type);
   for (unsigned i = 0; i < count; ++i) {
-    regs->Regs().push_back(AddReg(type));
+    regs->Add(AddReg(type));
   }
   return regs;
 }
 
 TypedRegList BrigEmitter::AddTRegList()
 {
-  return new(ap) ETypedRegList();
+  return new(ap) ETypedRegList(ap);
 }
 
 std::string BrigEmitter::GenVariableName(BrigSegment segment, bool output)
@@ -565,7 +565,24 @@ void BrigEmitter::EmitStoresToBuffers(TypedRegList srcs, ItemList buffers, BrigS
 
 BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const
 {
+  // todo: add isArithmInst to HSAILUtils
   switch (opcode) {
+    // todo: add isIntArithmInst to HSAILUtils
+    case BRIG_OPCODE_ABS:
+    case BRIG_OPCODE_ADD:
+    case BRIG_OPCODE_BORROW:
+    case BRIG_OPCODE_CARRY:
+    case BRIG_OPCODE_DIV:
+    case BRIG_OPCODE_MAX:
+    case BRIG_OPCODE_MIN:
+    case BRIG_OPCODE_MUL:
+    case BRIG_OPCODE_MULHI:
+    case BRIG_OPCODE_NEG:
+    case BRIG_OPCODE_REM:
+    case BRIG_OPCODE_SUB: {
+      return expandSubwordType(operandType);
+    }
+    // todo: add isIntShiftArithmInst to HSAILUtils
     case BRIG_OPCODE_SHL:
     case BRIG_OPCODE_SHR: {
       switch (operandType) {
@@ -574,21 +591,22 @@ BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandT
         default: return operandType;
       }
     }
-    case BRIG_OPCODE_AND: 
-    case BRIG_OPCODE_OR: 
-    case BRIG_OPCODE_XOR: 
+    // todo: add isBitArithmInst to HSAILUtils
+    case BRIG_OPCODE_AND:
+    case BRIG_OPCODE_OR:
+    case BRIG_OPCODE_XOR:
     case BRIG_OPCODE_NOT:{
       switch (operandType) {
         case BRIG_TYPE_U32: case BRIG_TYPE_S32: return BRIG_TYPE_B32;
         case BRIG_TYPE_U64: case BRIG_TYPE_S64: return BRIG_TYPE_B64;
         default: return operandType;
-      }                   
+      }
     } 
     default: return operandType;
   }
 }
 
-HSAIL_ASM::InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2)
+InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t type, Operand dst, Operand src0, Operand src1, Operand src2)
 {
   InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, type));
   inst.operands() = Operands(dst, src0, src1, src2);
@@ -598,16 +616,12 @@ HSAIL_ASM::InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand o)
 {
   assert(dst->Type() == src0->Type());
-  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
-  inst.operands() = Operands(dst->Reg(), src0->Reg(), o);
-  return inst;
+  return EmitArith(opcode, dst, src0->Reg(), o);
 }
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, Operand src2) {
   assert(dst->Type() == src0->Type());
-  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
-  inst.operands() = Operands(dst->Reg(), src0->Reg(), src1, src2);
-  return inst;
+  return EmitArith(opcode, src0->Type(), dst->Reg(), src0->Reg(), src1, src2);
 }
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, Operand o)
@@ -779,27 +793,23 @@ void BrigEmitter::EmitVariableInitializer(HSAIL_ASM::DirectiveVariable var, HSAI
 
 InstCvt BrigEmitter::EmitCvt(Operand dst, BrigType16_t dstType, Operand src, BrigType16_t srcType)
 {
-   InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dstType);
-   inst.sourceType() = srcType;
-   inst.operands() = Operands(dst, src);
-   return inst;
+  InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dstType);
+  inst.sourceType() = srcType;
+  inst.operands() = Operands(dst, src);
+  inst.round() = getDefRounding(inst, coreConfig->Model(), coreConfig->Profile());
+  return inst;
 }
 
 InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src)
 {
-   InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dst->Type());
-   inst.sourceType() = src->Type();
-   inst.operands() = Operands(dst->Reg(), src->Reg());
-   return inst;
+  return EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
 }
 
 InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round)
 {
-   InstCvt inst = brigantine.addInst<InstCvt>(BRIG_OPCODE_CVT, dst->Type());
-   inst.sourceType() = src->Type();
-   inst.operands() = Operands(dst->Reg(), src->Reg());
-   inst.round() = round;
-   return inst;
+  InstCvt inst = EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
+  inst.round() = round;
+  return inst;
 }
 
 void BrigEmitter::EmitCvtOrMov(const TypedReg& dst, const TypedReg& src)
@@ -1363,7 +1373,7 @@ void BrigEmitter::EmitActiveLaneMask(TypedReg dest, Operand src)
 {
   InstLane inst = brigantine.addInst<InstLane>(BRIG_OPCODE_ACTIVELANEMASK, dest->Type());
   inst.sourceType() = BRIG_TYPE_B1;
-  inst.operands() = Operands(brigantine.createOperandList(dest->Regs()), src);
+  inst.operands() = Operands(dest->CreateOperandList(Brigantine()), src);
   inst.width() = BRIG_WIDTH_1;
 }
 

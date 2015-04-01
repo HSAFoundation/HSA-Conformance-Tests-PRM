@@ -92,6 +92,9 @@ public:
       coreConfig(new CoreConfig())
   {
     context->Put(CoreConfig::CONTEXT_KEY, coreConfig.get());
+    context->Put("hexl.log.stream.debug", &std::cout);
+    context->Put("hexl.log.stream.info", &std::cout);
+    context->Put("hexl.log.stream.error", &std::cout);
   }
   ~HCRunner() { delete testFactory; }
 
@@ -187,19 +190,17 @@ void HCRunner::Run()
       exit(6);
     }
   }
-  context->Put("hexl.stats", new AllStats());
+  context->Move("hexl.stats", new AllStats());
   ResourceManager* rm = new DirectoryResourceManager(options.GetString("testbase", "."), options.GetString("results", "."));
   context->Put("hexl.rm", rm);
   context->Put("hexl.options", &options);
-  RuntimeContext* runtime = 0;
-  if (context->Opts()->GetString("rt") != "none") {
-    runtime = CreateRuntimeContext(context.get());
-    if (!runtime) {
-      std::cout << "Failed to create runtime" << std::endl;
-      exit(7);
-    }
-    context->Put("hexl.runtime", runtime);
+  runtime::RuntimeContext* runtime = 0;
+  runtime = CreateRuntimeContext(context.get());
+  if (!runtime) {
+    std::cout << "Failed to create runtime" << std::endl;
+    exit(7);
   }
+  context->Put("hexl.runtime", runtime);
   context->Put("hexl.testFactory", testFactory);
   coreConfig->Init(context.get());
   runner = CreateTestRunner();
@@ -217,6 +218,9 @@ void HCRunner::Run()
 
 int main(int argc, char **argv)
 {
+#ifdef _WIN32
+  _CrtSetDbgFlag ( _CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF );
+#endif // _WIN32
   hsail_conformance::HCRunner hcr(argc, argv);
   hcr.Run();
   return 0;

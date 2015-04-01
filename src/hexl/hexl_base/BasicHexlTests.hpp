@@ -24,6 +24,7 @@
 
 namespace hexl {
 
+/*
 class FinalizeProgramTest : public TestImpl {
 public:
   void Run();
@@ -117,6 +118,7 @@ private:
 
   void DeserializeData(std::istream& in);
 };
+*/
 
 }
 

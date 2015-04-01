@@ -17,7 +17,7 @@
 #ifndef HEXL_TEST_HPP
 #define HEXL_TEST_HPP
 
-#include "MObject.hpp"
+#include "HexlContext.hpp"
 #include "Options.hpp"
 #include "Stats.hpp"
 
@@ -87,7 +87,6 @@ public:
   virtual void Serialize(std::ostream& out) const = 0;
   virtual void Run() = 0;
   virtual TestResult Result() const = 0;
-  virtual void DumpIfEnabled() { };
 };
 
 class TestImpl : public Test {
@@ -256,9 +255,7 @@ private:
 class TestSetUnion : public TestSet {
 private:
   std::string base;
-  std::vector<TestSet*> testSets;
-
-  bool Cut(const std::string& name, std::string& rest) const;
+  std::vector<std::unique_ptr<TestSet>> testSets;
 
 protected:
   Context* context;
@@ -267,11 +264,10 @@ public:
   TestSetUnion(const std::string& base_, Context* context_ = 0)
     : base(base_), context(context_) { }
   void InitContext(Context* context);
-  void Add(TestSet* testSet) { testSets.push_back(testSet); }
+  void Add(TestSet* testSet) { testSets.push_back(std::unique_ptr<TestSet>(testSet)); }
   void Name(std::ostream& out) const { out << base; }
   void Description(std::ostream& out) const { out << base; }
   virtual void Iterate(TestSpecIterator& it);
-//  virtual TestSet* Filter(TestFilter* filter) { return filter->Filter(this); }
   virtual TestSet* Filter(TestNameFilter* filter);
   virtual TestSet* Filter(ExcludeListFilter* filter);
 };
@@ -284,6 +280,7 @@ public: \
 
 class TestFilter {
 public:
+  virtual ~TestFilter() { }
   virtual TestSet* Filter(TestSet* ts) = 0;
   virtual bool Matches(const std::string& path, Test* test) = 0;
 };
@@ -325,6 +322,8 @@ public:
   virtual TestSet* Filter(TestSet* ts) { return filter2->Filter(filter1->Filter(ts)); }
   bool Matches(const std::string& path, Test* test) { return filter1->Matches(path, test) && filter2->Matches(path, test); }
 };
+
+bool CutTestNamePrefix(const std::string& name, std::string& prefix, std::string& rest, bool allowPartial = false);
 
 class AssemblyStats;
 

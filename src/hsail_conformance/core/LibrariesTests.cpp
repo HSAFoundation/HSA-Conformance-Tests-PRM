@@ -56,11 +56,10 @@ public:
     decl = te->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
     def = te->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
     if (segment == BRIG_SEGMENT_READONLY) {
-      def->PushBack(ExpectedResult());
+      def->AddData(ExpectedResult());
     }
   }
-
-  BrigType ResultType() const override { return VALUE_TYPE; }
+BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 
   TypedReg Result() override {
@@ -364,10 +363,10 @@ public:
     firstFunctionVar = FirstFunction()->NewVariable("var", segment, ResultType(), Location::FUNCTION);
     secondFunctionVar = SecondFunction()->NewVariable("var", segment, ResultType(), Location::FUNCTION);
     if (segment == BRIG_SEGMENT_READONLY) {
-      firstKernelVar->PushBack(Value(Brig2ValueType(ResultType()), ResultValue()));
-      secondKernelVar->PushBack(Value(Brig2ValueType(ResultType()), SECOND_VALUE));
-      firstFunctionVar->PushBack(Value(Brig2ValueType(ResultType()), THIRD_VALUE));
-      secondFunctionVar->PushBack(Value(Brig2ValueType(ResultType()), FOURTH_VALUE));
+      firstKernelVar->AddData(Value(Brig2ValueType(ResultType()), ResultValue()));
+      secondKernelVar->AddData(Value(Brig2ValueType(ResultType()), SECOND_VALUE));
+      firstFunctionVar->AddData(Value(Brig2ValueType(ResultType()), THIRD_VALUE));
+      secondFunctionVar->AddData(Value(Brig2ValueType(ResultType()), FOURTH_VALUE));
     }
   }
 
@@ -416,8 +415,8 @@ public:
     FunctionLinkageTest::Init();
     firstKernelArg = kernel->NewVariable("arg", BRIG_SEGMENT_KERNARG, ResultType(), Location::KERNEL);
     secondKernelArg = SecondKernel()->NewVariable("arg", BRIG_SEGMENT_KERNARG, ResultType(), Location::KERNEL);
-    firstKernelArg->PushBack(Value(Brig2ValueType(ResultType()), ResultValue()));
-    secondKernelArg->PushBack(Value(Brig2ValueType(ResultType()), SECOND_VALUE));
+    firstKernelArg->AddData(Value(Brig2ValueType(ResultType()), ResultValue()));
+    secondKernelArg->AddData(Value(Brig2ValueType(ResultType()), SECOND_VALUE));
   }
 
   void Name(std::ostream& out) const override {
@@ -582,7 +581,7 @@ public:
     function = te->NewFunction("function");
     functionInput = function->NewVariable("input", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::FUNCTION);
     functionVar = function->NewVariable("var", BRIG_SEGMENT_GLOBAL, VALUE_TYPE, Location::FUNCTION);
-    functionVar->PushBack(Value(Brig2ValueType(VALUE_TYPE), THIRD_VALUE));
+    functionVar->AddData(Value(Brig2ValueType(VALUE_TYPE), THIRD_VALUE));
     firstVar = te->NewVariable("var", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::ARGSCOPE);
     secondVar = te->NewVariable("var", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::ARGSCOPE);
   } 

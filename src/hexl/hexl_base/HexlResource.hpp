@@ -26,9 +26,11 @@ namespace hexl {
 class ResourceManager {
 public:
   virtual ~ResourceManager() { }
+  virtual void Print(std::ostream& out) const = 0;
   virtual std::istream* Get(const std::string& name) = 0;
   virtual std::string GetBasedName(const std::string& name) const = 0;
   virtual std::string GetOutputFileName(const std::string& name) const = 0;
+  virtual std::string GetOutputDirName(const std::string& name) const = 0;
   virtual std::ostream* GetOutput(const std::string& name) = 0;
 };
 
@@ -36,9 +38,11 @@ class DirectoryResourceManager : public ResourceManager {
 public:
   DirectoryResourceManager(const std::string& testbase_, const std::string& results_)
     : testbase(testbase_), results(results_) { }
+  void Print(std::ostream& out) const { out << "tests: " << testbase << " results: " << results; }
   virtual std::istream* Get(const std::string& name);
   virtual std::string GetBasedName(const std::string& name) const;
   virtual std::string GetOutputFileName(const std::string& name) const;
+  virtual std::string GetOutputDirName(const std::string& name) const;
   virtual std::ostream* GetOutput(const std::string& name);
 private:
   std::string testbase;

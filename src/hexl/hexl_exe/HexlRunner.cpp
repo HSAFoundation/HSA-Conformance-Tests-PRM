@@ -152,7 +152,7 @@ void HexlRunner::Run()
   context->Put("hexl.stats", new AllStats());
   ResourceManager* rm = new DirectoryResourceManager(options.GetString("testbase", "."), options.GetString("results", "."));
   context->Put("hexl.rm", rm);
-  RuntimeContext* runtime = CreateRuntimeContext(context.get());
+  runtime::RuntimeContext* runtime = CreateRuntimeContext(context.get());
   if (runtime) {
     std::cout << "Runtime: " << runtime->Description() << std::endl;
   } else {

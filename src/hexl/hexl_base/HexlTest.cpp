@@ -25,8 +25,10 @@
 #include <fstream>
 
 #include "HexlResource.hpp"
+#include "Grid.hpp"
 
 namespace hexl {
+
 
 const char *TestStatusString(TestStatus status)
 {
@@ -95,89 +97,6 @@ bool TestImpl::DumpTextIfEnabled(const std::string& what, const std::string& tex
 bool TestImpl::DumpBinaryIfEnabled(const std::string& what, const void *buffer, size_t bufferSize)
 {
   return context->DumpBinaryIfEnabled(TestName(), what, buffer, bufferSize);
-}
-
-bool Context::IsVerbose(const std::string& what) const
-{
-  return Opts()->IsSet("verbose") || Opts()->IsSet("hexl.verbose.all") || Opts()->IsSet("hexl.verbose." + what);
-}
-
-bool Context::IsDumpEnabled(const std::string& what, bool enableWithPlainDumpOption) const
-{
-  return (enableWithPlainDumpOption && Opts()->IsSet("dump")) || Opts()->IsSet("dump." + what);
-}
-
-std::string Context::GetOutputName(const std::string& name, const std::string& what)
-{
-  std::string fullName = GetString("hexl.outputPath");
-  if (!fullName.empty()) { fullName += "/"; }
-  fullName += name;
-  return fullName + "." + what;
-}
-
-bool Context::DumpTextIfEnabled(const std::string& name, const std::string& what, const std::string& text)
-{
-  if (IsDumpEnabled(name)) {
-    std::string outname = GetOutputName(name, what);
-    if (!SaveTextResource(RM(), outname, text)) {
-      Info() << "Warning: failed to dump " << what << " to " << outname << std::endl;
-      return false;
-    } else {
-      return true;
-    }
-  } else {
-    return false;
-  }
-}
-
-bool Context::DumpBinaryIfEnabled(const std::string& name, const std::string& what, const void *buffer, size_t bufferSize)
-{
-  if (IsDumpEnabled(name)) {
-    std::string outname = GetOutputName(name, what);
-    if (!SaveBinaryResource(RM(), outname, buffer, bufferSize)) {
-      Info() << "Warning: failed to dump " << what << " to " << outname<< std::endl;
-      return false;
-    } else {
-      return true;
-    }
-  } else {
-    return false;
-  }
-}
-
-void Context::DumpBrigIfEnabled(const std::string& name, void* _brig)
-{
-  brig_container_t brig = reinterpret_cast<brig_container_t>(_brig);
-
-  if (IsDumpEnabled("brig")) {
-    std::string testName = GetOutputName(name, "brig");
-    std::string brigFileName = RM()->GetOutputFileName(testName);
-    if (0 != brig_container_save_to_file(brig, brigFileName.c_str())) {
-      Info() << "Warning: failed to dump brig to " << brigFileName << ": " << brig_container_get_error_text(brig) << std::endl;
-    }
-  }
-  if (IsDumpEnabled("hsail")) {
-    std::string testName = GetOutputName(name, "hsail");
-    std::string hsailFileName = RM()->GetOutputFileName(testName);
-    if (0 != brig_container_disassemble_to_file(brig, hsailFileName.c_str())) {
-      Info() << "Warning: failed to dump hsail to " << hsailFileName << ": " << brig_container_get_error_text(brig) << std::endl;
-    }
-  }
-}
-
-void Context::DumpDispatchsetupIfEnabled(const std::string& name, const void* dsetup_)
-{
-  const DispatchSetup* const dsetup = reinterpret_cast<const DispatchSetup*>(dsetup_);
-  if (IsDumpEnabled("dispatchsetup")) {
-    std::string testName = GetOutputName(name, "dispatchsetup");
-    std::string outFileName = RM()->GetOutputFileName(testName);
-    std::ostringstream text;
-    // Always dump with buffers. Otherwise useless (and already resides in the log).
-    dsetup->PrintWithBuffers(text);
-    if (!SaveTextResource(RM(), outFileName, text.str())) {
-      Info() << "Warning: failed to dump dispatch setup to " << outFileName << std::endl;
-    }
-  }
 }
 
 void TestSpec::Run()
@@ -325,17 +244,16 @@ TestSet* OneTest::Filter(ExcludeListFilter* filter)
 void TestSetUnion::InitContext(Context* context)
 {
   this->context = context;
-  for (TestSet* ts : testSets) {
+  for (std::unique_ptr<TestSet>& ts : testSets) {
     ts->InitContext(context);
   }
 }
 
-bool TestSetUnion::Cut(const std::string& name, std::string& rest) const
+bool CutTestNamePrefix(const std::string& name, std::string& prefix, std::string& rest, bool allowPartial)
 {
-  std::string prefix = base;
-  if (!prefix.empty()) { prefix += "/"; }
   if (!name.empty() && name.compare(0, prefix.length(), prefix) != 0) { return false; }
   rest = name.substr(prefix.length());
+  while (rest[0] == '/') { rest = rest.substr(1); }
   return true;
 }
 
@@ -343,7 +261,8 @@ TestSet* TestSetUnion::Filter(TestNameFilter* filter)
 {
   std::string rest;
   if (filter->NamePattern().empty()) { return this; }
-  if (!Cut(filter->NamePattern(), rest)) { return new EmptyTestSet(); }
+  if (!CutTestNamePrefix(filter->NamePattern(), base, rest)) { return new EmptyTestSet(); }
+  if (rest.empty()) { return this; }
   TestNameFilter* filter1 = new TestNameFilter(rest);
   TestSetUnion* ts = new TestSetUnion(base);
   for (unsigned i = 0; i < testSets.size(); ++i) {
@@ -357,8 +276,13 @@ TestSet* TestSetUnion::Filter(ExcludeListFilter* filter)
   std::string rest;
   ExcludeListFilter* filter1 = new ExcludeListFilter();
   for (std::string prefix : filter->ExcludePrefixes()) {
-    if (Cut(prefix, rest)) {
-      filter1->AddPrefix(rest);
+    if (CutTestNamePrefix(prefix, base, rest)) {
+      if (rest.empty()) {
+        delete filter1;
+        return new EmptyTestSet();
+      } else {
+        filter1->AddPrefix(rest);
+      }
     }
   }
   TestSetUnion* ts = new TestSetUnion(base);

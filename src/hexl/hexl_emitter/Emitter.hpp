@@ -64,6 +64,22 @@ enum BufferType {
   KERNEL_BUFFER,
 };
 
+class EString {
+private:
+  typedef std::basic_string<char, std::char_traits<char>, ArenaAllocator<char>> estring;
+  estring s;
+
+public:
+  EString(const std::string& s_, ArenaAllocator<char> allocator)
+    : s(s_.c_str(), allocator) { }
+
+  const char *c_str() const { return s.c_str(); }
+  std::string str() const { return s.c_str(); }
+  operator const char *() const { return s.c_str(); }
+};
+
+//typedef std::basic_string<char, std::char_traits<char>, ArenaAllocator<char>> EString;
+
 class EmitterObject {
   ARENAMEM
 
@@ -126,46 +142,47 @@ public:
   virtual void KernelInit() { }
   virtual void EndKernel() { }
 
-  virtual void SetupDispatch(DispatchSetup* dispatch) { }
-
   virtual void ScenarioInit() { }
   virtual void ScenarioCodes() { }
-  virtual void ScenarioDispatches() { }
+  virtual void ScenarioDispatch() { }
+  virtual void SetupDispatch(const std::string& dispatchId) { } 
   virtual void ScenarioValidation() { }
   virtual void ScenarioEnd() { }
 };
 
 class ETypedReg : public EmitterObject {
+  static const unsigned MAX_REGS = 8;
 public:
-  ETypedReg()
-    : type(BRIG_TYPE_NONE) { }
+  ETypedReg(unsigned count = MAX_REGS)
+    : type(BRIG_TYPE_NONE), count(0) { }
   ETypedReg(BrigType16_t type_)
-    : type(type_) { }
+    : type(type_), count(0) { }
   ETypedReg(HSAIL_ASM::OperandRegister reg, BrigType16_t type_)
-    : type(type_) { Add(reg); }
+    : type(type_), count(0) { Add(reg); }
 
   HSAIL_ASM::OperandRegister Reg() const { assert(Count() == 1); return regs[0]; }
   HSAIL_ASM::OperandRegister Reg(size_t i) const { return regs[(int) i]; }
-  HSAIL_ASM::ItemList&  Regs() { return regs; }
-  const HSAIL_ASM::ItemList& Regs() const { return regs; }
+  HSAIL_ASM::OperandOperandList CreateOperandList(HSAIL_ASM::Brigantine& be);
   BrigType16_t Type() const { return type; }
   unsigned TypeSizeBytes() const { return HSAIL_ASM::getBrigTypeNumBytes(type); }
   unsigned TypeSizeBits() const { return HSAIL_ASM::getBrigTypeNumBits(type); }
   unsigned RegSizeBytes() const { return (std::max)(TypeSizeBytes(), (unsigned) 4); }
   unsigned RegSizeBits() const { return (std::max)(TypeSizeBits(), (unsigned) 32); }
-  size_t Count() const { return regs.size(); }
-  void Add(HSAIL_ASM::OperandRegister reg) { regs.push_back(reg); }
+  size_t Count() const { return count; }
+  void Add(HSAIL_ASM::OperandRegister reg) { assert(count < MAX_REGS); regs[count++] = reg; }
 
 private:
-  HSAIL_ASM::ItemList regs;
   BrigType16_t type;
+  size_t count;
+  HSAIL_ASM::OperandRegister regs[MAX_REGS];
 };
 
 class ETypedRegList : public EmitterObject {
 private:
-  std::vector<TypedReg> tregs;
+  std::vector<TypedReg, ArenaAllocator<TypedReg>> tregs;
 
 public:
+  ETypedRegList(Arena* ap);
   size_t Count() const { return tregs.size(); }
   TypedReg Get(size_t i) { return tregs[i]; }
   void Add(TypedReg treg) { tregs.push_back(treg); }
@@ -221,25 +238,22 @@ public:
 
 class EVariable : public EVariableSpec {
 private:
-  std::string id;
+  EString id;
   HSAIL_ASM::DirectiveVariable var;
-  hexl::Values data;
+  std::unique_ptr<hexl::Values> data;
 
   Location RealLocation() const;
 
 public:
-  EVariable(TestEmitter* te_, const std::string& id_, BrigSegment segment_, BrigType type_, Location location_, BrigAlignment align_ = BRIG_ALIGNMENT_NONE, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false)
-    : EVariableSpec(segment_, type_, location_, align_, dim_, isConst_, output_), id(id_) { te = te_;  }
-  EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_)
-    : EVariableSpec(*spec_), id(id_) { te = te_; }
-  EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_, bool output)
-    : EVariableSpec(*spec_, output), id(id_) { te = te_; }
+  EVariable(TestEmitter* te_, const std::string& id_,
+    BrigSegment segment_, BrigType type_, Location location_, BrigAlignment align_ = BRIG_ALIGNMENT_NONE, uint64_t dim_ = 0, bool isConst_ = false, bool output_ = false);
+  EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_);
+  EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_, bool output);
 
   std::string VariableName() const;
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
 
-  void PushBack(hexl::Value val);
-  void WriteData(hexl::Value val, size_t pos); 
+  void AddData(hexl::Value val);
 
   void Name(std::ostream& out) const;
 
@@ -256,13 +270,20 @@ public:
   void KernelArguments();
   void KernelVariables();
 
-  void SetupDispatch(DispatchSetup* setup);
+  void SetupDispatch(const std::string& dispatchId);
 };
 
+class EmittableWithId : public Emittable {
+protected:
+  EString id;
+public:
+  EmittableWithId(TestEmitter* te, const std::string& id);
 
-class EFBarrier : public Emittable {
+  const char *Id() const { return id.c_str(); }
+};
+
+class EFBarrier : public EmittableWithId {
 private:
-  std::string id;
   Location location;
   bool output;
   HSAIL_ASM::DirectiveFbarrier fb;
@@ -340,13 +361,13 @@ public:
 
 class EmittableContainer : public Emittable {
 private:
-  std::vector<Emittable*> list;
+  std::vector<Emittable*, ArenaAllocator<Emittable*>> list;
 
 public:
-  EmittableContainer(TestEmitter* te = 0)
-    : Emittable(te) { } 
+  EmittableContainer(TestEmitter* te);
 
   void Add(Emittable* e) { list.push_back(e); }
+  void Clear() { list.clear(); }
   void Name(std::ostream& out) const;
   void Reset(TestEmitter* te) { Emittable::Reset(te); for (Emittable* e : list) { e->Reset(te); } }
 
@@ -368,11 +389,11 @@ public:
   void KernelInit() { for (Emittable* e : list) { e->KernelInit(); }}
   void StartKernelBody() { for (Emittable* e : list) { e->StartKernelBody(); } }
 
-  void SetupDispatch(DispatchSetup* dispatch) { for (Emittable* e : list) { e->SetupDispatch(dispatch); } }
   void ScenarioInit() { for (Emittable* e : list) { e->ScenarioInit(); } }
   void ScenarioCodes() { for (Emittable* e : list) { e->ScenarioCodes(); } }
-  void ScenarioDispatches() { for (Emittable* e : list) { e->ScenarioDispatches(); } }
-
+  void ScenarioDispatch() { for (Emittable* e : list) { e->ScenarioDispatch(); } }
+  void SetupDispatch(const std::string& dispatchId) override { for (Emittable* e : list) { e->SetupDispatch(dispatchId); } }
+  void ScenarioValidation() { for (Emittable* e : list) { e->ScenarioValidation(); } }
   void ScenarioEnd() { for (Emittable* e : list) { e->ScenarioEnd(); } }
 
   Variable NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location = AUTO, BrigAlignment align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
@@ -381,15 +402,26 @@ public:
   FBarrier NewFBarrier(const std::string& id, Location location = Location::KERNEL, bool output = false);
   Buffer NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count);
   UserModeQueue NewQueue(const std::string& id, UserModeQueueType type);
+  Signal NewSignal(const std::string& id, uint64_t initialValue);
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
+  Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };
 
-class EBuffer : public Emittable {
+class EmittableContainerWithId : public EmittableContainer {
+protected:
+  EString id;
+public:
+  EmittableContainerWithId(TestEmitter* te, const std::string& id);
+
+  const char *Id() const { return id.c_str(); }
+};
+
+
+class EBuffer : public EmittableWithId {
 private:
-  std::string id;
   BufferType type;
   ValueType vtype;
   size_t count;
@@ -397,6 +429,7 @@ private:
   HSAIL_ASM::DirectiveVariable variable;
   PointerReg address[2];
   PointerReg dataOffset;
+  std::string comparisonMethod;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitBufferDefinition();
@@ -405,15 +438,16 @@ private:
 
 public:
   EBuffer(TestEmitter* te, const std::string& id_, BufferType type_, ValueType vtype_, size_t count_)
-    : Emittable(te), id(id_), type(type_), vtype(vtype_), count(count_), data(new Values()), dataOffset(0) {
+    : EmittableWithId(te, id_), type(type_), vtype(vtype_), count(count_), data(new Values()), dataOffset(0) {
     address[0] = 0; address[1] = 0;
   }
 
-  std::string IdData() const { return id + ".data"; }
-  std::string BufferName() const { return id; }
+  std::string IdData() const { return std::string(Id()) + ".data"; }
+  std::string BufferName() const { return Id(); }
   void AddData(Value v) { data->push_back(v); }
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
+  void SetComparisonMethod(const std::string& comparisonMethod) { this->comparisonMethod = comparisonMethod; }
 
   HSAIL_ASM::DirectiveVariable Variable();
   PointerReg Address(bool flat = false);
@@ -425,9 +459,9 @@ public:
 
   void KernelArguments();
   void KernelVariables();
-  void SetupDispatch(DispatchSetup* dsetup);
+  void SetupDispatch(const std::string& dispatchId);
   void ScenarioInit();
-  void Validation();
+  void ScenarioValidation();
 
   TypedReg AddDataReg();
   PointerReg AddAReg(bool flat = false);
@@ -437,9 +471,8 @@ public:
   void EmitStoreData(TypedReg src, bool flat = false);
 };
 
-class EUserModeQueue : public Emittable {
+class EUserModeQueue : public EmittableWithId {
 private:
-  std::string id;
   UserModeQueueType type;
   HSAIL_ASM::DirectiveVariable queueKernelArg;
   PointerReg address;
@@ -450,9 +483,9 @@ private:
 
 public:
   EUserModeQueue(TestEmitter* te, const std::string& id_, UserModeQueueType type_)
-    : Emittable(te), id(id_), type(type_), address(0), doorbellSignal(0), size(0), baseAddress(0) { }
+    : EmittableWithId(te, id_), type(type_), address(0), doorbellSignal(0), size(0), baseAddress(0) { }
   EUserModeQueue(TestEmitter* te, const std::string& id_, PointerReg address_ = 0)
-    : Emittable(te), id(id_), type(USER_PROVIDED), address(address_), doorbellSignal(0), size(0), baseAddress(0) { }
+    : EmittableWithId(te, id_), type(USER_PROVIDED), address(address_), doorbellSignal(0), size(0), baseAddress(0) { }
 
 //  void Name(std::ostream& out) { out << UserModeQueueType2Str(type); }
 
@@ -460,7 +493,7 @@ public:
 
   void KernelArguments();
   void StartKernelBody();
-  void SetupDispatch(hexl::DispatchSetup* setup);
+  void SetupDispatch(const std::string& dispatchId);
   void ScenarioInit();
 
   void EmitLdQueueReadIndex(BrigSegment segment, BrigMemoryOrder memoryOrder, TypedReg dest);
@@ -480,39 +513,29 @@ public:
   PointerReg EmitLoadBaseAddress();
 };
 
-class ESignal : public Emittable {
+class ESignal : public EmittableWithId {
 private:
-  std::string id;
   uint64_t initialValue;
   HSAIL_ASM::DirectiveVariable kernelArg;
+  TypedReg handle;
 
 public:
   ESignal(TestEmitter* te, const std::string& id_, uint64_t initialValue_)
-    : Emittable(te), id(id_), initialValue(initialValue_) { }
+    : EmittableWithId(te, id_), initialValue(initialValue_), handle(0) { }
 
-  const std::string& Id() const { return id; }
   HSAIL_ASM::DirectiveVariable KernelArg() { assert(kernelArg != 0); return kernelArg; }
 
-  void ScenarioInit();
   void KernelArguments();
-  void SetupDispatch(DispatchSetup* dispatch);
+  void ScenarioInit();
+  void SetupDispatch(const std::string& dispatchId);
 
   TypedReg AddReg();
   TypedReg AddValueReg();
+  TypedReg Handle();
 };
 
-class EImageSpec : public EVariableSpec {
+class EImageSpec : public EVariableSpec, protected ImageParams {
 protected:
-  BrigImageGeometry geometry;
-  BrigImageChannelOrder channel_order;
-  BrigImageChannelType channel_type;
-  size_t width;
-  size_t height;
-  size_t depth;
-  size_t rowPitch;
-  size_t slicePitch;
-  size_t array_size;
-
   bool IsValidSegment() const;
   bool IsValidType() const;
   
@@ -530,32 +553,30 @@ public:
     size_t width_ = 0, 
     size_t height_ = 0, 
     size_t depth_ = 0, 
-    size_t array_size_ = 0
+    size_t array_size_ = 0,
+    bool bLimitTest = false
     );
 
   bool IsValid() const;
 
   BrigImageGeometry Geometry() { return geometry; }
-  BrigImageChannelOrder ChannelOrder() { return channel_order; }
-  BrigImageChannelType ChannelType() { return channel_type; }
+  BrigImageChannelOrder ChannelOrder() { return channelOrder; }
+  BrigImageChannelType ChannelType() { return channelType; }
   size_t Width() { return width; }
   size_t Height() { return height; }
   size_t Depth() { return depth; }
-  size_t RowPitch() { return rowPitch; }
-  size_t SlicePitch() { return slicePitch; }
-  size_t ArraySize() { return array_size; }
-  
+  size_t ArraySize() { return arraySize; }
+  bool IsLimitTest() { return bLimitTest; }
   void Geometry(BrigImageGeometry geometry_) { geometry = geometry_; }
-  void ChannelOrder(BrigImageChannelOrder channel_order_) { channel_order = channel_order_; }
-  void ChannelType(BrigImageChannelType channel_type_) { channel_type = channel_type_; }
+  void ChannelOrder(BrigImageChannelOrder channelOrder_) { channelOrder = channelOrder_; }
+  void ChannelType(BrigImageChannelType channelType_) { channelType = channelType_; }
   void Width(size_t width_) { width = width_; }
   void Height(size_t height_) { height = height_; }
   void Depth(size_t depth_) { depth = depth_; }
-  void RowPitch(size_t rowPitch_) { rowPitch = rowPitch_; }
-  void SlicePitch(size_t slicePitch_) { slicePitch = slicePitch_; }
-  void ArraySize(size_t array_size_) { array_size = array_size_; }
+  void ArraySize(size_t arraySize_) { arraySize = arraySize_; }
+  void LimitTest(bool bLimitTest_) { bLimitTest = bLimitTest_; }
 
-  hexl::ImageGeometry ImageGeometry() { return hexl::ImageGeometry((unsigned)width, (unsigned)height, (unsigned)depth, (unsigned)array_size); }
+  hexl::ImageGeometry ImageGeometry() { return hexl::ImageGeometry((unsigned)width, (unsigned)height, (unsigned)depth, (unsigned)arraySize); }
 };
 
 class EImageCalc {
@@ -615,8 +636,9 @@ private:
   Value PackChannelDataToMemoryFormat(Value* _color) const;
 
 public:
-  EImageCalc(EImage * eimage, ESampler* esampler);
+  EImageCalc() { };
   
+  void Init(EImage * eimage, ESampler* esampler);
   void ValueSet(Value val) { existVal = val; }
   void EmulateImageRd(Value* _coords, Value* _channels) const;
   void EmulateImageLd(Value* _coords, Value* _channels) const;
@@ -625,12 +647,11 @@ public:
 
 class EImage : public EImageSpec {
 private:
-  std::string id;
+  EString id;
   HSAIL_ASM::DirectiveVariable var;
   MImage* image;
   std::unique_ptr<Values> data;
-  bool bLimitTestOn;
-  ImageCalc calculator;
+  EImageCalc calculator;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitInitializer();
@@ -639,10 +660,12 @@ private:
   Location RealLocation() const;
 
 public:
-  EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec) : EImageSpec(*spec), id(id_), data(new Values()), bLimitTestOn(false), calculator(NULL) { te = te_; }
-  ~EImage() { if (calculator) delete calculator; }
+  EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec);
+  ~EImage() {}
 
-  const std::string& Id() const { return id; }
+  const char *Id() const { return id; }
+  std::string IdData() const { return id.str() + ".data"; }
+  std::string IdParams() const { return id.str() + ".params"; }
 
   void KernelArguments();
   void ModuleVariables();
@@ -651,16 +674,11 @@ public:
   void FunctionVariables();
   void KernelVariables();
 
-  void SetupDispatch(DispatchSetup* dispatch);
-  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, TypedReg coord);
-  void EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg coord);
-  void EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageLd(TypedReg dest, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, TypedReg coord);
-  void EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
-  void EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType);
+  void ScenarioInit();
+  void SetupDispatch(const std::string& dispatchId);
+  void EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, TypedReg coord);
+  void EmitImageLd(TypedReg dest, TypedReg image, TypedReg coord);
+  void EmitImageSt(TypedReg src, TypedReg image, TypedReg coord);
   void EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query);
 
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
@@ -670,19 +688,18 @@ public:
   void SetData(Values* values) { data.reset(values); }
   Values* ReleaseData() { return data.release(); }
   Value GetRawData() { return (*data).at(0); }
-  void LimitEnable(bool bEnable) { bLimitTestOn = bEnable; }
-  void InitImageCalculator(Sampler pSampler) { calculator = new EImageCalc(this, pSampler); }
-  void SetValueForCalculator(Value val) { assert(calculator); calculator->ValueSet(val); }
-  void ReadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageRd(_coords, _channels); }
-  void LoadColor(Value* _coords, Value* _channels) const { assert(calculator); calculator->EmulateImageLd(_coords, _channels); }
-  Value StoreColor(Value* _coords, Value* _channels) const { assert(calculator); return calculator->EmulateImageSt(_coords, _channels); }
+  void InitImageCalculator(Sampler pSampler) { calculator.Init(this, pSampler); }
+  void SetValueForCalculator(Value val) { calculator.ValueSet(val); }
+  void ReadColor(Value* _coords, Value* _channels) const { calculator.EmulateImageRd(_coords, _channels); }
+  void LoadColor(Value* _coords, Value* _channels) const { calculator.EmulateImageLd(_coords, _channels); }
+  Value StoreColor(Value* _coords, Value* _channels) const {  return calculator.EmulateImageSt(_coords, _channels); }
 };
 
-class ESamplerSpec : public EVariableSpec {
+class ESamplerSpec : public EVariableSpec, protected SamplerParams {
 protected:
+  BrigSamplerAddressing addressing;
   BrigSamplerCoordNormalization coord;
   BrigSamplerFilter filter;
-  BrigSamplerAddressing addressing;
 
   bool IsValidSegment() const;
   
@@ -698,7 +715,7 @@ public:
     BrigSamplerAddressing addressing_ = BRIG_ADDRESSING_UNDEFINED
   ) 
   : EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
-  coord(coord_), filter(filter_), addressing(addressing_) {}
+    SamplerParams(addressing, coord, filter) { }
 
   bool IsValid() const;
 
@@ -713,7 +730,7 @@ public:
 
 class ESampler : public ESamplerSpec {
 private:
-  std::string id;
+  EString id;
   HSAIL_ASM::DirectiveVariable var;
   MSampler* sampler;
 
@@ -725,9 +742,10 @@ private:
   Location RealLocation() const;
 
 public:
-  ESampler(TestEmitter* te_, const std::string& id_, const ESamplerSpec* spec_): ESamplerSpec(*spec_), id(id_) { te = te_; }
+  ESampler(TestEmitter* te_, const std::string& id_, const ESamplerSpec* spec_);
   
-  const std::string& Id() const { return id; }
+  const char *Id() const { return id.c_str(); }
+  std::string IdParams() const { return id.str() + ".params"; }
 
   void KernelArguments();
   void ModuleVariables();
@@ -736,7 +754,8 @@ public:
   void FunctionVariables();
   void KernelVariables();
 
-  void SetupDispatch(DispatchSetup* dispatch);
+  void ScenarioInit();
+  void SetupDispatch(const std::string& dispatchId);
   void EmitSamplerQuery(TypedReg dest, TypedReg sampler, BrigSamplerQuery query);
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
   TypedReg AddReg();
@@ -744,16 +763,15 @@ public:
 };
 
 
-class EKernel : public EmittableContainer {
+class EKernel : public EmittableContainerWithId {
 private:
-  std::string id;
   HSAIL_ASM::DirectiveKernel kernel;
 
 public:
   EKernel(TestEmitter* te, const std::string& id_)
-    : EmittableContainer(te), id(id_) { }
+    : EmittableContainerWithId(te, id_) { }
 
-  std::string KernelName() const { return "&" + id; }
+  std::string KernelName() const { return std::string("&") + Id(); }
   HSAIL_ASM::DirectiveKernel Directive() { assert(kernel != 0); return kernel; }
   HSAIL_ASM::Offset BrigOffset() { return Directive().brigOffset(); }
   void StartKernel();
@@ -762,22 +780,35 @@ public:
   void Declaration();
 };
 
-class EFunction : public EmittableContainer {
+class EFunction : public EmittableContainerWithId {
 private:
-  std::string id;
   HSAIL_ASM::DirectiveFunction function;
 
 public:
   EFunction(TestEmitter* te, const std::string& id_)
-    : EmittableContainer(te), id(id_) { }
+    : EmittableContainerWithId(te, id_) { }
 
-  std::string FunctionName() const { return "&" + id; }
+  std::string FunctionName() const { return std::string("&") + Id(); }
   HSAIL_ASM::DirectiveFunction Directive() { assert(function != 0); return function; }
   HSAIL_ASM::Offset BrigOffset() { return Directive().brigOffset(); }
   void StartFunction();
   void StartFunctionBody();
   void EndFunction();
   void Declaration();
+};
+
+class EDispatch : public EmittableContainerWithId {
+private:
+  EString executableId;
+  EString kernelName;
+
+public:
+  EDispatch(TestEmitter* te, const std::string& id_,
+    const std::string& executableId_, const std::string& kernelName_);
+
+  void ScenarioInit() override;
+  void ScenarioDispatch() override;
+  void SetupDispatch(const std::string& dispatchId) override;
 };
 
 const char* ConditionType2Str(ConditionType type);
@@ -828,9 +859,9 @@ public:
   void KernelInit();
   void FunctionFormalInputArguments();
   void FunctionInit();
-  void SetupDispatch(DispatchSetup* dsetup);
+  void SetupDispatch(const std::string& dispatchId);
   void ScenarioInit();
-  void Validation();
+  void ScenarioValidation();
   void ActualCallArguments(TypedRegList inputs, TypedRegList outputs);
 
   bool IsTrueFor(uint64_t wi);
@@ -866,15 +897,17 @@ class CoreConfig;
 
 class TestEmitter {
 private:
+  Context* context;
   Arena ap;
   std::unique_ptr<BrigEmitter> be;
   std::unique_ptr<Context> initialContext;
-  std::unique_ptr<hexl::scenario::Scenario> scenario;
+  std::unique_ptr<hexl::scenario::ScenarioBuilder> scenario;
   CoreConfig* coreConfig;
 
 public:
-  TestEmitter();
+  TestEmitter(Context* context_ = 0);
 
+  Context* EmitContext() { return context; }
   void SetCoreConfig(CoreConfig* cc);
 
   Arena* Ap() { return &ap; }
@@ -884,8 +917,8 @@ public:
 
   Context* InitialContext() { return initialContext.get(); }
   Context* ReleaseContext() { return initialContext.release(); }
-  hexl::scenario::Scenario* TestScenario() { return scenario.get(); }
-  hexl::scenario::Scenario* ReleaseScenario() { return scenario.release(); }
+  hexl::scenario::ScenarioBuilder* TestScenario() { return scenario.get(); }
+  hexl::scenario::ScenarioBuilder* ReleaseScenario() { return scenario.release(); }
 
   Variable NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location = AUTO, BrigAlignment align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   Variable NewVariable(const std::string& id, VariableSpec varSpec);
@@ -898,6 +931,7 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
+  Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };
 
 }
@@ -910,7 +944,7 @@ protected:
 public:
   EmittedTestBase()
     : context(new hexl::Context()),
-      te(new hexl::emitter::TestEmitter()) { }
+      te(new hexl::emitter::TestEmitter(context.get())) { }
 
   void InitContext(hexl::Context* context) { this->context->SetParent(context); }
   hexl::Context* GetContext() { return context.get(); }
@@ -930,6 +964,7 @@ protected:
   emitter::Function function;
   emitter::Variable functionResult;
   emitter::TypedReg functionResultReg;
+  emitter::Dispatch dispatch;
     
 public:
   EmittedTest(emitter::Location codeLocation_ = emitter::KERNEL, Grid geometry_ = 0);
@@ -967,7 +1002,7 @@ public:
   virtual emitter::TypedReg KernelResult();
   virtual void KernelCode();
 
-  virtual void SetupDispatch(DispatchSetup* dispatch);
+  virtual void SetupDispatch(const std::string& dispatchId);
 
   virtual void Function();
   virtual void StartFunction();
@@ -999,6 +1034,7 @@ public:
   virtual void ScenarioInit();
   virtual void ScenarioCodes();
   virtual void ScenarioDispatches();
+  virtual void ScenarioDispatch();
   virtual void ScenarioValidation();
   virtual void ScenarioEnd();
   virtual void Finish();

@@ -30,7 +30,7 @@ namespace hsail_conformance {
 ///// BASE (VALUE) /////
 class SignalBaseTest : public Test {
 protected:
-  DirectiveVariable signalArg;
+  Signal signal;
   BrigMemoryOrder memoryOrder;
   BrigAtomicOperation atomicOp;
   bool noret;
@@ -54,6 +54,11 @@ public:
 
   Value ExpectedResult() const { return Value(MV_UINT32, U32(1)); }
 
+  void Init() {
+    Test::Init();
+    signal = kernel->NewSignal("signal", initialValue);
+  }
+
   void GeometryInit() {
     // TODO: check how signal tests work with non-trivial geometry and remove this to use default geometry.
     geometry = cc->Grids().TrivialGeometry();
@@ -61,27 +66,16 @@ public:
 
   void ScenarioInit() {
     Test::ScenarioInit();
-    CommandSequence& commands0 = te->TestScenario()->Commands();
-    commands0.CreateSignal("signal", initialValue);
-    CommandSequence& commands1 = te->TestScenario()->Commands(1);
-    commands0.StartThread(1);
-    commands1.WaitSignal("signal", expectedValue);
+    CommandsBuilder* commands0 = te->TestScenario()->Commands();
+    CommandsBuilder* commands1 = te->TestScenario()->Commands(1);
+    commands0->StartThread(1);
+    commands1->SignalWait("signal", expectedValue);
   }
 
   hexl::Test* Create() {
     // not yet used
-    GetContext()->Put(Defaults::SIGNAL_ATOMIC_ID, Value(MV_UINT32, atomicOp));
+    //GetContext()->Put(Defaults::SIGNAL_ATOMIC_ID, Value(MV_UINT32, atomicOp));
     return Test::Create();
-  }
-
-  void KernelArguments() {
-    Test::KernelArguments();
-    signalArg = be.EmitVariableDefinition("%signal", BRIG_SEGMENT_KERNARG, be.SignalType());
-  }
-
-  void SetupDispatch(DispatchSetup* dsetup) {
-    Test::SetupDispatch(dsetup);
-    dsetup->MSetup().Add(NewMValue(unsigned(dsetup->MSetup().Count()), "Signal", MEM_KERNARG, MV_EXPR, S("signal")));
   }
 
   bool IsValid() const {
@@ -129,8 +123,7 @@ public:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    TypedReg signal = be.AddTReg(be.SignalType());
-    be.EmitLoad(signalArg.segment(), signal, be.Address(signalArg));
+    TypedReg signal = this->signal->Handle();
     BrigType vtype = be.SignalValueIntType(true);
     TypedReg dest = NULL, origin = NULL, src0 = be.AddTReg(vtype), c = be.AddCTReg(), src1 = NULL;
     if (!noret) {
@@ -189,17 +182,15 @@ public:
 
   void ScenarioInit() {
     Test::ScenarioInit();
-    CommandSequence& commands0 = te->TestScenario()->Commands(0);
-    commands0.CreateSignal("signal");
-    CommandSequence& commands1 = te->TestScenario()->Commands(1);
-    commands0.StartThread(1);
-    commands1.SendSignal("signal", initialValue);
+    CommandsBuilder* commands0 = te->TestScenario()->Commands(0);
+    CommandsBuilder* commands1 = te->TestScenario()->Commands(1);
+    commands0->StartThread(1);
+    commands1->SignalSend("signal", initialValue);
   }
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    TypedReg signal = be.AddTReg(be.SignalType());
-    be.EmitLoad(signalArg.segment(), signal, be.Address(signalArg));
+    TypedReg signal = this->signal->Handle();
     BrigType vtype = be.SignalValueIntType(true);
     TypedReg dest = be.AddTReg(vtype), src0 = be.AddTReg(vtype), acquired = be.AddTReg(vtype), c = be.AddCTReg();
     int64_t immSrc0;

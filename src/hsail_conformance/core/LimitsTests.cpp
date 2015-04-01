@@ -456,7 +456,7 @@ protected:
   Variable InitializeVariable() override {
     auto var = kernel->NewVariable("var", BRIG_SEGMENT_KERNARG, VALUE_TYPE, Location::AUTO, BRIG_ALIGNMENT_NONE, VarSize());
     for (uint32_t i = 0; i < VarSize(); ++i) {
-      var->PushBack(Value(Brig2ValueType(VALUE_TYPE), VALUE));
+      var->AddData(Value(Brig2ValueType(VALUE_TYPE), VALUE));
     }
     return var;
   }
@@ -479,7 +479,7 @@ public:
 class ArgMemorySizeLimitTest: public MemorySegmentSizeLimitTest {
 private:
   static const uint32_t LIMIT = 64; // 64 bytes of arg memory
-  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U64;
   static const uint32_t VALUE = 123456789;
 
   uint32_t VarSize() const {
@@ -521,7 +521,7 @@ public:
   void ActualCallArguments(TypedRegList inputs, TypedRegList outputs) override {
     MemorySegmentSizeLimitTest::ActualCallArguments(inputs, outputs);
     auto value = EmitValue();
-    auto reg = be.AddTReg(VALUE_TYPE, 15);
+    auto reg = be.AddTReg(VALUE_TYPE, VarSize());
     for (uint32_t i = 0; i < VarSize(); ++i) {
       be.EmitMov(reg->Reg(i), value->Reg(), getBrigTypeNumBits(VALUE_TYPE));
     }

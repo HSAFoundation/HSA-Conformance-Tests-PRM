@@ -49,7 +49,7 @@ CoreConfig::CoreConfig(
 }
 
 void CoreConfig::Init(Context *context) {
-  RuntimeContext* runtimeContext = context->Runtime();
+  runtime::RuntimeContext* runtimeContext = context->Runtime();
   profile = runtimeContext->IsFullProfile() ? BRIG_PROFILE_FULL : BRIG_PROFILE_BASE;
   wavesize = runtimeContext->Wavesize();
   wavesPerGroup = runtimeContext->WavesPerGroup();
@@ -60,30 +60,31 @@ void CoreConfig::Init(Context *context) {
 
 CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   : ConfigBase(cc),
+    dimensions(NEWA VectorSequence<uint32_t>(ap)),
     defaultGeometry(3, 35, 5, 3, 9, 4, 2),
     trivialGeometry(1, 1, 1, 1, 1, 1, 1),
     allWavesIdGeometry(3, 40, 32, 32, 8, 8, 4),
     defaultGeometrySet(NEWA OneValueSequence<Grid>(&defaultGeometry)),
     trivialGeometrySet(NEWA OneValueSequence<Grid>(&trivialGeometry)),
     allWavesIdSet(NEWA OneValueSequence<Grid>(&allWavesIdGeometry)),
-    simple(NEWA hexl::VectorSequence<hexl::Grid>()),
-    degenerate(NEWA hexl::VectorSequence<hexl::Grid>()),
-    dimension(NEWA hexl::VectorSequence<hexl::Grid>()),
-    boundary24(NEWA hexl::VectorSequence<hexl::Grid>()),
-    boundary32(NEWA hexl::VectorSequence<hexl::Grid>()),
-    severalwaves(NEWA hexl::VectorSequence<hexl::Grid>()),
-    workgroup256(NEWA hexl::VectorSequence<hexl::Grid>()),
-    limitGrids(NEWA hexl::VectorSequence<hexl::Grid>()),
-    singleGroup(NEWA hexl::VectorSequence<hexl::Grid>()),
-    atomic(NEWA hexl::VectorSequence<hexl::Grid>()),
-    barrier(NEWA hexl::VectorSequence<hexl::Grid>()),
-    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>()),
-    images(NEWA hexl::VectorSequence<hexl::Grid>()),
-    memfence(NEWA hexl::VectorSequence<hexl::Grid>())
+    simple(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    degenerate(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    dimension(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    boundary24(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    boundary32(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    severalwaves(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    workgroup256(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    limitGrids(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    singleGroup(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    atomic(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    barrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    fbarrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    images(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    memfence(NEWA hexl::VectorSequence<hexl::Grid>(ap))
 {
-  dimensions.Add(0);
-  dimensions.Add(1);
-  dimensions.Add(2);
+  dimensions->Add(0);
+  dimensions->Add(1);
+  dimensions->Add(2);
   // Representative set of grid geometries for each dimensions:
   // * Standard geometry when grid size and workgroup size is power of two.
   // * Geometry with grid size not multiple of workgroup size.
@@ -149,6 +150,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   fbarrier->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
   fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
   fbarrier->Add(NEWA GridGeometry(3, 3, 9, 13, 2, 7, 11));
+  images->Add(NEWA GridGeometry(1, 1, 1, 1, 1, 1, 1));
   images->Add(NEWA GridGeometry(1, 100, 1, 1, 100, 1, 1));
   images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
   images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
@@ -258,7 +260,7 @@ static const uint32_t numberRwArray[] = { 0, 17, 32, 64 };
 
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>()),
+    defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>(ap)),
     imageGeometryProps(NEWA ArraySequence<BrigImageGeometry>(allGeometry, NELEM(allGeometry))),
     imageRdGeometryProp(NEWA ArraySequence<BrigImageGeometry>(rdGeometry, NELEM(rdGeometry))),
     imageDepthGeometryProp(NEWA ArraySequence<BrigImageGeometry>(DepthGeometry, NELEM(DepthGeometry))),
@@ -363,9 +365,9 @@ CoreConfig::SegmentsConfig::SegmentsConfig(CoreConfig* cc)
     all(NEWA hexl::ArraySequence<BrigSegment>(allSegments, NELEM(allSegments))),
     variable(NEWA hexl::ArraySequence<BrigSegment>(variableSegments, NELEM(variableSegments))),
     atomic(NEWA hexl::ArraySequence<BrigSegment>(atomicSegments, NELEM(atomicSegments))),
+    initializable(NEWA hexl::ArraySequence<BrigSegment>(initializableSegments, NELEM(initializableSegments))),
     moduleScope(NEWA hexl::ArraySequence<BrigSegment>(moduleScopeArray, NELEM(moduleScopeArray))),
-    functionScope(NEWA hexl::ArraySequence<BrigSegment>(functionScopeArray, NELEM(functionScopeArray))),
-    initializable(NEWA hexl::ArraySequence<BrigSegment>(initializableSegments, NELEM(initializableSegments)))
+    functionScope(NEWA hexl::ArraySequence<BrigSegment>(functionScopeArray, NELEM(functionScopeArray)))
 {
   for (unsigned segment = BRIG_SEGMENT_NONE; segment != BRIG_SEGMENT_MAX; ++segment) {
     singleList[segment] = new (ap) hexl::OneValueSequence<BrigSegment>((BrigSegment) segment);
@@ -587,10 +589,12 @@ CoreConfig::VariablesConfig::VariablesConfig(CoreConfig* cc)
   initializerDims(NEWA ArraySequence<uint64_t>(initializerDimensions, NELEM(initializerDimensions))),
   autoLocation(NEWA OneValueSequence<Location>(AUTO)),
   initializerLocations(NEWA ArraySequence<Location>(initializerLocationsArray, NELEM(initializerLocationsArray))),
-  moduleScopeLinkage(NEWA ArraySequence<BrigLinkage>(moduleScopeLinkageArray, NELEM(moduleScopeLinkageArray)))
+  moduleScopeLinkage(NEWA ArraySequence<BrigLinkage>(moduleScopeLinkageArray, NELEM(moduleScopeLinkageArray))),
+  allAlignment(NEWA VectorSequence<BrigAlignment>(ap)),
+  annotationLocations(NEWA EnumSequence<AnnotationLocation>(ap, AnnotationLocation::ANNOTATION_LOCATION_BEGIN, AnnotationLocation::ANNOTATION_LOCATION_END))
 {
   for (unsigned a = BRIG_ALIGNMENT_1; a != BRIG_ALIGNMENT_LAST; a++) {
-    allAlignment.Add((BrigAlignment) a);
+    allAlignment->Add((BrigAlignment) a);
   }
   for (unsigned segment = BRIG_SEGMENT_NONE; segment != BRIG_SEGMENT_MAX; segment++) {
     auto product = SequenceProduct(ap,
@@ -620,7 +624,7 @@ static const BrigMemoryOrder stMemoryOrdersValues[] = { BRIG_MEMORY_ORDER_RELAXE
 
 CoreConfig::QueuesConfig::QueuesConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    types(NEWA EnumSequence<UserModeQueueType>(SOURCE_START, SOURCE_END)),
+    types(NEWA EnumSequence<UserModeQueueType>(ap, SOURCE_START, SOURCE_END)),
     segments(NEWA ArraySequence<BrigSegment>(queueSegments, NELEM(queueSegments))),
     ldOpcodes(NEWA ArraySequence<BrigOpcode>(ldOpcodesValues, NELEM(ldOpcodesValues))),
     addCasOpcodes(NEWA ArraySequence<BrigOpcode>(addCasOpcodesValues, NELEM(addCasOpcodesValues))),
@@ -705,12 +709,12 @@ static const BrigAtomicOperation atomicOperationsValues[] = {
 
 CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    allMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_LAST)),
-    signalSendMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_LAST)),
-    signalWaitMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_SC_RELEASE)),
-    memfenceMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_ORDER_LAST)),
-    allMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(BRIG_MEMORY_SCOPE_WORKITEM, BRIG_MEMORY_SCOPE_LAST)),
-    memfenceMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(BRIG_MEMORY_SCOPE_WAVEFRONT, BRIG_MEMORY_SCOPE_LAST)),
+    allMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(ap, BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_LAST)),
+    signalSendMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(ap, BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_LAST)),
+    signalWaitMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(ap, BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_ORDER_SC_RELEASE)),
+    memfenceMemoryOrders(NEWA EnumSequence<BrigMemoryOrder>(ap, BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_ORDER_LAST)),
+    allMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(ap, BRIG_MEMORY_SCOPE_WORKITEM, BRIG_MEMORY_SCOPE_LAST)),
+    memfenceMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(ap, BRIG_MEMORY_SCOPE_WAVEFRONT, BRIG_MEMORY_SCOPE_LAST)),
     allAtomics(NEWA ArraySequence<BrigAtomicOperation>(allAtomicsValues, NELEM(allAtomicsValues))),
     atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues))),
     signalSendAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalSendAtomicsValues, NELEM(signalSendAtomicsValues))),
@@ -860,13 +864,13 @@ ControlDirectives CoreConfig::ControlDirectivesConfig::Array(Arena* ap, const Br
 
 CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
   : ConfigBase(cc),
-    allWidths(NEWA EnumSequence<BrigWidth>(BRIG_WIDTH_NONE, BRIG_WIDTH_LAST)),
-    workgroupWidths(NEWA VectorSequence<BrigWidth>()),
-    cornerWidths(NEWA VectorSequence<BrigWidth>()),
-    conditionInputs(NEWA EnumSequence<ConditionInput>(COND_INPUT_START, COND_INPUT_END)),
+    allWidths(NEWA EnumSequence<BrigWidth>(ap, BRIG_WIDTH_NONE, BRIG_WIDTH_LAST)),
+    workgroupWidths(NEWA VectorSequence<BrigWidth>(ap)),
+    cornerWidths(NEWA VectorSequence<BrigWidth>(ap)),
+    conditionInputs(NEWA EnumSequence<ConditionInput>(ap, COND_INPUT_START, COND_INPUT_END)),
     binaryConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), WorkgroupWidths()))),
     nestedConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), CornerWidths()))),
-    sbrTypes(NEWA EnumSequence<BrigType>(BRIG_TYPE_U32, BRIG_TYPE_S8)),
+    sbrTypes(NEWA EnumSequence<BrigType>(ap, BRIG_TYPE_U32, BRIG_TYPE_S8)),
     switchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), WorkgroupWidths()))),
     nestedSwitchConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_SWITCH), ConditionInputs(), SbrTypes(), CornerWidths())))
 {

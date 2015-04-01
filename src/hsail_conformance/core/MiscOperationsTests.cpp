@@ -36,19 +36,15 @@ public:
   KernargBasePtrIdentityTest(Location codeLocation)
     : Test(codeLocation) { }
 
-  void Init() {
-    Test::Init();
-    testArg = te->NewVariable("testArg", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+  void KernelArgumentsInit() override {
+    // Ensure testArg is the first argument.
+    testArg = kernel->NewVariable("testArg", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+    testArg->AddData(Value(MV_UINT32, U32(argValue)));
+    Test::KernelArgumentsInit();
   }
 
   void Name(std::ostream& out) const {
     out << CodeLocationString();
-  }
-
-  void KernelArguments() {
-    // Ensure testArg is the first argument.
-    testArg->EmitDefinition();
-    hexl::EmittedTest::KernelArguments();
   }
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }
@@ -61,12 +57,6 @@ public:
     be.EmitKernargBasePtr(kab);
     be.EmitLoad(result, kab);
     return result;
-  }
-
-  void SetupDispatch(DispatchSetup* dsetup)
-  {
-    dsetup->MSetup().Add(NewMValue(dsetup->MSetup().Count(), "Test arg", MEM_KERNARG, MV_UINT32, U32(argValue)));
-    Test::SetupDispatch(dsetup);
   }
 };
 
@@ -84,9 +74,9 @@ public:
     out << varSpec;
   }
 
-  void Init() {
-    Test::Init();
-    if (varSpec) { var = kernel->NewVariable("var", varSpec); }
+  void KernelArgumentsInit() {
+    Test::KernelArgumentsInit();
+    if (varSpec) { var = kernel->NewVariable("var", varSpec); var->AddData(Value(var->VType(), 42)); }
   }
 
   BrigType ResultType() const { return be.PointerType(BRIG_SEGMENT_KERNARG); }
@@ -137,7 +127,7 @@ public:
   void Init() override {
     Test::Init();
     inArg = kernel->NewVariable("input", BRIG_SEGMENT_KERNARG, VALUE_TYPE, Location::KERNEL);
-    inArg->PushBack(Value(Brig2ValueType(VALUE_TYPE), testValue));
+    inArg->AddData(Value(Brig2ValueType(VALUE_TYPE), testValue));
   }
 
   TypedReg Result() override {
@@ -261,16 +251,14 @@ public:
   void Init() {
     GroupBasePtrIdentityTest::Init();
     offsetArg = kernel->NewVariable("offset", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
-    offsetArg->PushBack(Value(Brig2ValueType(offsetArg->Type()), 0));
+    offsetArg->AddData(Value(offsetArg->VType(), offsetValue));
   }
 
-  void SetupDispatch(DispatchSetup* dsetup) override {
-    Test::SetupDispatch(dsetup);
-    uint32_t size[3] = {geometry->GridSize32(), 1, 1};
-    auto buffer = new MBuffer(dsetup->MSetup().Count(), "Dynamic memory", MEM_GROUP, 
-      Brig2ValueType(ResultType()), 1, size);
-    buffer->Data().push_back(Value(Brig2ValueType(ResultType()), 322));
-    dsetup->MSetup().Add(buffer);
+  void SetupDispatch(const std::string& dispatchId) override {
+    Test::SetupDispatch(dispatchId);
+    auto offsetType = Brig2ValueType(offsetArg->Type());
+    te->TestScenario()->Commands()->DispatchValueArg(dispatchId, Value(offsetType, 322));
+    te->InitialContext()->Put(dispatchId, "dynamicgroupsize", Value(MV_UINT32, U32(DynamicMemorySize())));
   }
 };
 
@@ -328,14 +316,12 @@ public:
     out << CodeLocationString();
   }
 
-  void Init() override {
-    cc = hexl::emitter::CoreConfig::Get(context.get());
+  void GeometryInit() override {
     geometry = cc->Grids().DefaultGeometry();
-    kernel = te->NewKernel("test_kernel");
-    if (codeLocation == emitter::FUNCTION) {
-      function = te->NewFunction("test_function");
-    }
   }
+
+  void KernelArgumentsInit() override { }
+  void FunctionArgumentsInit() override { }
 
   void KernelCode() override {
     if (codeLocation == Location::KERNEL) {
@@ -352,14 +338,6 @@ public:
       be.EmitNop();
     }
   }
-
-  void SetupDispatch(DispatchSetup* dispatch) override {
-    dispatch->SetDimensions(geometry->Dimensions());
-    dispatch->SetWorkgroupSize(geometry->WorkgroupSize(0), geometry->WorkgroupSize(1), geometry->WorkgroupSize(2));
-    dispatch->SetGridSize(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2));
-    kernel->SetupDispatch(dispatch);
-  }
-
 }; 
 
 
