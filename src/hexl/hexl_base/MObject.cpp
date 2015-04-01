@@ -1301,7 +1301,7 @@ bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, con
   }
   case CM_ULPS: {
     error = Value(MV_UINT32, U32((std::max)(v1.U32(), v2.U32()) - (std::min)(v1.U32(), v2.U32())));
-    return error.U32() <= precision.U64();
+    return error.U32() <= precision.U32();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
