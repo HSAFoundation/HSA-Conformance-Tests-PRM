@@ -799,6 +799,11 @@ enum ComparisonMethod {
   CM_ULPS,     // precision = max ULPS, minumum is 1
   CM_RELATIVE  // (simulated_value - expected_value) / expected_value <= precision
 };
+//NOTE
+//It is unsafe to use CM_ULPS for floats near 0.
+//CM_ULPS is an approximation of the ulp(x) function defined in PRM section 4.19.6.
+//Precision in CM_ULPS is more like a number of representable float numbers between
+//expected and actual results. Thus it gives slightly different results.
 
 class Comparison {
 public:
@@ -817,7 +822,10 @@ public:
   static const uint32_t F_DEFAULT_ULPS_PRECISION;
   static const double F_DEFAULT_RELATIVE_PRECISION;
   Comparison() : method(CM_DECIMAL), result(false) { }
-  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_), result(false) { }
+  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_), result(false), minLimit(false), maxLimit(false), flushDenorms(false) { }
+  void SetMinLimit(Value limit, bool isLimited = true);
+  void SetMaxLimit(Value limit, bool isLimited = true);
+  void SetFlushDenorms(bool flushDenorms);
   void Reset(ValueType type);
   void SetDefaultPrecision(ValueType type);
   bool GetResult() const { return result; }
@@ -838,6 +846,9 @@ public:
 private:
   ComparisonMethod method;
   Value precision;
+  Value minVal, maxVal;
+  bool minLimit, maxLimit;
+  bool flushDenorms;
   bool result;
   Value error;
   Value evalue, rvalue;
@@ -845,6 +856,11 @@ private:
   unsigned checks, failed;
   Value maxError;
   size_t maxErrorIndex;
+
+  bool CompareValues(const Value& v1, const Value& v2);
+  bool CompareHalf(const Value& v1, const Value& v2);
+  bool CompareFloat(const Value& v1, const Value& v2);
+  bool CompareDouble(const Value& v1, const Value& v2);
 };
 
 std::ostream& operator<<(std::ostream& out, const Comparison& comparison);
