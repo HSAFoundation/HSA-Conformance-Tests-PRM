@@ -64,7 +64,7 @@ bool is_denorm(hexl::half h)
     return (std::fpclassify(f) == FP_SUBNORMAL);
   }
 
-  bool is_denorm(double df)
+  bool is_denorm(double f)
   {
     return (std::fpclassify(f) == FP_SUBNORMAL);
   }
