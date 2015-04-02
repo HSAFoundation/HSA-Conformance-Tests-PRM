@@ -72,7 +72,7 @@ uint32_t GridGeometry::WorkitemFlatId(Dim point) const
   return WorkitemId(point, 0) + WorkitemId(point, 1) * workgroupSize[X] + WorkitemId(point, 2) * workgroupSize[X] * workgroupSize[Y];
 }
   
-uint32_t GridGeometry::WorkitemCurrentFlatId(Dim point) const
+uint32_t GridGeometry::CurrentWorkitemFlatId(Dim point) const
 {
   return WorkitemId(point, 0) + WorkitemId(point, 1) * CurrentWorkgroupSize(point, 0) + WorkitemId(point, 2) * CurrentWorkgroupSize(point, 0) * CurrentWorkgroupSize(point, 1);
 }
@@ -176,12 +176,12 @@ Dim GridGeometry::Point(uint32_t workgroupflatid, uint32_t workitemflatid) const
 
 uint32_t GridGeometry::LaneId(const Dim& point, uint32_t wavesize) const
 {
-  return WorkitemCurrentFlatId(point) % wavesize;
+  return CurrentWorkitemFlatId(point) % wavesize;
 }
 
 uint32_t GridGeometry::WaveNumInWorkgroup(const Dim& point, uint32_t wavesize) const
 {
-  return WorkitemCurrentFlatId(point) / wavesize;
+  return CurrentWorkitemFlatId(point) / wavesize;
 }
 
 uint32_t GridGeometry::MaxWaveNumInWorkgroup(uint32_t wavesize) const

@@ -113,7 +113,7 @@ namespace hexl {
     uint32_t WorkgroupFlatId (Dim point) const;
     uint64_t WorkitemAbsId(Dim point, uint16_t dim) const;
     uint32_t WorkitemFlatId(Dim point) const;
-    uint32_t WorkitemCurrentFlatId (Dim point) const;
+    uint32_t CurrentWorkitemFlatId (Dim point) const;
     uint64_t WorkitemFlatAbsId(const Dim& point) const;
     uint32_t GridGroups(uint16_t dim) const;
     uint32_t GridGroups() const;

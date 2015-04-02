@@ -80,7 +80,8 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     barrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     fbarrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     images(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
-    memfence(NEWA hexl::VectorSequence<hexl::Grid>(ap))
+    memfence(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    partial(NEWA hexl::VectorSequence<hexl::Grid>(ap))
 {
   dimensions->Add(0);
   dimensions->Add(1);
@@ -158,6 +159,12 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*4,  1,   1,  cc->Wavesize()*4,  1,   1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*64,  1,   1,  cc->Wavesize()*2,  1,   1));
+  partial->Add(NEWA GridGeometry(1, 64, 1, 1, 198, 1, 1));
+  partial->Add(NEWA GridGeometry(1, 256, 1, 1, 198, 1, 1));
+  partial->Add(NEWA GridGeometry(2, 8, 7, 1, 9, 12, 1));
+  partial->Add(NEWA GridGeometry(2, 32, 15, 1, 9, 12, 1));
+  partial->Add(NEWA GridGeometry(3, 3, 5, 7, 8, 8, 4));
+  partial->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
 }
 
 

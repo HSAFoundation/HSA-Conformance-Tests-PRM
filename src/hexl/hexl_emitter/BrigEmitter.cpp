@@ -1613,21 +1613,10 @@ TypedReg BrigEmitter::EmitWorkitemId(uint32_t dim) {
 }
 
 TypedReg BrigEmitter::EmitCurrentWorkitemFlatId() {
-    TypedReg xSize = EmitCurrentWorkgroupSize(0);
-    TypedReg ySize = EmitCurrentWorkgroupSize(1);
-    
-    TypedReg xId = EmitWorkitemId(0);
-    TypedReg yId = EmitWorkitemId(1);
-    TypedReg zId = EmitWorkitemId(2);
-
-    TypedReg size = AddTReg(BRIG_TYPE_U32);
-
-    // workitemid(1) + workitemid(2) * currentworkgroupsize(1)
-    EmitArith(BRIG_OPCODE_MAD, size, zId, ySize->Reg(), yId);
-    
-    // workitemid(0) + workitemid(1) * currentworkgroupsize(0) + workitemid(2) * currentworkgroupsize(1) * currentworkgroupsize(0)
-    EmitArith(BRIG_OPCODE_MAD, size, size, xSize->Reg(), xId);
-    return size;
+  TypedReg result = AddTReg(BRIG_TYPE_U32);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_CURRENTWORKITEMFLATID, BRIG_TYPE_U32);
+  inst.operands() = Operands(result->Reg());
+  return result;
 }
 
 TypedReg BrigEmitter::EmitCurrentWorkgroupSize(uint32_t dim) {

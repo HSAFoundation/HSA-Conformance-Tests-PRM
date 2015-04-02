@@ -469,7 +469,7 @@ public:
       for (uint32_t y = 0; y < geometry->GridSize(1); ++y) {
         for (uint32_t x = 0; x < geometry->GridSize(0); ++x) {
           Dim point(x, y, z);
-          auto wiId = geometry->WorkitemCurrentFlatId(point);
+          auto wiId = geometry->CurrentWorkitemFlatId(point);
           if (wiId < te->CoreCfg()->Wavesize()) {
             result->push_back(Value(Brig2ValueType(VALUE_TYPE), VALUE1));
           } else if (wiId < 2 * te->CoreCfg()->Wavesize()) {

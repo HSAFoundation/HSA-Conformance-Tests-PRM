@@ -97,7 +97,8 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, *images, *memfence;
+          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, 
+          *images, *memfence, *partial;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -124,6 +125,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* AtomicSet() { return atomic; }
         hexl::Sequence<hexl::Grid>* ImagesSet() { return images; }
         hexl::Sequence<hexl::Grid>* MemfenceSet() { return memfence; }
+        hexl::Sequence<hexl::Grid>* PartialSet() { return partial; }
       };
 
       class SegmentsConfig : public ConfigBase {
