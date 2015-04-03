@@ -822,7 +822,7 @@ public:
   static const uint32_t F_DEFAULT_ULPS_PRECISION;
   static const double F_DEFAULT_RELATIVE_PRECISION;
   Comparison() : method(CM_DECIMAL), result(false) { }
-  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_), result(false), minLimit(false), maxLimit(false), flushDenorms(false) { }
+  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_), minLimit(false), maxLimit(false), flushDenorms(false), result(false) { }
   void SetMinLimit(Value limit, bool isLimited = true);
   void SetMaxLimit(Value limit, bool isLimited = true);
   void SetFlushDenorms(bool flushDenorms);
