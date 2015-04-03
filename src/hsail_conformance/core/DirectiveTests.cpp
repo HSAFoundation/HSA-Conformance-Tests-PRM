@@ -27,46 +27,6 @@ using namespace hsail_conformance::utils;
 
 namespace hsail_conformance {
 
-enum AnnotationLocation {
-  ANNOTATION_LOCATION_BEGIN = 0,
-  BEFORE_VERSION = ANNOTATION_LOCATION_BEGIN,
-  AFTER_VERSION,
-  END_MODULE,
-  BEFORE_MODULE_VARIABLE,
-  AFTER_MODULE_VARIABLE,
-  START_KERNEL,
-  END_KERNEL,
-  MIDDLE_KERNEL,
-  START_FUNCTION,
-  END_FUNCTION,
-  MIDDLE_FUNCTION,
-  START_ARG_BLOCK,
-  END_ARG_BLOCK,
-  MIDDLE_ARG_BLOCK,
-  ANNOTATION_LOCATION_END
-};
-
-std::string AnnotationLocationString(AnnotationLocation location) {
-  switch (location)
-  {
-  case AnnotationLocation::BEFORE_VERSION: return "before_version";
-  case AnnotationLocation::AFTER_VERSION: return "after_version";
-  case AnnotationLocation::END_MODULE: return "end_module";
-  case AnnotationLocation::BEFORE_MODULE_VARIABLE: return "before_module_variable";
-  case AnnotationLocation::AFTER_MODULE_VARIABLE: return "after_module_variable";
-  case AnnotationLocation::START_KERNEL: return "start_kernel";
-  case AnnotationLocation::END_KERNEL: return "end_kernel";
-  case AnnotationLocation::MIDDLE_KERNEL: return "middle_of_kernel";
-  case AnnotationLocation::START_FUNCTION: return "start_function";
-  case AnnotationLocation::END_FUNCTION: return "end_function";
-  case AnnotationLocation::MIDDLE_FUNCTION: return "middle_of_function";
-  case AnnotationLocation::START_ARG_BLOCK: return "start_arg_block";
-  case AnnotationLocation::END_ARG_BLOCK: return "end_arg_block";
-  case AnnotationLocation::MIDDLE_ARG_BLOCK: return "middle_of_arg_block";
-  default: assert(false); return "";
-  }
-}
-
 bool NeedsArgBlock(AnnotationLocation location) {
   if (location == AnnotationLocation::START_ARG_BLOCK || 
       location == AnnotationLocation::END_ARG_BLOCK ||
@@ -77,13 +37,6 @@ bool NeedsArgBlock(AnnotationLocation location) {
     return false;
   }
 }
-
-Sequence<AnnotationLocation>* AnnotationLocations() {
-  static EnumSequence<AnnotationLocation> sequence(AnnotationLocation::ANNOTATION_LOCATION_BEGIN, 
-                                                   AnnotationLocation::ANNOTATION_LOCATION_END);
-  return &sequence;
-}
-
 
 class AnnotationLocationTest : public SkipTest {
 private:
@@ -593,8 +546,8 @@ void DirectiveTests::Iterate(TestSpecIterator& it)
   std::string path;
   Arena* ap = cc->Ap();
 
-  TestForEach<LocDirectiveLocationTest>(ap, it, "loc/locations", AnnotationLocations());
-  TestForEach<PragmaDirectiveLocationTest>(ap, it, "pragma/locations", AnnotationLocations());
+  TestForEach<LocDirectiveLocationTest>(ap, it, "loc/locations", cc->Variables().AnnotationLocations());
+  TestForEach<PragmaDirectiveLocationTest>(ap, it, "pragma/locations", cc->Variables().AnnotationLocations());
   TestForEach<PragmaOperandTypesTest>(ap, it, "pragma/optypes", cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes(), cc->Directives().PragmaOperandTypes());
 
   TestForEach<GeometryDirectivesLocationTest>(ap, it, "control/geometry/location", CodeLocations(), cc->Directives().GeometryDirectives());

@@ -33,7 +33,8 @@ protected:
 public:
   Test(hexl::emitter::Location codeLocation = hexl::emitter::KERNEL, hexl::Grid geometry = 0)
     : hexl::EmittedTest(codeLocation, geometry),
-      be(*te->Brig()) { }
+      be(*te->Brig()),
+      specList(te.get()) { }
 
   void Init();
 
@@ -64,11 +65,11 @@ public:
   void KernelInit() { hexl::EmittedTest::KernelInit(); specList.KernelInit(); }
   void EndKernel() { hexl::EmittedTest::EndKernel(); specList.EndKernel(); }
 
-  void SetupDispatch(hexl::DispatchSetup* dsetup) { hexl::EmittedTest::SetupDispatch(dsetup); specList.SetupDispatch(dsetup); }
+  void SetupDispatch(const std::string& dispatchId) { hexl::EmittedTest::SetupDispatch(dispatchId); specList.SetupDispatch(dispatchId); }
 
   void ScenarioInit() { hexl::EmittedTest::ScenarioInit(); specList.ScenarioInit(); }
   void ScenarioCodes() { hexl::EmittedTest::ScenarioCodes(); specList.ScenarioCodes(); }
-  void ScenarioDispatches() { hexl::EmittedTest::ScenarioDispatches(); specList.ScenarioDispatches();  }
+  void ScenarioDispatch() { hexl::EmittedTest::ScenarioDispatch(); specList.ScenarioDispatch();  }
   void ScenarioValidation() { hexl::EmittedTest::ScenarioValidation(); specList.ScenarioValidation();  }
   void ScenarioEnd() { hexl::EmittedTest::ScenarioEnd(); specList.ScenarioEnd();  }
 

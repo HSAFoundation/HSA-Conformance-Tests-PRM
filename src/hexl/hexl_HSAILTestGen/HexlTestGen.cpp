@@ -17,7 +17,9 @@
 #include "HexlTestGen.hpp"
 #include "Utils.hpp"
 #include "HSAILTestGenManager.h"
-#include "BasicHexlTests.hpp"
+#include "Scenario.hpp"
+#include "Emitter.hpp"
+#include "BrigEmitter.hpp"
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenDataProvider.h"
 
@@ -25,8 +27,10 @@
 
 using namespace TESTGEN;
 using namespace HSAIL_ASM;
+using namespace hexl::emitter;
 
 namespace hexl {
+
 
 namespace TestGen {
 
@@ -40,6 +44,8 @@ private:
   unsigned opcode;
   TestSpecIterator& it;
   unsigned index;
+  std::unique_ptr<TestEmitter> te;
+  Dispatch dispatch;
 
 public:
   HexlTestGenManager(const std::string& path_, const std::string& prefix_, unsigned opcode_, TestSpecIterator& it_)
@@ -87,56 +93,71 @@ private:
     brig_container_t brig = CreateBrigFromContainer(testDesc.getContainer());
     TestGroupArray* testGroup = testDesc.getData();
     TestDataMap* map = testDesc.getMap();
-    DispatchSetup* dsetup = new DispatchSetup();
-    dsetup->SetDimensions(1);
-    dsetup->SetGridSize(testGroup->getGroupsNum());
-    dsetup->SetWorkgroupSize(std::min(testGroup->getGroupsNum(), (unsigned) 64));
+    te.reset(new TestEmitter());
     unsigned id = 0;
+    dispatch = te->NewDispatch("dispatch", "executable", "");
     for (unsigned i = map->getFirstSrcArgIdx(); i <= map->getLastSrcArgIdx(); ++i) {
-      id = defSrcArray(dsetup, testGroup, id, i);
+      defSrcArray(testGroup, id, i);
+      id++;
     }
     if (map->getDstArgsNum() == 1) {
-      id = defResultArray(dsetup, testGroup, id, "dst", true
+      defResultArray(testGroup, id, "dst", true
 #ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
         , isDestF16(testDesc.getInst())
 #endif
         );
+      id++;
     }
     if (map->getMemArgsNum() == 1) {
-      id = defResultArray(dsetup, testGroup, id, "mem", false
+      defResultArray(testGroup, id, "mem", false
 #ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
         , isDestF16(testDesc.getInst())
 #endif
         );
+      id++;
     }
+
+    std::string dispatchId = dispatch->Id();
+    te->InitialContext()->Put(dispatchId, "dimensions", Value(MV_UINT16, 1));
+    te->InitialContext()->Put(dispatchId, "workgroupSize[0]", Value(MV_UINT16, (std::min)(testGroup->getGroupsNum(), (unsigned) 64)));
+    te->InitialContext()->Put(dispatchId, "workgroupSize[1]", Value(MV_UINT16, 1));
+    te->InitialContext()->Put(dispatchId, "workgroupSize[2]", Value(MV_UINT16, 1));
+    te->InitialContext()->Put(dispatchId, "gridSize[0]", Value(MV_UINT32, testGroup->getGroupsNum()));
+    te->InitialContext()->Put(dispatchId, "gridSize[1]", Value(MV_UINT32, 1));
+    te->InitialContext()->Put(dispatchId, "gridSize[2]", Value(MV_UINT32, 1));
+
+    dispatch->ScenarioInit();
+    dispatch->SetupDispatch("dispatch");
+    dispatch->ScenarioDispatch();
+    dispatch->ScenarioValidation();
+    dispatch->ScenarioEnd();
+
     std::ostringstream ss;
     ss << dumpInst(testDesc.getInst()) << "_" << std::setw(5) << std::setfill('0') << index++;
     std::string testName = ss.str();
-    Test* test = new ValidateBrigContainerTest(testName, brig, dsetup);
+
+    Context* initialContext = te->ReleaseContext();
+    initialContext->Move("brig", brig);
+    initialContext->Move("scenario", te->TestScenario()->ReleaseScenario());
+    Test* test = new ScenarioTest(testName, initialContext);
     return new TestHolder(test);
   }
 
-  unsigned defSrcArray(DispatchSetup* dsetup, TestGroupArray* testGroup, unsigned id, unsigned operandIdx) {
+  void defSrcArray(TestGroupArray* testGroup, unsigned id, unsigned operandIdx) {
     TestData& data = testGroup->getData(0);
-    unsigned vecSize = data.src[operandIdx].getDim();
     BrigType type = (BrigType) data.src[operandIdx].getValType();
-    uint32_t sizes[3] = { BufferArraySize(type, vecSize * testGroup->getFlatSize()), 1, 1 };
-    MBuffer* mb = new MBuffer(id++, getSrcArrayName(operandIdx), MEM_GLOBAL,
-                              BufferValueType(type), 1, sizes);
+    unsigned vecSize = data.src[operandIdx].getDim();
+    Buffer buffer = dispatch->NewBuffer(getSrcArrayName(operandIdx), HOST_INPUT_BUFFER, BufferValueType(type), BufferArraySize(type, vecSize * testGroup->getFlatSize()));
     for (unsigned flatIdx = 0; flatIdx < testGroup->getFlatSize(); ++flatIdx) {
       TestData& data = testGroup->getData(flatIdx);
       for (unsigned k = 0; k < vecSize; ++k) {
         Val val = data.src[operandIdx][k];
-        Val2Value(mb->Data(), val);
+        Val2Value(buffer, val);
       }
     }
-    dsetup->MSetup().Add(mb);
-    dsetup->MSetup().Add(NewMValue(id++, std::string("Arg ") + getSrcArrayName(operandIdx),
-                               MEM_KERNARG, MV_REF, R(mb->Id())));
-    return id;
   }
 
-  unsigned defResultArray(DispatchSetup* dsetup, TestGroupArray* testGroup, unsigned id, std::string name, bool isDst
+  void defResultArray(TestGroupArray* testGroup, unsigned id, std::string name, bool isDst
 #ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
     , bool isDstF16
 #endif
@@ -144,27 +165,20 @@ private:
     TestData& data = testGroup->getData(0);
     unsigned vecSize = isDst? data.dst.getDim() : data.mem.getDim();
     BrigType type = (BrigType) (isDst? data.dst.getValType() : data.mem.getValType());
-    uint32_t sizes[3] = { BufferArraySize(type, vecSize * testGroup->getFlatSize()), 1, 1 };
-    MBuffer* mb = new MBuffer(id++, name, MEM_GLOBAL,
-                              BufferValueType(type),
-                              1, sizes);
-    dsetup->MSetup().Add(mb);
-    dsetup->MSetup().Add(NewMValue(id++, std::string("Arg ") + name,
-                                MEM_KERNARG, MV_REF, R(mb->Id())));
-    MRBuffer* mr = new MRBuffer(id++, name + " (check)", mb->VType(), mb->Id()
-#ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
-      , Values(), isDstF16 ? Comparison(CM_ULPS, Value(MV_UINT64, U64(1))) : Comparison()
-#endif
-      );
+    Buffer buffer = dispatch->NewBuffer(name, HOST_RESULT_BUFFER, BufferValueType(type), BufferArraySize(type, vecSize * testGroup->getFlatSize()));
+    if (buffer->VType() == MV_FLOAT16 || buffer->VType() == MV_PLAIN_FLOAT16) { buffer->SetComparisonMethod("1ulp"); }
     for (unsigned flatIdx = 0; flatIdx < testGroup->getFlatSize(); ++flatIdx) {
       TestData& data = testGroup->getData(flatIdx);
       for (unsigned k = 0; k < vecSize; ++k) {
         Val val = isDst? data.dst[k] : data.mem[k];
-        Val2Value(mr->Data(), val);
+        Val2Value(buffer, val);
       }
     }
-    dsetup->MSetup().Add(mr);
-    return id;
+#ifdef TESTGEN_HACK_F16_FIXED_1ULP_COMPARE
+    if (isDstF16) {
+      //  Comparison(CM_ULPS, Value(MV_UINT64, U64(1)))
+    }
+#endif
   }
 
   ValueType BufferValueType(BrigType type) {
@@ -175,33 +189,33 @@ private:
     return size * Brig2ValueCount(type);
   }
 
-  void Val2Value(Values& values, Val val) {
+  void Val2Value(Buffer buffer, Val val) {
     unsigned type = val.getType();
     switch (type) {
-    case BRIG_TYPE_B1: values.push_back(Value(MV_UINT32, val.b1())); return;
-    case BRIG_TYPE_B8: values.push_back(Value(MV_UINT32, val.b8())); return;
-    case BRIG_TYPE_U8: values.push_back(Value(MV_UINT32, val.u8())); return;
-    case BRIG_TYPE_S8: values.push_back(Value(MV_INT32, (int32_t)val.s8())); return;
-    case BRIG_TYPE_B16: values.push_back(Value(MV_UINT32, val.b16())); return;
-    case BRIG_TYPE_U16: values.push_back(Value(MV_UINT32, val.u16())); return;
-    case BRIG_TYPE_S16: values.push_back(Value(MV_INT32, (int32_t)val.s16())); return;
-    case BRIG_TYPE_B32: values.push_back(Value(MV_UINT32, val.b32())); return;
-    case BRIG_TYPE_U32: values.push_back(Value(MV_UINT32, val.u32())); return;
-    case BRIG_TYPE_S32: values.push_back(Value(MV_INT32, val.s32())); return;
-    case BRIG_TYPE_B64: values.push_back(Value(MV_UINT64, val.b64())); return;
-    case BRIG_TYPE_U64: values.push_back(Value(MV_UINT64, val.u64())); return;
-    case BRIG_TYPE_S64: values.push_back(Value(MV_INT64, val.s64())); return;
+    case BRIG_TYPE_B1: buffer->AddData(Value(MV_UINT32, val.b1())); return;
+    case BRIG_TYPE_B8: buffer->AddData(Value(MV_UINT32, val.b8())); return;
+    case BRIG_TYPE_U8: buffer->AddData(Value(MV_UINT32, val.u8())); return;
+    case BRIG_TYPE_S8: buffer->AddData(Value(MV_INT32, (int32_t)val.s8())); return;
+    case BRIG_TYPE_B16: buffer->AddData(Value(MV_UINT32, val.b16())); return;
+    case BRIG_TYPE_U16: buffer->AddData(Value(MV_UINT32, val.u16())); return;
+    case BRIG_TYPE_S16: buffer->AddData(Value(MV_INT32, (int32_t)val.s16())); return;
+    case BRIG_TYPE_B32: buffer->AddData(Value(MV_UINT32, val.b32())); return;
+    case BRIG_TYPE_U32: buffer->AddData(Value(MV_UINT32, val.u32())); return;
+    case BRIG_TYPE_S32: buffer->AddData(Value(MV_INT32, val.s32())); return;
+    case BRIG_TYPE_B64: buffer->AddData(Value(MV_UINT64, val.b64())); return;
+    case BRIG_TYPE_U64: buffer->AddData(Value(MV_UINT64, val.u64())); return;
+    case BRIG_TYPE_S64: buffer->AddData(Value(MV_INT64, val.s64())); return;
     case BRIG_TYPE_F16: 
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
-      values.push_back(Value(MV_PLAIN_FLOAT16, val.getAsB16())); return;
+      buffer->AddData(Value(MV_PLAIN_FLOAT16, val.getAsB16())); return;
 #else
-      values.push_back(Value(MV_FLOAT16, val.getAsB16())); return;
+      buffer->AddData(Value(MV_FLOAT16, val.getAsB16())); return;
 #endif
-    case BRIG_TYPE_F64: values.push_back(Value(val.f64())); return;
-    case BRIG_TYPE_F32: values.push_back(Value(val.f32())); return;
+    case BRIG_TYPE_F64: buffer->AddData(Value(val.f64())); return;
+    case BRIG_TYPE_F32: buffer->AddData(Value(val.f32())); return;
     case BRIG_TYPE_B128: {
-      values.push_back(Value(MV_UINT64, U64(val.b128().get<uint64_t>(0))));
-      values.push_back(Value(MV_UINT64, U64(val.b128().get<uint64_t>(1))));
+      buffer->AddData(Value(MV_UINT64, U64(val.b128().get<uint64_t>(0))));
+      buffer->AddData(Value(MV_UINT64, U64(val.b128().get<uint64_t>(1))));
       return;
     }
     case BRIG_TYPE_F16X2:
@@ -211,7 +225,7 @@ private:
     {
       unsigned dim = getPackedTypeDim(val.getType());
       for (unsigned i = 0; i < dim; ++i) {
-        values.push_back(Value(MV_FLOAT16, val.getPackedElement(i).getAsB16()));
+        buffer->AddData(Value(MV_FLOAT16, val.getPackedElement(i).getAsB16()));
       }
       return;
     }
@@ -220,18 +234,18 @@ private:
     case BRIG_TYPE_F32X4:
     case BRIG_TYPE_F64X2: {
       unsigned dim = getPackedTypeDim(val.getType());
-      for (unsigned i = 0; i < dim; ++i) Val2Value(values, val.getPackedElement(i));
+      for (unsigned i = 0; i < dim; ++i) Val2Value(buffer, val.getPackedElement(i));
       return;
     }
     default: {
       assert(isIntPackedType(type));
       unsigned size = getBrigTypeNumBits(type);
       switch (size) {
-      case 32: values.push_back(Value(MV_UINT32, val.getAsB32())); return;
-      case 64: values.push_back(Value(MV_UINT64, val.getAsB64())); return;
+      case 32: buffer->AddData(Value(MV_UINT32, val.getAsB32())); return;
+      case 64: buffer->AddData(Value(MV_UINT64, val.getAsB64())); return;
       case 128: {
-        values.push_back(Value(MV_UINT64, U64(val.getAsB64(0))));
-        values.push_back(Value(MV_UINT64, U64(val.getAsB64(1))));
+        buffer->AddData(Value(MV_UINT64, U64(val.getAsB64(0))));
+        buffer->AddData(Value(MV_UINT64, U64(val.getAsB64(1))));
         return;
       }
       default:
@@ -295,7 +309,7 @@ private:
 void TestGenTestSet::Iterate(TestSpecIterator& it)
 {
   TestDataProvider::init(true, true, 0, 64, 0, context->Opts()->IsSet("XtestFtzF16"));
-  TestGenConfig* testGenConfig = context->Get<TestGenConfig*>(TestGenConfig::ID);
+  TestGenConfig* testGenConfig = context->Get<TestGenConfig>(TestGenConfig::ID);
   assert(testGenConfig);
   BrigSettings::init(testGenConfig->Model(), testGenConfig->Profile(), true, false, false, context->IsDumpEnabled("hsail"));
   TESTGEN::TestGen::init(true);
@@ -305,6 +319,16 @@ void TestGenTestSet::Iterate(TestSpecIterator& it)
   TESTGEN::TestGen::clean();
   PropDesc::clean();
   TestDataProvider::clean();
+}
+
+TestSet* TestGenTestSet::Filter(TestNameFilter* filter)
+{
+  std::string rest;
+  if (filter->NamePattern().empty()) { return this; }
+  std::string fullpath = path + "/" + prefix;
+  size_t minlen = (std::min)(filter->NamePattern().length(), fullpath.length());
+  if (minlen > 0 && fullpath.compare(0, minlen, filter->NamePattern().substr(0, minlen)) != 0) { return new EmptyTestSet(); }
+  return new FilteredTestSet(this, filter);
 }
 
 } // namespace TestGen

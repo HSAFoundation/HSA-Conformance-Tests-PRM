@@ -36,19 +36,15 @@ public:
   KernargBasePtrIdentityTest(Location codeLocation)
     : Test(codeLocation) { }
 
-  void Init() {
-    Test::Init();
-    testArg = te->NewVariable("testArg", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+  void KernelArgumentsInit() override {
+    // Ensure testArg is the first argument.
+    testArg = kernel->NewVariable("testArg", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+    testArg->AddData(Value(MV_UINT32, U32(argValue)));
+    Test::KernelArgumentsInit();
   }
 
   void Name(std::ostream& out) const {
     out << CodeLocationString();
-  }
-
-  void KernelArguments() {
-    // Ensure testArg is the first argument.
-    specList.KernelArguments();
-    hexl::EmittedTest::KernelArguments();
   }
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }
@@ -61,12 +57,6 @@ public:
     be.EmitKernargBasePtr(kab);
     be.EmitLoad(result, kab);
     return result;
-  }
-
-  void SetupDispatch(DispatchSetup* dsetup)
-  {
-    dsetup->MSetup().Add(NewMValue(dsetup->MSetup().Count(), "Test arg", MEM_KERNARG, MV_UINT32, U32(argValue)));
-    Test::SetupDispatch(dsetup);
   }
 };
 
@@ -84,9 +74,9 @@ public:
     out << varSpec;
   }
 
-  void Init() {
-    Test::Init();
-    if (varSpec) { var = kernel->NewVariable("var", varSpec); }
+  void KernelArgumentsInit() {
+    Test::KernelArgumentsInit();
+    if (varSpec) { var = kernel->NewVariable("var", varSpec); var->AddData(Value(var->VType(), 42)); }
   }
 
   BrigType ResultType() const { return be.PointerType(BRIG_SEGMENT_KERNARG); }
@@ -112,9 +102,11 @@ public:
 
 class GroupBasePtrIdentityTest : public Test {
 private:
-  Buffer inArg;
+  Variable inArg;
   bool emitControlDirective;
   uint32_t testValue;
+
+  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
 
 protected:
   virtual PointerReg StoreAddress(PointerReg groupBase) = 0;
@@ -129,19 +121,20 @@ public:
     out << CodeLocationString() << (emitControlDirective ? "_MDGS" : "_ND");
   }
 
-  BrigType ResultType() const override { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const override { return Value(MV_UINT32, testValue); }
+  BrigType ResultType() const override { return VALUE_TYPE; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), testValue); }
 
   void Init() override {
     Test::Init();
-    inArg = kernel->NewBuffer("input", HOST_INPUT_BUFFER, MV_UINT32, 1);
-    inArg->AddData(Value(MV_UINT32, testValue));
+    inArg = kernel->NewVariable("input", BRIG_SEGMENT_KERNARG, VALUE_TYPE, Location::KERNEL);
+    inArg->AddData(Value(Brig2ValueType(VALUE_TYPE), testValue));
   }
 
   TypedReg Result() override {
     // read input value
-    auto in = be.AddTReg(BRIG_TYPE_U32);
-    inArg->EmitLoadData(in, false);
+    auto in = be.AddTReg(VALUE_TYPE);
+    be.EmitLoad(inArg->Segment(), in, be.Address(inArg->Variable()));
+    //be.EmitLoad(in, inArg->Address());
 
     // get group base pointer
     auto groupBase = be.AddAReg(BRIG_SEGMENT_GROUP);
@@ -174,7 +167,6 @@ public:
   }
 };
 
-
 class GroupBasePtrStaticMemoryIdentityTest : public GroupBasePtrIdentityTest {
 private:
   static const uint32_t offsetValue = 0;
@@ -198,16 +190,14 @@ public:
 
   void Init() {
     GroupBasePtrIdentityTest::Init();
-    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, BRIG_TYPE_U32, MODULE);
+    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, ResultType(), MODULE);
   }
 
   void ModuleVariables() {
     GroupBasePtrIdentityTest::ModuleVariables();
     buffer->ModuleVariables();
   }
-
 };
-
 
 class GroupBasePtrDynamicMemoryIdentityTest : public GroupBasePtrIdentityTest {
 private:
@@ -224,6 +214,12 @@ private:
     // get address of dynamic group memory
     auto dynamicAddr = be.AddAReg(BRIG_SEGMENT_GROUP);
     be.EmitArith(BRIG_OPCODE_ADD, dynamicAddr, groupBase, offset->Reg());
+
+    auto wiId = be.EmitWorkitemFlatAbsId(false);
+    auto cvt = be.AddTReg(dynamicAddr->Type());
+    be.EmitCvtOrMov(cvt, wiId);
+    be.EmitArith(BRIG_OPCODE_MAD, dynamicAddr, cvt, be.Immed(cvt->Type(), 
+      getBrigTypeNumBytes(ResultType())), dynamicAddr);
     return dynamicAddr;
   }
 
@@ -243,27 +239,26 @@ protected:
   }
 
   size_t DynamicMemorySize() override {
-    return getBrigTypeNumBytes(BRIG_TYPE_U32);
+    return getBrigTypeNumBytes(ResultType()) * geometry->GridSize();
   }
 
 public:
   explicit GroupBasePtrDynamicMemoryIdentityTest(Location codeLocation, bool emitControlDirective_) 
-    : GroupBasePtrIdentityTest(codeLocation, emitControlDirective_), groupAddr(nullptr) 
+    : GroupBasePtrIdentityTest(codeLocation, emitControlDirective_, 322), groupAddr(nullptr) 
   {
   }
 
   void Init() {
     GroupBasePtrIdentityTest::Init();
     offsetArg = kernel->NewVariable("offset", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+    offsetArg->AddData(Value(offsetArg->VType(), offsetValue));
   }
 
-  void SetupDispatch(DispatchSetup* dsetup) override {
-    Test::SetupDispatch(dsetup);
+  void SetupDispatch(const std::string& dispatchId) override {
+    Test::SetupDispatch(dispatchId);
     auto offsetType = Brig2ValueType(offsetArg->Type());
-    dsetup->MSetup().Add(NewMValue(dsetup->MSetup().Count(), "Offset arg", MEM_KERNARG, 
-      offsetType, U64(0)));
-    dsetup->MSetup().Add(NewMValue(dsetup->MSetup().Count(), "Dynamic memory", MEM_GROUP, 
-      MV_UINT32, U32(0)));
+    te->TestScenario()->Commands()->DispatchValueArg(dispatchId, Value(offsetType, 322));
+    te->InitialContext()->Put(dispatchId, "dynamicgroupsize", Value(MV_UINT32, U32(DynamicMemorySize())));
   }
 };
 
@@ -321,14 +316,12 @@ public:
     out << CodeLocationString();
   }
 
-  void Init() override {
-    cc = hexl::emitter::CoreConfig::Get(context.get());
+  void GeometryInit() override {
     geometry = cc->Grids().DefaultGeometry();
-    kernel = te->NewKernel("test_kernel");
-    if (codeLocation == emitter::FUNCTION) {
-      function = te->NewFunction("test_function");
-    }
   }
+
+  void KernelArgumentsInit() override { }
+  void FunctionArgumentsInit() override { }
 
   void KernelCode() override {
     if (codeLocation == Location::KERNEL) {
@@ -345,14 +338,6 @@ public:
       be.EmitNop();
     }
   }
-
-  void SetupDispatch(DispatchSetup* dispatch) override {
-    dispatch->SetDimensions(geometry->Dimensions());
-    dispatch->SetWorkgroupSize(geometry->WorkgroupSize(0), geometry->WorkgroupSize(1), geometry->WorkgroupSize(2));
-    dispatch->SetGridSize(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2));
-    kernel->SetupDispatch(dispatch);
-  }
-
 }; 
 
 

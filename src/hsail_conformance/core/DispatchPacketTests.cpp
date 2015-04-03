@@ -277,6 +277,28 @@ public:
   }
 };
 
+class CurrentWorkitemFlatIdTest : public DispatchPacketBaseTest {
+public:
+  CurrentWorkitemFlatIdTest(Location codeLocation,
+    Grid geometry,
+    ControlDirectives directives)
+    : DispatchPacketBaseTest(codeLocation, geometry, directives) { }
+
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
+
+  void ExpectedResults(Values* result) const {
+    for(uint16_t z = 0; z < geometry->GridSize(2); z++)
+      for(uint16_t y = 0; y < geometry->GridSize(1); y++)
+        for(uint16_t x = 0; x < geometry->GridSize(0); x++) {
+          result->push_back(Value(MV_UINT32, geometry->CurrentWorkitemFlatId(Dim(x,y,z))));
+        }
+  }
+
+  TypedReg Result() {
+    return be.EmitCurrentWorkitemFlatId();
+  }
+};
+
 class PacketIdTest : public DispatchPacketBaseTest {
 public:
   PacketIdTest(Location codeLocation,
@@ -479,6 +501,10 @@ void DispatchPacketOperationsTests::Iterate(hexl::TestSpecIterator& it)
   TestForEach<WorkitemFlatIdTest>(ap, it, "dispatchpacket/workitemflatid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Directives().DegenerateRelatedSets());
   TestForEach<WorkitemFlatIdBoundaryTest>(ap, it, "dispatchpacket/workitemflatid/boundary32", CodeLocations(), cc->Grids().Boundary32Set(), cc->Directives().WorkitemFlatIdRelatedSets(), Bools::All());
   TestForEach<WorkitemFlatIdBoundaryTest>(ap, it, "dispatchpacket/workitemflatid/boundary24", CodeLocations(), cc->Grids().Boundary24Set(), cc->Directives().Boundary24WorkitemFlatIdRelatedSets(), Bools::All());
+
+  TestForEach<CurrentWorkitemFlatIdTest>(ap, it, "dispatchpacket/currentworkitemflatid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Directives().WorkitemFlatIdRelatedSets());
+  TestForEach<CurrentWorkitemFlatIdTest>(ap, it, "dispatchpacket/currentworkitemflatid/partial", CodeLocations(), cc->Grids().PartialSet(), cc->Directives().WorkitemFlatIdRelatedSets());
+  TestForEach<CurrentWorkitemFlatIdTest>(ap, it, "dispatchpacket/currentworkitemflatid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Directives().DegenerateRelatedSets());
 
   TestForEach<WorkitemIdTest>(ap, it, "dispatchpacket/workitemid/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Grids().Dimensions(), cc->Directives().WorkitemIdRelatedSets());
   TestForEach<WorkitemIdTest>(ap, it, "dispatchpacket/workitemid/degenerate", CodeLocations(), cc->Grids().DegenerateSet(), cc->Grids().Dimensions(), cc->Directives().DegenerateRelatedSets());

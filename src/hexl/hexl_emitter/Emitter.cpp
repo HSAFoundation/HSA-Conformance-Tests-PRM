@@ -17,13 +17,12 @@
 #include "Emitter.hpp"
 #include "BrigEmitter.hpp"
 #include "Scenario.hpp"
-#include "MObject.hpp"
 #include "Sequence.hpp"
 #include "CoreConfig.hpp"
 #include "hsa.h"
 #include <cmath>
 
-///\todo Generalize (move to libHSAIL?)
+///\todo (Artem) Generalize (move to libHSAIL?)
 #ifdef _WIN32
 	bool isNanOrDenorm(float f)
 	{
@@ -34,30 +33,69 @@
 		case _FPCLASS_ND:
 		case _FPCLASS_PD:
 			return true;
+    default:
+      return false;
+      break;
 		}
 		return false;
 	}
+
+  bool isNanOrInf(double df)
+  {
+    switch (_fpclass(df))
+    {
+    case _FPCLASS_SNAN:
+    case _FPCLASS_QNAN:
+    case _FPCLASS_NINF:
+    case _FPCLASS_PINF:
+      return true;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
 #else //assume Linux
-	#if _XOPEN_SOURCE >= 600 || _ISOC99_SOURCE || _POSIX_C_SOURCE >= 200112L
-	//fpclassify() supported
-	bool isNanOrDenorm(float f)
-	{
-		switch(std::fpclassify(f)){
-		case FP_NAN:
-		case FP_SUBNORMAL:
-			return true;
-			break;
-		}
-		return false;
-	}
-	#else
-	#error "fpclassify() is not guaranteed to be supported"
-#endif
+  #if __cplusplus >= 201103L
+  //std::fpclassify() supported
+  bool isNanOrDenorm(float f)
+  {
+    switch(std::fpclassify(f))
+    {
+    case FP_NAN:
+    case FP_SUBNORMAL:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
+
+  bool isNanOrInf(double df)
+  {
+    switch(std::fpclassify(df))
+    {
+    case FP_NAN:
+    case FP_INFINITE:
+      return true;
+      break;
+    default:
+      return false;
+      break;
+    }
+    return false;
+  }
+  #else
+  #error "std::fpclassify() is not guaranteed to be supported. Check your compiler for c++11 support."
+  #endif
 #endif // _WIN32
 
 
 using namespace HSAIL_ASM;
 using namespace hexl::scenario;
+using namespace hexl::runtime;
 
 namespace hexl {
 
@@ -118,6 +156,27 @@ const char *LocationString(Location l)
   }
 }
 
+std::string AnnotationLocationString(AnnotationLocation location) {
+  switch (location)
+  {
+  case AnnotationLocation::BEFORE_VERSION: return "before_version";
+  case AnnotationLocation::AFTER_VERSION: return "after_version";
+  case AnnotationLocation::END_MODULE: return "end_module";
+  case AnnotationLocation::BEFORE_MODULE_VARIABLE: return "before_module_variable";
+  case AnnotationLocation::AFTER_MODULE_VARIABLE: return "after_module_variable";
+  case AnnotationLocation::START_KERNEL: return "start_kernel";
+  case AnnotationLocation::END_KERNEL: return "end_kernel";
+  case AnnotationLocation::MIDDLE_KERNEL: return "middle_of_kernel";
+  case AnnotationLocation::START_FUNCTION: return "start_function";
+  case AnnotationLocation::END_FUNCTION: return "end_function";
+  case AnnotationLocation::MIDDLE_FUNCTION: return "middle_of_function";
+  case AnnotationLocation::START_ARG_BLOCK: return "start_arg_block";
+  case AnnotationLocation::END_ARG_BLOCK: return "end_arg_block";
+  case AnnotationLocation::MIDDLE_ARG_BLOCK: return "middle_of_arg_block";
+  default: assert(false); return "";
+  }
+}
+
 Sequence<Location>* CodeLocations()
 {
   static const Location locations[] = { KERNEL, FUNCTION };
@@ -132,7 +191,28 @@ Sequence<Location>* KernelLocation()
   return &sequence;
 }
 
-Grid Emittable::Geometry() { return te->InitialContext()->Get<Grid>("geometry"); }
+BrigLinkage Location2Linkage(Location loc) {
+  switch (loc) {
+  case MODULE: 
+    return BRIG_LINKAGE_PROGRAM;
+  case KERNEL: 
+  case FUNCTION:
+    return BRIG_LINKAGE_FUNCTION;
+  case ARGSCOPE:
+    return BRIG_LINKAGE_ARG;
+  default:
+    assert(false); 
+    return BRIG_LINKAGE_NONE;
+  }
+}
+
+Grid Emittable::Geometry() { return te->EmitContext()->Get<GridGeometry>("geometry"); }
+
+EmittableContainer::EmittableContainer(TestEmitter* te)
+  : Emittable(te),
+    list(te->Ap())
+{
+}
 
 void EmittableContainer::Name(std::ostream& out) const
 {
@@ -184,6 +264,13 @@ UserModeQueue EmittableContainer::NewQueue(const std::string& id, UserModeQueueT
   return queue;
 }
 
+Signal EmittableContainer::NewSignal(const std::string& id, uint64_t initialValue)
+{
+  Signal signal = te->NewSignal(id, initialValue);
+  Add(signal);
+  return signal;
+}
+
 Kernel EmittableContainer::NewKernel(const std::string& id)
 {
   Kernel kernel = te->NewKernel(id);
@@ -210,6 +297,26 @@ Sampler EmittableContainer::NewSampler(const std::string& id, SamplerSpec spec)
   Sampler sampler = te->NewSampler(id, spec);
   Add(sampler);
   return sampler;
+}
+
+Dispatch EmittableContainer::NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName)
+{
+  Dispatch dispatch = te->NewDispatch(id, executableId, kernelName);
+  Add(dispatch);
+  return dispatch;
+}
+
+OperandOperandList ETypedReg::CreateOperandList(HSAIL_ASM::Brigantine& b)
+{
+  ItemList items;
+  for (size_t i = 0; i < count; ++i) { items.push_back(regs[i]); }
+  return b.createOperandList(items);
+}
+
+ETypedRegList::ETypedRegList(Arena* ap)
+  : tregs(ap)
+{
+
 }
 
 bool EVariableSpec::IsValidVar() const
@@ -243,6 +350,14 @@ void EVariableSpec::Name(std::ostream& out) const
   if (location != AUTO) { out << "@" << LocationString(location); }
 }
 
+EVariable::EVariable(TestEmitter* te_, const std::string& id_,
+  BrigSegment segment_, BrigType type_, Location location_, BrigAlignment align_, uint64_t dim_, bool isConst_, bool output_)
+  : EVariableSpec(segment_, type_, location_, align_, dim_, isConst_, output_), id(id_.c_str(), te_->Ap()) { te = te_;  }
+EVariable::EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_)
+  : EVariableSpec(*spec_), id(id_.c_str(), te_->Ap()) { te = te_; }
+EVariable::EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_, bool output)
+  : EVariableSpec(*spec_, output), id(id_.c_str(), te_->Ap()) { te = te_; }
+
 Location EVariable::RealLocation() const
 {
   if (location == AUTO) {
@@ -266,15 +381,11 @@ Location EVariable::RealLocation() const
   }
 }
 
-void EVariable::PushBack(hexl::Value val) {
-  assert(hexl::Brig2ValueType(type) == val.Type());    
-  data.push_back(val);
-}
-
-void EVariable::WriteData(hexl::Value val, size_t pos) {
-  assert(pos < data.size());
-  assert(hexl::Brig2ValueType(type) == val.Type());    
-  data[pos] = val;
+void EVariable::AddData(hexl::Value val)
+{
+  assert(hexl::Brig2ValueType(type) == val.Type());
+  if (!data.get()) { data.reset(new Values()); }
+  data->push_back(val);
 }
 
 void EVariable::ModuleVariables()
@@ -323,9 +434,9 @@ std::string EVariable::VariableName() const
 {
   switch (RealLocation()) {
   case MODULE:
-    return "&" + id;
+    return std::string("&") + id.c_str();
   default:
-    return "%" + id;
+    return std::string("%") + id.c_str();
   }
 }
 
@@ -355,9 +466,9 @@ void EVariable::EmitInitializer()
 {
   assert(var);
   if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) { 
-    if (data.size() != 0) {
+    if (Values* data = this->data.release()) {
       ArbitraryData arbData;
-      for (const auto& val: data) {
+      for (const auto& val: *data) {
         switch (type) {
         case BRIG_TYPE_S8:    arbData.push_back(val.S8());  break;
         case BRIG_TYPE_U8:    arbData.push_back(val.U8());  break;
@@ -394,6 +505,7 @@ void EVariable::EmitInitializer()
         }
       }
       te->Brig()->EmitVariableInitializer(var, arbData.toSRef());
+      delete data;
     }
   }
 }
@@ -408,19 +520,27 @@ void EVariable::EmitStoreFrom(TypedReg src, bool useVectorInstructions)
   te->Brig()->EmitStore(segment, src, te->Brig()->Address(Variable()), useVectorInstructions);
 }
 
-void EVariable::SetupDispatch(DispatchSetup* setup) {
+void EVariable::SetupDispatch(const std::string& dispatchId) {
   if (segment == BRIG_SEGMENT_KERNARG) {
-    assert(var);
-    uint32_t sizes[] = { Count(), 1, 1 };
-    auto marg = new MBuffer(setup->MSetup().Count(), id + ".var", MEM_KERNARG, Brig2ValueType(type), 1, sizes);
-    marg->Data() = data;
-    setup->MSetup().Add(marg);
+    CommandsBuilder* commands = te->TestScenario()->Commands();
+    Values* data = this->data.release();
+    assert(data);
+    commands->DispatchValuesArg(dispatchId, data);
   }
 }
 
+EmittableWithId::EmittableWithId(TestEmitter* te, const std::string& id_)
+  : Emittable(te), id(id_.c_str(), te->Ap())
+{
+}
+
+EmittableContainerWithId::EmittableContainerWithId(TestEmitter* te, const std::string& id_)
+  : EmittableContainer(te), id(id_.c_str(), te->Ap())
+{
+}
 
 EFBarrier::EFBarrier(TestEmitter* te_, const std::string& id_, Location location_, bool output_)
-    : Emittable(te_), id(id_), location(location_), output(output_) 
+    : EmittableWithId(te_, id_), location(location_), output(output_) 
 {
   switch(location) {
   case MODULE:
@@ -435,19 +555,19 @@ EFBarrier::EFBarrier(TestEmitter* te_, const std::string& id_, Location location
 
 std::string EFBarrier::FBarrierName() const {
   if (location == Location::MODULE) {
-    return "&" + id;
+    return std::string("&") + id.c_str();
   } else {
-    return "%" + id;
+    return std::string("%") + id.c_str();
   }
 }
 
 void EFBarrier::Name(std::ostream& out) const {
-  out << id << "_" << LocationString(location);
+  out << Id() << "_" << LocationString(location);
 }
 
 void EFBarrier::EmitDefinition() {
   assert(!fb);
-  fb = te->Brig()->EmitFbarrierDefinition(id);
+  fb = te->Brig()->EmitFbarrierDefinition(Id());
 }
 
 void EFBarrier::ModuleVariables() {
@@ -544,7 +664,7 @@ void EControlDirectives::Emit()
       te->Brig()->EmitControlDirectiveGeometry(d, geometry);
     }
   };
-  EmitAction emitAction(te, te->InitialContext()->Get<Grid>("geometry"));
+  EmitAction emitAction(te, te->EmitContext()->Get<GridGeometry>("geometry"));
   spec->Iterate(emitAction);
 }
 
@@ -565,7 +685,7 @@ size_t EBuffer::Size() const
 
 HSAIL_ASM::DirectiveVariable EBuffer::EmitAddressDefinition(BrigSegment segment)
 {
-  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->PointerType());
+  return te->Brig()->EmitVariableDefinition(Id(), segment, te->Brig()->PointerType());
 }
 
 void EBuffer::EmitBufferDefinition()
@@ -596,47 +716,27 @@ void EBuffer::KernelVariables()
   }
 }
 
-void EBuffer::SetupDispatch(DispatchSetup* dsetup)
-{
-  MBuffer* mout = 0;
-  switch (type) {
-  case HOST_INPUT_BUFFER:
-  case HOST_RESULT_BUFFER:
-    {
-      unsigned i = dsetup->MSetup().Count();
-      uint32_t sizes[] = { (uint32_t) count, 1, 1 };
-      mout = new MBuffer(i++, id + ".buffer", MEM_GLOBAL, vtype, 1, sizes);
-      dsetup->MSetup().Add(mout);
-      dsetup->MSetup().Add(NewMValue(i++, id + ".kernarg", MEM_KERNARG, MV_REF, U64(mout->Id())));
-      break;
-    }
-  default:
-    break;
-  }
-  switch (type) {
-  case HOST_INPUT_BUFFER:
-    {
-      if (data) { mout->Data() = *data; }
-      break;
-    }
-  case HOST_RESULT_BUFFER:
-    {
-      MRBuffer *mrout = new MRBuffer(dsetup->MSetup().Count(), id + ".result", mout->VType(), mout->Id());
-      if (data) { mrout->Data() = *data; }
-      dsetup->MSetup().Add(mrout);
-      break;
-    }
-  default:
-    break;
-  }
-}
-
 void EBuffer::ScenarioInit()
 {
+  CommandsBuilder* commands = te->TestScenario()->Commands();
+  if (Values* values = data.release()) {
+    te->InitialContext()->Move(IdData(), values);
+  }
+  commands->BufferCreate(Id(), Size(), (type == HOST_INPUT_BUFFER) ? IdData() : "");
 }
 
-void EBuffer::Validation()
+void EBuffer::SetupDispatch(const std::string& dispatchId)
 {
+  CommandsBuilder* commands = te->TestScenario()->Commands();
+  commands->DispatchArg(dispatchId, DARG_BUFFER, Id());
+}
+
+void EBuffer::ScenarioValidation()
+{
+  CommandsBuilder* commands = te->TestScenario()->Commands();
+  if (type == HOST_RESULT_BUFFER) {
+    commands->BufferValidate(Id(), IdData(), comparisonMethod);
+  }
 }
 
 TypedReg EBuffer::AddDataReg()
@@ -743,19 +843,19 @@ void EUserModeQueue::ScenarioInit()
 {
   switch (type) {
   case SEPARATE_QUEUE:
-    te->TestScenario()->Commands().CreateQueue(id);
+    te->TestScenario()->Commands()->QueueCreate(Id());
     break;
   default:
     break;
   }
 }
 
-void EUserModeQueue::SetupDispatch(hexl::DispatchSetup* dsetup)
+void EUserModeQueue::SetupDispatch(const std::string& dispatchId)
 {
-  Emittable::SetupDispatch(dsetup);
+  Emittable::SetupDispatch(dispatchId);
   switch (type) {
   case SEPARATE_QUEUE:
-    dsetup->MSetup().Add(NewMValue(dsetup->MSetup().Count(), "Queue", MEM_KERNARG, MV_EXPR, S(id.c_str())));
+    te->TestScenario()->Commands()->DispatchArg(dispatchId, DARG_QUEUE, Id());
     break;
   default:
     break;
@@ -901,23 +1001,23 @@ void EUserModeQueue::EmitCasQueueWriteIndex(BrigSegment segment, BrigMemoryOrder
 }
 
 EImageSpec::EImageSpec(
-  BrigSegment brigseg_, 
-  BrigType imageType_, 
-  Location location_, 
-  uint64_t dim_, 
-  bool isConst_, 
+  BrigSegment brigseg_,
+  BrigType imageType_,
+  Location location_,
+  uint64_t dim_,
+  bool isConst_,
   bool output_,
   BrigImageGeometry geometry_,
-  BrigImageChannelOrder channel_order_, 
-  BrigImageChannelType channel_type_,
-  size_t width_, 
-  size_t height_, 
-  size_t depth_, 
-  size_t array_size_
-  ) : EVariableSpec(brigseg_, imageType_, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_),
-  geometry(geometry_), channel_order(channel_order_), channel_type(channel_type_), width(width_), 
-  height(height_), depth(depth_), array_size(array_size_)
-{
+  BrigImageChannelOrder channelOrder_,
+  BrigImageChannelType channelType_,
+  size_t width_,
+  size_t height_,
+  size_t depth_,
+  size_t arraySize_,
+  bool bLimitTest_
+  )
+  : EVariableSpec(brigseg_, imageType_, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_),
+    ImageParams(imageType_, geometry_, channelOrder_, channelType_, width_, height_, depth_, arraySize_, bLimitTest_) {
   // Init rowPitch and slicePitch Params (depend of chanel_order and channel_type)
   //rowPitch = 
   //slicePitch = 
@@ -949,6 +1049,12 @@ bool EImageSpec::IsValid() const
   return EVariableSpec::IsValid() && IsValidSegment() && IsValidType();
 }
 
+EImage::EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec)
+  : EImageSpec(*spec), id(id_, te_->Ap()), data(new Values())
+{
+  te = te_;
+}
+
 Location EImage::RealLocation() const 
 {
   if (location == AUTO) {
@@ -968,7 +1074,7 @@ Location EImage::RealLocation() const
   }
 }
 
-void EImage::InitMemValue(Value v)
+Value EImage::GenMemValue(Value v)
 {
   Value result;
   switch (ChannelOrder())
@@ -1060,7 +1166,7 @@ void EImage::InitMemValue(Value v)
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      result = Value(MV_UINT32, v.U32());
+      result = Value(MV_UINT32,  (v.U32() & 0xFFFF0000) + (v.U32() >> 16));
       break;
     case BRIG_CHANNEL_TYPE_SNORM_INT16:
     case BRIG_CHANNEL_TYPE_UNORM_INT16:
@@ -1092,7 +1198,8 @@ void EImage::InitMemValue(Value v)
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      result = Value(MV_UINT32, v.U32());
+      //fix write sequence
+      result = Value(MV_UINT32,  (v.U32() & 0xFFFF0000) + (v.U32() >> 16));
       break;
     default:
       assert(0); //illegal channel
@@ -1211,84 +1318,43 @@ void EImage::InitMemValue(Value v)
     break;
   }
   //store value
-  AddData(result);
+  return result;
 }
 
-void EImage::SetupDispatch(DispatchSetup* dispatch) 
+void EImage::ScenarioInit()
+{
+  te->InitialContext()->Move(IdData(), data.release());
+  te->InitialContext()->Move(IdParams(), new ImageParams(*this));
+  te->TestScenario()->Commands()->ImageCreate(Id(), IdParams(), IdData());
+}
+
+void EImage::SetupDispatch(const std::string& dispatchId)
 {
   if (segment == BRIG_SEGMENT_KERNARG) {  
-    unsigned i = dispatch->MSetup().Count();
-    image = new MImage(i++, id, segment, geometry, channel_order, channel_type, type, 
-      width, height, depth, array_size);
-    dispatch->MSetup().Add(image);
-    dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_IMAGEREF, U64(image->Id())));
-
-    if (data) { image->ContentData() = *data; }
-    Value value = image->ContentData()[0];
-    image->VType() = value.Type();
-    image->SetLimitTest(bLimitTestOn);
+    te->TestScenario()->Commands()->DispatchArg(dispatchId, DARG_IMAGE, Id());
   }
 }
 
-void EImage::EmitImageRd(OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, TypedReg coord)
+void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(sampler->Reg());
-  OptList.push_back(coord->Reg());
-  inst.operands() = OptList;
-}
-void EImage::EmitImageRd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(sampler->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
-  } else {
-    OptList.push_back(coord);
-  }
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageRd(TypedReg dest, TypedReg image, TypedReg sampler, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_RDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
   inst.type() = dest->Type();
   ItemList OptList;
-  OptList.push_back(dest->Reg());
+  if (dest->Count() == 1) {
+    OptList.push_back(dest->Reg(0));
+  } else {
+    OptList.push_back(dest->CreateOperandList(te->Brig()->Brigantine()));
+  }
   OptList.push_back(image->Reg());
   OptList.push_back(sampler->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
+  if (coord->Count() == 1) {
+    OptList.push_back(coord->Reg(0));
   } else {
-    OptList.push_back(coord);
+    OptList.push_back(coord->CreateOperandList(te->Brig()->Brigantine()));
   }
   inst.operands() = OptList;
 }
@@ -1306,124 +1372,48 @@ void  EImage::EmitImageQuery(TypedReg dest, TypedReg image, BrigImageQuery query
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageLd(OperandOperandList dest, BrigType destType, TypedReg image, TypedReg coord)
+void EImage::EmitImageLd(TypedReg dest, TypedReg image, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(coord->Reg());
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageLd(TypedReg dest, TypedReg image, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
   inst.type() = dest->Type();
   ItemList OptList;
-  OptList.push_back(dest->Reg());
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
+  if (dest->Count() == 1) {
+    OptList.push_back(dest->Reg(0));
   } else {
-    OptList.push_back(coord);
+    OptList.push_back(dest->CreateOperandList(te->Brig()->Brigantine()));
+  }
+  OptList.push_back(image->Reg());
+  if (coord->Count() == 1) {
+    OptList.push_back(coord->Reg(0));
+  } else {
+    OptList.push_back(coord->CreateOperandList(te->Brig()->Brigantine()));
   }
   inst.operands() = OptList;
 }
 
-void EImage::EmitImageLd(HSAIL_ASM::OperandOperandList dest, BrigType destType, TypedReg image, OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_LDIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = destType;
-  ItemList OptList;
-  if (dest.elementCount() == 1) {
-    OptList.push_back(dest.elements(0));
-  } else {
-    OptList.push_back(dest);
-  }
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
-  } else {
-    OptList.push_back(coord);
-  }
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageSt(OperandOperandList src, BrigType srcType, TypedReg image, TypedReg coord)
+void EImage::EmitImageSt(TypedReg src, TypedReg image, TypedReg coord)
 {
   InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
   inst.imageType() = image->Type();
   inst.coordType() = coord->Type();
   inst.geometry() = geometry;
   inst.equivClass() = 0;//12;
-  inst.type() = srcType;
-  ItemList OptList;
-  if (src.elementCount() == 1) {
-    OptList.push_back(src.elements(0));
-  } else {
-    OptList.push_back(src);
-  }
-  OptList.push_back(image->Reg());
-  OptList.push_back(coord->Reg());
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageSt(HSAIL_ASM::OperandOperandList src, BrigType srcType, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
-  inst.type() = srcType;
-  ItemList OptList;
-  if (src.elementCount() == 1) {
-    OptList.push_back(src.elements(0));
-  } else {
-    OptList.push_back(src);
-  }
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
-  } else {
-    OptList.push_back(coord);
-  }
-  inst.operands() = OptList;
-}
-
-void EImage::EmitImageSt(TypedReg src, TypedReg image, HSAIL_ASM::OperandOperandList coord, BrigType coordType)
-{
-  InstImage inst = te->Brig()->Brigantine().addInst<InstImage>(BRIG_OPCODE_STIMAGE);
-  inst.imageType() = image->Type();
-  inst.coordType() = coordType;
-  inst.geometry() = geometry;
-  inst.equivClass() = 0;//12;
   inst.type() = src->Type();
   ItemList OptList;
-  OptList.push_back(src->Reg());
-  OptList.push_back(image->Reg());
-  if (coord.elementCount() == 1) {
-    OptList.push_back(coord.elements(0));
+  if (src->Count() == 1) {
+    OptList.push_back(src->Reg(0));
   } else {
-    OptList.push_back(coord);
+    OptList.push_back(src->CreateOperandList(te->Brig()->Brigantine()));
+  }
+  OptList.push_back(image->Reg()); 
+  if (coord->Count() == 1) {
+    OptList.push_back(coord->Reg(0));
+  } else {
+    OptList.push_back(coord->CreateOperandList(te->Brig()->Brigantine()));
   }
   inst.operands() = OptList;
 }
@@ -1489,10 +1479,10 @@ void EImage::EmitInitializer()
       init.width() = width;
       init.height() = height;
       init.depth() = depth;
-      init.array() = array_size;
+      init.array() = arraySize;
       init.geometry() = geometry;
-      init.channelOrder() = channel_order;
-      init.channelType() = channel_type;
+      init.channelOrder() = channelOrder;
+      init.channelType() = channelType;
     }
     if (dim == 0) {
       var.init() = list[0];
@@ -1504,7 +1494,7 @@ void EImage::EmitInitializer()
 
 HSAIL_ASM::DirectiveVariable EImage::EmitAddressDefinition(BrigSegment segment)
 {
-  return te->Brig()->EmitVariableDefinition(id, segment, type);
+  return te->Brig()->EmitVariableDefinition(Id(), segment, type);
 }
 
 bool ESamplerSpec::IsValidSegment() const 
@@ -1525,13 +1515,28 @@ bool ESamplerSpec::IsValid() const
   return EVariableSpec::IsValid() && IsValidSegment();
 }
 
-void ESampler::SetupDispatch(DispatchSetup* dispatch) 
+ESampler::ESampler(TestEmitter* te_, const std::string& id_, const ESamplerSpec* spec_)
+  : ESamplerSpec(*spec_), id(id_, te_->Ap())
+{
+  te = te_;
+}
+
+void ESampler::ScenarioInit()
+{
+  te->InitialContext()->Move(IdParams(), new SamplerParams(*this));
+  te->TestScenario()->Commands()->SamplerCreate(Id(), IdParams());
+}
+
+void ESampler::SetupDispatch(const std::string& dispatchId) 
 {
   if (segment == BRIG_SEGMENT_KERNARG) {
+    te->TestScenario()->Commands()->DispatchArg(dispatchId, DARG_SAMPLER, Id());
+    /*
     unsigned i = dispatch->MSetup().Count();
     sampler = new MSampler(i++, id, segment, coord, filter, addressing);
     dispatch->MSetup().Add(sampler);
     dispatch->MSetup().Add(NewMValue(i, id + ".kernarg", MEM_KERNARG, MV_SAMPLERREF, U64(sampler->Id())));
+    */
   }
 }
 
@@ -1597,7 +1602,7 @@ void ESampler::EmitSamplerQuery(TypedReg dest, TypedReg sampler, BrigSamplerQuer
 
 HSAIL_ASM::DirectiveVariable ESampler::EmitAddressDefinition(BrigSegment segment)
 {
-  return te->Brig()->EmitVariableDefinition(id, segment, te->Brig()->SamplerType(), align, dim, isConst, output);
+  return te->Brig()->EmitVariableDefinition(Id(), segment, te->Brig()->SamplerType(), align, dim, isConst, output);
 }
 
 void ESampler::EmitInitializer()
@@ -1671,29 +1676,19 @@ void EImageCalc::SetupDefaultColors()
     color_zero = Value(0.0f);
     color_one  = Value(1.0f);
     break;
+
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-    color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, S32(0x7F));
-    break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-    color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, S32(0x7FFF));
-    break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
     color_zero = Value(MV_INT32, 0);
-    color_one  = Value(MV_INT32, S32(0x7FFFFFFF));
+    color_one  = Value(MV_INT32, 1);
     break;
+
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-    color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, U32(0xFF));
-    break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, U32(0xFFFF));
-    break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
     color_zero = Value(MV_UINT32, 0);
-    color_one  = Value(MV_UINT32, U32(0xFFFFFFFF));
+    color_one  = Value(MV_UINT32, 1);
     break;
   default:
     assert(0); //illegal channel type
@@ -1701,56 +1696,51 @@ void EImageCalc::SetupDefaultColors()
   }
 }
 
-float EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
+double EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
 {
-  float f;
+  double df;
 
-  if(samplerCoord == BRIG_COORD_UNNORMALIZED){
-	switch(c->Type())
-	{
-	case MV_UINT32:
-		assert(samplerFilter == BRIG_FILTER_NEAREST); //only nearest filter is allowed for u32 unnormalized mode
-		f = (float)(c->U32());
-		break;
-
-	case MV_INT32:
-		f = (float)(c->S32());
-		break;
-
-	case MV_FLOAT:
-		f = c->F();
-		break;
-
-	default:
-		assert(0); //illegal coord type
-		break;
-	}
-  } else {
+  switch(c->Type())
+  {
+  case MV_INT32:
+	  df = static_cast<double>(c->S32());
+	  break;
+  case MV_FLOAT:
+	  df = static_cast<double>(c->F());
+	  break;
+  default:
+	  assert(0); //only f32 and s32 are allowed for rdimage
+	  break;
+  }
+  
+  if(samplerCoord == BRIG_COORD_NORMALIZED)
+  {
     assert(c->Type() == MV_FLOAT); //only f32 is allowed in normilized mode
-    f = c->F() * dimSize;
+    df *= dimSize;
   }
 
   if(samplerFilter == BRIG_FILTER_LINEAR)
-    f -= 0.5f;
+    df -= 0.5;
 
-  return f;
+  //coordinates are undefined in case of NaN or INF (PRM 7.1.6.1)
+  assert(!isNanOrInf(df));
+
+  return df;
 }
 
-float EImageCalc::UnnormalizeArrayCoord(Value* c) const
+double EImageCalc::UnnormalizeArrayCoord(Value* c) const
 {
-	float f;
+	double df;
 	switch (c->Type())
 	{
 	case MV_INT32:
-		f = (float)(c->S32());
-		break;
-
-	case MV_UINT32:
-		f = (float)(c->U32());
+		df = static_cast<double>(c->S32());
 		break;
 
 	case MV_FLOAT:
-		f = c->F();
+		df = static_cast<double>(c->F());
+    //coordinates are undefined in case of NaN or INF (PRM 7.1.6.1)
+    assert(!isNanOrInf(df));
 		break;
 
 	default:
@@ -1758,20 +1748,20 @@ float EImageCalc::UnnormalizeArrayCoord(Value* c) const
 		break;
 	}
 	
-	return f;
+	return df;
 }
 
-int EImageCalc::round_downi(float f) const
+int32_t EImageCalc::round_downi(float f) const ///\todo (Artem) 
 {
-  return static_cast<int>(floorf(f));
+  return static_cast<int32_t>(floorf(f)); //it seems to be correct
 }
 
-int EImageCalc::round_neari(float f) const
+int32_t EImageCalc::round_neari(float f) const ///\todo (Artem) 
 {
-  return static_cast<int>(f);
+  return static_cast<int32_t>(f); //incorrect!!
 }
 
-int EImageCalc::clamp_i(int a, int min, int max) const
+int32_t EImageCalc::clamp_i(int32_t a, int32_t min, int32_t max) const
 {
   return (a < min) ? min : ((a > max) ? max : a);
 }
@@ -1781,37 +1771,42 @@ float EImageCalc::clamp_f(float a, float min, float max) const
   return (a < min) ? min : ((a > max) ? max : a);
 }
 
-int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
+uint32_t EImageCalc::GetTexelIndex(double df, uint32_t dimSize) const
 {
-  int rounded_coord = round_downi(f);
-  int dimSize = _dimSize; //todo unshit it
-  bool out_of_range = (rounded_coord < 0) || ( rounded_coord > dimSize - 1);
+  int32_t rounded_coord = round_downi(df);
+  bool out_of_range = (df < 0.0) || ( df >= static_cast<double>(dimSize));
   if(!out_of_range){
     return rounded_coord;
   };
-  int tile;
-  float mirrored_coord;
+  int32_t tile;
+  double mirrored_coord;
+
   switch(samplerAddressing){
   case BRIG_ADDRESSING_UNDEFINED:
 	//we should never use undefined addressing
 	//in case of out of range coordinates
 	//because it, well, undefined
-	//assert(0); //todo uncomment
+	assert(0);
 	break;
   case BRIG_ADDRESSING_CLAMP_TO_EDGE:
-    return clamp_i(rounded_coord, 0, dimSize -1);
+    if (df < 0.0) return 0;
+    if (df > static_cast<double>(dimSize - 1)) return (dimSize - 1);
+    return clamp_i(rounded_coord, 0, dimSize - 1);
     break;
   case BRIG_ADDRESSING_CLAMP_TO_BORDER:
-    return clamp_i(rounded_coord, -1, dimSize);
+    if (out_of_range) return dimSize;
+    return clamp_i(rounded_coord, 0, dimSize);
     break;
   case BRIG_ADDRESSING_REPEAT:
-    tile = round_downi(f / dimSize);
-    return round_downi(f - (tile * dimSize));
+    tile = round_downi(df / dimSize);
+    rounded_coord = round_downi(df - tile * static_cast<double>(dimSize)); 
+    return clamp_i(rounded_coord, 0, dimSize - 1);
     break;
   case BRIG_ADDRESSING_MIRRORED_REPEAT:
-    mirrored_coord = (f < 0) ? (-f - 1.0f) : f;
+    mirrored_coord = (df < 0) ? (-df - 1.0f) : df;
     tile = round_downi(mirrored_coord / dimSize);
-    rounded_coord = round_downi(mirrored_coord - (tile * dimSize));
+    rounded_coord = round_downi(mirrored_coord - tile * static_cast<double>(dimSize));
+    rounded_coord = clamp_i(rounded_coord, 0, dimSize - 1);
     if(tile & 1){
       rounded_coord = (dimSize - 1) - rounded_coord;
     }
@@ -1824,9 +1819,11 @@ int EImageCalc::GetTexelIndex(float f, unsigned _dimSize) const
   return -1;
 }
 
-int EImageCalc::GetTexelArrayIndex(float f, unsigned dimSize) const
+uint32_t EImageCalc::GetTexelArrayIndex(double df, uint32_t dimSize) const
 {
-  return clamp_i( round_neari(f), 0, dimSize - 1 );
+  if (df < 0.0) return 0;
+  if (df > static_cast<double>(dimSize-1)) return (dimSize - 1);
+  return clamp_i( round_neari(df), 0, dimSize - 1 );
 }
 
 void EImageCalc::LoadBorderData(Value* _color) const
@@ -1855,12 +1852,12 @@ void EImageCalc::LoadBorderData(Value* _color) const
   return;
 }
 
-uint32_t EImageCalc::GetRawPixelData(int x_ind, int y_ind, int z_ind) const
+uint32_t EImageCalc::GetRawPixelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind) const
 {
   return existVal.U32();
 }
 
-uint32_t EImageCalc::GetRawChannelData(int x_ind, int y_ind, int z_ind, int channel) const
+uint32_t EImageCalc::GetRawChannelData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, uint32_t channel) const
 {
   switch (imageChannelType)
   {
@@ -1874,25 +1871,36 @@ uint32_t EImageCalc::GetRawChannelData(int x_ind, int y_ind, int z_ind, int chan
   case BRIG_CHANNEL_TYPE_UNORM_INT16:
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-    return (existVal.U32() >> channel*8) & 0xFFFF;
+    return (existVal.U64() >> channel*16) & 0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    return (existVal.U32() >> channel*8) & 0xFFFF;
+    return (existVal.U64() >> channel*16) & 0xFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_INT24:
-    return (existVal.U32() >> channel*8) & 0x00FFFFFF;
+    return (existVal.U64() >> channel*24) & 0x00FFFFFF;
     break;
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
   case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
-    return (existVal.U32() >> channel*8) & 0x1F;
-    break;
   case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-    return (existVal.U32() >> channel*8) & 0x3FF;
+    assert(0); //GetRawPixelData() should be used for this formats
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
   case BRIG_CHANNEL_TYPE_FLOAT:
-    return existVal.U32();
+    if (imageChannelOrder == BRIG_CHANNEL_ORDER_RGBA) //this is the only case of 128 bit texel
+    {
+      if (channel < 2)
+      {
+        return existVal.U128().U64H() >> channel*32;
+      }
+      else
+      {
+        channel-=2;
+        return existVal.U128().U64L() >> channel*32;
+      }
+    }
+    else
+      return existVal.U64() >> channel*32;
     break;
   default:
     assert(0); //illegal channel
@@ -1904,7 +1912,6 @@ uint32_t EImageCalc::GetRawChannelData(int x_ind, int y_ind, int z_ind, int chan
 int32_t EImageCalc::SignExtend(uint32_t c, unsigned int bit_size) const
 {
   union {
-    float f32;
     int32_t s32;
     uint32_t u32;
   } r;
@@ -1934,6 +1941,43 @@ float EImageCalc::ConvertionLoadUnsignedNormalize(uint32_t c, unsigned int bit_s
   return clamp_f(f, 0.0f, 1.0f);
 }
 
+float EImageCalc::SRGBtoLinearRGB(float f) const
+{
+  double df = f;
+
+  //all magic numbers are from PRM section 7.1.4.1.2
+  if (df < 0.04045)
+    return static_cast<float>(df / 12.92);
+
+  df = (df + 0.055) / 1.055;
+  df = pow(df, 2.4);
+
+  if(df > 1.0)
+    return 1.0f;
+
+  return static_cast<float>(df);
+}
+
+float EImageCalc::LinearRGBtoSRGB(float f) const
+{
+  if(f != f) return 0.0f; //check for NaN
+  if(f <= 0.0f) return 0.0f;
+  if(f >= 1.0f) return 1.0f;
+
+  //all magic numbers are from PRM section 7.1.4.1.2
+  double df = f;
+  if(df < 0.0031308)
+  {
+    df *= 12.92;
+    return static_cast<float>(df);
+  }
+
+  df = 1.055 * pow(df, 1/2.4);
+  df -= 0.055;
+
+  return static_cast<float>(df);
+}
+
 int32_t EImageCalc::ConvertionLoadSignedClamp(uint32_t c, unsigned int bit_size) const
 {
   return SignExtend(c, bit_size);
@@ -1949,8 +1993,10 @@ float EImageCalc::ConvertionLoadHalfFloat(uint32_t data) const
   ValueData bits;
   bits.u32 = data;
   half h = half::make(bits.h_bits);
-  //todo test for NaNs
-  return h.f32();
+
+  float f = h.f32();
+  assert(f==f); //handling NaNs is implementation defined
+  return f;
 }
 
 float EImageCalc::ConvertionLoadFloat(uint32_t data) const
@@ -1959,14 +2005,17 @@ float EImageCalc::ConvertionLoadFloat(uint32_t data) const
 	f.u32 = data;
 	//handling NaNs and subnormals is implementation defined
 	//therefore we should avoid such tests
-	//assert(isNanOrDenorm(f.f)); //todo uncomment
+	assert(!isNanOrDenorm(f.f));
 	return f.f;
 }
 
 uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_size) const
 {
-	int scale = (1 << (bit_size-1)) - 1;
-	int val = round_neari(f * scale);
+	int32_t scale = (1 << (bit_size-1)) - 1;
+  if (f >=  1.0f) return scale;
+  if (f <= -1.0f) return -scale - 1;
+  if (f != f) return 0;
+	int32_t val = round_neari(f * scale);
 	val = clamp_i(val, -scale - 1, scale);
 
 	return val;
@@ -1974,8 +2023,11 @@ uint32_t EImageCalc::ConvertionStoreSignedNormalize(float f, unsigned int bit_si
 
 uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_size) const
 {
-	int scale = (1 << bit_size) - 1;
-	int val = round_neari(f * scale);
+	int32_t scale = (1 << bit_size) - 1;
+  if (f >= 1.0f) return scale;
+  if (f <= 0.0f) return 0;
+  if (f != f) return 0;
+	int32_t val = round_neari(f * scale);
 	val = clamp_i(val, 0, scale);
 
 	return val;
@@ -1983,9 +2035,9 @@ uint32_t EImageCalc::ConvertionStoreUnsignedNormalize(float f, unsigned int bit_
 
 uint32_t EImageCalc::ConvertionStoreSignedClamp(int32_t c, unsigned int bit_size) const
 {
-	int max = (1 << (bit_size-1)) - 1;
-	int min = -max - 1;
-	uint32_t val = clamp_i(c, min, max);
+	int32_t max = (1 << (bit_size-1)) - 1;
+	int32_t min = -max - 1;
+  uint32_t val = clamp_i(c, min, max);
 
 	return val;
 }
@@ -1998,8 +2050,9 @@ uint32_t EImageCalc::ConvertionStoreUnsignedClamp(uint32_t c, unsigned int bit_s
 
 uint32_t EImageCalc::ConvertionStoreHalfFloat(float f) const
 {
-	half h(f);
-	//todo test for NaNs and denorms
+	half h(f); //Achtung! Rounding is implementation defined!
+  assert(f==f); //handling NaNs is implementation difined
+  //todo test for fp16 denorm
 	return h.getBits();
 }
 
@@ -2007,7 +2060,7 @@ uint32_t EImageCalc::ConvertionStoreFloat(float f) const
 {
 	ValueData v;
 	v.f = f;
-	//todo test for NaNs and denorms
+	assert(!isNanOrDenorm(f));
 	return v.u32;
 }
 
@@ -2071,18 +2124,12 @@ Value EImageCalc::ConvertRawData(uint32_t data) const
   return c;
 }
 
-float EImageCalc::GammaCorrection(float f) const
-{
-  assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-* types
-  return 0.3f; //todo
-}
-
-void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) const
+void EImageCalc::LoadColorData(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const
 {
   Value c;
   uint32_t packed_color;
   uint32_t unpacked_r, unpacked_g, unpacked_b;
-  float fr, fg, fb;
+  float fr, fg, fb, fa;
 
   switch (imageChannelOrder)
   {
@@ -2177,9 +2224,9 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
     fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
-    _color[0] = Value(GammaCorrection(fr));
-    _color[1] = Value(GammaCorrection(fg));
-    _color[2] = Value(GammaCorrection(fb));
+    _color[0] = Value(SRGBtoLinearRGB(fr));
+    _color[1] = Value(SRGBtoLinearRGB(fg));
+    _color[2] = Value(SRGBtoLinearRGB(fb));
     _color[3] = color_one;
     break;
   case BRIG_CHANNEL_ORDER_SRGBA:
@@ -2187,20 +2234,22 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
     fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
     fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
-    _color[0] = Value(GammaCorrection(fr));
-    _color[1] = Value(GammaCorrection(fg));
-    _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
+    fa = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 3), 8);
+    _color[0] = Value(SRGBtoLinearRGB(fr));
+    _color[1] = Value(SRGBtoLinearRGB(fg));
+    _color[2] = Value(SRGBtoLinearRGB(fb));
+    _color[3] = Value(fa);
     break;
   case BRIG_CHANNEL_ORDER_SBGRA:
     assert(imageChannelType == BRIG_CHANNEL_TYPE_UNORM_INT8); //only unorm_int8 is supported for s-Form
     fr = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 2), 8);
     fg = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 1), 8);
     fb = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 0), 8);
-    _color[0] = Value(GammaCorrection(fr));
-    _color[1] = Value(GammaCorrection(fg));
-    _color[2] = Value(GammaCorrection(fb));
-    _color[3] = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 3));
+    fa = ConvertionLoadUnsignedNormalize(GetRawChannelData(x_ind, y_ind, z_ind, 3), 8);
+    _color[0] = Value(SRGBtoLinearRGB(fr));
+    _color[1] = Value(SRGBtoLinearRGB(fg));
+    _color[2] = Value(SRGBtoLinearRGB(fb));
+    _color[3] = Value(fa);
     break;
   case BRIG_CHANNEL_ORDER_INTENSITY:
     c = ConvertRawData(GetRawChannelData(x_ind, y_ind, z_ind, 0));
@@ -2228,46 +2277,48 @@ void EImageCalc::LoadColorData(int x_ind, int y_ind, int z_ind, Value* _color) c
   }
 }
 
-void EImageCalc::LoadTexel(int x_ind, int y_ind, int z_ind, Value* _color) const
+void EImageCalc::LoadTexel(uint32_t x_ind, uint32_t y_ind, uint32_t z_ind, Value* _color) const
 {
-  int dimSizeX = imageGeometry.ImageSize(0);
-  int dimSizeY = imageGeometry.ImageSize(1);
-  int dimSizeZ = imageGeometry.ImageSize(2);
-  bool out_of_range = (x_ind < 0) || (y_ind < 0) || (z_ind < 0) || (x_ind > dimSizeX - 1) || (y_ind > dimSizeY - 1) || (z_ind > dimSizeZ - 1);
+  uint32_t dimSizeX = imageGeometry.ImageSize(0);
+  uint32_t dimSizeY = imageGeometry.ImageSize(1);
+  uint32_t dimSizeZ = imageGeometry.ImageSize(2);
+  bool out_of_range = (x_ind >= dimSizeX) || (y_ind >= dimSizeY) || (z_ind >= dimSizeZ);
   if(out_of_range){
+    //could only happen in case of ADDRESSING_CLAMP_TO_BORDER
     assert(samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER);
+    //currently border color for depth images is implementation defined (PRM table 7-2 Channel Order Properties)
+    assert(!isDepth);
     LoadBorderData(_color);
-    }
-  else{
+  } else {
     LoadColorData(x_ind, y_ind, z_ind, _color);
   }
 }
 
-void EImageCalc::LoadFloatTexel(int x, int y, int z, double* const f) const
+void EImageCalc::LoadFloatTexel(uint32_t x, uint32_t y, uint32_t z, double* const df) const
 {
   Value color[4];
   LoadTexel(x, y, z, color);
   switch (color[0].Type())
   {
   case MV_FLOAT:
-    f[0] = color[0].F();
-    f[1] = color[1].F();
-    f[2] = color[2].F();
-    f[3] = color[3].F();
+    df[0] = color[0].F();
+    df[1] = color[1].F();
+    df[2] = color[2].F();
+    df[3] = color[3].F();
     break;
 
   case MV_INT32:
-    f[0] = color[0].S32();
-    f[1] = color[1].S32();
-    f[2] = color[2].S32();
-    f[3] = color[3].S32();
+    df[0] = color[0].S32();
+    df[1] = color[1].S32();
+    df[2] = color[2].S32();
+    df[3] = color[3].S32();
     break;
 
   case MV_UINT32:
-    f[0] = color[0].U32();
-    f[1] = color[1].U32();
-    f[2] = color[2].U32();
-    f[3] = color[3].U32();
+    df[0] = color[0].U32();
+    df[1] = color[1].U32();
+    df[2] = color[2].U32();
+    df[3] = color[3].U32();
     break;
 
   default:
@@ -2276,10 +2327,13 @@ void EImageCalc::LoadFloatTexel(int x, int y, int z, double* const f) const
   }
 }
 
-void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
-     
-  float u, v, w; //unnormalized coordinates
-  int ind[3]; //element location
+void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
+{
+  //PRM states that in some modes texel index must be computed with
+  //no loss of precision (7.1.6.3 Image Filters).
+  //Therefore we are using doubles for coordinates.
+  double u, v, w; //unnormalized coordinates
+  uint32_t ind[3]; //element location
 
   Value* x = &_coords[0];
   Value* y = &_coords[1];
@@ -2289,11 +2343,8 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   uint32_t vSize = imageGeometry.ImageSize(1);
   uint32_t wSize = imageGeometry.ImageSize(2);
 
-  if (bWithoutSampler)
-  {
-    LoadTexel((*x).U32(), (*y).U32(), (*z).U32(), _color);
-    return;
-  }
+  //1DB images are not supported by rdimage instruction (PRM 7.1.6)
+  assert(imageGeometryProp != BRIG_GEOMETRY_1DB);
 
   //unnormalize and apply addresing mode
   u = UnnormalizeCoord(x, uSize);
@@ -2328,7 +2379,6 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
     ind[2] = GetTexelIndex(w, wSize);
     break;
   default:
-    assert(0);
     break;
   }
 
@@ -2341,16 +2391,16 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
 
   //linear filtering
   assert(samplerFilter == BRIG_FILTER_LINEAR); //we are supporting only nearest and linear filters
-  int x0_index = ind[0];
-  int x1_index = GetTexelIndex(u + 1.0f, imageGeometry.ImageSize(0));
+  uint32_t x0_index = ind[0];
+  uint32_t x1_index = GetTexelIndex(u + 1.0f, imageGeometry.ImageSize(0));
   float x_frac = u - floorf(u);
 
-  int y0_index = ind[1];
-  int y1_index = GetTexelIndex(v + 1.0f, imageGeometry.ImageSize(1));
+  uint32_t y0_index = ind[1];
+  uint32_t y1_index = GetTexelIndex(v + 1.0f, imageGeometry.ImageSize(1));
   float y_frac = v - floorf(v);
 
-  int z0_index = ind[2];
-  int z1_index = GetTexelIndex(w + 1.0f, imageGeometry.ImageSize(2));
+  uint32_t z0_index = ind[2];
+  uint32_t z1_index = GetTexelIndex(w + 1.0f, imageGeometry.ImageSize(2));
   float z_frac = w - floorf(w);
 
   double filtered_color[4];
@@ -2359,7 +2409,6 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   switch (imageGeometryProp)
   {
   case BRIG_GEOMETRY_1D:
-  case BRIG_GEOMETRY_1DB:
   case BRIG_GEOMETRY_1DA:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
@@ -2369,11 +2418,13 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
     break;
   case BRIG_GEOMETRY_2D:
   case BRIG_GEOMETRY_2DA:
+  case BRIG_GEOMETRY_2DDEPTH:
+  case BRIG_GEOMETRY_2DADEPTH:
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
     LoadFloatTexel(x1_index, y1_index, z0_index, colors[3]);
-    for(int i=0; i<4; i++){
+    for(int i=0; i< (isDepth ? 1 : 4); i++){
       filtered_color[i] = (1 - x_frac)  * (1 - y_frac)  * colors[0][i]
               + x_frac    * (1 - y_frac)  * colors[1][i]
               + (1 - x_frac)  * y_frac    * colors[2][i]
@@ -2399,18 +2450,8 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
               + (1 - x_frac)  * y_frac    * z_frac    * colors[6][i]
               + x_frac    * y_frac    * z_frac    * colors[7][i];
     }
-    break;      
-  case BRIG_GEOMETRY_2DDEPTH:
-  case BRIG_GEOMETRY_2DADEPTH:
-    LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
-    LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
-    LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
-    LoadFloatTexel(x1_index, y1_index, z0_index, colors[3]);
-    filtered_color[0] = (1 - x_frac)  * (1 - y_frac)  * colors[0][0]
-            + x_frac    * (1 - y_frac)  * colors[1][0]
-            + (1 - x_frac)  * y_frac    * colors[2][0]
-            + x_frac    * y_frac    * colors[3][0];
     break;
+  
   default:
     assert(0);
     break;
@@ -2428,21 +2469,16 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
   case BRIG_CHANNEL_TYPE_HALF_FLOAT:
   case BRIG_CHANNEL_TYPE_FLOAT:
-    //todo add depth images support
-    for(int i=0; i<4; i++)
+    for(int i=0; i<(isDepth ? 1 : 4); i++)
       _color[i] = Value(static_cast<float>(filtered_color[i]));
     break;
   case BRIG_CHANNEL_TYPE_SIGNED_INT8:
   case BRIG_CHANNEL_TYPE_SIGNED_INT16:
   case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-    //for(int i=0; i<4; i++) _color[i] = Value(MV_INT32, S32(static_cast<int32_t>(filtered_color[i])));
-    assert(0); //linear filter for all access types other then f32 is undefined
-    break;
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
   case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-    //for(int i=0; i<4; i++) _color[i] = Value(MV_UINT32, U32(static_cast<uint32_t>(filtered_color[i])));
-    assert(0); //linear filter for all access types other then f32 is undefined
+    assert(0); //linear filter is defined only for channel types with f32 access type (PRM table 7-6)
     break;
   default:
     assert(0);
@@ -2450,41 +2486,78 @@ void EImageCalc::EmulateReadColor(Value* _coords, Value* _color) const {
   }
 }
 
-EImageCalc::EImageCalc(EImage * eimage, ESampler* esampler, Value val)
+void EImageCalc::Init(EImage * eimage, ESampler* esampler)
 {
   assert(eimage);
-
-  existVal = val;
- 
   imageGeometry = eimage->ImageGeometry();
   imageGeometryProp = eimage->Geometry();
   imageChannelOrder = eimage->ChannelOrder();
   imageChannelType = eimage->ChannelType();
   if (esampler != NULL) {
-  samplerCoord = esampler->CoordNormalization();
-  samplerFilter = esampler->Filter();
-  samplerAddressing = esampler->Addresing();
-    bWithoutSampler = false;
+    samplerCoord = esampler->CoordNormalization();
+    samplerFilter = esampler->Filter();
+    samplerAddressing = esampler->Addresing();    
+    assert(IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing));
   }
   else {
     samplerCoord = BRIG_COORD_UNNORMALIZED;
     samplerFilter = BRIG_FILTER_NEAREST;
     samplerAddressing = BRIG_ADDRESSING_UNDEFINED;
-    bWithoutSampler = true;
   }
   SetupDefaultColors();
+
+  assert(IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType));
+
+  switch (imageChannelOrder)
+  {
+  case BRIG_CHANNEL_ORDER_SRGB:
+  case BRIG_CHANNEL_ORDER_SRGBX:
+  case BRIG_CHANNEL_ORDER_SRGBA:
+  case BRIG_CHANNEL_ORDER_SBGRA:
+    isSRGB = true;
+    break;
+  default:
+    isSRGB = false;
+    break;
+  }
+
+  isDepth = IsImageDepth(imageGeometryProp);
+
+  //set default
+  existVal = eimage->GetRawData();
 }
 
-void EImageCalc::ReadColor(Value* _coords, Value* _color) const
-{
-  EmulateReadColor(_coords, _color);
-}
-
-Value EImageCalc::EmulateStoreColor(Value* _color) const
+Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
 {
 	Value rgba[4];
-	Value raw_data;
-	//uint64_t raw_bits[2];
+  union RawData {
+    uint8_t data8;
+    uint16_t data16;
+    uint32_t data32;
+    uint64_t data64;
+    uint128_t::Type data128;
+    struct RawChData8 {
+      uint8_t ch1;
+      uint8_t ch2;
+      uint8_t ch3;
+      uint8_t ch4;
+    } ch8;
+    struct RawChData16 {
+      uint16_t ch1;
+      uint16_t ch2;
+      uint16_t ch3;
+      uint16_t ch4;
+    } ch16;
+    struct RawChData32 {
+      uint32_t ch1;
+      uint32_t ch2;
+      uint32_t ch3;
+      uint32_t ch4;
+    } ch32;
+  };
+  RawData Raw;
+
+	Value texel;
 	int bits_per_channel = -1;
 	uint32_t packed_rgb = 0;
 	uint32_t unpacked_r, unpacked_g, unpacked_b;
@@ -2507,55 +2580,60 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 	case BRIG_CHANNEL_TYPE_UNORM_INT8:
 		bits_per_channel = 8;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[i].F(), bits_per_channel));
+    {
+      float f = _color[i].F();
+      if (isSRGB) f = LinearRGBtoSRGB(f);
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(f, bits_per_channel));
+    }
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_INT16:
 		bits_per_channel = 16;
+    if(isDepth)
+      return Value(MV_UINT16, ConvertionStoreUnsignedNormalize(_color[0].F(), bits_per_channel));
 		for(int i=0; i<4; i++)
 			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[i].F(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_INT24:
 		bits_per_channel = 24;
-		//todo add depth support
 		return Value(MV_UINT32, ConvertionStoreUnsignedNormalize(_color[0].F(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
 		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		packed_rgb = (unpacked_r << 10) || (unpacked_g << 5) || unpacked_b;
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[1].F(), 5);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[2].F(), 5);
+		packed_rgb = (unpacked_r << 10) | (unpacked_g << 5) | unpacked_b;
 		return Value(MV_UINT16, packed_rgb);
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
 		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 6);
-		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 5);
-		packed_rgb = (unpacked_r << 11) || (unpacked_g << 6) || unpacked_b;
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[1].F(), 6);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[2].F(), 5);
+		packed_rgb = (unpacked_r << 11) | (unpacked_g << 6) | unpacked_b;
 		return Value(MV_UINT16, packed_rgb);
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
 		unpacked_r = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
-		unpacked_g = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
-		unpacked_b = ConvertionStoreUnsignedNormalize(_color[0].F(), 10);
-		packed_rgb = (unpacked_r << 20) || (unpacked_g << 10) || unpacked_b;
+		unpacked_g = ConvertionStoreUnsignedNormalize(_color[1].F(), 10);
+		unpacked_b = ConvertionStoreUnsignedNormalize(_color[2].F(), 10);
+		packed_rgb = (unpacked_r << 20) | (unpacked_g << 10) | unpacked_b;
 		return Value(MV_UINT32, packed_rgb);
 		break;
 
 	case BRIG_CHANNEL_TYPE_SIGNED_INT8:
 		bits_per_channel = 8;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S8(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_SIGNED_INT16:
 		bits_per_channel = 16;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S16(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreSignedClamp(_color[i].S32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_SIGNED_INT32:
@@ -2567,13 +2645,13 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 	case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
 		bits_per_channel = 8;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U8(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
 		bits_per_channel = 16;
 		for(int i=0; i<4; i++)
-			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U16(), bits_per_channel));
+			rgba[i] = Value(MV_UINT32, ConvertionStoreUnsignedClamp(_color[i].U32(), bits_per_channel));
 		break;
 
 	case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
@@ -2590,7 +2668,9 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 
 	case BRIG_CHANNEL_TYPE_FLOAT:
 		bits_per_channel = 32;
-		for(int i=0; i<4; i++)
+    if(isDepth)
+      return Value(MV_UINT32, ConvertionStoreFloat(_color[0].F()));
+		for(int i=0; i < (isDepth ? 1 : 4); i++)
 			rgba[i] = Value(MV_UINT32, ConvertionStoreFloat(_color[i].F()));
 		break;
 
@@ -2599,6 +2679,10 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 		break;
 	}
 
+  Raw.data128.h = 0;
+  Raw.data128.l = 0;
+
+  texel = Value(MV_UINT32, 0);
 
 	//assemble channels
 	switch (imageChannelOrder)
@@ -2607,13 +2691,13 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 		switch (bits_per_channel)
 		{
 		case 8:
-			raw_data = Value(MV_UINT8, rgba[3].U8());
+			texel = Value(MV_UINT8, rgba[3].U8());
 			break;
 		case 16:
-			raw_data = Value(MV_UINT16, rgba[3].U16());
+			texel = Value(MV_UINT16, rgba[3].U16());
 			break;
 		case 32:
-			raw_data = Value(MV_UINT32, rgba[3].U32());
+			texel = Value(MV_UINT32, rgba[3].U32());
 			break;
 		default:
 			assert(0);
@@ -2628,49 +2712,197 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 		switch (bits_per_channel)
 		{
 		case 8:
-			raw_data = Value(MV_UINT8, rgba[0].U8());
+			texel = Value(MV_UINT8, rgba[0].U8());
 			break;
 		case 16:
-			raw_data = Value(MV_UINT16, rgba[0].U16());
+			texel = Value(MV_UINT16, rgba[0].U16());
 			break;
 		case 32:
-			raw_data = Value(MV_UINT32, rgba[0].U32());
+			texel = Value(MV_UINT32, rgba[0].U32());
 			break;
 		default:
 			assert(0);
 			break;
 		}
 		break;
-
 	case BRIG_CHANNEL_ORDER_RG:
-		break;
-	case BRIG_CHANNEL_ORDER_RGX:
+  case BRIG_CHANNEL_ORDER_RGX:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[0].U8();
+      Raw.ch8.ch2 = rgba[1].U8();
+      texel = Value(MV_UINT16, Raw.data16);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[0].U16();
+      Raw.ch16.ch2 = rgba[1].U16();
+      texel = Value(MV_UINT32, Raw.data32);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[0].U32();
+      Raw.ch32.ch2 = rgba[1].U32();
+      texel = Value(MV_UINT64, Raw.data64);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_RA:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[0].U8();
+      Raw.ch8.ch2 = rgba[3].U8();
+      texel = Value(MV_UINT16, Raw.data16);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[0].U16();
+      Raw.ch16.ch2 = rgba[3].U16();
+      texel = Value(MV_UINT32, Raw.data32);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[0].U32();
+      Raw.ch32.ch2 = rgba[3].U32();
+      texel = Value(MV_UINT64, Raw.data64);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_RGB:
-		break;
 	case BRIG_CHANNEL_ORDER_RGBX:
+  case BRIG_CHANNEL_ORDER_DEPTH:
+	case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
+    assert(0); //should never happen, coz these formats are handled earlier
 		break;
 	case BRIG_CHANNEL_ORDER_RGBA:
+  case BRIG_CHANNEL_ORDER_SRGBA:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[0].U8();
+      Raw.ch8.ch2 = rgba[1].U8();
+      Raw.ch8.ch3 = rgba[2].U8();
+      Raw.ch8.ch4 = rgba[3].U8();
+      texel = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[0].U16();
+      Raw.ch16.ch2 = rgba[1].U16();
+      Raw.ch16.ch3 = rgba[2].U16();
+      Raw.ch16.ch4 = rgba[3].U16();
+      texel = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[0].U32();
+      Raw.ch32.ch2 = rgba[1].U32();
+      Raw.ch32.ch3 = rgba[2].U32();
+      Raw.ch32.ch4 = rgba[3].U32();
+      texel = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_BGRA:
+  case BRIG_CHANNEL_ORDER_SBGRA:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[2].U8();
+      Raw.ch8.ch2 = rgba[1].U8();
+      Raw.ch8.ch3 = rgba[0].U8();
+      Raw.ch8.ch4 = rgba[3].U8();
+      texel = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[2].U16();
+      Raw.ch16.ch2 = rgba[1].U16();
+      Raw.ch16.ch3 = rgba[0].U16();
+      Raw.ch16.ch4 = rgba[3].U16();
+      texel = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[2].U32();
+      Raw.ch32.ch2 = rgba[1].U32();
+      Raw.ch32.ch3 = rgba[0].U32();
+      Raw.ch32.ch4 = rgba[3].U32();
+      texel = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_ARGB:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[3].U8();
+      Raw.ch8.ch2 = rgba[0].U8();
+      Raw.ch8.ch3 = rgba[1].U8();
+      Raw.ch8.ch4 = rgba[2].U8();
+      texel = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[3].U16();
+      Raw.ch16.ch2 = rgba[0].U16();
+      Raw.ch16.ch3 = rgba[1].U16();
+      Raw.ch16.ch4 = rgba[2].U16();
+      texel = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[3].U32();
+      Raw.ch32.ch2 = rgba[0].U32();
+      Raw.ch32.ch3 = rgba[1].U32();
+      Raw.ch32.ch4 = rgba[2].U32();
+      texel = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
 	case BRIG_CHANNEL_ORDER_ABGR:
+    switch (bits_per_channel)
+		{
+		case 8:
+      Raw.ch8.ch1 = rgba[3].U8();
+      Raw.ch8.ch2 = rgba[2].U8();
+      Raw.ch8.ch3 = rgba[1].U8();
+      Raw.ch8.ch4 = rgba[0].U8();
+      texel = Value(MV_UINT32, Raw.data32);
+			break;
+		case 16:
+			Raw.ch16.ch1 = rgba[3].U16();
+      Raw.ch16.ch2 = rgba[2].U16();
+      Raw.ch16.ch3 = rgba[1].U16();
+      Raw.ch16.ch4 = rgba[0].U16();
+      texel = Value(MV_UINT64, Raw.data64);
+			break;
+		case 32:
+			Raw.ch32.ch1 = rgba[3].U32();
+      Raw.ch32.ch2 = rgba[2].U32();
+      Raw.ch32.ch3 = rgba[1].U32();
+      Raw.ch32.ch4 = rgba[0].U32();
+      texel = Value(MV_UINT128, Raw.data128);
+			break;
+		default:
+			assert(0);
+			break;
+		}
 		break;
-
 	case BRIG_CHANNEL_ORDER_SRGB:
 	case BRIG_CHANNEL_ORDER_SRGBX:
-	case BRIG_CHANNEL_ORDER_SRGBA:
-	case BRIG_CHANNEL_ORDER_SBGRA:
-		assert(0); //todo add srgb support
-		break;
-
-	case BRIG_CHANNEL_ORDER_DEPTH:
-	case BRIG_CHANNEL_ORDER_DEPTH_STENCIL:
-		assert(0); //todo add depth support
+    Raw.ch8.ch1 = rgba[0].U8();
+    Raw.ch8.ch2 = rgba[1].U8();
+    Raw.ch8.ch3 = rgba[2].U8();
+    Raw.ch8.ch4 = 0;
+		texel = Value(MV_UINT32, Raw.data32); //add uint24?
 		break;
 
 	default:
@@ -2678,13 +2910,13 @@ Value EImageCalc::EmulateStoreColor(Value* _color) const
 		break;
 	}
 
-	return raw_data;
+	return texel;
 }
 
-Value EImageCalc::StoreColor(Value* _coords, Value* _color) const
+Value EImageCalc::EmulateImageSt(Value* _coords, Value* _color) const
 {
 	if(_coords){
-		//only u32 coordinate type is supported for image store
+		//only u32 coordinate type is supported for stimage
 		assert(_coords[0].Type() == MV_UINT32);
 
 		uint32_t u, v, w;
@@ -2700,22 +2932,62 @@ Value EImageCalc::StoreColor(Value* _coords, Value* _color) const
 		assert((u < uSize) && (v < vSize) && (w < wSize));
 	}
 
-	return EmulateStoreColor(_color);
+	return PackChannelDataToMemoryFormat(_color);
 }
 
-void ESignal::ScenarioInit()
+void EImageCalc::EmulateImageLd(Value* _coords, Value* _color) const
 {
-  te->TestScenario()->Commands().CreateSignal(id, initialValue);
+  //only u32 coordinate type is supported for ldimage
+  assert(_coords[0].Type() == MV_UINT32);
+
+  uint32_t u, v, w;
+  u = _coords[0].U32();
+  v = _coords[1].U32();
+  w = _coords[2].U32();
+		
+  uint32_t uSize = imageGeometry.ImageSize(0);
+  uint32_t vSize = imageGeometry.ImageSize(1);
+  uint32_t wSize = imageGeometry.ImageSize(2);
+
+  //It is undefined if a coordinate is out of bounds
+  assert((u < uSize) && (v < vSize) && (w < wSize));
+
+  LoadColorData(u, v, w, _color);
 }
 
 void ESignal::KernelArguments()
 {
-  kernelArg = te->Brig()->EmitVariableDefinition(id, BRIG_SEGMENT_KERNARG, te->Brig()->SignalType());
+  kernelArg = te->Brig()->EmitVariableDefinition(Id(), BRIG_SEGMENT_KERNARG, te->Brig()->SignalType());
 }
 
-void ESignal::SetupDispatch(DispatchSetup* dispatch)
+void ESignal::ScenarioInit()
 {
-  dispatch->MSetup().Add(NewMValue(dispatch->MSetup().Count(), id, MEM_KERNARG, MV_EXPR, S(id.c_str())));
+  te->TestScenario()->Commands()->SignalCreate(Id(), initialValue);
+}
+
+TypedReg ESignal::AddReg()
+{
+  return te->Brig()->AddTReg(te->Brig()->SignalType());
+}
+
+TypedReg ESignal::AddValueReg()
+{
+  return te->Brig()->AddTReg(te->Brig()->SignalValueIntType());
+}
+
+void ESignal::SetupDispatch(const std::string& dispatchId)
+{
+  te->TestScenario()->Commands()->DispatchArg(dispatchId, DARG_SIGNAL, Id());
+}
+
+TypedReg ESignal::Handle()
+{
+  if (!handle) {
+    assert(kernelArg != 0);
+    handle = AddReg();
+    te->Brig()->EmitLoad(BRIG_SEGMENT_KERNARG, handle, te->Brig()->Address(kernelArg));
+  }
+  return handle;
 }
 
 void EKernel::StartKernel()
@@ -2735,6 +3007,13 @@ void EKernel::StartKernelBody()
   EmittableContainer::StartKernelBody();
 }
 
+void EKernel::Declaration()
+{
+  kernel = te->Brig()->StartKernel(KernelName());
+  kernel.modifier().isDefinition() = false;
+  KernelArguments();
+}
+
 void EFunction::StartFunction()
 {
   function = te->Brig()->StartFunction(FunctionName());
@@ -2747,7 +3026,7 @@ void EFunction::EndFunction()
 
 void EFunction::Declaration()
 {
-  te->Brig()->StartFunction();
+  function = te->Brig()->StartFunction(FunctionName());
   FunctionFormalOutputArguments();
   FunctionFormalInputArguments();
 }
@@ -2755,6 +3034,36 @@ void EFunction::Declaration()
 void EFunction::StartFunctionBody()
 {
   te->Brig()->StartBody();
+}
+
+EDispatch::EDispatch(TestEmitter* te, const std::string& id_,
+  const std::string& executableId_, const std::string& kernelName_)
+  : EmittableContainerWithId(te, id_),
+  executableId(executableId_.c_str(), te->Ap()), kernelName(kernelName_.c_str(), te->Ap())
+{
+}
+
+void EDispatch::ScenarioInit()
+{
+  EmittableContainer::ScenarioInit();
+}
+
+void EDispatch::ScenarioDispatch()
+{
+  te->TestScenario()->Commands()->DispatchExecute(Id());
+}
+
+void EDispatch::SetupDispatch(const std::string& dispatchId)
+{
+  te->TestScenario()->Commands()->ModuleCreateFromBrig();
+  te->TestScenario()->Commands()->ProgramCreate();
+  te->TestScenario()->Commands()->ProgramAddModule();
+  te->TestScenario()->Commands()->ProgramFinalize();
+  te->TestScenario()->Commands()->ExecutableCreate(executableId.c_str());
+  te->TestScenario()->Commands()->ExecutableLoadCode();
+  te->TestScenario()->Commands()->ExecutableFreeze();
+  te->TestScenario()->Commands()->DispatchCreate(Id(), executableId.c_str(), kernelName.c_str());
+  EmittableContainer::SetupDispatch(dispatchId);
 }
 
 const char* ConditionType2Str(ConditionType type)
@@ -2895,9 +3204,9 @@ void ECondition::FunctionInit()
   }
 }
 
-void ECondition::SetupDispatch(DispatchSetup* dsetup)
+void ECondition::SetupDispatch(const std::string& dispatchId)
 {
-  if (condBuffer) { condBuffer->SetupDispatch(dsetup); }
+  if (condBuffer) { condBuffer->SetupDispatch(dispatchId); }
 }
 
 void ECondition::ScenarioInit()
@@ -2905,9 +3214,9 @@ void ECondition::ScenarioInit()
   if (condBuffer) { condBuffer->ScenarioInit(); }
 }
 
-void ECondition::Validation()
+void ECondition::ScenarioValidation()
 {
-  if (condBuffer) { condBuffer->Validation(); }
+  if (condBuffer) { condBuffer->ScenarioValidation(); }
 }
 
 TypedReg ECondition::InputData()
@@ -3110,10 +3419,11 @@ uint32_t ECondition::InputValue(uint64_t wi, BrigWidth width)
   }
 }
 
-TestEmitter::TestEmitter()
-  : be(new BrigEmitter()),
+TestEmitter::TestEmitter(Context* context_)
+  : context(context_),
+    be(new BrigEmitter()),
     initialContext(new Context()),
-    scenario(new Scenario())
+    scenario(new ScenarioBuilder(initialContext.get()))
 {
 }
 
@@ -3178,6 +3488,11 @@ Sampler TestEmitter::NewSampler(const std::string& id, SamplerSpec spec)
   return new(Ap()) ESampler(this, id, spec);
 }
 
+Dispatch TestEmitter::NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName)
+{
+  return new(Ap()) EDispatch(this, id, executableId, kernelName);
+}
+
 }
 
 Test* EmittedTestBase::Create()
@@ -3190,7 +3505,9 @@ Test* EmittedTestBase::Create()
 EmittedTest::EmittedTest(emitter::Location codeLocation_, Grid geometry_)
  : cc(0),
    codeLocation(codeLocation_), geometry(geometry_),
-   output(0), kernel(0), function(0), functionResult(0)
+   output(0), kernel(0),
+   function(0), functionResult(0), functionResultReg(0),
+   dispatch(0)
 {
 }
 
@@ -3211,13 +3528,14 @@ void EmittedTest::Init()
 {
   cc = hexl::emitter::CoreConfig::Get(context.get());
   GeometryInit();
-  te->InitialContext()->Put("geometry", const_cast<GridGeometry*>(geometry));
+  te->EmitContext()->Put("geometry", const_cast<GridGeometry*>(geometry));
   kernel = te->NewKernel("test_kernel");
   KernelArgumentsInit();
   if (codeLocation == emitter::FUNCTION) {
     function = te->NewFunction("test_function");
     FunctionArgumentsInit();
   }
+  dispatch = te->NewDispatch("dispatch", "executable", kernel->Id());
 }
 
 void EmittedTest::KernelArgumentsInit()
@@ -3245,9 +3563,6 @@ void EmittedTest::Program()
   StartProgram();
   Modules();
   EndProgram();
-  DispatchSetup* dsetup = new DispatchSetup();
-  SetupDispatch(dsetup);
-  te->InitialContext()->Put("dispatchSetup", dsetup);
 }
 
 void EmittedTest::StartProgram()
@@ -3280,7 +3595,7 @@ void EmittedTest::StartModule()
 void EmittedTest::EndModule()
 {
   te->Brig()->End();
-  te->InitialContext()->Put("brig", te->Brig()->Brig());
+  te->InitialContext()->Move("brig", te->Brig()->Brig());
 }
 
 void EmittedTest::ModuleDirectives()
@@ -3376,17 +3691,6 @@ void EmittedTest::ActualCallArguments(emitter::TypedRegList inputs, emitter::Typ
 void EmittedTest::EndKernel()
 {
   kernel->EndKernel();
-}
-
-void EmittedTest::SetupDispatch(DispatchSetup* dispatch)
-{
-  dispatch->SetDimensions(geometry->Dimensions());
-  dispatch->SetWorkgroupSize(geometry->WorkgroupSize(0), geometry->WorkgroupSize(1), geometry->WorkgroupSize(2));
-  dispatch->SetGridSize(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2));
-  if (output) {
-  output->SetData(ExpectedResults());
-  }
-  kernel->SetupDispatch(dispatch);
 }
 
 void EmittedTest::Function()
@@ -3488,25 +3792,51 @@ void EmittedTest::Scenario() {
 
 void EmittedTest::ScenarioInit()
 {
+  if (output) {
+    output->SetData(ExpectedResults());
+  }
   kernel->ScenarioInit();
 }
 
 void EmittedTest::ScenarioCodes()
 {
+  /*
   CommandSequence& commands0 = te->TestScenario()->Commands();
   commands0.CreateProgram();
   commands0.AddBrigModule();
   commands0.ValidateProgram();
   commands0.Finalize(Defaults::CODE_ID, Defaults::PROGRAM_ID);
+  */
 }
 
 void EmittedTest::ScenarioDispatches()
 {
-  te->TestScenario()->Commands().Dispatch();
+  ScenarioDispatch();
+}
+
+void EmittedTest::SetupDispatch(const std::string& dispatchId)
+{
+  te->InitialContext()->Put(dispatchId, "dimensions", Value(MV_UINT16, geometry->Dimensions()));
+  te->InitialContext()->Put(dispatchId, "workgroupSize[0]", Value(MV_UINT16, geometry->WorkgroupSize(0)));
+  te->InitialContext()->Put(dispatchId, "workgroupSize[1]", Value(MV_UINT16, geometry->WorkgroupSize(1)));
+  te->InitialContext()->Put(dispatchId, "workgroupSize[2]", Value(MV_UINT16, geometry->WorkgroupSize(2)));
+  te->InitialContext()->Put(dispatchId, "gridSize[0]", Value(MV_UINT32, geometry->GridSize(0)));
+  te->InitialContext()->Put(dispatchId, "gridSize[1]", Value(MV_UINT32, geometry->GridSize(1)));
+  te->InitialContext()->Put(dispatchId, "gridSize[2]", Value(MV_UINT32, geometry->GridSize(2)));
+  dispatch->SetupDispatch(dispatchId);
+  kernel->SetupDispatch(dispatchId);
+}
+
+void EmittedTest::ScenarioDispatch()
+{
+  SetupDispatch(dispatch->Id());
+  dispatch->ScenarioDispatch();
 }
 
 void EmittedTest::ScenarioValidation()
 {
+  kernel->ScenarioValidation();
+  dispatch->ScenarioValidation();
 }
 
 void EmittedTest::ScenarioEnd()
@@ -3514,7 +3844,7 @@ void EmittedTest::ScenarioEnd()
 }
 
 void EmittedTest::Finish() {
-  te->InitialContext()->Put(Defaults::SCENARIO_ID, te->ReleaseScenario());
+  te->InitialContext()->Move("scenario", te->TestScenario()->ReleaseScenario());
 }
 
 

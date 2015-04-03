@@ -22,7 +22,7 @@
 
 namespace hexl {
 
-RuntimeContext* CreateRuntimeContext(Context* context);
+runtime::RuntimeContext* CreateRuntimeContext(Context* context);
 
 }
 

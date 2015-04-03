@@ -21,12 +21,74 @@
 #include <sstream>
 #include <cmath>
 #include <cstring>
+#include <algorithm>
 
 #ifdef _WIN32
 #define isnan _isnan
 #endif // _WIN32
 
+///\todo (Artem) Generalize (move to libHSAIL?)
+bool is_denorm(hexl::half h)
+{
+  return false; ///\todo (Artem)
+}
+#ifdef _WIN32
+	bool is_denorm(float f)
+	{
+		switch(_fpclassf(f))
+		{
+		case _FPCLASS_ND:
+		case _FPCLASS_PD:
+			return true;
+    default:
+      return false;
+    }
+	}
+
+  bool is_denorm(double df)
+  {
+    switch (_fpclass(df))
+    {
+    case _FPCLASS_ND:
+		case _FPCLASS_PD:
+      return true;
+    default:
+      return false;
+    }
+  }
+#else //assume Linux
+  #if __cplusplus >= 201103L
+  //std::fpclassify() supported
+  bool is_denorm(float f)
+  {
+    return (std::fpclassify(f) == FP_SUBNORMAL);
+  }
+
+  bool is_denorm(double df)
+  {
+    return (std::fpclassify(df) == FP_SUBNORMAL);
+  }
+  #else
+  #error "std::fpclassify() is not guaranteed to be supported. Check your compiler for c++11 support."
+  #endif
+#endif // _WIN32
+
 namespace hexl {
+  
+template <typename T>
+static T FlushDenormsToZero(T const x)
+{ /// \ todo (Artem) move to lib
+  if (is_denorm(x) || (x == 0.0)) //will return +0, even if x == -0
+    return 0.0;
+  return x;
+}
+template <>
+static half FlushDenormsToZero<half>(half const x)
+{
+  if (is_denorm(x) || (x.f32() == 0.0f)) //will return +0, even if x == -0
+    return half(0.0f);
+  return x;
+}
 
 template <typename T>
 static int is_inf(T const& x)
@@ -537,6 +599,9 @@ void Value::Print(std::ostream& out) const
   case MV_UINT64:
     out << U64();
     break;
+   case MV_UINT128:
+     out << "hidword " << U128().U64H() << ", lodword " << U128().U64L() ;
+    break;
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16:
 #endif
@@ -580,7 +645,10 @@ void Value::Print(std::ostream& out) const
     out << "(" << U32X2(0) << ", " << U32X2(1) << ")";
     break;
   case MV_FLOATX2:
-    out << "(" << PrintFloat(FX2(0), U32X2(0), out, printExtraHex) << ", " << PrintFloat(FX2(1), U32X2(1), out, printExtraHex) << ")";
+    out << "(";  PrintFloat(FX2(0), U32X2(0), out, printExtraHex);
+    out << ", ";
+    PrintFloat(FX2(1), U32X2(1), out, printExtraHex);
+    out << ")";
     break;
   case MV_REF:
   case MV_IMAGEREF:
@@ -655,7 +723,7 @@ void Value::WriteTo(void *dest) const
   case MV_UINT16X4: ((uint16_t *) dest)[0] = U16X4(0); ((uint16_t *) dest)[1] = U16X4(1); ((uint16_t *) dest)[2] = U16X4(2); ((uint16_t *) dest)[3] = U16X4(3); break;
   case MV_INT32X2: ((int32_t *) dest)[0] = S32X2(0); ((int32_t *) dest)[1] = S32X2(1); break;
   case MV_UINT32X2: ((uint32_t *) dest)[0] = U32X2(0); ((uint32_t *) dest)[1] = U32X2(1); break;
-  case MV_UINT128: ((uint64_t *) dest)[0] = U64X2(0); ((uint64_t *) dest)[1] = U64X2(1); break;
+  case MV_UINT128: ((uint64_t *) dest)[0] = data.u128.h; ((uint64_t *) dest)[1] = data.u128.l; break;
   case MV_FLOATX2: ((float *) dest)[0] = FX2(0); ((float *) dest)[1] = FX2(1); break;
   case MV_REF: *((uint32_t *) dest) = data.u32; break;
   case MV_POINTER: *((void **) dest) = data.p; break;
@@ -691,6 +759,7 @@ void Value::ReadFrom(const void *src, ValueType type)
   case MV_UINT16X4: data.u64 = *((uint64_t *) src); break;
   case MV_INT32X2: data.u64 = *((uint64_t *) src); break;
   case MV_UINT32X2: data.u64 = *((uint64_t *) src); break;
+  case MV_UINT128: data.u128.l = *((uint64_t *) src); data.u128.h = ((uint64_t *)src)[1]; break;
   case MV_FLOATX2: data.u64 = *((uint64_t *) src); break;
   case MV_REF: case MV_IMAGEREF: data.u32 = *((uint32_t *) src); break;
   case MV_POINTER: data.p = *((void **) src); break;
@@ -764,6 +833,8 @@ size_t MBuffer::GetDim(size_t pos, unsigned d) const
   }
 }
 
+/*
+
 void Context::Print(std::ostream& out) const
 {
   for (std::map<std::string, Value>::const_iterator i = vmap.begin(); i != vmap.end(); ++i) {
@@ -806,6 +877,12 @@ std::string Context::GetString(const std::string& key)
   return v.Str();
 }
 
+uint64_t Context::GetHandle(const std::string& key)
+{
+  Value v = GetValue(key);
+  assert(v.Type() == MV_UINT64);
+  return v.U64();
+}
 
 const void *Context::GetPointer(const std::string& key) const
 {
@@ -888,6 +965,7 @@ size_t MBuffer::Size(Context* context) const
     return Count() * ValueTypeSize(vtype);
   }
 }
+*/
 
 std::string MBuffer::GetPosStr(size_t pos) const
 {
@@ -977,116 +1055,6 @@ void MRBuffer::DeserializeData(std::istream& in)
   ReadData(in, vtype);
   ReadData(in, refid);
   ReadData(in, data);
-}
-
-unsigned MImage::AccessPermission() const 
-{
-  switch(imageType) {
-  case BRIG_TYPE_ROIMG: return 1;
-  case BRIG_TYPE_WOIMG: return 2;
-  case BRIG_TYPE_RWIMG: return 3;
-  default: assert(false); return 0;
-  }
-}
-
-size_t MImage::GetDim(size_t pos, unsigned d) const
-{
-  switch (d) {
-  case 0: return pos % width;
-  case 1: return (pos / width) % height;
-  case 2: return ((pos / width) / height) % depth;
-  default:
-    assert(false); return 0;
-  }
-}
-
-void MImage::Print(std::ostream& out) const
-{
-  MObject::Print(out);
-  out << ", MImage details: " << ImageGeometryString(MObjectImageGeometry(geometry)) << \
-    ", " << ImageChannelTypeString(MObjectImageChannelType(channelType)) <<  ", " << ImageChannelOrderString(MObjectImageChannelOrder(channelOrder)) << ", " << ImageAccessString(MObjectImageAccess(AccessPermission()));
-  out << " (" << "Image dim: [" << Width() << "x" << Height() << "x" << Depth() <<  "x" << ArraySize() <<"])";
-}
-
-std::string MImage::GetPosStr(size_t pos) const
-{
-  std::stringstream ss;
-  ss << "[" << std::setw(2) << pos << "]";
-  if (height > 1)
-  {
-    ss << "[" << GetDim(pos, 0) << "," << GetDim(pos, 1) << "]";
-  }
-  if (depth > 1)
-  {
-    ss << "[" << GetDim(pos, 0) << "," << GetDim(pos, 1) << "," << GetDim(pos, 2) << "]";
-  }
-
-  return ss.str();
-}
-
-void MImage::PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const
-{
-  out << "Failure at " << pos << ": ";
-  comparison.PrintLong(out);
-  out << std::endl;
-}
-
-void MImage::PrintComparisonSummary(std::ostream& out, Comparison& comparison) const
-{
-  if (comparison.IsFailed()) {
-    out << "Error: failed " << comparison.GetFailed() << " / " << comparison.GetChecks() << " comparisons, "
-      << "max " << comparison.GetMethodDescription() << " error " << comparison.GetMaxError() << " at index " << comparison.GetMaxErrorIndex() << "." << std::endl;
-  } else {
-    out << "Successful " << comparison.GetChecks() << " comparisons." << std::endl;
-  }
-}
-
-
-void MImage::SerializeData(std::ostream& out) const
-{
-  assert(false);
-}
-
-void MImage::DeserializeData(std::istream& in)
-{
-  assert(false);
-}
-
-void MRImage::SerializeData(std::ostream& out) const
-{
-  assert(false);
-}
-
-void MRImage::DeserializeData(std::istream& in)
-{
-  assert(false);
-}
-
-void MSampler::Print(std::ostream& out) const
-{
-  MObject::Print(out);
-  out << ", MSampler details: " << SamplerFilterString(MObjectSamplerFilter(filter)) << \
-   ", " << SamplerCoordsString(MObjectSamplerCoords(coords)) << ", " << SamplerAddressingString(MObjectSamplerAddressing(addressing));
-}
-
-void MSampler::SerializeData(std::ostream& out) const
-{
-  assert(false);
-}
-
-void MSampler::DeserializeData(std::istream& in)
-{
-  assert(false);
-}
-
-void MRSampler::SerializeData(std::ostream& out) const
-{
-  assert(false);
-}
-
-void MRSampler::DeserializeData(std::istream& in)
-{
-  assert(false);
 }
 
 ValueType ImageValueType(unsigned geometry)
@@ -1204,7 +1172,7 @@ void Comparison::SetDefaultPrecision(ValueType type)
   }
 }
 
-bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, const Value& precision, Value& error) {
+bool Comparison::CompareHalf(const Value& v1, const Value& v2) {
   bool res;
   bool compared = false;
   if (isnan_half(v1.H()) || isnan_half(v2.H())) {
@@ -1215,6 +1183,14 @@ bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, cons
     compared = true;
   } else if (v1.H() == half(0) && v2.H() == half(0)) { // ignore sign of 0
     res = true;
+    compared = true;
+  }
+  if (((float)v1.H() < minLimit) || ((float)v2.H() < minLimit)){
+    res = false;
+    compared = true;
+  }
+  if (((float)v1.H() > maxLimit) || ((float)v2.H() > maxLimit)){
+    res = false;
     compared = true;
   }
   if (compared) {
@@ -1233,28 +1209,51 @@ bool CompareHalf(const Value& v1, const Value& v2, ComparisonMethod method, cons
   switch (method) {
   case CM_DECIMAL: {
     error = Value(MV_DOUBLE, D(std::fabs((double) v1.H() - (double) v2.H())));
-    return error.D() < (double) precision.D();
+    if(flushDenorms){
+      double error_ftz = std::fabs( FlushDenormsToZero((double)v1.H()) - FlushDenormsToZero((double) v2.H()));
+      if (error_ftz < error.D())
+        error = Value(MV_DOUBLE, D(error_ftz));
+    }
+    return error.D() < precision.D();
   }
   case CM_ULPS: {
     error = Value(MV_UINT16, U16((std::max)(v1.U16(), v2.U16()) - (std::min)(v1.U16(), v2.U16())));
-    return error.U16() <= precision.U64();
+    if(flushDenorms){
+      Value v1_ftz = Value(MV_FLOAT16, H(FlushDenormsToZero(v1.H())));
+      Value v2_ftz = Value(MV_FLOAT16, H(FlushDenormsToZero(v2.H())));
+      uint16_t error_ftz = std::max(v1_ftz.U16(), v2_ftz.U16()) - std::min(v1_ftz.U16(), v2_ftz.U16());
+      if (error_ftz < error.U16())
+        error = Value(MV_UINT16, U16(error_ftz));
+    }
+    return error.U16() <= precision.U16();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
     if (v1.H() == half(0)) {
       error = Value(MV_DOUBLE, D((double) v2.H()));
-      return error.D() < eps;
     } else {
       error = Value(MV_DOUBLE, D(std::fabs((double) v1.H() - (double) v2.H()) / (double) v1.H()));
-      return error.D() < eps;
     }
+    if (flushDenorms){
+      double v1_ftz = FlushDenormsToZero(v1.H());
+      double v2_ftz = FlushDenormsToZero(v2.H());
+      double error_ftz;
+      if (v1_ftz == 0.0) {
+        error_ftz = v2_ftz;
+      } else {
+        error_ftz = std::fabs(v1_ftz - v2_ftz) / v1_ftz;
+      }
+      if (error_ftz < error.D())
+        error = Value(MV_DOUBLE, D(error_ftz));
+    }
+    return error.D() < eps;
   }    
   default:
     assert(!"Unsupported compare method in absdifference"); return false;
   }
 }
 
-bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, const Value& precision, Value& error) {
+bool Comparison::CompareFloat(const Value& v1, const Value& v2) {
   bool res;
   bool compared = false;
   if (isnan(v1.F()) || isnan(v2.F())) {
@@ -1265,6 +1264,14 @@ bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, con
     compared = true;
   } else if (v1.F() == 0.0f && v2.F() == 0.0f) { // ignore sign of 0
     res = true;
+    compared = true;
+  }
+  if ((v1.F() < minLimit) || (v2.F() < minLimit)){
+    res = false;
+    compared = true;
+  }
+  if ((v1.F() > maxLimit) || (v2.F() > maxLimit)){
+    res = false;
     compared = true;
   }
   if (compared) {
@@ -1283,28 +1290,130 @@ bool CompareFloat(const Value& v1, const Value& v2, ComparisonMethod method, con
   switch (method) {
   case CM_DECIMAL: {
     error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F())));
-    return error.D() < (double) precision.D();
+    if(flushDenorms){
+      double error_ftz = std::fabs( FlushDenormsToZero((double)v1.F()) - FlushDenormsToZero((double) v2.F()));
+      if (error_ftz < error.D())
+        error = Value(MV_DOUBLE, D(error_ftz));
+    }
+    return error.D() < precision.D();
   }
   case CM_ULPS: {
     error = Value(MV_UINT32, U32((std::max)(v1.U32(), v2.U32()) - (std::min)(v1.U32(), v2.U32())));
-    return error.U32() <= precision.U64();
+    if(flushDenorms){
+      Value v1_ftz = Value(FlushDenormsToZero(v1.F()));
+      Value v2_ftz = Value(FlushDenormsToZero(v2.F()));
+      uint32_t error_ftz = std::max(v1_ftz.U32(), v2_ftz.U32()) - std::min(v1_ftz.U32(), v2_ftz.U32());
+      if (error_ftz < error.U32())
+        error = Value(MV_UINT32, U32(error_ftz));
+    }
+    return error.U32() <= precision.U32();
   }
   case CM_RELATIVE: {
     double eps = precision.D();
     if (v1.F() == 0.0f) {
       error = Value(MV_DOUBLE, D((double) v2.F()));
-      return error.D() < eps;
     } else {
       error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F()) / (double) v1.F()));
-      return error.D() < eps;
     }
+    if (flushDenorms){
+      double v1_ftz = FlushDenormsToZero(v1.F());
+      double v2_ftz = FlushDenormsToZero(v2.F());
+      double error_ftz;
+      if (v1_ftz == 0.0) {
+        error_ftz = v2_ftz;
+      } else {
+        error_ftz = std::fabs(v1_ftz - v2_ftz) / v1_ftz;
+      }
+      if (error_ftz < error.D())
+        error = Value(MV_DOUBLE, D(error_ftz));
+    }
+    return error.D() < eps;
   }    
   default:
     assert(!"Unsupported compare method in absdifference"); return false;
   }
 }
 
-bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, const Value& precision, Value& error)
+bool Comparison::CompareDouble(const Value& v1, const Value& v2) {
+  bool res;
+  bool compared = false;
+  if (isnan(v1.D()) || isnan(v2.D())) {
+    res = isnan(v1.D()) && isnan(v2.D());
+    compared = true;
+  } else if (is_inf(v1.D()) || is_inf(v2.D())) {
+    res = is_inf(v1.D()) == is_inf(v2.D());
+    compared = true;
+  } else if (v1.D() == 0.0 && v2.D() == 0.0) { // ignore sign of 0
+    res = true;
+    compared = true;
+  }
+  if ((v1.D() < (double)minLimit) || (v2.D() < (double)minLimit)){
+    res = false;
+    compared = true;
+  }
+  if ((v1.D() > (double)maxLimit) || (v2.D() > (double)maxLimit)){
+    res = false;
+    compared = true;
+  }
+  if (compared) {
+    switch (method) {
+    case CM_ULPS:
+      error = Value(MV_UINT64, U64(res ? 0 : 1));
+      return res;
+    case CM_DECIMAL:
+    case CM_RELATIVE:
+      error = Value(MV_DOUBLE, D(res ? 0.0 : 1.0));
+      return res;
+    default:
+      assert(!"Unsupported compare method in CompareValues"); return false;
+    }
+  }
+  switch (method) {
+  case CM_DECIMAL:
+    error = Value(MV_DOUBLE, D(std::fabs(v1.D() - v2.D())));
+    if(flushDenorms){
+      double error_ftz = std::fabs( FlushDenormsToZero((double)v1.D()) - FlushDenormsToZero((double) v2.D()));
+      if (error_ftz < error.D())
+        error = Value(MV_DOUBLE, D(error_ftz));
+    }
+    return error.D() < precision.D();
+  case CM_ULPS:
+    error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
+    if(flushDenorms){
+      Value v1_ftz = Value(MV_DOUBLE, D(FlushDenormsToZero(v1.D())));
+      Value v2_ftz = Value(MV_DOUBLE, D(FlushDenormsToZero(v2.D())));
+      uint64_t error_ftz = std::max(v1_ftz.U64(), v2_ftz.U64()) - std::min(v1_ftz.U64(), v2_ftz.U64());
+      if (error_ftz < error.U64())
+        error = Value(MV_UINT64, U64(error_ftz));
+    }
+    return error.U64() <= precision.U64();
+  case CM_RELATIVE: {
+    double eps = precision.D();
+    if (v1.D() == 0.0) {
+      error = Value(MV_DOUBLE, D(v2.D()));
+    } else {
+      error = Value(MV_DOUBLE, D(std::fabs(v1.D() - v2.D()) / v1.D()));
+    }
+    if (flushDenorms){
+      double v1_ftz = FlushDenormsToZero(v1.D());
+      double v2_ftz = FlushDenormsToZero(v2.D());
+      double error_ftz;
+      if (v1_ftz == 0.0) {
+        error_ftz = v2_ftz;
+      } else {
+        error_ftz = std::fabs(v1_ftz - v2_ftz) / v1_ftz;
+      }
+      if (error_ftz < error.D())
+        error = Value(MV_DOUBLE, D(error_ftz));
+    }
+    return error.D() < eps;
+  }
+  default:
+    assert(!"Unsupported compare method in absdifference"); return false;
+  }
+}
+
+bool Comparison::CompareValues(const Value& v1, const Value& v2)
 {
   // std::cout << v1.Type() << "  " << v2.Type() << std::endl;
   assert(v1.Type() == v2.Type());
@@ -1344,60 +1453,12 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16:
 #endif
-  case MV_FLOAT16: {
-    auto res = CompareHalf(v1, v2, method, precision, error);
-    return res;
-  }
-  case MV_FLOAT: {
-    auto res = CompareFloat(v1, v2, method, precision, error);
-    return res;
-  }
-  case MV_DOUBLE: {
-    bool res;
-    bool compared = false;
-    if (isnan(v1.D()) || isnan(v2.D())) {
-      res = isnan(v1.D()) && isnan(v2.D());
-      compared = true;
-    } else if (is_inf(v1.D()) || is_inf(v2.D())) {
-      res = is_inf(v1.D()) == is_inf(v2.D());
-      compared = true;
-    } else if (v1.D() == 0.0 && v2.D() == 0.0) { // ignore sign of 0
-      res = true;
-      compared = true;
-    }
-    if (compared) {
-      switch (method) {
-      case CM_ULPS:
-        error = Value(MV_UINT64, U64(res ? 0 : 1));
-        return res;
-      case CM_DECIMAL:
-      case CM_RELATIVE:
-        error = Value(MV_DOUBLE, D(res ? 0.0 : 1.0));
-        return res;
-      default:
-        assert(!"Unsupported compare method in CompareValues"); return false;
-      }
-    }
-    switch (method) {
-    case CM_DECIMAL:
-      error = Value(MV_DOUBLE, D(v1.D() - v2.D()));
-      return error.D() < precision.D();
-    case CM_ULPS:
-      error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
-      return error.U64() <= precision.U64();
-    case CM_RELATIVE: {
-      double eps = precision.D();
-      if (v1.D() == 0.0f) {
-        error = Value(MV_DOUBLE, D(v2.D()));
-      } else {
-        error = Value(MV_DOUBLE, D(std::fabs(v1.D() - v2.D()) / v1.D()));
-      }
-      return error.D() < eps;
-    }
-    default:
-      assert(!"Unsupported compare method in absdifference"); return false;
-    }
-  }
+  case MV_FLOAT16:
+    return CompareHalf(v1, v2);
+  case MV_FLOAT:
+    return CompareFloat(v1, v2);
+  case MV_DOUBLE:
+    return CompareDouble(v1, v2);
   case MV_INT8X4: {
     error = Value(MV_INT8X4, S8X4((std::max)(v1.S8X4(0), v2.S8X4(0)) - (std::min)(v1.S8X4(0), v2.S8X4(0)),
                                   (std::max)(v1.S8X4(1), v2.S8X4(1)) - (std::min)(v1.S8X4(1), v2.S8X4(1)),
@@ -1472,11 +1533,11 @@ bool CompareValues(const Value& v1, const Value& v2, ComparisonMethod method, co
     Value fv1(MV_FLOAT, F(v1.FX2(0)));
     Value fv2(MV_FLOAT, F(v2.FX2(0)));
     Value ferror1(error);
-    bool res1 = CompareFloat(fv1, fv2, method, precision, ferror1);
+    bool res1 = CompareFloat(fv1, fv2);
     fv1 = Value(MV_FLOAT, F(v1.FX2(1)));
     fv2 = Value(MV_FLOAT, F(v2.FX2(1)));
     Value ferror2(error);
-    bool res2 = CompareFloat(fv1, fv2, method, precision, ferror2);
+    bool res2 = CompareFloat(fv1, fv2);
     error = Value(MV_FLOATX2, FX2(ferror1.F(), ferror2.F()));
     return res1 && res2;
   }
@@ -1490,7 +1551,7 @@ bool Comparison::Compare(const Value& evalue, const Value& rvalue)
   this->evalue = evalue;
   this->rvalue = rvalue;
   //assert(evalue.Type() == rvalue.Type());
-  result = CompareValues(evalue, rvalue, method, precision, error);
+  result = CompareValues(evalue, rvalue);
   if (!result) {
     failed++;
     if (maxError < error) {
@@ -1554,10 +1615,95 @@ void Comparison::PrintDesc(std::ostream& out) const
   out << GetMethodDescription() << " precision " << precision; 
 }
 
+void Comparison::SetFlushDenorms(bool flush)
+{
+  flushDenorms = flush;
+}
+
+void Comparison::SetMinLimit(float limit)
+{
+  minLimit = limit;
+}
+
+void Comparison::SetMaxLimit(float limit)
+{
+  maxLimit = limit;
+}
+
 std::ostream& operator<<(std::ostream& out, const Comparison& comparison)
 {
   comparison.PrintDesc(out);
   return out;
+}
+
+unsigned str2u(const std::string& s)
+{
+  std::istringstream ss(s);
+  unsigned n;
+  ss >> n;
+  return n;
+}
+
+//Current syntax for method is:
+//   Xulp[,option1,...] where X is integer
+//options (currently affect only f32 type):
+//  flushDenorms - all denorms are treated as 0
+//  minf=X - comparison fails if actual value is less then X (X is float)
+//  maxf=X - comparison fails if actual value is greater then X (X is float)
+//examples:
+//  "3ulp,maxf=52.8,flushDenorms"
+//  ""
+//  "0ulp"
+//
+//NOTE. CM_RELATIVE is not supported at a time.
+Comparison* NewComparison(const std::string& c, ValueType type)
+{
+  Comparison* result;
+  std::string method(c);
+  const std::string flushOption="flushDenorms";
+  const std::string ulpOption="ulp";
+  const std::string minOption="minf=";
+  const std::string maxOption="maxf=";
+  size_t idx;
+  float fLimit;
+  
+  if (method.empty()) { method = "0ulp"; }
+  unsigned ulps = std::stoul(method, &idx);
+  assert(method.compare(idx, ulpOption.length(), ulpOption) == 0);
+
+  switch (type)
+  {
+  case MV_PLAIN_FLOAT16:
+  case MV_FLOAT16:
+    result = new Comparison(CM_ULPS, Value(MV_UINT16, U16(ulps)));
+    break;
+  case MV_FLOAT:
+    result = new Comparison(CM_ULPS, Value(MV_UINT32, U32(ulps)));
+    break;
+  case MV_DOUBLE:
+    result = new Comparison(CM_ULPS, Value(MV_UINT64, U64(ulps)));
+    break;
+  default:
+    result = new Comparison(CM_DECIMAL, Value(MV_UINT64, U64(0)));
+    break;
+  }
+
+  idx = method.find(minOption);
+  if(idx != std::string::npos) {
+    fLimit = std::stof(method.substr(idx + minOption.length()));
+    result->SetMinLimit(fLimit);
+  }
+
+  idx = method.find(maxOption);
+  if(idx != std::string::npos) {
+    fLimit = std::stof(method.substr(idx + maxOption.length()));
+    result->SetMaxLimit(fLimit);
+  }
+
+  idx = method.find(flushOption);
+  result->SetFlushDenorms(idx != std::string::npos);
+  
+  return result;
 }
 
 void MemorySetup::Print(std::ostream& out) const
@@ -1592,57 +1738,6 @@ void MemorySetup::Deserialize(std::istream& in) {
     Serializer<MObject*>::Read(in, mo);
     mos[i].reset(mo);
   }
-}
-
-void DispatchSetup::Print(std::ostream& out) const {
-  PrintImpl(out, false);
-}
-
-void DispatchSetup::PrintWithBuffers(std::ostream& out) const {
-  PrintImpl(out, true);
-}
-
-void DispatchSetup::PrintImpl(std::ostream& out, const bool withBuffers) const
-{
-  {
-    out << "Dispatch setup:" << std::endl;
-    IndentStream indent(out);
-    out << "Dimensions: " << dimensions << std::endl
-        << "Grid:       " << "(" << gridSize[0] << ", " << gridSize[1] << ", " << gridSize[2] << ")" << std::endl
-        << "Workgroup:  " << "(" << workgroupSize[0] << ", " << workgroupSize[1] << ", " << workgroupSize[2] << ")" << std::endl
-        << "Offsets:    " << "(" << globalOffset[0] << ", " << globalOffset[1] << ", " << globalOffset[2] << ")" << std::endl;
-  }
-  {
-    out << "Memory setup:" << std::endl;
-    IndentStream indent(out);
-    if (withBuffers) {
-      msetup.PrintWithBuffers(out);
-    } else {
-      msetup.Print(out);
-    }
-  }
-}
-
-void DispatchSetup::Serialize(std::ostream& out) const
-{
-  WriteData(out, dimensions);
-  for (unsigned i = 0; i < 3; ++i) {
-    WriteData(out, gridSize[i]);
-    WriteData(out, workgroupSize[i]);
-    WriteData(out, globalOffset[i]);
-  }
-  WriteData(out, msetup);
-}
-
-void DispatchSetup::Deserialize(std::istream& in)
-{
-  ReadData(in, dimensions);
-  for (unsigned i = 0; i < 3; ++i) {
-    ReadData(in, gridSize[i]);
-    ReadData(in, workgroupSize[i]);
-    ReadData(in, globalOffset[i]);
-  }
-  ReadData(in, msetup);
 }
 
 }
@@ -1845,5 +1940,6 @@ f32_t f16_t::f32() const
 
     return asFloating(outbits);
 }
+
 
 } // namespace

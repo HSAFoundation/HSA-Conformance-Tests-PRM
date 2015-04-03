@@ -17,6 +17,12 @@
 #ifndef MOBJECT_HPP
 #define MOBJECT_HPP
 
+#ifdef _WIN32
+#define _CRTDBG_MAP_ALLOC
+#include <stdlib.h>
+#include <crtdbg.h>
+#endif
+
 //#include "HSAILTestGenEmulatorTypes.h" // for f16_t & related
 
 #include <stdint.h>
@@ -637,6 +643,7 @@ public:
   /// \todo HIGHLY unsafe, take care! Example: Value(MV_FLOAT, 1.5F) will cast 1.5F to uint64 1 (0x1), which means float denorm.
   Value(ValueType _type, uint64_t _value) : type(_type), printExtraHex(false) { data.u64 = _value;  data.u128.h = 0;}
   Value(ValueType _type, uint128_t _value) : type(_type), printExtraHex(false) { data.u128.h = _value.U64H(); data.u128.l = _value.U64L();}
+  Value(ValueType _type, uint128_t::Type _value) : type(_type), printExtraHex(false) { data.u128.h = _value.h; data.u128.l = _value.l;}
   explicit Value(float value_) : type(MV_FLOAT), printExtraHex(false)  { data.f = value_;  data.u128.h = 0;}
   explicit Value(double value_) : type(MV_DOUBLE), printExtraHex(false) { data.d = value_;  data.u128.h = 0;}
   ~Value();
@@ -698,8 +705,7 @@ typedef std::vector<Value> Values;
 
 class ResourceManager;
 class TestFactory;
-class RuntimeContext;
-class RuntimeContextState;
+namespace runtime { class RuntimeContext; class RuntimeState; }
 class Options;
 class AllStats;
 
@@ -738,85 +744,6 @@ public:
   }
 };
 
-class Context {
-private:
-  std::map<std::string, Value> vmap;
-  Context* parent;
-
-  void *GetPointer(const std::string& key);
-  const void *GetPointer(const std::string& key) const;
-  void *RemovePointer(const std::string& key);
-
-public:
-  Context(Context* parent_ = 0) : parent(parent_) { }
-  ~Context() { Clear(); }
-
-  bool IsLarge() const { return sizeof(void *) == 8; }
-  bool IsSmall() const { return sizeof(void *) == 4; }
-
-  void Print(std::ostream& out) const;
-
-  void SetParent(Context* parent) { this->parent = parent; }
-
-  void Clear();
-  bool Contains(const std::string& key) const;
-
-  bool Has(const std::string& key) const;
-
-  void PutPointer(const std::string& key, void *value);
-  void PutValue(const std::string& key, Value value);
-  void PutString(const std::string& key, const std::string& value);
-
-  template<class T>
-  void Put(const std::string& key, T* value) { PutPointer(key, value); }
-
-  void Put(const std::string& key, Value value) { PutValue(key, value); }
-
-  void Put(const std::string& key, const std::string& value) { PutString(key, value); }
-
-  template<class T>
-  T Get(const std::string& key) { return static_cast<T>(GetPointer(key)); }
-
-  Value RemoveValue(const std::string& key);
-
-  template<class T>
-  T Remove(const std::string& key) { return static_cast<T>(RemovePointer(key)); }
-
-  template<class T>
-  void RemoveAndDelete(const std::string& key) { T res = Remove<T>(key); delete res; }
-
-  template<class T>
-  const T* GetConst(const std::string& key) const { return static_cast<const T*>(GetPointer(key)); }
-
-  Value GetValue(const std::string& key);
-  std::string GetString(const std::string& key);
-
-  // Helper methods. Include HexlTest.hpp to use them.
-  ResourceManager* RM() { return Get<ResourceManager*>("hexl.rm"); }
-  TestFactory* Factory() { return Get<TestFactory*>("hexl.testFactory"); }
-  RuntimeContextState* State() { return Get<RuntimeContextState*>("hexl.runtimestate"); }
-  RuntimeContext* Runtime() { return Get<RuntimeContext*>("hexl.runtime"); }
-  const Options* Opts() const { return GetConst<Options>("hexl.options"); }
-
-  // Logging helpers.
-  std::ostream& Debug() { return *Get<std::ostream*>("hexl.log.stream.debug"); }
-  std::ostream& Info() { return *Get<std::ostream*>("hexl.log.stream.info"); }
-  std::ostream& Error() { return *Get<std::ostream*>("hexl.log.stream.error"); }
-  void Error(const char *format, ...);
-  void vError(const char *format, va_list ap);
-  AllStats& Stats() { return *Get<AllStats*>("hexl.stats"); }
-
-  // Dumping helpers.
-  bool IsVerbose(const std::string& what) const;
-  bool IsDumpEnabled(const std::string& what, bool enableWithPlainDumpOption = true) const;
-  void SetOutputPath(const std::string& path) { Put("hexl.outputPath", path); }
-  std::string GetOutputName(const std::string& name, const std::string& what);
-  bool DumpTextIfEnabled(const std::string& name, const std::string& what, const std::string& text);
-  bool DumpBinaryIfEnabled(const std::string& name, const std::string& what, const void *buffer, size_t bufferSize);
-  void DumpBrigIfEnabled(const std::string& name, void* brig);
-  void DumpDispatchsetupIfEnabled(const std::string& name, const void* dsetup);
-};
-
 void WriteTo(void *dest, const Values& values);
 void ReadFrom(void *dest, ValueType type, size_t count, Values& values);
 void SerializeValues(std::ostream& out, const Values& values);
@@ -836,7 +763,7 @@ public:
   virtual void PrintWithBuffer(std::ostream& out) const;
   unsigned Dim() const { return dim; }
   size_t Count() const { return size[0] * size[1] * size[2]; }
-  size_t Size(Context* context) const;
+//  size_t Size(Context* context) const;
   Value GetRaw(size_t i) { return data[i]; }
 
   Values& Data() { return data; }
@@ -872,6 +799,11 @@ enum ComparisonMethod {
   CM_ULPS,     // precision = max ULPS, minumum is 1
   CM_RELATIVE  // (simulated_value - expected_value) / expected_value <= precision
 };
+//NOTE
+//It is unsafe to use CM_ULPS for floats near 0.
+//CM_ULPS is an approximation of the ulp(x) function defined in PRM section 4.19.6.
+//Precision in CM_ULPS is more like a number of representable float numbers between
+//expected and actual results. Thus it gives slightly different results.
 
 class Comparison {
 public:
@@ -890,7 +822,11 @@ public:
   static const uint32_t F_DEFAULT_ULPS_PRECISION;
   static const double F_DEFAULT_RELATIVE_PRECISION;
   Comparison() : method(CM_DECIMAL), result(false) { }
-  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_), result(false) { }
+  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_),
+             minLimit(-std::numeric_limits<float>::infinity()), maxLimit(std::numeric_limits<float>::infinity()), flushDenorms(false), result(false) { }
+  void SetMinLimit(float limit); //Adds additional check for floating expected and actual results to be >= minLimit, NaNs are ignored
+  void SetMaxLimit(float limit); //Adds additional check for floating expected and actual results to be <= maxLimit, NaNs are ignored
+  void SetFlushDenorms(bool flushDenorms); //If set, Compare() will also compute error_ftz (when denorms are flushed to 0) and return min(error, error_ftz)
   void Reset(ValueType type);
   void SetDefaultPrecision(ValueType type);
   bool GetResult() const { return result; }
@@ -911,6 +847,8 @@ public:
 private:
   ComparisonMethod method;
   Value precision;
+  float minLimit, maxLimit;
+  bool flushDenorms;
   bool result;
   Value error;
   Value evalue, rvalue;
@@ -918,9 +856,16 @@ private:
   unsigned checks, failed;
   Value maxError;
   size_t maxErrorIndex;
+
+  bool CompareValues(const Value& v1, const Value& v2);
+  bool CompareHalf(const Value& v1, const Value& v2);
+  bool CompareFloat(const Value& v1, const Value& v2);
+  bool CompareDouble(const Value& v1, const Value& v2);
 };
 
 std::ostream& operator<<(std::ostream& out, const Comparison& comparison);
+
+Comparison* NewComparison(const std::string& comparison, ValueType type);
 
 class MRBuffer : public MObject {
 public:
@@ -958,160 +903,6 @@ inline MRBuffer* NewMRValue(unsigned id, MBuffer* mb, ValueData data, const Comp
 
 ValueType ImageValueType(unsigned geometry);
 
-class MImage : public MObject {
-public:
-  MImage(unsigned id, const std::string& name, BrigSegment segment_, BrigImageGeometry geometry_, BrigImageChannelOrder chanel_order_, BrigImageChannelType channel_type_, BrigType image_type_,
-    size_t width_, size_t height_, size_t depth_, size_t array_size_)
-    : MObject(id, MIMAGE, name), segment(segment_), geometry(geometry_), channelOrder(chanel_order_), channelType(channel_type_), imageType(image_type_),
-    width(width_), height(height_), depth(depth_), array_size(array_size_), image_size(0), vtype(MV_UINT32), bLimitTestOn(false)
-      { }
-  MImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MIMAGE, name) { DeserializeData(in); }
-
-  BrigImageGeometry Geometry() const { return geometry; }
-  BrigImageChannelOrder ChannelOrder() const { return channelOrder; }
-  BrigImageChannelType ChannelType() const { return channelType; }
-  BrigType ImageType() const { return imageType; } 
-  unsigned AccessPermission() const;
-    
-  size_t Width() const { return width; }
-  size_t Height() const { return height; }
-  size_t Depth() const { return depth; }
-  size_t ArraySize() const { return array_size; }
-  Value GetRaw(size_t i) {return contentData[i]; }
-  size_t GetDim(size_t pos, unsigned d) const;
-
-  //For Handle 
-  Value& Data() { return data; }
-  const Value& Data() const { return data; }
-  //For Size Image in bytes
-  size_t& Size() { return image_size; }
-  const size_t& Size() const { return image_size; }
-  //for image content
-  ValueType& VType() { return vtype; }
-  const ValueType& VType() const { return vtype; }
-  Values& ContentData() { return contentData; }
-  const Values& ContentData() const { return contentData; }
-
-  ValueType GetValueType() const { return ImageValueType(geometry); }
-  void Print(std::ostream& out) const;
-  std::string GetPosStr(size_t pos) const;
-  void PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const;
-  void PrintComparisonSummary(std::ostream& out, Comparison& comparison) const;
-  virtual void SerializeData(std::ostream& out) const;
-  void SetLimitTest(bool bEnable) { bLimitTestOn = bEnable; }
-  bool IsLimitTest() { return bLimitTestOn; }
-
-private:
-  BrigSegment segment;
-  BrigImageGeometry geometry;
-  BrigImageChannelOrder channelOrder;
-  BrigImageChannelType channelType;
-  BrigType imageType;
-  size_t width, height, depth, array_size, image_size;
-  Value data;
-  Values contentData;
-  ValueType vtype;
-  bool bLimitTestOn;
-  void DeserializeData(std::istream& in);
-};
-
-class MRImage : public MObject {
-public:
-  MRImage(unsigned id, const std::string& name, unsigned geometry_, unsigned refid_, ValueType vtype_, const Values& data_ = Values(), const Comparison& comparison_ = Comparison()) :
-    MObject(id, MRIMAGE, name), geometry(geometry_), refid(refid_), vtype(vtype_), data(data_), comparison(comparison_) { }
-  MRImage(unsigned id, const std::string& name, std::istream& in) : MObject(id, MRIMAGE, name) { DeserializeData(in); }
-
-  ValueType VType() const { return vtype; }
-  unsigned Geometry() const { return geometry; }
-  unsigned RefId() const { return refid; }
-  Values& Data() { return data; }
-  const Values& Data() const { return data; }
-  Comparison& GetComparison() { return comparison; }
-  virtual void SerializeData(std::ostream& out) const;
-
-private:
-  unsigned geometry;
-  unsigned refid;
-  ValueType vtype;
-  Values data;
-  Comparison comparison;
-  void DeserializeData(std::istream& in);
-};
-
-inline MImage* NewMValue(unsigned id, const std::string& name, BrigSegment segment, BrigImageGeometry geometry, BrigImageChannelOrder chanel_order, BrigImageChannelType channel_type, BrigType image_type, 
-                         size_t width, size_t height, size_t depth, size_t array_size) {
-  MImage* mi = new MImage(id, name, segment, geometry, chanel_order, channel_type, image_type, 
-                         width, height, depth, array_size);
-  return mi;
-}
-
-inline MRImage* NewMRValue(unsigned id, MImage* mi, Value data, const Comparison& comparison = Comparison()) {
-  MRImage* mr = new MRImage(id, mi->Name() + " (check)", mi->Geometry(), mi->Id(), mi->VType(), Values(), comparison);
-  mr->Data().push_back(data);
-  return mr;
-}
-
-inline MRImage* NewMRValue(unsigned id, MImage* mi, ValueData data, const Comparison& comparison = Comparison()) {
-  return NewMRValue(id, mi, Value(mi->VType(), data), comparison);
-}
-
-class MSampler : public MObject {
-public:
-  MSampler(unsigned id, const std::string& name, unsigned segment_, unsigned coords_, unsigned filter_, unsigned addressing_)
-    : MObject(id, MSAMPLER, name), segment(segment_),
-      coords(coords_), filter(filter_), addressing(addressing_) { }
-  MSampler(unsigned id, const std::string& name, std::istream& in) : MObject(id, MSAMPLER, name) { DeserializeData(in); }
-
-  unsigned Coords() const { return coords; }
-  unsigned Filter() const { return filter; }
-  unsigned Addressing() const { return addressing; }
-  size_t Size() const { return sizeof(void*); }
-  Value GetRaw(size_t i) { assert(false); }
-
-  ValueType VType() const { return MV_SAMPLER; }
-
-  Value& Data() { return data; }
-  const Value& Data() const { return data; }
-  void Print(std::ostream& out) const;
-  void PrintComparisonInfo(std::ostream& out, size_t pos, Comparison& comparison) const;
-  void PrintComparisonSummary(std::ostream& out, Comparison& comparison) const;
-  virtual void SerializeData(std::ostream& out) const;
-
-private:
-  unsigned segment;
-  unsigned coords;
-  unsigned filter;
-  unsigned addressing;
-  Value data;
-  void DeserializeData(std::istream& in);
-};
-
-class MRSampler : public MObject {
-public:
-  MRSampler(unsigned id, const std::string& name, unsigned refid_, const Comparison& comparison_) :
-    MObject(id, MRSAMPLER, name), refid(refid_), comparison(comparison_) { }
-  MRSampler(unsigned id, const std::string& name, std::istream& in) : MObject(id, MRSAMPLER, name) { DeserializeData(in); }
-
-  unsigned RefId() const { return refid; }
-  Comparison& GetComparison() { return comparison; }
-  virtual void SerializeData(std::ostream& out) const;
-
-private:
-  unsigned refid;
-  Comparison comparison;
-  void DeserializeData(std::istream& in);
-};
-
-inline MSampler* NewMValue(unsigned id, const std::string& name, unsigned segment, unsigned coords_, unsigned filter_, unsigned addressing_) {
-  MSampler* ms = new MSampler(id, name, segment, coords_, filter_, addressing_);
-  return ms;
-}
-
-inline MRSampler* NewMRValue(unsigned id, MSampler* ms, const Comparison& comparison = Comparison()) {
-  MRSampler* mr = new MRSampler(id, ms->Name() + " (check)", ms->Id(), comparison);
-  return mr;
-}
-
 class MemorySetup {
 private:
   std::vector<std::unique_ptr<MObject>> mos;
@@ -1127,81 +918,6 @@ public:
 };
 
 typedef std::vector<MObject*> MemState;
-
-class DispatchSetup {
-public:
-  DispatchSetup()
-    : dimensions(0) {
-    for (unsigned i = 0; i < 3; ++i) {
-      gridSize[i] = 0;
-      workgroupSize[i] = 0;
-      globalOffset[i] = 0;
-    }
-  }
-
-  void Print(std::ostream& out) const;
-  void PrintWithBuffers(std::ostream& out) const;
-      
-  void SetDimensions(uint32_t dimensions) { this->dimensions = dimensions; }
-  uint32_t Dimensions() const { return dimensions; }
-
-  void SetGridSize(const uint32_t* size) {
-    gridSize[0] = size[0];
-    gridSize[1] = size[1];
-    gridSize[2] = size[2];
-  }
-
-  void SetGridSize(uint32_t x, uint32_t y = 1, uint32_t z = 1) {
-    gridSize[0] = x;
-    gridSize[1] = y;
-    gridSize[2] = z;
-  }
-
-  uint32_t GridSize(unsigned dim) const { assert(dim < 3); return gridSize[dim]; }
-  const uint32_t* GridSize() const { return gridSize; }
-
-  void SetWorkgroupSize(const uint16_t* size) {
-    workgroupSize[0] = size[0];
-    workgroupSize[1] = size[1];
-    workgroupSize[2] = size[2];
-  }
-  void SetWorkgroupSize(uint16_t x, uint16_t y = 1, uint16_t z = 1) {
-    workgroupSize[0] = x;
-    workgroupSize[1] = y;
-    workgroupSize[2] = z;
-  }
-  uint16_t WorkgroupSize(unsigned dim) const { assert(dim < 3); return workgroupSize[dim]; }
-  const uint16_t* WorkgroupSize() const { return workgroupSize; }
-
-  void SetGlobalOffset(const uint64_t* size) {
-    globalOffset[0] = size[0];
-    globalOffset[1] = size[1];
-    globalOffset[2] = size[2];
-  }
-  void SetGlobalOffset(uint64_t x, uint64_t y = 0, uint64_t z = 0) {
-    globalOffset[0] = x;
-    globalOffset[1] = y;
-    globalOffset[2] = z;
-  }
-
-  uint64_t GlobalOffset(unsigned dim) const { assert(dim < 3); return globalOffset[dim]; }
-  const uint64_t* GlobalOffset() const { return globalOffset; }
-
-  const MemorySetup& MSetup() const { return msetup; }
-  MemorySetup& MSetup() { return msetup; }
-
-  void Serialize(std::ostream& out) const;
-  void Deserialize(std::istream& in);
-
-private:
-  uint32_t dimensions;
-  uint32_t gridSize[3];
-  uint16_t workgroupSize[3];
-  uint64_t globalOffset[3];
-  MemorySetup msetup;
-
-  void PrintImpl(std::ostream& out, bool withBuffers) const;
-};
 
 // Serialization helpers
 template <typename T>
@@ -1299,15 +1015,12 @@ struct Serializer<MObject*> {
     switch (type) {
     case MBUFFER: mo = new MBuffer(id, name, in); break;
     case MRBUFFER: mo = new MRBuffer(id, name, in); break;
-    case MIMAGE: mo = new MImage(id, name, in); break;
-    case MRIMAGE: mo = new MRImage(id, name, in); break;
     default: assert(false); mo = 0; break;
     }
   }
 };
 
 MEMBER_SERIALIZER(MemorySetup);
-MEMBER_SERIALIZER(DispatchSetup);
 MEMBER_SERIALIZER(Value);
 
 }

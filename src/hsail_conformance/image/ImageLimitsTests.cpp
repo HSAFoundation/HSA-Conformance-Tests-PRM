@@ -39,37 +39,43 @@ protected:
   BrigImageChannelOrder ChannelOrder() const { return channelOrder; }
   BrigImageChannelType ChannelType() const { return channelType; }
 
-  OperandOperandList CreateCoordList(uint32_t x, uint32_t y, uint32_t z, uint32_t a) {
-    ItemList coordList;
+  BrigType CoordType() { return BRIG_TYPE_U32; }
+
+  TypedReg CreateCoordList(uint32_t x, uint32_t y, uint32_t z, uint32_t a) {
+    TypedReg treg;
     switch (imageGeometry) {
     case BRIG_GEOMETRY_1D: 
     case BRIG_GEOMETRY_1DB:
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, x)->Reg());
+      treg = be.AddInitialTReg(CoordType(), x);
       break;
     case BRIG_GEOMETRY_1DA:
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, x)->Reg());
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, a)->Reg());
+      treg = be.AddTReg(CoordType(), 2);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), a), 32);
       break;
     case BRIG_GEOMETRY_2D:
     case BRIG_GEOMETRY_2DDEPTH:
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, x)->Reg());
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, y)->Reg());
+      treg = be.AddTReg(CoordType(), 2);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), y), 32);
       break;
     case BRIG_GEOMETRY_3D:
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, x)->Reg());
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, y)->Reg());
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, z)->Reg());
+      treg = be.AddTReg(CoordType(), 3);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), y), 32);
+      be.EmitMov(treg->Reg(2), be.Immed(CoordType(), z), 32);
       break;
     case BRIG_GEOMETRY_2DA:
     case BRIG_GEOMETRY_2DADEPTH:
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, x)->Reg());
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, y)->Reg());
-      coordList.push_back(be.AddInitialTReg(BRIG_TYPE_U32, a)->Reg());
+      treg = be.AddTReg(CoordType(), 3);
+      be.EmitMov(treg->Reg(0), be.Immed(CoordType(), x), 32);
+      be.EmitMov(treg->Reg(1), be.Immed(CoordType(), y), 32);
+      be.EmitMov(treg->Reg(2), be.Immed(CoordType(), a), 32);
       break;
     default:
       assert(0);
     }
-    return be.Brigantine().createOperandList(coordList);
+    return treg;
   }
 
 public:
@@ -83,7 +89,7 @@ public:
   }
 
   bool IsValid() const override {
-    return IsImageSupported(imageGeometry, channelOrder, channelType);
+    return IsImageLegal(imageGeometry, channelOrder, channelType);
   }
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
@@ -168,9 +174,9 @@ public:
     imageSpec.Height(std::max<uint32_t>(LimitHeight(), 1));
     imageSpec.Depth(std::max<uint32_t>(LimitDepth(), 1));
     imageSpec.ArraySize(std::max<uint32_t>(LimitArraySize(), 1));
+    imageSpec.LimitTest(true);
     image = kernel->NewImage("image", &imageSpec);
-    image->InitMemValue(Value(MV_UINT32, INITIAL_VALUE));
-    image->LimitEnable(true);
+    image->AddData(image->GenMemValue(Value(MV_UINT32, INITIAL_VALUE)));
   }
 
   TypedReg Result() override {
@@ -185,16 +191,15 @@ public:
       LimitDepth() == 0 ? 0 : LimitDepth() - 1,
       LimitArraySize() == 0 ? 0 : LimitArraySize() - 1);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
 
     auto imageAddr = be.AddTReg(image->Type());
     be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(image->Variable())); 
     
     // read from first element
-    image->EmitImageLd(imageElementList, BRIG_TYPE_U32, imageAddr, firstCoord, BRIG_TYPE_U32);
+    image->EmitImageLd(imageElement, imageAddr, firstCoord);
 
     // read from last element
-    image->EmitImageLd(imageElementList, BRIG_TYPE_U32, imageAddr, lastCoord, BRIG_TYPE_U32);
+    image->EmitImageLd(imageElement, imageAddr, lastCoord);
 
     // true
     be.EmitLabel(trueLabel);
@@ -238,8 +243,9 @@ public:
     // do nothing
   }
 
-  void SetupDispatch(DispatchSetup* setup) override {
-    ImageLimitTest::SetupDispatch(setup);
+  void SetupDispatch(const std::string& dispatchId) override {
+    ImageLimitTest::SetupDispatch(dispatchId);
+    /*
     unsigned count = setup->MSetup().Count();
     // allocate memory for buffer with image handles
     uint32_t sizes[] = {(uint32_t)images.size(), 1, 1};
@@ -251,6 +257,7 @@ public:
 
     // allocate memory for all images
     for (uint32_t i = 0; i < images.size(); ++i) {
+
       auto image = images[i];
       auto mimage = new MImage(count++, image->Id(), image->Segment(), image->Geometry(), 
                                image->ChannelOrder(), image->ChannelType(), image->Type(), 
@@ -261,6 +268,7 @@ public:
       mimage->VType() = value.Type();
       buffer->Data().push_back(Value(MV_IMAGEREF, mimage->Id()));
     }
+      */
   }
 };
 
@@ -289,7 +297,7 @@ public:
     Image image;
     for (uint32_t i = 0; i < LIMIT; ++i) {
       image = kernel->NewImage("image" + std::to_string(i), &imageSpec);
-      image->InitMemValue(Value(MV_UINT32, InitialValue()));
+      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
   }
@@ -306,7 +314,6 @@ public:
     auto imageAddr = be.AddTReg(images[0]->Type());
     auto coord = CreateCoordList(0, 0, 0, 0);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
 
@@ -320,7 +327,7 @@ public:
       be.EmitCbr(cmp->Reg(), falseLabel);
 
       // load from each image
-      image->EmitImageLd(imageElementList, BRIG_TYPE_U32, imageAddr, coord, BRIG_TYPE_U32);
+      image->EmitImageLd(imageElement, imageAddr, coord);
       be.EmitArith(BRIG_OPCODE_ADD, imagesAddr, imagesAddr, be.Immed(imagesAddr->Type(), getBrigTypeNumBytes(image->Type())));
     }
 
@@ -374,7 +381,7 @@ public:
     Image image;
     for (uint32_t i = 0; i < numberRW; ++i) {
       image = kernel->NewImage("rw_image" + std::to_string(i), &rwImageSpec);
-      image->InitMemValue(Value(MV_UINT32, InitialValue()));
+      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
 
@@ -389,7 +396,7 @@ public:
     woImageSpec.ArraySize(1);
     for (uint32_t i = 0; i < Limit() - numberRW; ++i) {
       image = kernel->NewImage("wo_image" + std::to_string(i), &woImageSpec);
-      image->InitMemValue(Value(MV_UINT32, InitialValue()));
+      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
   }
@@ -406,7 +413,6 @@ public:
     auto imageAddr = be.AddTReg(images[0]->Type());
     auto coord = CreateCoordList(0, 0, 0, 0);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
 
@@ -420,11 +426,11 @@ public:
       be.EmitCbr(cmp->Reg(), falseLabel);
 
       // store in each image
-      image->EmitImageSt(imageElementList, BRIG_TYPE_U32, imageAddr, coord, BRIG_TYPE_U32);
+      image->EmitImageSt(imageElement, imageAddr, coord);
 
       // if image is rw also load from it
       if (i < numberRW) {
-        image->EmitImageLd(imageElementList, BRIG_TYPE_U32, imageAddr, coord, BRIG_TYPE_U32);
+        image->EmitImageLd(imageElement, imageAddr, coord);
         be.EmitArith(BRIG_OPCODE_ADD, imagesAddr, imagesAddr, be.Immed(imagesAddr->Type(), getBrigTypeNumBytes(image->Type())));
       }
     }
@@ -468,13 +474,13 @@ public:
   bool IsValid() const override {
     if (filter == BRIG_FILTER_LINEAR) // only f32 access type is supported for linear filter
     {
-	    //currently rd test will generate coordinate 0, which will sample out of range texel
-	    //for linear filtering. We should not test it, because it implementation defined.
-	    //TODO:
-	    //Change rd test with linear filter and undefined addressing
-	    //to not read from edge of an image
-	    if(addresing == BRIG_ADDRESSING_UNDEFINED)
-		    return false;
+      //currently rd test will generate coordinate 0, which will sample out of range texel
+      //for linear filtering. We should not test it, because it implementation defined.
+      //TODO:
+      //Change rd test with linear filter and undefined addressing
+      //to not read from edge of an image
+      if(addresing == BRIG_ADDRESSING_UNDEFINED)
+        return false;
     }
     if (coord == BRIG_COORD_UNNORMALIZED && 
        (addresing == BRIG_ADDRESSING_REPEAT || addresing == BRIG_ADDRESSING_MIRRORED_REPEAT)) {
@@ -496,7 +502,7 @@ public:
     imageSpec.Depth(1);
     imageSpec.ArraySize(1);
     image = kernel->NewImage("image", &imageSpec);
-    image->InitMemValue(Value(static_cast<float>(INITIAL_VALUE)));
+    image->AddData(image->GenMemValue(Value(static_cast<float>(INITIAL_VALUE))));
 
     samplers.reserve(LIMIT);
     ESamplerSpec samplerSpec(BRIG_SEGMENT_GLOBAL, Location::KERNEL);
@@ -507,7 +513,7 @@ public:
       samplers.push_back(kernel->NewSampler("sampler" + std::to_string(i), &samplerSpec));
     }
 
-    image->InitImageCalculator(samplers[0], image->GetRawData());
+    image->InitImageCalculator(samplers[0]);
     Value readColor[4];
     Value readCoords[3];
     readCoords[0] = Value(0.0F);
@@ -534,14 +540,12 @@ public:
     be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(image->Variable())); 
 
     // coordinates where to read from image
-    ItemList ilist;
-    ilist.push_back(be.Immed(0.0F));
-    auto imageCoordinateList = be.Brigantine().createOperandList(ilist);
+    auto coord = be.AddTReg(BRIG_TYPE_F32);
+    be.EmitMov(coord, be.Immed(BRIG_TYPE_U32, 0));
     
     auto imageElement = be.AddTReg(BRIG_TYPE_F32, 4);
-    auto imageElementList = be.Brigantine().createOperandList(imageElement->Regs());
 
-    auto samplerAddr = be.AddTReg(samplers[0]->Type());
+    auto samplerAddr = be.AddTReg(samplers[0]->Variable().type());
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
 
@@ -550,12 +554,12 @@ public:
       be.EmitLoad(sampler->Segment(), samplerAddr->Type(), samplerAddr->Reg(), be.Address(sampler->Variable())); 
 
       // check query sampler filter mode
-      sampler->EmitSamplerQuery(query, imageAddr, BRIG_SAMPLER_QUERY_FILTER);
+      sampler->EmitSamplerQuery(query, samplerAddr, BRIG_SAMPLER_QUERY_FILTER);
       be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), filter), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
 
       // read from image with sampler and compare R channel with INITIAL_VALUE
-      image->EmitImageRd(imageElementList, BRIG_TYPE_U32, imageAddr, samplerAddr, imageCoordinateList, BRIG_TYPE_F32);
+      image->EmitImageRd(imageElement, imageAddr, samplerAddr, coord);
       be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(0), be.Immed(red.F()), BRIG_COMPARE_NE); 
       be.EmitCbr(cmp->Reg(), falseLabel);
     }

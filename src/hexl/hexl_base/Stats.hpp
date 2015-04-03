@@ -104,6 +104,7 @@ private:
 
 class AllStats {
 public:
+  void Print(std::ostream& out) const { }
   TestSetStats& TestSet() { return testSetStats; }
   const TestSetStats& TestSet() const { return testSetStats; }
   AssemblyStats &Assembly() { return assemblyStats; }

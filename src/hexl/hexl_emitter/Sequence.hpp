@@ -155,6 +155,7 @@ namespace hexl {
 
   public:
     explicit ArraySequence(const T* values_, unsigned length_) : values(values_), length(length_) { }
+
     void Iterate(Action<T>& a) const {
       for (unsigned i = 0; i < length; ++i) 
         a(values[i]);
@@ -164,31 +165,42 @@ namespace hexl {
   template<typename T>
   class VectorSequence : public Sequence<T> {
   private:
-    std::vector<T> values;
+    size_t reserved, index;
+    T* values;
+
+    static T* Create(Arena* ap, size_t reserved)
+    {
+      void *ptr = ap->Malloc(reserved * sizeof(T) + 16);
+      T* values = new (ptr) T[reserved];
+      return values;
+    }
 
   public:
-    void Add(const T& t) { values.push_back(t); }
+    VectorSequence(Arena* ap, size_t reserved_ = 32) // 32 should be enough for everyone.
+      : reserved(reserved_), index(0), values(Create(ap, reserved)) { }
+    void Add(const T& t) { assert(index < reserved); values[index++] = t; }
 
     void Iterate(Action<T>& a) const {
-      for (const T& t : values) { a(t); }
+      for (size_t i = 0; i < index; ++i) { a(values[i]); }
     }
   };
 
   template <typename T>
   class EnumSequence : public ArraySequence<T> {
   private:
-    T* values;
+    static const T* Create(Arena* ap, T begin, T end)
+    {
+      size_t count = end - begin;
+      void *ptr = ap->Malloc(count * sizeof(T) + 16);
+      T* values = new (ptr) T[count];
+      for (unsigned t = begin, i = 0; t != end; t++, i++) { values[i] = (T) t; }
+      return values;
+    }
 
   public:
-    EnumSequence(T begin, T end)
-      : ArraySequence<T>(EnumArray(begin, end), end - begin) {
-    }
-
-    static T* EnumArray(T begin, T end) {
-      T* arr = new T[end - begin];
-      for (unsigned t = begin, i = 0; t != end; t++, i++) { arr[i] = (T) t; }
-      return arr;
-    }
+    EnumSequence(Arena* ap, T begin, T end)
+      : ArraySequence<T>(Create(ap, begin, end), end - begin)
+    { }
   };
 
   template <typename P1, typename P2>
@@ -448,7 +460,8 @@ namespace hexl {
         : ap(ap_), a(a_) { }
 
       void operator()(const P1& p) {
-        a(NEWA T(p));
+        T t(p);
+        a(&t);
       }
     };
 
@@ -478,7 +491,8 @@ namespace hexl {
         : ap(ap_), a(a_) { }
 
       void operator()(const Pair<P1, P2>& p) {
-        a(NEWA T(p.First(), p.Second()));
+        T t(p.First(), p.Second());
+        a(&t);
       }
     };
 
@@ -508,7 +522,8 @@ namespace hexl {
         : ap(ap_), a(a_) { }
 
       void operator()(const Pair<P1, Pair<P2, P3>>& p) {        
-        a(NEWA T(p.First(), p.Second().First(), p.Second().Second()));
+        T t(p.First(), p.Second().First(), p.Second().Second());
+        a(&t);
       }
     };
 
@@ -538,7 +553,8 @@ namespace hexl {
         : ap(ap_), a(a_) { }
 
       void operator()(const Pair<P1, Pair<P2, Pair<P3, P4>>>& p) {
-        a(NEWA T(p.First(), p.Second().First(), p.Second().Second().First(), p.Second().Second().Second()));
+        T t(p.First(), p.Second().First(), p.Second().Second().First(), p.Second().Second().Second());
+        a(&t);
       }
     };
 
@@ -568,7 +584,8 @@ namespace hexl {
         : ap(ap_), a(a_) { }
 
       void operator()(const Pair<P1, Pair<P2, Pair<P3, Pair<P4, P5>>>>& p) {
-        a(NEWA T(p.First(), p.Second().First(), p.Second().Second().First(), p.Second().Second().Second().First(), p.Second().Second().Second().Second()));
+        T t(p.First(), p.Second().First(), p.Second().Second().First(), p.Second().Second().Second().First(), p.Second().Second().Second().Second());
+        a(&t);
       }
     };
 
@@ -655,12 +672,12 @@ namespace hexl {
   private:
     Arena* ap;
     const Sequence<T>* sequence;
-    mutable std::vector<SubsetSequence<T>*> subsequences;
+    mutable std::vector<SubsetSequence<T>*, ArenaAllocator<SubsetSequence<T>*>> subsequences;
     unsigned count;
 
   public:
     explicit SubsetsSequence(Arena* ap_, const Sequence<T>* sequence_)
-      : ap(ap_), sequence(sequence_), count(sequence->Count())
+      : ap(ap_), sequence(sequence_), subsequences(ap_), count(sequence->Count())
     {
       assert(count <= 8); // Let's be reasonable.
     }

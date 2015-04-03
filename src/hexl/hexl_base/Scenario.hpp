@@ -19,83 +19,94 @@
 
 #include "MObject.hpp"
 #include "HexlTest.hpp"
+#include "RuntimeCommon.hpp"
 #include <memory>
 
 namespace hexl {
 
 namespace scenario {
+  using runtime::Command;
 
-class Command;
-class StartThreadCommand;
+  class CommandSequence : public Command {
+  private:
+    std::vector<std::unique_ptr<Command>> commands;
 
-struct Defaults {
-  static const std::string PROGRAM_ID;
-  static const std::string MODULE_ID;
-  static const std::string BRIG_ID;
-  static const std::string CODE_ID;
-  static const std::string DISPATCH_SETUP_ID;
-  static const std::string SCENARIO_ID;
-  static const std::string SIGNAL_ID;
-  static const std::string SIGNAL_ATOMIC_ID;
-};
+  public:
+    void Add(Command* command);
+    virtual void Print(std::ostream& out) const override;
+    bool Execute(runtime::RuntimeState* runtime) override;
+    bool Finish(runtime::RuntimeState* runtime) override;
+  };
 
-class CommandSequence {
-private:
-  unsigned id;
-  Context *context;
-  std::vector<std::unique_ptr<Command>> commands;
+  class Scenario {
+  private:
+    std::vector<std::unique_ptr<CommandSequence>> commands;
 
-  void Add(Command* command);
-  void SetContext(Context *context) { this->context = context; }
+  public:
+    CommandSequence* Commands(unsigned id = 0);
+    void AddCommands(CommandSequence* commands);
+    bool Execute(runtime::RuntimeState* runtime);
+    bool Finish(runtime::RuntimeState* runtime);
+    void Print(std::ostream& out) const;
 
-public:
-  CommandSequence(unsigned id_): id(id_) {}
-  // Methods
-  bool Run(Context *context);
-  bool Finish(Context *context);
-  void Print(std::ostream& out) const;
+    static Scenario* Get(Context* context) { return context->Get<Scenario>("scenario"); }
+  };
 
-  // Commands
-  void CreateProgram(const std::string& programId = Defaults::PROGRAM_ID);
-  void AddBrigModule(const std::string& programId = Defaults::PROGRAM_ID, const std::string& moduleId = Defaults::MODULE_ID, const std::string& brigId = Defaults::BRIG_ID); 
-  void ValidateProgram(const std::string& programId = Defaults::PROGRAM_ID);
-  void Finalize(const std::string& codeId = Defaults::CODE_ID, const std::string& programId = Defaults::PROGRAM_ID, uint32_t kernelOffset = 0);
-  void Dispatch(const std::string& codeId = Defaults::CODE_ID, const std::string& dispatchSetupId = Defaults::DISPATCH_SETUP_ID);
-  void StartThread(unsigned id);
+  class CommandsBuilder : public runtime::RuntimeState {
+  private:
+    Context* initialContext;
+    std::unique_ptr<CommandSequence> commands;
 
-  // HSAIL specific commands
-  // todo: signalInitialValue, signalExpectedValue should be of hsa_signal_value_t type
-  // m.b. better create derived class SignalScenario in HsailRuntime to hide HSAIL specifics?
-  void CreateSignal(const std::string& signalId, uint64_t signalInitialValue = 1);
-  void SendSignal(const std::string& signalId, uint64_t signalSendValue = 1);
-  void WaitSignal(const std::string& signalId, uint64_t signalExpectedValue = 1);
-  void CreateQueue(const std::string& queueId, uint32_t size = 0);
-};
+  public:
+    CommandsBuilder(Context* initialContext_);
 
-class Command {
-protected:
-  Context* context;
+    Context* GetContext() { return initialContext; }
 
-public:
-  Command() : context(0) {}
-  virtual ~Command() { }
-  void SetContext(Context* context) { this->context = context; }
-  virtual bool Run() = 0;
-  virtual bool Finish() { return true; }
-  virtual void Print(std::ostream& out) const { }
-};
+    CommandSequence* ReleaseCommands();
 
-class Scenario {
-private:
-  std::vector<std::unique_ptr<CommandSequence>> commandSequences;
+    bool StartThread(unsigned id, Command* commandToRun = 0);
+    bool WaitThreads();
 
-public:
-  // Methods
-  bool Run(Context* context);
-  void Print(std::ostream& out);
-  CommandSequence& Commands(unsigned id = 0) { for (size_t i = commandSequences.size(); i <= id; ++i) { commandSequences.push_back(std::unique_ptr<CommandSequence>(new CommandSequence(id))); }; return *commandSequences[id]; }
-};
+    bool ModuleCreateFromBrig(const std::string& moduleId = "module", const std::string& brigId = "brig");
 
+    bool ProgramCreate(const std::string& programId = "program");
+    bool ProgramAddModule(const std::string& programId = "program", const std::string& moduleId = "module");
+    bool ProgramFinalize(const std::string& codeId = "code", const std::string& programId = "program");
+
+    bool ExecutableCreate(const std::string& executableId = "executable");
+    bool ExecutableLoadCode(const std::string& executableId = "executable", const std::string& codeId = "code");
+    bool ExecutableFreeze(const std::string& executableId = "executable");
+
+    bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId);
+    bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "");
+
+    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId);
+    bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "");
+    bool SamplerCreate(const std::string& samplerID, const std::string& samplerParamsId);
+
+    bool DispatchCreate(const std::string& dispatchId = "dispatch", const std::string& executableId = "executable", const std::string& kernelName = "");
+    bool DispatchSet(const std::string& dispatchId, const std::string& key, const std::string& value);
+    virtual bool DispatchArg(const std::string& dispatchId, runtime::DispatchArgType argType, const std::string& argKey) override;
+    bool DispatchExecute(const std::string& dispatchId = "dispatch");
+
+    bool SignalCreate(const std::string& signalId, uint64_t signalInitialValue = 1);
+    bool SignalSend(const std::string& signalId, uint64_t signalSendValue = 1);
+    bool SignalWait(const std::string& signalId, uint64_t signalExpectedValue = 1);
+
+    bool QueueCreate(const std::string& queueId, uint32_t size = 0);
+  };
+
+  class ScenarioBuilder {
+  private:
+    Context* initialContext;
+    std::vector<std::unique_ptr<CommandsBuilder>> commands;
+
+  public:
+    ScenarioBuilder(Context* initialContext_)
+      : initialContext(initialContext_) { }
+    CommandsBuilder* Commands(unsigned id = 0);
+    Scenario* ReleaseScenario();
+  };
 
 }
 
@@ -111,6 +122,9 @@ public:
   void Description(std::ostream& out) const { }
   void Run();
 };
+
+  template <>
+  inline void Print(const scenario::Scenario& o, std::ostream& out) { o.Print(out); }
 
 }
 

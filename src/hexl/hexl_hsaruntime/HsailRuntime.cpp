@@ -16,15 +16,18 @@
 
 #include "HexlTest.hpp"
 #include "HsailRuntime.hpp"
+#include "RuntimeContext.hpp"
 #include "Scenario.hpp"
 #include "Utils.hpp"
 #include "DllApi.hpp"
 #include <cstring>
 #include <algorithm>
 #include <sstream>
-#include "time.h"
+#include <time.h>
+#include <set>
 
 using namespace hexl;
+using namespace hexl::runtime;
 
 namespace hexl {
 
@@ -131,792 +134,356 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
   runtime->SetError();
 }
 
-class HsailModule : public Module {
-private:
-  HsailRuntimeContextState* state;
-  brig_container_t brig;
-  BrigCodeOffset32_t uniqueKernelOffset;
-
-public:
-  HsailModule(HsailRuntimeContextState* state_, brig_container_t brig_, BrigCodeOffset32_t uniqueKernelOffset_)
-    : state(state_), brig(brig_), uniqueKernelOffset(uniqueKernelOffset_) { }
-  ~HsailModule();
-  hsa_ext_module_t Module();
-  BrigCodeOffset32_t UniqueKernelOffset() const { return uniqueKernelOffset; }
-};
-
-class HsailProgram : public Program {
-private:
-  HsailRuntimeContextState* state;
-  hsa_ext_program_t handle;
-  BrigCodeOffset32_t uniqueKernelOffset;
-
-public:
-  HsailProgram(HsailRuntimeContextState* state_, hsa_ext_program_t handle_)
-    : state(state_), handle(handle_), uniqueKernelOffset(0) { }
-  ~HsailProgram();
-  void AddModule(Module* module);
-  hsa_ext_program_t Handle() { return handle; }
-  BrigCodeOffset32_t UniqueKernelOffset() const { return uniqueKernelOffset; }
-  bool Validate(std::string& errMsg);
-  HsailRuntimeContext* Runtime();
-};
-
-class HsailCode : public Code {
-private:
-  HsailRuntimeContextState* state;
-  hsa_code_object_t codeObject;
-
-public:
-  HsailCode(HsailRuntimeContextState* state_, hsa_code_object_t codeObject_)
-    : state(state_), codeObject(codeObject_) { }
-  ~HsailCode();
-
-  hsa_code_object_t CodeObject() { return codeObject; }
-  HsailRuntimeContext* Runtime();
-};
-
-typedef IObject<HsailMemoryState> HObject;
-
-class HBuffer : public HObject {
-private:
-  MBuffer* mb;
-  void *ptr;
-
-public:
-  HBuffer(HsailMemoryState* mstate_, MBuffer* mb_, void *ptr_)
-    : HObject(mstate_), mb(mb_), ptr(ptr_) { }
-  ~HBuffer();
-  MBuffer* Mb() { return mb; }
-  void *Ptr() { return ptr; }
-  virtual bool Push();
-  virtual bool Pull();
-  virtual bool Validate();
-  virtual void Print(std::ostream& out) const;
-  virtual size_t Size() const;
-};
-
-class HRBuffer : public HObject {
-private:
-  MRBuffer* mr;
-  HBuffer* hb;
-
-public:
-  HRBuffer(HsailMemoryState* mstate_, MRBuffer* mr_, HBuffer* hb_)
-    : HObject(mstate_), mr(mr_), hb(hb_) { }
-  virtual bool Push();
-  virtual bool Pull();
-  virtual bool Validate();
-  virtual void Print(std::ostream& out) const;
-  virtual size_t Size() const;
-};
-
-class HImage : public HObject {
-private:
-  MImage* mi;
-  void *ptr;
-  hsa_ext_image_t imgh;
-public:
-  HImage(HsailMemoryState* mstate_, MImage* mi_, void *ptr_, hsa_ext_image_t imgh_)
-    : HObject(mstate_), mi(mi_), ptr(ptr_), imgh(imgh_) { }
-  ~HImage();
-  MImage* Mi() { return mi; }
-  void *Ptr() { return ptr; }
-  uint64_t Handle() { return imgh.handle; }
-  virtual bool Push();
-  virtual bool Pull();
-  virtual bool Validate();
-  virtual void Print(std::ostream& out) const;
-  virtual size_t Size() const;
-};
-
-class HRImage : public HObject {
-private:
-  MRImage* mr;
-  HImage* hi;
-public:
-  HRImage(HsailMemoryState* mstate_, MRImage* mr_, HImage* hi_)
-    : HObject(mstate_), mr(mr_), hi(hi_) { }
-  virtual bool Push();
-  virtual bool Pull();
-  virtual bool Validate();
-  virtual void Print(std::ostream& out) const;
-  virtual size_t Size() const;
-};
-
-class HSampler : public HObject {
-private:
-  MSampler* ms;
-  hsa_ext_sampler_t smph;
-public:
-  HSampler(HsailMemoryState* mstate_, MSampler* ms_, hsa_ext_sampler_t smph_)
-    : HObject(mstate_), ms(ms_), smph(smph_) { }
-  ~HSampler();
-  MSampler* Ms() { return ms; }
-  uint64_t Handle() { return smph.handle; }
-  virtual bool Push();
-  virtual bool Pull();
-  virtual bool Validate();
-  virtual void Print(std::ostream& out) const;
-  virtual size_t Size() const;
-};
-
-class HRSampler : public HObject {
-private:
-  MRSampler* mr;
-  HSampler* hs;
-public:
-  HRSampler(HsailMemoryState* mstate_, MRSampler* mr_, HSampler* hs_)
-    : HObject(mstate_), mr(mr_), hs(hs_) { }
-  virtual bool Push();
-  virtual bool Pull();
-  virtual bool Validate();
-  virtual void Print(std::ostream& out) const;
-  virtual size_t Size() const;
-};
-
-class HsailMemoryState : public MemoryStateBase<HsailMemoryState> {
-private:
-  HsailRuntimeContextState* state;
-  size_t kernArgSize;
-  size_t kernArgPos;
-  void *kernArg;
-  size_t dynamicGroupSize;
-
-protected:
-  bool PreAllocate();
-  virtual bool PreAllocateBuffer(MBuffer* mo);
-  virtual HObject* AllocateBuffer(MBuffer* mo);
-  virtual HObject* AllocateRBuffer(MRBuffer* mo);
-  virtual HObject* AllocateImage(MImage* mi);
-  virtual HObject* AllocateRImage(MRImage* mi);
-  virtual HObject* AllocateSampler(MSampler* mi);
-  virtual HObject* AllocateRSampler(MRSampler* mi);
-
-public:
-  explicit HsailMemoryState(HsailRuntimeContextState* state_);
-  ~HsailMemoryState();
-  HsailRuntimeContext* Runtime();
-  size_t GetValueSize(ValueType type);
-  Value GetValue(Value v);
-  void *KernArg() { return kernArg; }
-  size_t GetDynamicGroupSize() { return dynamicGroupSize; }
-};
-
-class HsailDispatch : public Dispatch {
-private:
-  HsailRuntimeContextState* state;
-  hsa_executable_t executable;
-  hsa_executable_symbol_t kernel;
-  HsailMemoryState mstate;
-  uint32_t dimensions;
-  uint32_t gridSize[3];
-  uint16_t workgroupSize[3];
-  uint64_t timeout;
-
-public:
-  HsailDispatch(HsailRuntimeContextState* state_, hsa_executable_t executable_, hsa_executable_symbol_t kernel_)
-    : state(state_), executable(executable_), kernel(kernel_),
-      mstate(state),
-      dimensions(0), timeout(60 * CLOCKS_PER_SEC) { }
-  ~HsailDispatch();
-
-  MemoryState* MState() { return &mstate; }
-  HsailRuntimeContext* Runtime() { return mstate.Runtime(); }
-  void SetDimensions(uint32_t dimensions) { this->dimensions = dimensions; }
-  void SetGridSize(uint32_t x, uint32_t y = 1, uint32_t z = 1) { gridSize[0] = x; gridSize[1] = y; gridSize[2] = z; }
-  void SetWorkgroupSize(uint16_t x, uint16_t y = 1, uint16_t z = 1) { workgroupSize[0] = x; workgroupSize[1] = y; workgroupSize[2] = z; }
-  bool Execute();
-};
-
-class HsailRuntimeContextState : public RuntimeContextState {
-private:
-  HsailRuntimeContext* runtime;
-
-public:
-  HsailRuntimeContextState(HsailRuntimeContext* runtime_, Context* context)
-    : RuntimeContextState(context), runtime(runtime_) { }
-  Program* NewProgram();
-  Module* NewModuleFromBrig(brig_container_t brig);
-  Module* NewModuleFromHsailText(const std::string& hsailText);
-  Code* Finalize(Program* program, BrigCodeOffset32_t kernelOffset, DispatchSetup* dsetup);
-  Dispatch* NewDispatch(Code* code);
-  HsailRuntimeContext* Runtime() { return runtime; }
-};
-
-#define HSARUNTIMECORENAME (sizeof(void*) == 4) ? "hsa-runtime" : "hsa-runtime64"
-
-HsailRuntimeContext::HsailRuntimeContext(Context* context)
-  : RuntimeContext(context),
-    hsaApi(context, context->Opts(), HSARUNTIMECORENAME),
-    queue(0), queueSize(0), error(false),
-    profile(HSA_PROFILE_BASE), wavesize(64), wavesPerGroup(4), endianness(HSA_ENDIANNESS_LITTLE),
-    isBreakSupported(false), isDetectSupported(false)
-{
-}
-
-RuntimeContextState* HsailRuntimeContext::NewState(Context* context)
-{
-  return new HsailRuntimeContextState(this, context);
-}
-
-
-HsailModule::~HsailModule()
-{
-  brig_container_destroy(brig);
-}
-
-hsa_ext_module_t HsailModule::Module()
-{
-  hsa_ext_module_t module;
-  module = (BrigModule_t) brig_container_get_brig_module(brig);
-  return module;
-}
-
-HsailProgram::~HsailProgram()
-{
-  hsa_status_t status =
-    Runtime()->Hsa()->hsa_ext_program_destroy(handle);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_destroy failed", status); }
-}
-
-HsailCode::~HsailCode()
-{
-  hsa_status_t status =
-    Runtime()->Hsa()->hsa_code_object_destroy(codeObject);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_code_object_destroy failed", status); }
-}
-
-HsailRuntimeContext* HsailCode::Runtime()
-{
-  return state->Runtime();
-}
-
-HsailRuntimeContext* HsailProgram::Runtime()
-{
-  return state->Runtime();
-}
-
-void HsailProgram::AddModule(Module* module)
-{
-  HsailModule* hsailModule = static_cast<HsailModule*>(module);
-
-  hsa_status_t status = Runtime()->Hsa()->hsa_ext_program_add_module(handle, hsailModule->Module());
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_add_module failed", status); return; }
-  assert(!uniqueKernelOffset);
-  uniqueKernelOffset = hsailModule->UniqueKernelOffset();
-}
-
-bool HsailProgram::Validate(std::string& errMsg)
-{
-/*
-  hsa_status_t status = hsa_ext_validate_program(handle, NULL);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_validate_program failed", status); return false; }
-*/
-  return true;
-}
-
-HsailDispatch::~HsailDispatch()
-{
-  hsa_status_t status = Runtime()->Hsa()->hsa_executable_destroy(executable);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_destroy failed", status); }
-}
-
-bool HsailDispatch::Execute()
-{
-  if (!mstate.Allocate()) { Runtime()->HsaError("Failed to allocate memory state"); return false; }
-  mstate.Push();
-
-  uint64_t kernelObject;
-  hsa_status_t status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
-    kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT, &kernelObject);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT) failed", status); return false; }
-  uint32_t privateSize, groupSize;
-  status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
-    kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE, &privateSize);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE) failed", status); return false; }
-  status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
-    kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE, &groupSize);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE) failed", status); return false; }
-
-  hsa_queue_t* queue = Runtime()->Queue();
-  uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);
-  // Prepare dispatch packet.
-  hsa_kernel_dispatch_packet_s* dispatch = (hsa_kernel_dispatch_packet_s*) queue->base_address + packetId;
-  memset(dispatch, 0, sizeof(*dispatch));
-  dispatch->setup = (dimensions << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS);
-  dispatch->workgroup_size_x = workgroupSize[0];
-  dispatch->workgroup_size_y = workgroupSize[1];
-  dispatch->workgroup_size_z = workgroupSize[2];
-  dispatch->grid_size_x = gridSize[0];
-  dispatch->grid_size_y = gridSize[1];
-  dispatch->grid_size_z = gridSize[2];
-  dispatch->kernel_object = kernelObject;
-  dispatch->kernarg_address = mstate.KernArg();
-  dispatch->private_segment_size = privateSize;
-  dispatch->group_segment_size = groupSize + (uint32_t) mstate.GetDynamicGroupSize();
-  // Create a signal with an initial value of one to monitor the task completion.
-  hsa_signal_t signal;
-  Runtime()->Hsa()->hsa_signal_create(1, 0, 0, &signal);
-  dispatch->completion_signal = signal;
-  Runtime()->GetContext()->Put("packetcompletionsig", Value(MV_UINT64, signal.handle));
-  
-  // Notify.
-  dispatch->header =
-    (HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE) |
-    (1 << HSA_PACKET_HEADER_BARRIER) |
-    (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_ACQUIRE_FENCE_SCOPE) |
-    (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_RELEASE_FENCE_SCOPE);
-  Runtime()->Hsa()->hsa_signal_store_release(queue->doorbell_signal, packetId);
-
-  // Wait for kernel completion.
-  hsa_signal_value_t result;
-  clock_t beg = clock();
-  do {
-    result = Runtime()->Hsa()->hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_EQ, 0, timeout, HSA_WAIT_STATE_ACTIVE);
-    clock_t clocks = clock() - beg;
-    if (clocks > (clock_t) timeout && result != 0) {
-      Runtime()->GetContext()->Error() << "Kernel execution timed out, elapsed time: " << (long) clocks << " clocks (clocks per second " << (long) CLOCKS_PER_SEC << ")" << std::endl;
-      Runtime()->Hsa()->hsa_signal_destroy(signal);
-      return false;
-    }
-  } while (result!= 0);
-  // Destroy completion signal
-  Runtime()->Hsa()->hsa_signal_destroy(signal);
-  return !Runtime()->IsError();
-}
-
-HBuffer::~HBuffer()
-{
-  if (mb->MType() != MEM_KERNARG) {
-    if (ptr) {
-      State()->Runtime()->Hsa()->hsa_memory_deregister(ptr);
-      free(ptr);
-    }
-/*
-    hsa_status_t status = State()->Runtime()->Hsa()->hsa_memory_free(ptr);
-    if (status != HSA_STATUS_SUCCESS) { State()->Runtime()->HsaError("hsa_memory_free failed", status); }
-*/
-  }
-}
-
-bool HBuffer::Push()
-{
-  assert(mb && state);
-  char *p = (char *) ptr;
-  for (size_t i = 0; i < mb->Data().size(); ++i) {
-    Value value = state->GetValue(mb->Data()[i]);
-    value.WriteTo(p);
-    p += value.Size();
-  }
-  return true;
-}
-
-bool HBuffer::Pull()
-{
-  // Do nothing.
-  return true;
-}
-
-bool HBuffer::Validate()
-{
-  // Do nothing.
-  return true;
-}
-
-void HBuffer::Print(std::ostream& out) const
-{
-  out << "buffer at " << ptr << ", size " << Size();
-  if (ptr && mb->Data().size() == 1) {
-    Value v = state->GetValue(mb->Data()[0]);
-    out << ", value " << v;
-  }
-}
-
-size_t HBufferSize(MBuffer* mb, Context* context)
-{
-  switch (mb->VType()) {
-  case MV_REF:
-    return mb->Count() * sizeof(void *);
-  default:
-    return mb->Size(context);
-  }
-}
-
-size_t HBuffer::Size() const
-{
-  return HBufferSize(mb, state->GetContext());
-}
-
-bool HRBuffer::Push()
-{
-  // Do nothing.
-  return true;
-}
-
-bool HRBuffer::Pull()
-{
-  // Do nothing for now.
-  return true;
-}
-
-bool HRBuffer::Validate()
-{
-  Values actual;
-  MBuffer* mb = hb->Mb();
-  assert(mb);
-  ReadFrom(hb->Ptr(), mr->VType(), mr->Data().size(), actual);
-  state->GetContext()->Info() << "Validating: "; hb->Print(state->GetContext()->Info());
-  state->GetContext()->Info() << ", " << mr->GetComparison() << std::endl;
-  return state->ValidateRBuffer(mb, mr, actual, state->Runtime()->Opts());
-}
-
-void HRBuffer::Print(std::ostream& out) const
-{
-  MBuffer* mb = hb->Mb();
-  out << "buffer check at " << hb->Ptr() << ", size " << Size();
-  if (mb->Count() == 1) {
-    Value v = state->GetValue(mr->Data()[0]);
-    out << ", expected value " << v;
-  }
-}
-
-size_t HRBuffer::Size() const
-{
-  return hb->Size();
-}
-
-
-HImage::~HImage()
-{
-    if (ptr) {
-        State()->Runtime()->Hsa()->hsa_ext_image_destroy(State()->Runtime()->Agent(), imgh);
-        alignedFree(ptr);
-/*
-        State()->Runtime()->Hsa()->hsa_memory_free(ptr);
-*/
-    }
-}
-
-bool HImage::Push()
-{
-  assert(mi && state && ptr);
-  char *p = (char *) ptr;
-  Value value = Value(MV_UINT8, 0);
-  if (mi->ContentData().size() > 0) {
-    value = state->GetValue(mi->ContentData()[0]);
-  }
-  if (mi->IsLimitTest())
-  {
-    hsa_ext_image_region_t img_region;
-
-    img_region.offset.x = (uint32_t)mi->Width() - 1;
-    img_region.offset.y = (uint32_t)mi->Height() - 1;
-    img_region.offset.z = (uint32_t)mi->Depth() - 1;
-
-    img_region.range.x = 1;
-    img_region.range.y = 1;
-    img_region.range.z = 1;
-
-    char* pBuff = new char[value.Size()];
-    value.WriteTo(pBuff);
-    hsa_status_t status = State()->Runtime()->Hsa()->hsa_ext_image_import(State()->Runtime()->Agent(), pBuff, value.Size(), 1, imgh, &img_region);
-    delete[] pBuff;
-    if (status != HSA_STATUS_SUCCESS) { State()->Runtime()->HsaError("hsa_ext_image_import failed", status); return false; }
-  }
-  else
-  {
-    size_t size_val = value.Size();
-    for (size_t i = 0; i < mi->Size()/size_val; ++i) {
-      value.WriteTo(p);
-      p += size_val;
-    }
-  }
-  return true;
-}
-
-bool HImage::Pull()
-{
-  // Do nothing.
-  return true;
-}
-
-bool HImage::Validate()
-{
-  // Do nothing.
-  return true;
-}
-
-void HImage::Print(std::ostream& out) const
-{
-  // Do nothing.
-  return;
-}
-
-size_t HImage::Size() const
-{
-  return mi->Size();
-}
-
-bool HRImage::Push()
-{
-  // Do nothing.
-  return true;
-}
-
-bool HRImage::Pull()
-{
-  // Do nothing for now.
-  return true;
-}
-
-bool HRImage::Validate()
-{
-  Values actual;
-  MImage* mi = hi->Mi();
-  assert(mi);
-  ReadFrom(hi->Ptr(), mr->VType(), mr->Data().size(), actual);
-  state->GetContext()->Info() << "Validating: "; hi->Print(state->GetContext()->Info());
-  state->GetContext()->Info() << ", " << mr->GetComparison() << std::endl;
-  return state->ValidateRImage(mi, mr, actual, state->Runtime()->Opts());
-}
-
-void HRImage::Print(std::ostream& out) const
-{
-  MImage* mi = hi->Mi();
-  out << "buffer check at " << hi->Ptr() << ", size " << Size();
-  if (mi->Size() == 1) {
-    Value v = state->GetValue(mr->Data()[0]);
-    out << ", expected value " << v;
-  }
-  return;
-}
-
-size_t HRImage::Size() const
-{
-  return hi->Size();
-}
-
-HSampler::~HSampler()
-{
-    State()->Runtime()->Hsa()->hsa_ext_sampler_destroy(State()->Runtime()->Agent(), smph);
-}
-
-bool HSampler::Push()
-{
-    // Do nothing.
-   return true;
-}
-
-bool HSampler::Pull()
-{
-  // Do nothing.
-  return true;
-}
-
-bool HSampler::Validate()
-{
-  // Do nothing.
-  return true;
-}
-
-void HSampler::Print(std::ostream& out) const
-{
-  // Do nothing.
-  return;
-}
-
-size_t HSampler::Size() const
-{
-  return ms->Size();
-}
-
-
-bool HRSampler::Push()
-{
-  // Do nothing.
-  return true;
-}
-
-bool HRSampler::Pull()
-{
-  // Do nothing for now.
-  return true;
-}
-
-bool HRSampler::Validate()
-{
-  // Do nothing.
-  return true;
-}
-
-void HRSampler::Print(std::ostream& out) const
-{
-  // Do nothing.
-  return;
-}
-
-size_t HRSampler::Size() const
-{
-  return hs->Size();
-}
-
-HsailMemoryState::HsailMemoryState(HsailRuntimeContextState* state_)
-    : MemoryStateBase(state_->GetContext()),
-      state(state_), kernArgSize(0), kernArgPos(0), kernArg(0), dynamicGroupSize(0)
-{
-}
-
-HsailMemoryState::~HsailMemoryState()
-{
-  if (kernArg) {
-    hsa_status_t status;
-    status = Runtime()->Hsa()->hsa_memory_deregister(kernArg);
-    if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister failed", status); }
-    free(kernArg);
-  }
-}
-
-size_t HsailMemoryState::GetValueSize(ValueType type) {
-  switch (type) {
-  case MV_REF:
-    return sizeof(void *);
-  case MV_SAMPLERREF:
-  case MV_IMAGEREF:
-    return 8;
-  default:
-    return ValueTypeSize(type);
-  }
-}
-
-Value HsailMemoryState::GetValue(Value v)
-{
-  switch (v.Type()) {
-  case MV_REF: {
-    HBuffer* ho = Get<HBuffer>(v.U32());
-    assert(ho);
-    return Value(MV_POINTER, P(ho->Ptr()));
-  }
-  case MV_IMAGEREF: {
-    HImage* hi = Get<HImage>(v.U32());
-    return Value(MV_POINTER, hi->Handle());
-  }
-  case MV_SAMPLERREF: {
-    HSampler* hs = Get<HSampler>(v.U32());
-    return Value(MV_POINTER, hs->Handle());
-  }
-  case MV_EXPR: {
-    return GetContext()->GetValue(v.S());
-  }
-
-  default: return v;
-  }
-}
-
-bool HsailMemoryState::PreAllocate()
-{
-  kernArgSize = 0;
-  kernArgPos = 0;
-  if (!MemoryStateBase<HsailMemoryState>::PreAllocate()) { return false; }
-  if (kernArgSize > 0) {
-    hsa_status_t status;
-/*  TODO: fix when regions work properly with kernarg
-    status = Runtime()->Hsa()->hsa_memory_allocate(Runtime()->GetRegion(RegionMatchKernarg), kernArgSize, &kernArg);
-    if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate failed", status); return false; }
-*/
-    kernArgSize = (std::max)(kernArgSize, (size_t) 4096);
-    kernArg = malloc(kernArgSize);
-    status = Runtime()->Hsa()->hsa_memory_register(kernArg, kernArgSize);
-    if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); free(kernArg); return false; }
-  }
-  return true;
-
-}
-
-bool HsailMemoryState::PreAllocateBuffer(MBuffer* mb)
-{
-  assert(mb);
-  if (mb->MType() == MEM_KERNARG) {
-    kernArgSize += HBufferSize(mb, GetContext());
-  } else if (mb->MType() == MEM_GROUP) {
-    dynamicGroupSize += HBufferSize(mb, GetContext());
-  }
-  return true;
-}
-
-HObject* HsailMemoryState::AllocateBuffer(MBuffer* mb)
-{
-  hsa_status_t status;
-  size_t size = HBufferSize(mb, GetContext());
-  void *ptr;
-  if (mb->MType() == MEM_KERNARG) {
-    kernArgPos = (kernArgPos + size - 1) & ~(size - 1); // Align
-    assert(kernArgPos < kernArgSize);
-    ptr = (char *) kernArg + kernArgPos;
-    kernArgPos += size;
-    return new HBuffer(this, mb, ptr);
-  } else {
-    ptr = malloc(size);
-    status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
-    if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); free(ptr); return 0; }
-/*
-    status = Runtime()->Hsa()->hsa_memory_allocate(Runtime()->GetRegion(), mb->Size(), &ptr);
-    if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate failed", status); return 0; }
-*/
-    return new HBuffer(this, mb, ptr);
-  }
-}
-
-HObject* HsailMemoryState::AllocateRBuffer(MRBuffer* mr)
-{
-  assert(mr);
-  HBuffer* hb = Get<HBuffer>(mr->RefId());
-  return new HRBuffer(this, mr, hb);
-}
-
-HObject* HsailMemoryState::AllocateImage(MImage* mi)
-{
-  assert(mi && state);
-
-  class ImageRegionMatcher {
+  class HsailRuntimeContextState : public runtime::RuntimeState {
   private:
-    hsa_ext_image_data_info_t image_info;
+    HsailRuntimeContext* runtime;
+    Context* context;
+    HostThreads hostThreads;
+    std::vector<std::string> keys;
 
   public:
-    ImageRegionMatcher(hsa_ext_image_data_info_t image_info_): image_info(image_info_) {};
+    HsailRuntimeContextState(HsailRuntimeContext* runtime_, Context* context_)
+      : runtime(runtime_), context(context_), hostThreads(this) { }
 
-    bool operator() (HsailRuntimeContext* runtime, hsa_region_t region) {
-      size_t align = 0;
-      hsa_region_segment_t seg;
-
-      runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_SEGMENT, &seg);
-      if (seg == HSA_REGION_SEGMENT_GLOBAL)
-      {
-        runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALIGNMENT, &align);
-        if (align >= image_info.alignment)
-          return true;
+    ~HsailRuntimeContextState()
+    {
+      for (size_t i = 0; i < keys.size(); ++i) {
+        context->Delete(keys[keys.size() - 1 - i]);
       }
-      return false;
-    }  
-  };
+    }
 
-  hsa_ext_image_descriptor_t image_descriptor;
-  image_descriptor.height = mi->Height();
-  image_descriptor.width = mi->Width();
-  image_descriptor.geometry = (hsa_ext_image_geometry_t)mi->Geometry();
-  image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t)mi->ChannelOrder();
-  image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t)mi->ChannelType();
-  image_descriptor.depth = mi->Depth();
-  image_descriptor.array_size = mi->ArraySize(); //image_descriptor.depth > 1 ? image_descriptor.depth : 0;
-  hsa_access_permission_t access_permission = (hsa_access_permission_t)mi->AccessPermission();
+    template <typename T>
+    void Put(const std::string& key, T* t)
+    {
+      keys.push_back(key);
+      context->Move(key, t);
+    }
 
-  hsa_ext_image_data_info_t image_info = {0};
-  hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_data_get_info(Runtime()->Agent(), &image_descriptor, access_permission, &image_info);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); return 0; }
+    HsailRuntimeContext* Runtime() { return runtime; }
 
-  hsa_ext_image_t image = {0};
-  void *ptr = NULL;
-  ptr = alignedMalloc(image_info.size, image_info.alignment);
+    Context* GetContext() override { return context; }
+
+    bool StartThread(unsigned id, Command* command) override
+    {
+      return hostThreads.StartThread(id, command);
+    }
+
+    bool WaitThreads() override
+    {
+      return hostThreads.WaitThreads();
+    }
+
+    virtual bool ModuleCreateFromBrig(const std::string& moduleId = "module", const std::string& brigId = "brig") override
+    {
+      brig_container_t brig = context->Get<brig_container_struct>(brigId);
+      brig_container_get_brig_module(brig);
+      context->Put(moduleId, brig);
+      return true;
+    }
+
+    class HsailProgram {
+    private:
+      HsailRuntimeContextState* rt;
+      hsa_ext_program_t program;
+
+    public:
+      HsailProgram(HsailRuntimeContextState* rt_, hsa_ext_program_t program_)
+        : rt(rt_), program(program_) { }
+      ~HsailProgram()
+      {
+#ifndef _WIN32
+        rt->ProgramDestroy(program);
+#endif // _WIN32
+      }
+
+      hsa_ext_program_t Program() { return program; }
+    };
+
+    void ProgramDestroy(hsa_ext_program_t program)
+    {
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_program_destroy(program);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_destroy failed", status); }
+    }
+
+    virtual bool ProgramCreate(const std::string& programId = "program") override
+    {
+      hsa_ext_program_t program;
+      hsa_machine_model_t machineModel = context->IsLarge() ? HSA_MACHINE_MODEL_LARGE : HSA_MACHINE_MODEL_SMALL;
+      hsa_profile_t profile = HSA_PROFILE_FULL;
+      hsa_status_t status =
+        Runtime()->Hsa()->hsa_ext_program_create(
+          machineModel, profile, HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &program);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_create failed", status); return false; }
+      Put(programId, new HsailProgram(this, program));
+      return true;
+    }
+
+    virtual bool ProgramAddModule(const std::string& programId = "program", const std::string& moduleId = "module") override
+    {
+      HsailProgram* program = context->Get<HsailProgram>(programId);
+      brig_container_t brig = context->Get<brig_container_struct>(moduleId);
+      hsa_ext_module_t module = (hsa_ext_module_t) brig_container_get_brig_module(brig);
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_program_add_module(program->Program(), module);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_add_module failed", status); return false; }
+      return true;
+    }
+
+    class HsailCode {
+    private:
+      HsailRuntimeContextState* rt;
+      hsa_code_object_t code;
+
+    public:
+      HsailCode(HsailRuntimeContextState* rt_, hsa_code_object_t code_)
+        : rt(rt_), code(code_) { }
+      ~HsailCode()
+      {
+#ifndef _WIN32
+        // Temporarily disable due to crash on Windows.
+        rt->CodeDestroy(code);
+#endif // _WIN32
+      }
+
+      hsa_code_object_t Code() { return code; }
+    };
+
+    void CodeDestroy(hsa_code_object_t code)
+    {
+      hsa_status_t status = Runtime()->Hsa()->hsa_code_object_destroy(code);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_code_object_destroy failed", status); }
+    }
+
+
+    virtual bool ProgramFinalize(const std::string& codeId = "code", const std::string& programId = "program") override
+    {
+      HsailProgram* program = context->Get<HsailProgram>(programId);
+      hsa_isa_t isa;
+      hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_info(Runtime()->Agent(), HSA_AGENT_INFO_ISA, &isa);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_agent_get_info(HSA_AGENT_INFO_ISA) failed", status); return 0; }
+      hsa_ext_control_directives_t cd;
+      memset(&cd, 0, sizeof(cd));
+      hsa_code_object_t codeObject;
+      status = Runtime()->Hsa()->hsa_ext_program_finalize(
+        program->Program(), 
+        isa, 0, cd, "", HSA_CODE_OBJECT_TYPE_PROGRAM, &codeObject);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_finalize_program failed", status); return false; }
+      Put(codeId, new HsailCode(this, codeObject));
+      return true;
+    }
+
+    class HsailExecutable {
+    private:
+      HsailRuntimeContextState* rt;
+      hsa_executable_t executable;
+
+    public:
+      HsailExecutable(HsailRuntimeContextState* rt_, hsa_executable_t executable_)
+        : rt(rt_), executable(executable_) { }
+      ~HsailExecutable()
+      {
+#ifndef _WIN32
+        rt->ExecutableDestroy(executable);
+#endif // _WIN32
+      }
+
+      hsa_executable_t Executable() { return executable; }
+    };
+
+    void ExecutableDestroy(hsa_executable_t executable)
+    {
+      hsa_status_t status = Runtime()->Hsa()->hsa_executable_destroy(executable);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_destroy failed", status); }
+    }
+
+    virtual bool ExecutableCreate(const std::string& executableId = "executable") override
+    {
+      hsa_executable_t executable;
+      hsa_status_t status = Runtime()->Hsa()->hsa_executable_create(HSA_PROFILE_FULL, HSA_EXECUTABLE_STATE_UNFROZEN, "", &executable);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_create failed", status); return false; }
+      Put(executableId, new HsailExecutable(this, executable));
+      return true;
+    }
+
+    virtual bool ExecutableLoadCode(const std::string& executableId = "executable", const std::string& codeId = "code") override
+    {
+      HsailExecutable* executable = context->Get<HsailExecutable>(executableId);
+      HsailCode* code = context->Get<HsailCode>(codeId);
+      hsa_status_t status = Runtime()->Hsa()->hsa_executable_load_code_object(executable->Executable(), Runtime()->Agent(), code->Code(), "");
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_load_code failed", status); return false; }
+      return true;
+    }
+
+    virtual bool ExecutableFreeze(const std::string& executableId = "executable") override
+    {
+      HsailExecutable* executable = context->Get<HsailExecutable>(executableId);
+      hsa_status_t status = Runtime()->Hsa()->hsa_executable_freeze(executable->Executable(), "");
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_freeze failed", status); return false; }
+      return true;
+    }
+
+    class HsailBuffer {
+    private:
+      HsailRuntimeContextState* rt;
+      void *ptr;
+
+    public:
+      HsailBuffer(HsailRuntimeContextState* rt_, void *ptr_)
+        : rt(rt_), ptr(ptr_) { }
+      ~HsailBuffer()
+      {
+#ifndef _WIN32
+        rt->BufferDestroy(ptr);
+#endif // _WIN32
+      }
+
+      void* Ptr() { return ptr; }
+    };
+
+    void BufferDestroy(void *ptr)
+    {
+      hsa_status_t status = Runtime()->Hsa()->hsa_memory_deregister(ptr);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister failed", status); }
+      alignedFree(ptr);
+    }
+
+    virtual bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId) override
+    {
+      size = (std::max)(size, (size_t) 256);
+      void *ptr = alignedMalloc(size, 256);
+      hsa_status_t status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); alignedFree(ptr); return 0; }
+      if (!initValuesId.empty()) {
+        Values* initValues = context->Get<Values>(initValuesId);
+        assert(initValues->size() <= size);
+        WriteTo(ptr, *initValues);
+      }
+      Put(bufferId, new HsailBuffer(this, ptr));
+      return true;
+    }
+
+    virtual bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") override
+    {
+      HsailBuffer *buf = context->Get<HsailBuffer>(bufferId);
+      context->Info() << "Validating buffer " << bufferId << " with expected values " << expectedValuesId << "(method: " << method << ")" << std::endl;
+      Values* expectedValues = context->Get<Values>(expectedValuesId);
+      return ValidateMemory(context, *expectedValues, buf->Ptr(), method);
+    }
+
+    hsa_access_permission_t ImageType2HsaAccessPermission(BrigType type)
+    {
+      switch (type) {
+      case BRIG_TYPE_ROIMG:
+        return HSA_ACCESS_PERMISSION_RO;
+      case BRIG_TYPE_RWIMG:
+        return HSA_ACCESS_PERMISSION_RW;
+      case BRIG_TYPE_WOIMG:
+        return HSA_ACCESS_PERMISSION_WO;
+      default:
+        assert(!"Unsupported type in ImageType2HsaAccessPermission"); return (hsa_access_permission_t) 0;
+      }
+    }
+
+    class HsailImage {
+    private:
+      HsailRuntimeContextState* rt;
+      hsa_ext_image_t image;
+      void *data;
+
+    public:
+      HsailImage(HsailRuntimeContextState* rt_, hsa_ext_image_t image_, void *data_)
+        : rt(rt_), image(image_), data(data_) { }
+      ~HsailImage()
+      {
+#ifndef _WIN32
+        rt->ImageDestroy(image, data);
+#endif // _WIN32
+      }
+
+      hsa_ext_image_t Image() { return image; }
+      void *Data() { return data; }
+    };
+
+    void ImageDestroy(hsa_ext_image_t image, void *data)
+    {
+      hsa_status_t status;
+      /*
+      status = Runtime()->Hsa()->hsa_memory_deregister(data);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister (image data) failed", status); }
+      */
+
+      status = Runtime()->Hsa()->hsa_ext_image_destroy(Runtime()->Agent(), image);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_destroy failed", status); }
+      alignedFree(data);
+    }
+
+    void ImageWriter(void* ptr, Values InitValues, hsa_ext_image_t image, const std::string imageParamsId, size_t image_size)
+    {
+      assert(ptr);
+      const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
+      char *p = (char *) ptr;
+      Value value = Value(MV_UINT8, 0);
+      if (InitValues.size() > 0) {
+        value = InitValues[0];
+      }
+      
+      if (ip->bLimitTest)
+      {
+        hsa_ext_image_region_t img_region;
+
+        img_region.offset.x = (uint32_t)ip->width - 1;
+        img_region.offset.y = (uint32_t)ip->height - 1;
+        img_region.offset.z = (uint32_t)ip->depth - 1;
+
+        img_region.range.x = 1;
+        img_region.range.y = 1;
+        img_region.range.z = 1;
+
+        char* pBuff = new char[value.Size()];
+        value.WriteTo(pBuff);
+        hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), pBuff, value.Size(), 1, image, &img_region);
+        delete[] pBuff;
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return; }
+      }
+      else
+      {
+        size_t size_val = value.Size();
+        for (size_t i = 0; i < image_size/size_val; ++i) {
+          value.WriteTo(p);
+          p += size_val;
+        }
+      }
+    }
+
+    virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId) override
+    {
+      const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
+      hsa_ext_image_descriptor_t image_descriptor;
+      image_descriptor.geometry = (hsa_ext_image_geometry_t) ip->geometry;
+      image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t) ip->channelOrder;
+      image_descriptor.format.channel_type = (hsa_ext_image_channel_type_t) ip->channelType;
+      image_descriptor.width = ip->width;
+      image_descriptor.height = ip->height;
+      image_descriptor.depth = ip->depth;
+      image_descriptor.array_size = ip->arraySize;
+      hsa_access_permission_t access_permission = ImageType2HsaAccessPermission(ip->imageType);
+
+      hsa_ext_image_data_info_t image_info = {0};
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_data_get_info(Runtime()->Agent(), &image_descriptor, access_permission, &image_info);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); return 0; }
+
+      hsa_ext_image_t image = {0};
+      void *imageData = NULL;
+      size_t size = (std::max)(image_info.size, (size_t) 256);
+      imageData = alignedMalloc(size, image_info.alignment);
+      if (!initValuesId.empty()) {
+        ImageWriter(imageData, *context->Get<Values>(initValuesId), image, imageParamsId, image_info.size);
+      }
+
+      /*
+      status = Runtime()->Hsa()->hsa_memory_register(imageData, size);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register (image data) failed", status); alignedFree(imageData); return 0; }
+      */
+
 /*
   hsa_region_t region = Runtime()->GetRegion(ImageRegionMatcher(image_info));
   if (!region.handle) { Runtime()->HsaError("Failed to find image region"); return 0; }
@@ -924,119 +491,379 @@ HObject* HsailMemoryState::AllocateImage(MImage* mi)
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate failed", status); return 0; }
 */
 
-  status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, ptr, access_permission, &image);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); free(ptr); return 0; }
+      status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, imageData, access_permission, &image);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData); return 0; }
 
-  //Write image handle
-  mi->Data() = Value(MV_IMAGE, image.handle);
+      Put(imageId, new HsailImage(this, image, imageData));
+      return true;
+    }
 
-  mi->Size() = image_info.size;
+    virtual bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") override
+    {
+      HsailImage* image = context->Get<HsailImage>(imageId);
+      Values expectedValues = context->GetValues(expectedValuesId);
+      return ValidateMemory(context, expectedValues, image->Data(), method);
+    }
 
-  return new HImage(this, mi, ptr, image);
+    class HsailSampler {
+    private:
+      HsailRuntimeContextState* rt;
+      hsa_ext_sampler_t sampler;
+
+    public:
+      HsailSampler(HsailRuntimeContextState* rt_, hsa_ext_sampler_t sampler_)
+        : rt(rt_), sampler(sampler_) { }
+      ~HsailSampler()
+      {
+#ifndef _WIN32
+        rt->SamplerDestroy(sampler);
+#endif // _WIN32
+      }
+
+      hsa_ext_sampler_t Sampler() { return sampler; }
+    };
+
+    void SamplerDestroy(hsa_ext_sampler_t sampler)
+    {
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_sampler_destroy(Runtime()->Agent(), sampler);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_sampler_destroy failed", status); }
+    }
+
+    virtual bool SamplerCreate(const std::string& samplerId, const std::string& samplerParamsId)
+    {
+      SamplerParams* params = context->Get<SamplerParams>(samplerParamsId);
+      hsa_ext_sampler_descriptor_t sampler_descriptor;
+      sampler_descriptor.address_mode = (hsa_ext_sampler_addressing_mode_t) params->addressing;
+      sampler_descriptor.coordinate_mode = (hsa_ext_sampler_coordinate_mode_t) params->filter;
+      sampler_descriptor.filter_mode = (hsa_ext_sampler_filter_mode_t) params->filter;
+      hsa_ext_sampler_t sampler;
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_sampler_create(Runtime()->Agent(), &sampler_descriptor, &sampler);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_sampler_create failed", status); return false; }
+      Put(samplerId, new HsailSampler(this, sampler));
+      return true;
+    }
+
+    struct HsailDispatch {
+      HsailRuntimeContextState* rt;
+      hsa_executable_t executable;
+      hsa_executable_symbol_t kernel;
+      uint64_t packetId;
+      hsa_kernel_dispatch_packet_t* packet;
+      uint64_t timeout;
+      size_t kernargOffset;
+
+      HsailDispatch(HsailRuntimeContextState* rt_)
+        : rt(rt_) { }
+
+      ~HsailDispatch() {
+#ifndef _WIN32
+        rt->DispatchDestroy(this);
+#endif // _WIN32
+      }
+    };
+
+    void DispatchDestroy(HsailDispatch* dispatch)
+    {
+      Runtime()->Hsa()->hsa_memory_free(dispatch->packet->kernarg_address);
+      Runtime()->Hsa()->hsa_signal_destroy(dispatch->packet->completion_signal);
+    }
+
+    virtual bool DispatchCreate(const std::string& dispatchId, const std::string& executableId, const std::string& kernelName) override
+    {
+      hsa_status_t status;
+      HsailExecutable* executable = context->Get<HsailExecutable>(executableId);
+
+      hsa_executable_symbol_t kernel;
+      if (!kernelName.empty()) {
+        std::string kname = "&" + kernelName;
+        status = Runtime()->Hsa()->hsa_executable_get_symbol(executable->Executable(), "m", kname.c_str(), Runtime()->Agent(), 0, &kernel);
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_get_symbol failed", status); return false; }
+      } else {
+        IterateData<hsa_executable_symbol_t, int> idata(Runtime(), &kernel);
+        status = Runtime()->Hsa()->hsa_executable_iterate_symbols(executable->Executable(), IterateExecutableSymbolsGetKernel, &idata);
+      }
+      assert(kernel.handle);
+
+      uint32_t kernargSize;
+      status = Runtime()->Hsa()->hsa_executable_symbol_get_info(kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE, &kernargSize);      
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE) failed", status); return false; }
+
+      hsa_region_t kernargRegion = Runtime()->GetRegion(RegionMatchKernarg);
+      if (!kernargRegion.handle) { context->Error() << "Failed to find kernarg region" << std::endl; return false; }
+
+      hsa_queue_t* queue = Runtime()->Queue();
+      uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);
+      hsa_kernel_dispatch_packet_t* p = (hsa_kernel_dispatch_packet_t*) queue->base_address + packetId;
+      memset(p, 0, sizeof(*p));
+
+      status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
+        kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT, &p->kernel_object);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT) failed", status); return false; }
+
+      if (kernargSize > 0) {
+        status = Runtime()->Hsa()->hsa_memory_allocate(kernargRegion, kernargSize, &p->kernarg_address);
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate(kernargRegion) failed", status); return false; }
+      } else {
+        p->kernarg_address = 0;
+      }
+
+      status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
+        kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE, &p->private_segment_size);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_PRIVATE_SEGMENT_SIZE) failed", status); return false; }
+      bool dynamicCallStack = false;
+      status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
+        kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_DYNAMIC_CALLSTACK, &dynamicCallStack);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_CODE_SYMBOL_INFO_KERNEL_DYNAMIC_CALLSTACK) failed", status); return false; }
+      if (dynamicCallStack) {
+        // Set to 16K for now.
+        // TODO: a strategy for choosing this size, for example, based on expected number of frames/extra allocation used by test.
+        p->private_segment_size = (std::max)((uint32_t) 16 * 1024 * 1024, p->private_segment_size);
+      }
+
+      status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
+        kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE, &p->group_segment_size);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE) failed", status); return false; }
+      if (context->Has("dynamicgroupsize")) {
+        p->group_segment_size += context->GetValue("dynamicgroupsize").U32();
+      }
+
+      status = Runtime()->Hsa()->hsa_signal_create(1, 0, 0, &p->completion_signal);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_signal_create(completion_signal) failed", status); return false; }
+      context->Put("packetcompletionsig", Value(MV_UINT64, p->completion_signal.handle));
+
+      p->header |=
+        (1 << HSA_PACKET_HEADER_BARRIER) |
+        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_ACQUIRE_FENCE_SCOPE) |
+        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_RELEASE_FENCE_SCOPE);
+
+      p->setup = context->GetValue(dispatchId, "dimensions").U16() << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
+      p->workgroup_size_x = context->GetValue(dispatchId, "workgroupSize[0]").U16();
+      p->workgroup_size_y = context->GetValue(dispatchId, "workgroupSize[1]").U16();
+      p->workgroup_size_z = context->GetValue(dispatchId, "workgroupSize[2]").U16();
+      p->grid_size_x = context->GetValue(dispatchId, "gridSize[0]").U32();
+      p->grid_size_y = context->GetValue(dispatchId, "gridSize[1]").U32();
+      p->grid_size_z = context->GetValue(dispatchId, "gridSize[2]").U32();
+
+      HsailDispatch* d = new HsailDispatch(this);
+      d->executable = executable->Executable();
+      d->kernel = kernel;
+      d->packetId = packetId;
+      d->packet = p;
+      d->timeout = 60 * CLOCKS_PER_SEC;
+      d->kernargOffset = 0;
+      Put(dispatchId, d);
+      return true;
+    }
+
+    Value GetValue(DispatchArgType argType, const std::string& argKey)
+    {
+      switch (argType) {
+      case DARG_VALUE:
+        return context->GetValue(argKey);
+      case DARG_BUFFER:
+      {
+        HsailBuffer* buf = context->Get<HsailBuffer>(argKey);
+        return Value(MV_POINTER, P(buf->Ptr()));
+      }
+      case DARG_IMAGE:
+      {
+        HsailImage* image = context->Get<HsailImage>(argKey);
+        return Value(MV_UINT64, image->Image().handle);
+      }
+      case DARG_SAMPLER:
+      {
+        HsailSampler* sampler = context->Get<HsailSampler>(argKey);
+        return Value(MV_UINT64, sampler->Sampler().handle);
+      }
+      case DARG_SIGNAL:
+      {
+        HsailSignal* signal = context->Get<HsailSignal>(argKey);
+        return Value(MV_UINT64, signal->Signal().handle);
+      }
+      case DARG_QUEUE:
+      {
+        HsailQueue* queue = context->Get<HsailQueue>(argKey);
+        return Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uint64_t) (uintptr_t) queue->Queue());
+      }
+      default:
+        assert(!"Unsupported arg type in GetValue"); return Value(MV_UINT64, 0);
+      }
+    }
+
+    bool DispatchArg(const std::string& dispatchId, DispatchArgType argType, const std::string& argKey) override
+    {
+      HsailDispatch* d = context->Get<HsailDispatch>(dispatchId);
+      char *kernarg = (char *) d->packet->kernarg_address;
+      switch (argType) {
+      case DARG_VALUES:
+      {
+        Values* values = context->Get<Values>(argKey);
+        assert(values->size() > 0);
+        Value v = (*values)[0];
+        d->kernargOffset = ((d->kernargOffset + v.Size() - 1) / v.Size()) * v.Size();
+        WriteTo(kernarg + d->kernargOffset, *values);
+        d->kernargOffset += v.Size() * values->size();
+        break;
+      }
+      default:
+      {
+        Value v = GetValue(argType, argKey);
+        d->kernargOffset = ((d->kernargOffset + v.Size() - 1) / v.Size()) * v.Size();
+        v.WriteTo(kernarg + d->kernargOffset);
+        d->kernargOffset += v.Size();
+        break;
+      }
+      }
+      return true;
+    }
+
+    virtual bool DispatchExecute(const std::string& dispatchId) override
+    {
+      HsailDispatch* d = context->Get<HsailDispatch>(dispatchId);
+      assert(d);
+
+      hsa_queue_t* queue = Runtime()->Queue();
+
+      // Notify.
+      d->packet->header |= (HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE);
+      Runtime()->Hsa()->hsa_signal_store_release(queue->doorbell_signal, d->packetId);
+
+      // Wait for kernel completion.
+      hsa_signal_value_t result;
+      clock_t beg = clock();
+      do {
+        result = Runtime()->Hsa()->hsa_signal_wait_acquire(d->packet->completion_signal, HSA_SIGNAL_CONDITION_EQ, 0, d->timeout, HSA_WAIT_STATE_ACTIVE);
+        clock_t clocks = clock() - beg;
+        if (clocks > (clock_t) d->timeout && result != 0) {
+          context->Error() << "Kernel execution timed out, elapsed time: " << (long) clocks << " clocks (clocks per second " << (long) CLOCKS_PER_SEC << ")" << std::endl;
+          return false;
+        }
+      } while (result!= 0);
+      return !Runtime()->IsError();
+    }
+
+    class HsailSignal {
+    private:
+      HsailRuntimeContextState* rt;
+      hsa_signal_t signal;
+
+    public:
+      HsailSignal(HsailRuntimeContextState* rt_, hsa_signal_t signal_)
+        : rt(rt_), signal(signal_) { }
+      ~HsailSignal()
+      {
+#ifndef _WIN32
+        rt->SignalDestroy(signal);
+#endif // _WIN32
+      }
+
+      hsa_signal_t Signal() { return signal; }
+    };
+
+    void SignalDestroy(hsa_signal_t signal)
+    {
+      hsa_status_t status = Runtime()->Hsa()->hsa_signal_destroy(signal);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_signal_destroy failed", status); }
+    }
+
+    virtual bool SignalCreate(const std::string& signalId, uint64_t signalInitialValue = 1) override
+    {
+      hsa_status_t status;
+      hsa_signal_t signal;
+      status = Runtime()->Hsa()->hsa_signal_create(signalInitialValue, 0, 0, &signal);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_signal_create failed", status); return false; }
+      Put(signalId, new HsailSignal(this, signal));
+      return true;
+    }
+
+    virtual bool SignalSend(const std::string& signalId, uint64_t signalSendValue = 1) override
+    {
+      HsailSignal* signal = context->Get<HsailSignal>(signalId);
+      Runtime()->Hsa()->hsa_signal_store_release(signal->Signal(), signalSendValue);
+      return true;
+    }
+
+    virtual bool SignalWait(const std::string& signalId, uint64_t expectedValue = 1) override
+    {
+      uint64_t timeout = 60 * CLOCKS_PER_SEC;
+      HsailSignal* signal = context->Get<HsailSignal>(signalId);
+      hsa_signal_value_t acquiredValue;
+      bool result = true;
+      clock_t beg = clock();
+      do {
+        acquiredValue = Runtime()->Hsa()->hsa_signal_wait_acquire(signal->Signal(), HSA_SIGNAL_CONDITION_EQ, expectedValue, timeout, HSA_WAIT_STATE_ACTIVE);
+        clock_t clocks = clock() - beg;
+        if (clocks > (clock_t) timeout && acquiredValue != (hsa_signal_value_t) expectedValue) {
+          context->Info() << "Signal '" << signalId << "' wait timed out, elapsed time: " <<
+            (uint64_t)clocks << " clocks (clocks per second " << (uint64_t)CLOCKS_PER_SEC << ")" << std::endl;
+          result = false;
+          break;
+        }
+      } while ((hsa_signal_value_t) expectedValue != acquiredValue);
+      context->Info() << "Signal '" << signalId << "' handle: " << std::hex << signal->Signal().handle << std::dec
+                      << ", expected value: " << expectedValue << ", acquired value: " << acquiredValue << std::endl;
+      return result;
+    }
+
+    class HsailQueue {
+    private:
+      HsailRuntimeContextState* rt;
+      hsa_queue_t* queue;
+
+    public:
+      HsailQueue(HsailRuntimeContextState* rt_, hsa_queue_t* queue_)
+        : rt(rt_), queue(queue_) { }
+      ~HsailQueue()
+      {
+#ifndef _WIN32
+        rt->QueueDestroy(queue);
+#endif // _WIN32
+      }
+
+      hsa_queue_t* Queue() { return queue; }
+    };
+
+    void QueueDestroy(hsa_queue_t* queue)
+    {
+      hsa_status_t status = Runtime()->Hsa()->hsa_queue_destroy(queue);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_queue_destroy failed", status); }
+    }
+
+    virtual bool QueueCreate(const std::string& queueId, uint32_t size = 0) override
+    {
+      hsa_queue_t* queue;
+      hsa_status_t status;
+      if (size == 0) {
+        status = Runtime()->Hsa()->hsa_agent_get_info(runtime->Agent(), HSA_AGENT_INFO_QUEUE_MAX_SIZE, &size);
+        if (status != HSA_STATUS_SUCCESS) {
+          runtime->HsaError("hsa_agent_get_info failed", status);
+          return false;
+        }
+      }
+      status = Runtime()->Hsa()->hsa_queue_create(runtime->Agent(), size, HSA_QUEUE_TYPE_MULTI, HsaQueueErrorCallback, runtime, UINT32_MAX, UINT32_MAX, &queue);
+      if (status != HSA_STATUS_SUCCESS) {
+        runtime->HsaError("hsa_queue_create failed", status);
+        return false;
+      }
+      Put(queueId, new HsailQueue(this, queue));
+      return true;
+    }
+
+  };
+
+#define HSARUNTIMECORENAME (sizeof(void*) == 4) ? "hsa-runtime" : "hsa-runtime64"
+
+HsailRuntimeContext::HsailRuntimeContext(Context* context)
+  : RuntimeContext(context),
+    hsaApi(context, context->Opts(), HSARUNTIMECORENAME),
+    queue(0), queueSize(0), error(false)
+{
 }
 
-HObject* HsailMemoryState::AllocateRImage(MRImage* mr)
+runtime::RuntimeState* HsailRuntimeContext::NewState(Context* context)
 {
-  assert(mr);
-  HImage* hi = Get<HImage>(mr->RefId());
-  return new HRImage(this, mr, hi);
-}
-
-HObject* HsailMemoryState::AllocateSampler(MSampler* ms)
-{
-  assert(ms);
-
-  hsa_ext_sampler_descriptor_t samp_descriptor;
-  samp_descriptor.coordinate_mode = (hsa_ext_sampler_coordinate_mode_t)ms->Coords();
-  samp_descriptor.filter_mode = (hsa_ext_sampler_filter_mode_t)ms->Filter();
-  samp_descriptor.address_mode = (hsa_ext_sampler_addressing_mode_t)ms->Addressing();
-  hsa_ext_sampler_t sampler = {0};
-  hsa_status_t status = Runtime()->Hsa()->hsa_ext_sampler_create(Runtime()->Agent(), &samp_descriptor, &sampler);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_sampler_create failed", status); return 0; }
-
-  ms->Data() = Value(MV_SAMPLER, sampler.handle);
-
-  return new HSampler(this, ms, sampler);
-}
-
-HObject* HsailMemoryState::AllocateRSampler(MRSampler* mr)
-{
-  assert(mr);
-  HSampler* hs = Get<HSampler>(mr->RefId());
-  return new HRSampler(this, mr, hs);
-}
-
-HsailRuntimeContext* HsailMemoryState::Runtime()
-{
-  return state->Runtime();
-}
-
-Program* HsailRuntimeContextState::NewProgram()
-{
-  hsa_ext_program_t handle;
-  hsa_machine_model_t machineModel =
-    sizeof(void *) == 4 ? HSA_MACHINE_MODEL_SMALL : HSA_MACHINE_MODEL_LARGE;
-  hsa_profile_t profile = HSA_PROFILE_FULL;
-  hsa_status_t status =
-    Runtime()->Hsa()->hsa_ext_program_create(
-      machineModel, profile, HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &handle);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_create failed", status); return 0; }
-  return new HsailProgram(this, handle);
-}
-
-
-Module* HsailRuntimeContextState::NewModuleFromBrig(brig_container_t brig)
-{
-  // Temporarily validate BRIG here until hsa_ext_validate_program is implemented in Runtime.
-  int status = brig_container_validate(brig);
-  if (status != 0) {
-    Runtime()->hsailcError("brig_container_validate failed", brig, status);
-    return 0;
-  }
-
-  return new HsailModule(this, brig, GetBrigUniqueKernelOffset(brig));
-}
-
-Module* HsailRuntimeContextState::NewModuleFromHsailText(const std::string& hsailText)
-{
-  brig_container_t brig = brig_container_create_empty();
-  int status = brig_container_assemble_from_memory(brig, hsailText.c_str(), hsailText.size(), NULL);
-  if (status != 0) { Runtime()->hsailcError("brig_container_assemble_from_memory failed", brig, status); return 0; }
-  return NewModuleFromBrig(brig);
-}
-
-Code* HsailRuntimeContextState::Finalize(Program* program, BrigCodeOffset32_t kernelOffset, DispatchSetup* dsetup)
-{
-  HsailProgram* hsailProgram = static_cast<HsailProgram*>(program);
-  if (kernelOffset == 0) { kernelOffset = hsailProgram->UniqueKernelOffset(); }
-  hsa_isa_t isa;
-  hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_info(Runtime()->Agent(), HSA_AGENT_INFO_ISA, &isa);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_agent_get_info(HSA_AGENT_INFO_ISA) failed", status); return 0; }
-  hsa_ext_control_directives_t cd;
-  memset(&cd, 0, sizeof(cd));
-  hsa_code_object_t codeObject;
-  status = Runtime()->Hsa()->hsa_ext_program_finalize(
-    hsailProgram->Handle(),
-    isa, 0, cd, "", HSA_CODE_OBJECT_TYPE_PROGRAM, &codeObject);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_finalize_program failed", status); return 0; }
-  return new HsailCode(this, codeObject);
-}
-
-Dispatch* HsailRuntimeContextState::NewDispatch(Code* code)
-{
-  HsailCode* hsailCode = static_cast<HsailCode*>(code);
-  hsa_executable_t executable;
-  hsa_status_t status;
-  status = Runtime()->Hsa()->hsa_executable_create(HSA_PROFILE_FULL, HSA_EXECUTABLE_STATE_UNFROZEN, "", &executable);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_create failed", status); return 0; }
-  status = Runtime()->Hsa()->hsa_executable_load_code_object(executable, Runtime()->Agent(), hsailCode->CodeObject(), "");
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_create failed", status); return 0; }
-  hsa_executable_symbol_t kernel;
-  IterateData<hsa_executable_symbol_t, int> idata(Runtime(), &kernel);
-  status = Runtime()->Hsa()->hsa_executable_iterate_symbols(executable, IterateExecutableSymbolsGetKernel, &idata);
-  if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_iterate_symbols failed", status); return 0; }
-  assert(kernel.handle);
-  return new HsailDispatch(this, executable, kernel);
+  this->context = context;
+  return new HsailRuntimeContextState(this, context);
 }
 
 static hsa_status_t IterateAgentGetHsaDevice(hsa_agent_t agent, void *data) {
@@ -1113,9 +940,13 @@ bool HsailRuntimeContext::Init() {
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_system_get_info failed", status); return false; }
   uint16_t exceptionMask;
   status = Hsa()->hsa_agent_get_exception_policies(agent, profile, &exceptionMask);
-  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_exception_policies failed", status); return false; }
-  isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
-  isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
+  if (status != HSA_STATUS_SUCCESS) { // in case hsa_agent_get_exception_policies function is not supported
+    isBreakSupported = false;
+    isDetectSupported = false;
+  } else {
+    isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
+    isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
+  }
 
   context->Put("queueid", Value(MV_UINT32, Queue()->id));
   context->Put("queueptr", Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) Queue()));
@@ -1145,14 +976,21 @@ hsa_region_t HsailRuntimeContext::GetRegion(RegionMatch match)
 bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region)
 {
   hsa_status_t status;
+  hsa_region_global_flag_t flags;
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_GLOBAL_FLAGS, &flags);
+  if (status != HSA_STATUS_SUCCESS) { return false; }
+  if (!(flags & HSA_REGION_GLOBAL_FLAG_KERNARG)) { return false; }
+
   bool allocAllowed;
   status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED, &allocAllowed);
   if (status != HSA_STATUS_SUCCESS) { return false; }
   if (!allocAllowed) { return false; }
+
   size_t granule;
   status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE, &granule);
   if (status != HSA_STATUS_SUCCESS) { return false; }
-  if (granule > sizeof(size_t)) { return false; }
+  // if (granule > sizeof(size_t)) { return false; }
+
   size_t maxSize;
   status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_ALLOC_MAX_SIZE, &maxSize);
   if (status != HSA_STATUS_SUCCESS) { return false; }
@@ -1160,197 +998,43 @@ bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region)
   return true;
 }
 
-HsailRuntimeContext* HsailRuntimeFromContext(RuntimeContext* runtime)
-{
-  assert(runtime->Name() == "hsa");
-  return static_cast<HsailRuntimeContext*>(runtime);
 }
 
-const HsaApi& HsaApiFromContext(RuntimeContext* runtime)
-{
-  return HsailRuntimeFromContext(runtime)->Hsa();
-}
-
-}
-
-RuntimeContext* CreateHsailRuntimeContext(Context* context)
+runtime::RuntimeContext* CreateHsailRuntimeContext(Context* context)
 {
   return new hsail_runtime::HsailRuntimeContext(context);
 }
 
-namespace scenario {
+  template <>
+  void Print<hsa_queue_t>(const hsa_queue_t& tf, std::ostream& out) { }
 
-using namespace hsail_runtime;
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState>(const hsail_runtime::HsailRuntimeContextState&, std::ostream& out) { }
 
-class CreateSignalCommand : public Command {
-private:
-  std::string signalId;
-  uint64_t signalInitialValue;
-  hsa_signal_t signal;
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailBuffer>(const hsail_runtime::HsailRuntimeContextState::HsailBuffer&, std::ostream& out) { }
 
-public:
-  CreateSignalCommand(const std::string& signalId_, uint64_t signalInitialValue_)
-    : signalId(signalId_), signalInitialValue(signalInitialValue_) { }
-  virtual ~CreateSignalCommand() {
-    HsailRuntimeContext* hsailRTContext = HsailRuntimeFromContext(context->Runtime());
-    if (hsailRTContext)
-      hsailRTContext->Hsa()->hsa_signal_destroy(signal);
-  }
-  bool Finish() { return true; }
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailProgram>(const hsail_runtime::HsailRuntimeContextState::HsailProgram&, std::ostream& out) { }
 
-  virtual bool Run() {
-    bool result = true;
-    hsa_status_t status;
-    HsailRuntimeContext* hsailRTContext = HsailRuntimeFromContext(context->Runtime());
-    status = hsailRTContext->Hsa()->hsa_signal_create(signalInitialValue, hsailRTContext->AgentCount(), hsailRTContext->Agents(), &signal);
-    if (status != HSA_STATUS_SUCCESS) { hsailRTContext->HsaError("Failed to create signal", status); result = false; }
-    context->Put(signalId, Value(MV_UINT64, U64(signal.handle)));
-    std::stringstream ss;
-    ss << "Signal '" << signalId << "' handle: " << std::hex << signal.handle << std::dec
-       << ", initial value: " << signalInitialValue << std::endl;
-    context->Info() << ss.str();
-    return result;
-  }
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailExecutable>(const hsail_runtime::HsailRuntimeContextState::HsailExecutable&, std::ostream& out) { }
 
-  void Print(std::ostream& out) const {
-    out << "create_signal " << signalId << " " << signalInitialValue;
-  }
-};
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailCode>(const hsail_runtime::HsailRuntimeContextState::HsailCode&, std::ostream& out) { }
 
-class SendSignalCommand : public Command {
-private:
-  std::string signalId;
-  uint64_t signalSendValue;
-  hsa_signal_t signal;
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailDispatch>(const hsail_runtime::HsailRuntimeContextState::HsailDispatch&, std::ostream& out) { }
 
-public:
-  SendSignalCommand(const std::string& signalId_, uint64_t signalSendValue_)
-    : signalId(signalId_), signalSendValue(signalSendValue_) { }
-  bool Finish() { return true; }
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailImage>(const hsail_runtime::HsailRuntimeContextState::HsailImage&, std::ostream& out) { }
 
-  virtual bool Run() {
-    HsailRuntimeContext* hsailRTContext = HsailRuntimeFromContext(context->Runtime());
-    signal.handle = context->GetValue(signalId).U64();
-    hsailRTContext->Hsa()->hsa_signal_store_relaxed(signal, (hsa_signal_value_t) signalSendValue);
-    std::stringstream ss;
-    ss << "Signal '" << signalId << "' handle: " << std::hex << signal.handle << std::dec
-       << ", stored value: " << signalSendValue << std::endl;
-    context->Info() << ss.str();
-    return true;
-  }
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailSampler>(const hsail_runtime::HsailRuntimeContextState::HsailSampler&, std::ostream& out) { }
 
-  void Print(std::ostream& out) const {
-    out << "send_signal " << signalId << " " << signalSendValue;
-  }
-};
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailSignal>(const hsail_runtime::HsailRuntimeContextState::HsailSignal&, std::ostream& out) { }
 
-class WaitSignalCommand : public Command {
-private:
-  std::string signalId;
-  hsa_signal_value_t expectedValue;
-  hsa_signal_value_t acquiredValue;
-  hsa_signal_t signal;
-  uint64_t timeout;
-
-public:
-  WaitSignalCommand(const std::string& signalId_, hsa_signal_value_t expectedValue_)
-    : signalId(signalId_), expectedValue(expectedValue_), timeout(60 * CLOCKS_PER_SEC) { }
-
-  bool Finish() { return true; }
-
-  virtual bool Run() {
-    const HsaApi& hsa = HsailRuntimeFromContext(context->Runtime())->Hsa();
-    signal.handle = context->GetValue(signalId).U64();
-    bool result = true;
-    clock_t beg = clock();
-    do {
-      acquiredValue = hsa->hsa_signal_wait_acquire(signal, HSA_SIGNAL_CONDITION_EQ, expectedValue, timeout, HSA_WAIT_STATE_ACTIVE);
-      clock_t clocks = clock() - beg;
-      if (clocks > (clock_t) timeout && acquiredValue != expectedValue) {
-        context->Info() << "Signal '" << signalId << "' wait timed out, elapsed time: " << (uint64_t) clocks << " clocks (clocks per second " << (uint64_t) CLOCKS_PER_SEC << ")" << std::endl;
-        result = false;
-        break;
-      }
-    } while (expectedValue != acquiredValue);
-    context->Info() << "Signal '" << signalId << "' handle: " << std::hex << signal.handle << std::dec
-                    << ", expected value: " << expectedValue << ", acquired value: " << acquiredValue << std::endl;
-    return result;
-  }
-
-  void Print(std::ostream& out) const {
-    out << "wait_signal " << signalId << " " << expectedValue;
-  }
-};
-
-class CreateQueueCommand : public Command {
-private:
-  std::string queueId;
-  uint32_t size;
-  hsa_queue_t* queue;
-
-public:
-  CreateQueueCommand(const std::string& queueId_, uint32_t size_)
-    : queueId(queueId_), size(size_), queue(0)  { }
-
-  bool Finish() {
-    if (queue) {
-      HsailRuntimeContext* runtime = HsailRuntimeFromContext(context->Runtime());
-      const HsaApi& hsa = runtime->Hsa();
-      hsa_status_t status = hsa->hsa_queue_destroy(queue);
-      if (status != HSA_STATUS_SUCCESS) {
-        runtime->HsaError("hsa_queue_destroy failed", status);
-        return false;
-      }
-    }
-    return true;
-  }
-
-  virtual bool Run() {
-    HsailRuntimeContext* runtime = HsailRuntimeFromContext(context->Runtime());
-    const HsaApi& hsa = runtime->Hsa();
-    hsa_status_t status;
-    if (size == 0) {
-      status = hsa->hsa_agent_get_info(runtime->Agent(), HSA_AGENT_INFO_QUEUE_MAX_SIZE, &size);
-      if (status != HSA_STATUS_SUCCESS) {
-        runtime->HsaError("hsa_agent_get_info failed", status);
-        return false;
-      }
-    }
-    status = hsa->hsa_queue_create(runtime->Agent(), size, HSA_QUEUE_TYPE_MULTI, HsaQueueErrorCallback, runtime, UINT32_MAX, UINT32_MAX, &queue);
-    if (status != HSA_STATUS_SUCCESS) {
-      runtime->HsaError("hsa_queue_create failed", status);
-      return false;
-    }
-    context->Put(queueId, queue);
-    context->Info() << "Created queue " << queueId << ": " << std::hex << (uint64_t) queue << std::dec << std::endl;
-    return true;
-  }
-
-  void Print(std::ostream& out) const {
-    out << "create_queue " << queueId << " " << size;
-  }
-};
-
-void CommandSequence::CreateSignal(const std::string& signalId, uint64_t signalInitialValue)
-{
-  Add(new CreateSignalCommand(signalId, signalInitialValue));
-}
-
-void CommandSequence::SendSignal(const std::string& signalId, uint64_t signalSendValue)
-{
-  Add(new SendSignalCommand(signalId, signalSendValue));
-}
-
-void CommandSequence::WaitSignal(const std::string& signalId, uint64_t signalExpectedValue)
-{
-  Add(new WaitSignalCommand(signalId, signalExpectedValue));
-}
-
-void CommandSequence::CreateQueue(const std::string& queueId, uint32_t size)
-{
-  Add(new CreateQueueCommand(queueId, size));
-}
-
-}
-
+  template <>
+  void Print<hsail_runtime::HsailRuntimeContextState::HsailQueue>(const hsail_runtime::HsailRuntimeContextState::HsailQueue&, std::ostream& out) { }
 }

@@ -55,6 +55,7 @@ public:
   typedef std::vector<std::string> MultiString; // use vector because we want testing order 
                                                 // to be the same as order of "testlist"
                                                 // options in the command line
+  void Print(std::ostream& out) const { }
   bool IsSet(const std::string& name) const;
   std::string GetString(const std::string& name, const std::string& defaultValue = "") const;
   void SetString(const std::string& name, const std::string& value);

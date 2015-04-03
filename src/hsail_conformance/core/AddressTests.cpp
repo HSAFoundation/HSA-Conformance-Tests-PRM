@@ -89,12 +89,15 @@ protected:
 
   DirectiveVariable in;
 
-  void SetupDispatch(DispatchSetup* dsetup) {
-    Test::SetupDispatch(dsetup);
+  void SetupDispatch(const std::string& dispatchId) {
+    Test::SetupDispatch(dispatchId);
+    /*
+    te->TestScenario()->Commands()->DispatchArg(dispatchId, 
     unsigned id = dsetup->MSetup().Count();
     MObject* in = NewMValue(id++, "Input", MEM_GLOBAL, addressSpec->VType(), U64(42));
     dsetup->MSetup().Add(in);
     dsetup->MSetup().Add(NewMValue(id++, "Input (arg)", MEM_KERNARG, MV_REF, R(in->Id())));
+    */
   }
 
   void KernelArguments() {

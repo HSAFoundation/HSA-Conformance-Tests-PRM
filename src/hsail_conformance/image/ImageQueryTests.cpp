@@ -67,7 +67,7 @@ public:
     //  return false;
     //}
 
-    return (codeLocation != FUNCTION);
+    return IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing) && (codeLocation != FUNCTION);
   }
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }
@@ -123,7 +123,7 @@ public:
   }
 
   bool IsValid() const override {
-    return IsImageSupported(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageQueryGeometrySupport(imageGeometryProp, imageQuery) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
+    return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageQueryGeometrySupport(imageGeometryProp, imageQuery) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
 
   void Init() {

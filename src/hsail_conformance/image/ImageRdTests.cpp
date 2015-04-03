@@ -39,6 +39,7 @@ private:
   BrigSamplerCoordNormalization samplerCoord;
   BrigSamplerFilter samplerFilter;
   BrigSamplerAddressing samplerAddressing;
+  Value color[4];
 
 public:
   ImageRdTest(Location codeLocation, 
@@ -58,92 +59,49 @@ public:
   ImageCalc calc;
 
   void Init() {
-   Test::Init();
+    Test::Init();
 
-   EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
-   imageSpec.Geometry(imageGeometryProp);
-   imageSpec.ChannelOrder(imageChannelOrder);
-   imageSpec.ChannelType(imageChannelType);
-   imageSpec.Width(imageGeometry.ImageWidth());
-   imageSpec.Height(imageGeometry.ImageHeight());
-   imageSpec.Depth(imageGeometry.ImageDepth());
-   imageSpec.ArraySize(imageGeometry.ImageArray());
-   imgobj = kernel->NewImage("%roimage", &imageSpec);
-   imgobj->InitMemValue(Value(MV_UINT32, 0x00000032));
+    EImageSpec imageSpec(BRIG_SEGMENT_KERNARG, BRIG_TYPE_ROIMG);
+    imageSpec.Geometry(imageGeometryProp);
+    imageSpec.ChannelOrder(imageChannelOrder);
+    imageSpec.ChannelType(imageChannelType);
+    imageSpec.Width(imageGeometry.ImageWidth());
+    imageSpec.Height(imageGeometry.ImageHeight());
+    imageSpec.Depth(imageGeometry.ImageDepth());
+    imageSpec.ArraySize(imageGeometry.ImageArray());
+    imgobj = kernel->NewImage("%roimage", &imageSpec);
+    imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, 0x32323232)));
  
-   ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
-   samplerSpec.CoordNormalization(samplerCoord);
-   samplerSpec.Filter(samplerFilter);
-   samplerSpec.Addresing(samplerAddressing);
-   smpobj = kernel->NewSampler("%sampler", &samplerSpec);
+    ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
+    samplerSpec.CoordNormalization(samplerCoord);
+    samplerSpec.Filter(samplerFilter);
+    samplerSpec.Addresing(samplerAddressing);
+    smpobj = kernel->NewSampler("%sampler", &samplerSpec);
 
-   imgobj->InitImageCalculator(smpobj, imgobj->GetRawData());
-  }
+    imgobj->InitImageCalculator(smpobj);
 
-  void ModuleDirectives() override {
-    be.EmitExtensionDirective("IMAGE");
-  }
-
-  Value ExpectedResult() const {
-    Value color[4];
     Value coords[3];
     coords[0] = Value(0.0f);
     coords[1] = Value(0.0f);
     coords[2] = Value(0.0f);
     imgobj->ReadColor(coords, color);
     
-    switch (imageChannelType)
+  }
+
+  void ModuleDirectives() override {
+    be.EmitExtensionDirective("IMAGE");
+  }
+
+  uint64_t ResultDim() const override {
+    return 4;
+  }
+
+  void ExpectedResults(Values* result) const {
+    for (unsigned i = 0; i < 4; i ++)
     {
-    case BRIG_CHANNEL_TYPE_SNORM_INT16:
-      if (samplerFilter == BRIG_FILTER_LINEAR)
-      {
-        if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-        {
-          switch (imageGeometryProp)
-          {
-          case BRIG_GEOMETRY_1D:
-          case BRIG_GEOMETRY_1DA:
-            return Value(MV_UINT32, 0xB7800100);
-          case BRIG_GEOMETRY_2D:
-          case BRIG_GEOMETRY_2DA:
-            return Value(MV_UINT32, 0xB7000100);
-          case BRIG_GEOMETRY_3D:
-            return Value(MV_UINT32, 0);
-          default:
-            break;
-          }
-          return Value(MV_UINT32, 0xBB810204);
-        }
-      }
-      return (imageChannelOrder == BRIG_CHANNEL_ORDER_A) ? Value(MV_UINT32, color[3].U32()) : Value(MV_UINT32, color[0].U32());
-    case BRIG_CHANNEL_TYPE_UNORM_INT16:
-      if (samplerFilter == BRIG_FILTER_LINEAR) {
-        if (samplerAddressing == BRIG_ADDRESSING_CLAMP_TO_BORDER)
-        {
-          switch (imageGeometryProp)
-          {
-          case BRIG_GEOMETRY_1D:
-          case BRIG_GEOMETRY_1DA:
-            return Value(MV_UINT32, 0x3F000000);
-          case BRIG_GEOMETRY_2D:
-          case BRIG_GEOMETRY_2DA:
-            return Value(MV_UINT32, 0x3E800000);
-          case BRIG_GEOMETRY_3D:
-            return Value(MV_UINT32, 0x3E000080);
-          default:
-            break;
-          }
-          return Value(MV_UINT32, 0x3F000000);
-        }
-      }
-      return (imageChannelOrder == BRIG_CHANNEL_ORDER_A) ? Value(MV_UINT32, color[3].U32()) : Value(MV_UINT32, color[0].U32());
-    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-    case BRIG_CHANNEL_TYPE_FLOAT:
-      return Value(MV_UINT32, 0xFFC00000);
-    default:
-      break;
+      Value res = Value(MV_UINT32, color[i].U32());
+      result->push_back(res);
     }
-    return (imageChannelOrder == BRIG_CHANNEL_ORDER_A) ? Value(MV_UINT32, color[3].U32()) : Value(MV_UINT32, color[0].U32());
   }
 
   bool IsValid() const override {
@@ -164,58 +122,59 @@ public:
       default:
         break;
       }
-	  //currently rd test will generate coordinate 0, which will sample out of range texel
-	  //for linear filtering. We should not test it, because it implementation defined.
-	  //TODO:
-	  //Change rd test with linear filter and undefined addressing
-	  //to not read from edge of an image
-	  if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
-		  return false;
+	    //currently rd test will generate coordinate 0, which will sample out of range texel
+	    //for linear filtering. We should not test it, because it implementation defined.
+	    //TODO:
+	    //Change rd test with linear filter and undefined addressing
+	    //to not read from edge of an image
+	    if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
+		    return false;
     }
-    return IsImageSupported(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
+    
+    if(!IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing))
+      return false;
+    return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
  
   BrigType ResultType() const {
     return BRIG_TYPE_U32; 
   }
 
-  size_t OutputBufferSize() const override {
-    return imageGeometry.ImageSize()*4;
+  BrigType CoordType() const {
+    return BRIG_TYPE_F32; 
   }
 
   TypedReg Get1dCoord()
   {
-    auto result = be.AddTReg(BRIG_TYPE_F32);
+    auto result = be.AddTReg(CoordType());
     auto x = be.EmitWorkitemAbsId(0, false);
     be.EmitMov(result, x->Reg());
     return result;
   }
 
-  OperandOperandList Get2dCoord()
+  TypedReg Get2dCoord()
   {
-    auto result = be.AddVec(BRIG_TYPE_F32, 2);
+    auto result = be.AddTReg(CoordType(), 2);
     auto x = be.EmitWorkitemAbsId(1, false);
     auto y = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result.elements(0), x->Reg(), 32);
-    be.EmitMov(result.elements(1), y->Reg(), 32);
+    be.EmitMov(result->Reg(0), x->Reg(), 32);
+    be.EmitMov(result->Reg(1), y->Reg(), 32);
     return result;
   }
 
-  OperandOperandList Get3dCoord()
+  TypedReg Get3dCoord()
   {
-    auto result = be.AddVec(BRIG_TYPE_F32, 3);
+    auto result = be.AddTReg(CoordType(), 3);
     auto x = be.EmitWorkitemAbsId(2, false);
     auto y = be.EmitWorkitemAbsId(1, false);
     auto z = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result.elements(0), x->Reg(), 32);
-    be.EmitMov(result.elements(1), y->Reg(), 32);
-    be.EmitMov(result.elements(2), z->Reg(), 32);
+    be.EmitMov(result->Reg(0), x->Reg(), 32);
+    be.EmitMov(result->Reg(1), y->Reg(), 32);
+    be.EmitMov(result->Reg(2), z->Reg(), 32);
     return result;
   }
 
   TypedReg Result() {
-    auto result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(BRIG_TYPE_U32, 0));
    // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
@@ -223,49 +182,32 @@ public:
     auto sampleraddr = be.AddTReg(smpobj->Variable().type());
     be.EmitLoad(smpobj->Segment(), sampleraddr->Type(), sampleraddr->Reg(), be.Address(smpobj->Variable())); 
 
-    OperandOperandList regs_dest;
-    auto reg_dest = be.AddTReg(BRIG_TYPE_U32, 1);
+    auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
     case BRIG_GEOMETRY_1DB:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, Get1dCoord());
+      imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, Get1dCoord());
       break;
     case BRIG_GEOMETRY_1DA:
     case BRIG_GEOMETRY_2D:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, Get2dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get2dCoord());
       break;
     case BRIG_GEOMETRY_2DDEPTH:
-      imgobj->EmitImageRd(reg_dest, imageaddr, sampleraddr, Get2dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get2dCoord());
       break;
     case BRIG_GEOMETRY_3D:
     case BRIG_GEOMETRY_2DA:
-      regs_dest = be.AddVec(BRIG_TYPE_U32, 4);
-      imgobj->EmitImageRd(regs_dest, BRIG_TYPE_U32,  imageaddr, sampleraddr, Get3dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, Get3dCoord());
       break;
     case BRIG_GEOMETRY_2DADEPTH:
-      imgobj->EmitImageRd(reg_dest, imageaddr, sampleraddr, Get3dCoord(), BRIG_TYPE_F32);
+      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get3dCoord());
       break;
     default:
       assert(0);
     }
 
-    if ((imageGeometryProp == BRIG_GEOMETRY_2DDEPTH) || (imageGeometryProp == BRIG_GEOMETRY_2DADEPTH)) {
-      be.EmitMov(result, reg_dest);
-    }
-    else {
-      if (imageChannelOrder == BRIG_CHANNEL_ORDER_A)
-      {
-        be.EmitMov(result, regs_dest.elements(3));
-      }
-      else
-      {
-        be.EmitMov(result, regs_dest.elements(0));
-      }
-    }
-    return result;
+    return regs_dest;
   }
 };
 

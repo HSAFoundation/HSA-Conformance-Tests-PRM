@@ -14,21 +14,15 @@
    limitations under the License.
 */
 
-#ifndef HEXL_RUNTIME_CONTEXT_HPP
-#define HEXL_RUNTIME_CONTEXT_HPP
+#ifndef HC_LIBRARIES_TESTS
+#define HC_LIBRARIES_TESTS
 
-#include "RuntimeCommon.hpp"
-#include "HexlContext.hpp"
+#include "HexlTest.hpp"
 
-namespace hexl {
+namespace hsail_conformance {
 
-  void *alignedMalloc(size_t size, size_t align);
-  void alignedFree(void *ptr);
+DECLARE_TESTSET(LibrariesTests, "libraries");
 
-  runtime::RuntimeContext* CreateNoneRuntime(Context* context);
+}
 
-  template <>
-  inline void Print(const runtime::RuntimeState& state, std::ostream& out) { state.Print(out); }
-};
-
-#endif // HEXL_RUNTIME_CONTEXT_HPP
+#endif // HC_LIBRARIES_TESTS

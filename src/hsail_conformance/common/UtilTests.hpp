@@ -49,32 +49,20 @@ public:
 };
 
 
-class SkipTest: public Test {
-private:
-  hexl::emitter::Variable outputVar;
-
-  static const int RESULT_VALUE = 1;
-  static const BrigType RESULT_TYPE = BrigType::BRIG_TYPE_U32;
-
-public:
-  explicit SkipTest(hexl::emitter::Location codeLocation_ = hexl::emitter::Location::KERNEL, hexl::Grid geometry_ = 0)
-    : Test(codeLocation_, geometry_) {}
-
-  void Init() override;
-
+class SkipTest: public BoundaryTest {
+ private:
+   static const int RESULT_VALUE = 1;
+   static const BrigType RESULT_TYPE = BrigType::BRIG_TYPE_U32;
+ 
+ public:
+   explicit SkipTest(hexl::emitter::Location codeLocation_ = hexl::emitter::Location::KERNEL, hexl::Grid geometry_ = 0)
+    : BoundaryTest(1, codeLocation_, geometry_) {}
+ 
   BrigType ResultType() const override { return RESULT_TYPE; }
-  hexl::Value ExpectedResult() const override { return hexl::Value(hexl::Brig2ValueType(ResultType()), RESULT_VALUE); }
-
-  size_t OutputBufferSize() const override { return 0; }
-
-  void ModuleVariables() override { outputVar->EmitDefinition(); }
-
-  void KernelArgumentsInit() override {}
-
-  void KernelCode() override;
-
-  hexl::emitter::TypedReg Result() override;
-};
+  hexl::Value ExpectedResult() const override { return hexl::Value(hexl::Brig2ValueType(RESULT_TYPE), RESULT_VALUE); }
+ 
+   hexl::emitter::TypedReg Result() override;
+ };
 
 }
 }

@@ -1209,7 +1209,7 @@ private:
             ostringstream s5;    s5 << getMemTestArrayBundleSize() / 8 << " bytes";
         
             emitComment();
-            emitComment("    -- elem type:     " + std::string(HSAIL_ASM::type2str(getMemDataElemType())));
+            emitComment("    -- elem type:     " + std::string(HSAIL_ASM::type2name(getMemDataElemType())));
             emitComment("    -- vec dim:       " + s1.str());
             emitComment("    -- num of tests:  " + s2.str());
             emitComment("    -- ld/st align:   " + s3.str());

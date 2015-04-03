@@ -27,12 +27,13 @@ namespace hexl {
 class Test;
 class TestSet;
 class HostAgent;
-class RuntimeContext;
+namespace runtime { class RuntimeContext; }
 class Context;
 
 class TestFactory {
 public:
   virtual ~TestFactory() { }
+  virtual void Print(std::ostream& out) const { }
   virtual Test* CreateTest(const std::string& type, const std::string& name, const Options& options = Options()) = 0;
   Test* CreateTest(std::istream& in);
   virtual Test* CreateTestDeserialize(const std::string& type, std::istream& in) = 0;

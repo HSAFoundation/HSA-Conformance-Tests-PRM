@@ -61,6 +61,15 @@ std::string DirectoryResourceManager::GetOutputFileName(const std::string& name)
   return filename;
 }
 
+std::string DirectoryResourceManager::GetOutputDirName(const std::string& name) const
+{
+  std::string filename = results;
+  if (!filename.empty()) { filename += "/"; }
+  filename += name;
+  MkdirPath(filename);
+  return filename;
+}
+
 bool DirectoryResourceManager::MkdirPath(const std::string& name) const
 {
   size_t pos = name.find_first_of("/\\");

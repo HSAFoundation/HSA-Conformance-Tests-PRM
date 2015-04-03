@@ -52,6 +52,9 @@ protected:
     dllHandle = LoadLibrary(buf);
     if (!dllHandle) {
       context->Error() << "LoadLibrary(" << buf << ") failed: GetLastError=" << GetLastError() << std::endl;
+      context->Error() << "LoadLibrary(" << buf << ") failed: ";
+      context->Win32Error();
+      context->Error() << std::endl;
       return false;
     }
 #else
@@ -71,6 +74,9 @@ protected:
     F f = (F) GetProcAddress(dllHandle, functionName);
     if (!f) {
       context->Error() << "GetProcAddress(" << functionName << ") failed: GetLastError=" << GetLastError() << std::endl;
+      context->Error() << "GetProcAddress(" << functionName << ") failed: ";
+      context->Win32Error();
+      context->Error() << std::endl;
       return 0;
     }
 #else
