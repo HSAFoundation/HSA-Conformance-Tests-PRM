@@ -259,6 +259,7 @@ static f16_t rint_impl(f16_t val)
 
 // Compute delta d for rounding of val so that (val+d)
 // will be rounded to proper value when converted to integer
+/// \todo Brain damage
 static int f2i_round(Val val, unsigned rounding)
 {
     assert(val.isFloat());
@@ -272,7 +273,9 @@ static int f2i_round(Val val, unsigned rounding)
     case BRIG_ROUND_INTEGER_NEAR_EVEN_SAT:
     case BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN:
     case BRIG_ROUND_INTEGER_SIGNALING_NEAR_EVEN_SAT:
-        if (val.getNormalizedFract() > Val(0.5f).getNormalizedFract())          // Rounds to the nearest representable value
+        if (val.isInf()) { // nop, keep inf as is
+        }
+        else if (val.getNormalizedFract() > Val(0.5f).getNormalizedFract())          // Rounds to the nearest representable value
         {
             round = val.isNegative() ? -1 : 1;
         }
@@ -335,7 +338,7 @@ static u64_t f2i_impl(T val, unsigned dstType, unsigned intRounding, bool& isVal
     }
     
     int round = f2i_round(val, intRounding);
-    T res = val + (T)round;
+    T res = round ? val + T(round) : val; // avoid adding 0.0 to Inf (uberparanoid ;)
 
     if (!checkTypeBoundaries(dstType, res))
     {

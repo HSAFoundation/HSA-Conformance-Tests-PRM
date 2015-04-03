@@ -51,8 +51,57 @@ typedef double   f64_t;
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Decoder of IEEE 754 float properties
 
+template<typename T, int mantissa_width> class IEEE754;
+
+/// \brief Floating-point rounding modes
+/// \note "enum struct Round {}" is more type-safe, but requires a lot of reworking.
+static const unsigned RND_NEAR = BRIG_ROUND_FLOAT_NEAR_EVEN;
+static const unsigned RND_ZERO = BRIG_ROUND_FLOAT_ZERO;
+static const unsigned RND_PINF = BRIG_ROUND_FLOAT_PLUS_INFINITY;
+static const unsigned RND_MINF = BRIG_ROUND_FLOAT_MINUS_INFINITY;
+
+/// \brief Represents numeric value splitted to sign/exponent/mantissa.
+///
+/// Able to hold any numeric value of any supported type (integer or floating-point)
+/// Mantissa is stored with hidden bit, if it is set. Bit 0 is LSB of mantissa.
+/// Exponent is stored in decoded (unbiased) format.
+///
+/// Manupulations with mantissa, exponent and sign are obviouous,
+/// so these members are exposed to outsize world.
+struct DecodedFpValue {
+    uint64_t mant; // with hidden bit
+    int64_t exp; // powers of 2
+    bool sign; // == is negative // FIXME
+    int mant_width; // not counting hidden bit
+
+    template<typename T, int mw>
+    DecodedFpValue(const IEEE754<T, mw>& props)
+    : mant(0), exp(0), sign(props.isNegative()), mant_width(mw)
+    {
+        if (props.isInf() || props.isNan()) {
+          assert(!"Input number must represent a numeric value here");
+          return;
+        }
+        mant = props.getMantissa();
+        if (!props.isSubnormal() && !props.isZero()) mant |= IEEE754<T,mw>::MANT_HIDDEN_MSB_MASK;
+        exp = props.decodeExponent();
+    }
+private:
+    template<typename T> DecodedFpValue(T); // = delete;
+public:
+    /// \todo use enable_if<is_signed<T>>::value* p = NULL and is_integral<> to extend to other intergal types
+    /// \todo implement also ctors from floating types
+    explicit DecodedFpValue(uint64_t val)
+    : mant(val)
+    , exp((int64_t)sizeof(val)*8-1) // 
+    , sign(false) // unsigned
+    , mant_width((int)sizeof(val)*8-1) // hidden bit is MSB of input integer
+    {
+    }
+};
+
+// Decoder of IEEE 754 float properties
 // IEEE 754 (32-bit)
 //
 //         S   (E-127)       23
@@ -80,38 +129,77 @@ typedef double   f64_t;
 //  ----------------------------------------------
 //
 
-template<typename T, T sign_mask, T exponent_mask, T mantissa_mask, T mantissa_msb_mask, int exponent_bias, int mantissa_width>
+/// Order of fields (msb-to-lsb) is fixed to: sign, exponent, mantissa.
+/// Fields always occupy all bits of the underlying Type (which carries binary representation).
+/// Sign is always at MSB in Type, exponent occupies all bits in the middle.
+template<typename T, int mantissa_width>
 class IEEE754
 {
 public:
     typedef T Type;
 
-    static const Type SIGN_MASK         = sign_mask;
-    static const Type EXPONENT_MASK     = exponent_mask;
-    static const Type MANTISSA_MASK     = mantissa_mask;
-    static const Type MANTISSA_MSB_MASK = mantissa_msb_mask;
-    static const Type NAN_TYPE_MASK     = mantissa_msb_mask;
+private:        
 
-    static const int EXPONENT_BIAS  = exponent_bias;
-    static const int MANTISSA_WIDTH = mantissa_width;
+    static const int  EXP_WIDTH  = (int)sizeof(Type)*8 - 1 - mantissa_width;
+    static const int  EXP_BIAS   = ~((-1) << EXP_WIDTH) / 2;
+    static const int  DECODED_EXP_NORM_MAX  = EXP_BIAS;   // if greater, then INF or NAN
 
-private:
+    static const Type MANT_MASK  = (Type)~((Type)(-1) << mantissa_width);
+    static const Type EXP_MASK   = (Type)(~(Type(-1) << EXP_WIDTH) << mantissa_width);
+    static const Type SIGN_MASK  = (Type)((Type)1 << ((int)sizeof(Type)*8 - 1));
+public: // FIXME try to get rid of those
+    static const int  MANT_WIDTH = mantissa_width;
+    static const Type MANT_HIDDEN_MSB_MASK = MANT_MASK + 1;  // Highest '1' bit of mantissa assumed for normalized numbers
+    static const int  DECODED_EXP_NORM_MIN  = 1-EXP_BIAS; // if less, then subnormal
+    static const int  DECODED_EXP_SUBNORMAL_OR_ZERO = 0-EXP_BIAS; // by definition, sum with EXP_BIAS should yield 0
+
+private:        
+    static_assert(0 < mantissa_width && mantissa_width < sizeof(Type)*8 - 1 - 2, // leave sign + 2 bits for exp at least
+        "Wrong mantissa width");
+    static_assert(EXP_WIDTH <= (int)sizeof(int)*8 - 1,
+        "Exponent field is too wide");
+    static_assert( (1 << (sizeof(int)*8 - EXP_WIDTH)) > mantissa_width,
+        "'int' type is too small for exponent calculations");
+    static_assert(SIGN_MASK > 0, // simple "Type(-1) > 0" does not work. MSVC issue?
+        "Underlying Type (for bits) must be unsigned.");
+
+    static const Type MANT_MSB_MASK        = MANT_HIDDEN_MSB_MASK >> 1; /// \todo It is strange that we need it
+    static const Type NAN_TYPE_MASK        = MANT_MSB_MASK;
+
     Type bits;
 
+    template<typename T> IEEE754(T); // = delete;
 public:
     explicit IEEE754(Type val) : bits(val) {}
     IEEE754(bool isPositive, uint64_t mantissa, int64_t decodedExponent)
     {
-        Type exponent = (Type)(decodedExponent + EXPONENT_BIAS) << MANTISSA_WIDTH;
+        Type exponent = (Type)(decodedExponent + EXP_BIAS) << MANT_WIDTH;
 
-        assert((exponent & ~EXPONENT_MASK) == 0);
-        assert((mantissa & ~MANTISSA_MASK) == 0);
-        assert((Type)(-1) > 0 && "Type must be unsigned integer");
-        assert(EXPONENT_BIAS >= 0 && MANTISSA_WIDTH > 0 && MANTISSA_WIDTH <= sizeof(Type)*8); // rudementary checks
+        assert((exponent & ~EXP_MASK) == 0);
+        assert((mantissa & ~MANT_MASK) == 0);
 
         bits = (isPositive? 0 : SIGN_MASK) | 
-               (exponent & EXPONENT_MASK)  | 
-               (mantissa & MANTISSA_MASK);
+               (exponent & EXP_MASK)  | 
+               (mantissa & MANT_MASK);
+    }
+
+    explicit IEEE754(const DecodedFpValue &decoded)
+    {
+        assert((decoded.mant & ~(MANT_HIDDEN_MSB_MASK | MANT_MASK)) == 0);
+        assert(decoded.mant_width == MANT_WIDTH);
+        if (decoded.exp > DECODED_EXP_NORM_MAX) {
+            // INF or NAN. By design, DecodedFpValue is unable to represent NANs.
+            bits = decoded.sign ? getNegativeInf() : getPositiveInf();
+            return;
+        }
+        assert(decoded.exp < DECODED_EXP_NORM_MIN ? decoded.exp == DECODED_EXP_SUBNORMAL_OR_ZERO : true);
+        assert(!(decoded.mant & MANT_HIDDEN_MSB_MASK) ? decoded.exp == DECODED_EXP_SUBNORMAL_OR_ZERO : true);
+        Type exp_bits = (Type)(decoded.exp + EXP_BIAS) << MANT_WIDTH;
+        assert((exp_bits & ~EXP_MASK) == 0);
+
+        bits = (!decoded.sign ? 0 : SIGN_MASK)
+             | (exp_bits & EXP_MASK)
+             | (decoded.mant & MANT_MASK); // throw away hidden bit
     }
 
 public:
@@ -119,8 +207,8 @@ public:
 
 public:
     Type getSign()      const { return bits & SIGN_MASK; }
-    Type getMantissa()  const { return bits & MANTISSA_MASK; }
-    Type getExponent()  const { return bits & EXPONENT_MASK; }
+    Type getMantissa()  const { return bits & MANT_MASK; }
+    Type getExponent()  const { return bits & EXP_MASK; }
     Type getNanType()   const { return bits & NAN_TYPE_MASK; }
 
 public:
@@ -131,11 +219,11 @@ public:
     bool isPositiveZero()      const { return isZero() && isPositive();  }
     bool isNegativeZero()      const { return isZero() && !isPositive(); }
 
-    bool isInf()               const { return getExponent() == EXPONENT_MASK && getMantissa() == 0; }
+    bool isInf()               const { return getExponent() == EXP_MASK && getMantissa() == 0; }
     bool isPositiveInf()       const { return isInf() && isPositive();  }
     bool isNegativeInf()       const { return isInf() && !isPositive(); }
 
-    bool isNan()               const { return getExponent() == EXPONENT_MASK && getMantissa() != 0; }
+    bool isNan()               const { return getExponent() == EXP_MASK && getMantissa() != 0; }
     bool isQuietNan()          const { return isNan() && getNanType() != 0; }
     bool isSignalingNan()      const { return isNan() && getNanType() == 0; }
 
@@ -149,24 +237,21 @@ public:
 
                                                 // Natural = (fraction == 0)
                                                 // getNormalizedFract() return 0 for small numbers so there is exponent check for this case
-    bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANTISSA_WIDTH) >= EXPONENT_BIAS); } //F1.0 optimize old code using decodeExponent() etc
+    bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANT_WIDTH) >= EXP_BIAS); } //F1.0 optimize old code using decodeExponent() etc
 
 public:
-    static Type getQuietNan()     { return EXPONENT_MASK | NAN_TYPE_MASK; }
+    static Type getQuietNan()     { return EXP_MASK | NAN_TYPE_MASK; }
     static Type getNegativeZero() { return SIGN_MASK; }
     static Type getPositiveZero() { return 0; }
-    static Type getNegativeInf()  { return SIGN_MASK | EXPONENT_MASK; }
-    static Type getPositiveInf()  { return             EXPONENT_MASK; }
+    static Type getNegativeInf()  { return SIGN_MASK | EXP_MASK; }
+    static Type getPositiveInf()  { return             EXP_MASK; }
 
-    static bool isValidExponent(int64_t exponenValue) // check _decoded_ exponent value
-    {
-        const int64_t minExp = -EXPONENT_BIAS;     // Reserved for subnormals
-        const int64_t maxExp = EXPONENT_BIAS + 1;  // Reserved for Infs and NaNs
-        return minExp < exponenValue && exponenValue < maxExp;
+#if 1 // FIXME
+    static bool isValidExponent(int64_t decodedExp) {
+        return decodedExp >= DECODED_EXP_NORM_MIN
+            && decodedExp <= DECODED_EXP_NORM_MAX;
     }
-
-    static int64_t decodedSubnormalExponent() { return 0 - EXPONENT_BIAS; } // Decoded exponent value which indicates a subnormal
-    static int64_t actualSubnormalExponent()  { return 1 - EXPONENT_BIAS; } // Actual decoded exponent value for subnormals
+#endif
 
 public:
     template<typename TargetType> typename TargetType::Type mapSpecialValues() const
@@ -184,16 +269,22 @@ public:
         return 0;
     }
 
-    template<typename TargetType> uint64_t mapNormalizedMantissa() const // map to target type
+#if 1 // FIXME
+    /// \todo Oversimplified
+    /// * to smaller - truncates
+    /// * to bigger - LSBs are zero-filled
+    template<typename TargetType> uint64_t mapNormalizedMantissaFIXME() const // map to target type
     {
-        int tmw = TargetType::MANTISSA_WIDTH; // must assign to var && no 'const' here, otherwise warning and undefined behavior in MSVC
-        assert(tmw != MANTISSA_WIDTH);
+        assert(!isSubnormal() && isRegular());
+        int tmw = TargetType::MANT_WIDTH; // must assign to var && no 'const' here, otherwise warning and undefined behavior in MSVC
+        assert(tmw != MANT_WIDTH);
         const uint64_t mantissa = getMantissa();
-        if (tmw < MANTISSA_WIDTH) {
-          return mantissa >> (MANTISSA_WIDTH - tmw);
+        if (tmw < MANT_WIDTH) {
+          return mantissa >> (MANT_WIDTH - tmw);
         }
-        return mantissa << (tmw - MANTISSA_WIDTH);
+        return mantissa << (tmw - MANT_WIDTH);
     }
+#endif
 
     template<typename TargetType> uint64_t tryNormalizeMantissaUpdateExponent(int64_t& exponent) const
     {
@@ -206,7 +297,7 @@ public:
             // unused: unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
 
             uint64_t mantissa = getMantissa();
-            mantissa <<= sizeof(mantissa)*8 - MANTISSA_WIDTH;
+            mantissa <<= sizeof(mantissa)*8 - MANT_WIDTH;
 
             assert(mantissa != 0);
 
@@ -217,9 +308,9 @@ public:
                 mantissa <<= 1; // it is ok to throw away found '1' bit (it is implied in normalized numbers)
                 exponent--;
             }
-            if (!normalized) exponent = TargetType::decodedSubnormalExponent(); // subnormal -> subnormal
+            if (!normalized) exponent = TargetType::DECODED_EXP_SUBNORMAL_OR_ZERO; // subnormal -> subnormal
 
-            return mantissa >> (sizeof(mantissa)*8 - TargetType::MANTISSA_WIDTH);
+            return mantissa >> (sizeof(mantissa)*8 - TargetType::MANT_WIDTH);
         }
         else // Map regular value with large negative mantissa to a smaller type (resulting in subnormal or 0)
         {
@@ -229,7 +320,7 @@ public:
             uint64_t mantissa = getMantissa();
 
             // Add hidden bit of mantissa
-            mantissa = MANTISSA_MSB_MASK | (mantissa >> 1);
+            mantissa = MANT_MSB_MASK | (mantissa >> 1);
             exponent++;
 
             for (; !TargetType::isValidExponent(exponent); )
@@ -238,8 +329,8 @@ public:
                 exponent++;
             }
 
-            exponent = TargetType::decodedSubnormalExponent();
-            int nExtraBits = (MANTISSA_WIDTH - TargetType::MANTISSA_WIDTH);
+            exponent = TargetType::DECODED_EXP_SUBNORMAL_OR_ZERO;
+            int nExtraBits = (MANT_WIDTH - TargetType::MANT_WIDTH);
             assert(nExtraBits >= 0);
             return mantissa >> nExtraBits;
         }
@@ -248,26 +339,199 @@ public:
     // Return exponent as a signed number
     int64_t decodeExponent() const
     {
-        int64_t e = getExponent() >> MANTISSA_WIDTH;
-        return e - EXPONENT_BIAS;
+        int64_t e = getExponent() >> MANT_WIDTH;
+        return e - EXP_BIAS;
     }
 
     // Return fractional part of fp number
     // normalized so that x-th digit is at (63-x)-th bit of u64_t
     uint64_t getNormalizedFract(int x = 0) const
     {
-        if (isZero() || isInf() || isNan()) return 0;
+        if (isInf() || isNan()) {
+          assert(!"Input number must represent a numeric value here");
+          return 0;
+        }
 
-        //F1.0 "MANTISSA_MASK + 1" looks like a bug because there is no hidden bit for subnormals.
-        uint64_t mantissa = getMantissa() | (MANTISSA_MASK + 1); // Highest bit of mantissa is not encoded but assumed
-        int exponent = static_cast<int>(getExponent() >> MANTISSA_WIDTH);
+        uint64_t mantissa = getMantissa();
+        if (!isSubnormal() && !isZero()) mantissa |= MANT_HIDDEN_MSB_MASK;
+        int exponent = static_cast<int>(getExponent() >> MANT_WIDTH);
 
         // Compute shift required to place 1st fract bit at 63d bit of u64_t
         int width = static_cast<int>(sizeof(mantissa) * 8);
-        int shift = (exponent - EXPONENT_BIAS) + (width - MANTISSA_WIDTH) + x;
+        int shift = (exponent - EXP_BIAS) + (width - MANT_WIDTH) + x;
         if (shift <= -width || width <= shift) return 0;
         return (shift >= 0)? mantissa << shift : mantissa >> (-shift);
     }
+
+    /// FIXME Transforms mantissa of DecodedFpValue to this IEEE754<> format and normalizes it. May also adjust exponent.
+    /// Transformation of mantissa includes shrinking/widening, IEEE754-compliant rounding and normalization.
+    /// Adjusting of exponent may be required due to rounding and normalization.
+    /// Mantissa as always normalized at the end. Exponent range is not guaranteed to be valid, though.
+    class TransformMantissaAdjustExponent {
+        DecodedFpValue& v;
+        const unsigned rounding;
+        int srcMantIsWiderBy;
+        enum TieKind {
+          TIE_UNKNOWN = 0,
+          TIE_LIST_BEGIN_,
+          TIE_IS_ZERO = TIE_LIST_BEGIN_, // exact match, no rounding required, just truncate
+          TIE_LT_HALF, // tie bits ~= 0bb..bb, where at least one b == 1
+          TIE_IS_HALF, // tie bits are exactly 100..00
+          TIE_GT_HALF,  // tie bits ~= 1bb..bb, where at least one b == 1
+          TIE_LIST_END_
+        } tieKind;
+        // For manipulations with DecodedFpValue we use MANT_ bitfields/masks from IEEE754<>.
+        static_assert((MANT_MASK & 0x1), "LSB of mantissa in IEEE754<> must be is at bit 0");
+
+    public:
+        TransformMantissaAdjustExponent(DecodedFpValue& v_, unsigned r_)
+        : v(v_), rounding(r_), srcMantIsWiderBy(v.mant_width - MANT_WIDTH), tieKind(TIE_UNKNOWN)
+        {
+            normalizeInputMantAdjustExp();
+            calculateTieKind();
+            roundMantAdjustExp();
+            normalizeMantAdjustExp();
+        }
+
+    private:
+        void incrementMantAdjustExp() const // does not care about exponent limits.
+        {
+            assert(v.mant <= MANT_HIDDEN_MSB_MASK + MANT_MASK);
+            ++v.mant;
+            if (v.mant > MANT_HIDDEN_MSB_MASK + MANT_MASK) { // overflow
+                v.mant >>= 1;
+                ++v.exp;
+            }
+        }
+        
+        void normalizeInputMantAdjustExp()
+        {
+            if(v.mant == 0) {
+                return; // no need (and impossible) to normalize zero.
+            }
+            const uint64_t INPUT_MANT_HIDDEN_MSB_MASK = uint64_t(1) << v.mant_width;
+            while (! (v.mant & INPUT_MANT_HIDDEN_MSB_MASK) ) {
+                v.mant <<= 1;
+                --v.exp;
+            }
+        }
+
+        void calculateTieKind() // FIXME move to .cpp
+        {
+            if (srcMantIsWiderBy <= 0) {
+              tieKind = TIE_IS_ZERO; // widths are equal or source is narrower
+              return;
+            }
+            const uint64_t SRC_MANT_TIE_MASK = ((uint64_t)1 << srcMantIsWiderBy) - 1;
+            const uint64_t TIE_VALUE_HALF = (uint64_t)1 << (srcMantIsWiderBy - 1); // 100..00B
+            const uint64_t tie = v.mant & SRC_MANT_TIE_MASK;
+            if (tie == 0             ) { tieKind = TIE_IS_ZERO; return; }
+            if (tie == TIE_VALUE_HALF) { tieKind = TIE_IS_HALF; return; }
+            if (tie <  TIE_VALUE_HALF) { tieKind = TIE_LT_HALF; return; }
+            tieKind = TIE_GT_HALF;
+        }
+
+        void roundMantAdjustExp() // FIXME move to .cpp  // does not care about exponent limits.
+        {
+            assert(TIE_LIST_BEGIN_ <= tieKind && tieKind < TIE_LIST_END_);
+            if (srcMantIsWiderBy > 0) {
+                // truncate mant, then adjust depending on (pre-calculated) tail kind:
+                v.mant >>= srcMantIsWiderBy;
+                switch (rounding) {
+                default: assert(0); // fall
+                case RND_NEAR:
+                    switch(tieKind) {
+                    case TIE_IS_ZERO: case TIE_LT_HALF: default:
+                        break;
+                    case TIE_IS_HALF:
+                        if (v.mant & 1) incrementMantAdjustExp(); // if mant is odd, increment to even
+                        break;
+                    case TIE_GT_HALF:
+                        incrementMantAdjustExp();
+                        break;
+                    }
+                    break;
+                case RND_ZERO:
+                    break;
+                case RND_PINF:
+                    switch(tieKind) {
+                    case TIE_IS_ZERO: default:
+                        break;
+                    case TIE_LT_HALF: case TIE_IS_HALF: case TIE_GT_HALF:
+                        if (!v.sign) incrementMantAdjustExp();
+                        break;
+                    }
+                    break;
+                case RND_MINF:
+                    switch(tieKind) {
+                    case TIE_IS_ZERO: default:
+                        break;
+                    case TIE_LT_HALF: case TIE_IS_HALF: case TIE_GT_HALF:
+                        if (v.sign) incrementMantAdjustExp();
+                        break;
+                    }
+                    break;
+                }
+            } else { // destination mantisa is wider or has the same width.
+                // this conversion is always exact
+                v.mant <<= (0 - srcMantIsWiderBy); // fill by 0's from the left
+            }
+            v.mant_width = MANT_WIDTH;
+            srcMantIsWiderBy = 0;
+        }
+        
+        void normalizeMantAdjustExp() const  // does not care about upper exp limit.
+        {
+            assert (v.mant_width == MANT_WIDTH && srcMantIsWiderBy == 0 && "Mantissa must be in destination format here.");
+            assert((v.mant & ~(MANT_HIDDEN_MSB_MASK | MANT_MASK)) == 0 && "Wrong mantissa, unused upper bits must be 0.");
+            if(v.mant == 0) {
+                v.exp = DECODED_EXP_SUBNORMAL_OR_ZERO;
+                return; // no need (and impossible) to normalize zero.
+            }
+            if (v.exp >= DECODED_EXP_NORM_MIN) {
+                if (! (v.mant & MANT_HIDDEN_MSB_MASK)) { // try to normalize
+                    while (v.exp > DECODED_EXP_NORM_MIN && !(v.mant & MANT_HIDDEN_MSB_MASK)) {
+                        v.mant <<= 1;
+                        --v.exp;
+                    }
+                    // end up with (1) either exp is minimal or (2) hidden bit is 1 or (3) both
+                    if (v.exp > DECODED_EXP_NORM_MIN) {
+                        assert(v.mant & MANT_HIDDEN_MSB_MASK);
+                        // exp is above min limit, mant is normalized
+                        // nothing to do
+                    } else {
+                        assert(v.exp == DECODED_EXP_NORM_MIN);
+                        if (! (v.mant & MANT_HIDDEN_MSB_MASK)) {
+                            // we dropped exp down to minimal, but mant is still subnormal
+                            v.exp = DECODED_EXP_SUBNORMAL_OR_ZERO;
+                        } else {
+                            // mant is normalized
+                            // nothing to do
+                        }
+                    }
+                } else {
+                    // mant is normalized
+                    // nothing to do
+                }
+            } else {
+                assert(v.exp < DECODED_EXP_NORM_MIN);
+                // try to lift up exponent to reach the minimum... at the expense of losing LSBs of mantissa
+                /// \todo ROUNDING!
+                // we will always end up with zero or subnormal
+                while (v.exp < DECODED_EXP_NORM_MIN && v.mant != 0) {
+                    v.mant >>= 1;
+                    ++v.exp;
+                }
+                if (v.mant != 0) {
+                    assert(v.exp == DECODED_EXP_NORM_MIN);
+                    v.exp = DECODED_EXP_SUBNORMAL_OR_ZERO;
+                } else {
+                    // zero, nothing to do
+                    v.exp = DECODED_EXP_SUBNORMAL_OR_ZERO;
+                }
+            }
+        }
+    };
 
     Type negate()      const { return (getSign()? 0 : SIGN_MASK) | getExponent() | getMantissa(); }
     Type copySign(Type v) const { return (v & SIGN_MASK) | getExponent() | getMantissa(); }
@@ -334,8 +598,8 @@ public:
 
         s << " ("
           << (isPositive()? "0 " : "1 ")
-          << dumpAsBin(getExponent() >> MANTISSA_WIDTH, sizeof(T) * 8 - MANTISSA_WIDTH - 1) << " "
-          << dumpAsBin(getMantissa(), MANTISSA_WIDTH) << ") ["
+          << dumpAsBin(getExponent() >> MANT_WIDTH, sizeof(T) * 8 - MANT_WIDTH - 1) << " "
+          << dumpAsBin(getMantissa(), MANT_WIDTH) << ") ["
           << hexDump() << "], EXP=" 
           << decodeExponent();
 
@@ -361,38 +625,9 @@ public:
 //=============================================================================
 // Decoders for IEEE 754 numbers
 
-typedef IEEE754
-    <
-        uint16_t,
-        0x8000,  // Sign
-        0x7C00,  // Exponent
-        0x03ff,  // Mantissa
-        0x0200,  // Mantissa MSB
-        15,      // Exponent bias
-        10       // Mantissa width
-    > FloatProp16;
-
-typedef IEEE754
-    <
-        uint32_t,
-        0x80000000,  // Sign
-        0x7f800000,  // Exponent
-        0x007fffff,  // Mantissa
-        0x00400000,  // Mantissa MSB
-        127,         // Exponent bias
-        23           // Mantissa width
-    > FloatProp32;
-
-typedef IEEE754
-    <
-        uint64_t,
-        0x8000000000000000ULL,  // Sign
-        0x7ff0000000000000ULL,  // Exponent
-        0x000fffffffffffffULL,  // Mantissa
-        0x0008000000000000ULL,  // Mantissa MSB
-        1023,                   // Exponent bias
-        52                      // Mantissa width
-    > FloatProp64;
+typedef IEEE754 <uint16_t, 10> FloatProp16;
+typedef IEEE754 <uint32_t, 23> FloatProp32;
+typedef IEEE754 <uint64_t, 52> FloatProp64;
 
 //==============================================================================
 //==============================================================================
@@ -404,23 +639,19 @@ class f16_t
 public:
     typedef FloatProp16::Type bits_t;
 private:
-    static const unsigned RND_NEAR = BRIG_ROUND_FLOAT_NEAR_EVEN;
-    static const unsigned RND_ZERO = BRIG_ROUND_FLOAT_ZERO;
-    static const unsigned RND_UP   = BRIG_ROUND_FLOAT_PLUS_INFINITY;
-    static const unsigned RND_DOWN = BRIG_ROUND_FLOAT_MINUS_INFINITY;
 
 private:
     bits_t bits;
 
 public:
     f16_t() {}
-    explicit f16_t(double x, unsigned rounding = RND_NEAR) { f16_t_impl(x,rounding); }
-    explicit f16_t(float x, unsigned rounding = RND_NEAR) { f16_t_impl(x,rounding); }
+    explicit f16_t(double x, unsigned rounding = RND_NEAR) { convertFrom(x,rounding); }
+    explicit f16_t(float x, unsigned rounding = RND_NEAR) { convertFrom(x,rounding); }
     //explicit f16_t(f64_t x, unsigned rounding = RND_NEAR) : f16_t(double(x), rounding) {};
     //explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) : f16_t(float(x), rounding) {};
     explicit f16_t(int32_t x) { bits = f16_t((f64_t)x).getBits(); }
 private:
-    template<class T> void f16_t_impl(T x, unsigned rounding);
+    template<typename T> void convertFrom(T x, unsigned rounding);
 
 public:
     bool operator>  (const f16_t& x) const { return f64() >  x.f64(); } /// \todo reimplement all via f32 at least

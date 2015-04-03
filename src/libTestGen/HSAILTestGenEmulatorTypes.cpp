@@ -51,39 +51,17 @@ template<> struct FloatProp<float>  { typedef FloatProp32 PropType; };
 template<> struct FloatProp<double> { typedef FloatProp64 PropType; };
 
 template<typename T>
-void f16_t::f16_t_impl(T x, unsigned rounding) //TODO: rounding
+void f16_t::convertFrom(T x, unsigned rounding)
 {
-    const typename FloatProp<T>::PropType input(asBits(x));
-
+    typedef typename FloatProp<T>::PropType InProp;
+    const InProp input(asBits(x));
     if (!input.isRegular()) {
         bits = input.mapSpecialValues<FloatProp16>();
         return;
     }
-
-    if (input.isSubnormal()) { // f64 subnormal should be mapped to (f16)0
-        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
-        bits = f16.getBits();
-        return;
-    }
-
-    int64_t exponent = input.decodeExponent();
-
-    if (!FloatProp16::isValidExponent(exponent)) {
-        if (exponent > 0) { // inf or nan
-            /// \todo nans
-            bits = input.isPositive() ? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
-            return;
-        }
-        // subnormals
-        /// \todo rounding
-        uint64_t mantissa16 = input.tryNormalizeMantissaUpdateExponent<FloatProp16>(exponent);
-        FloatProp16 f16(input.isPositive(), mantissa16, exponent);
-        bits = f16.getBits();
-        return;
-    }
-
-    uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
-    FloatProp16 f16(input.isPositive(), mantissa, exponent);
+    DecodedFpValue v(input);
+    FloatProp16::TransformMantissaAdjustExponent(v,rounding);
+    FloatProp16 f16(v);
     bits = f16.getBits();
 }
 
@@ -100,8 +78,8 @@ T f16_t::convertTo() const
     }
     else if (f16.isSubnormal())
     {
-        assert(f16.decodeExponent() == f16.decodedSubnormalExponent());
-        int64_t exponent = f16.actualSubnormalExponent();
+        assert(f16.decodeExponent() == FloatProp16::DECODED_EXP_SUBNORMAL_OR_ZERO);
+        int64_t exponent = FloatProp16::DECODED_EXP_NORM_MIN;
         uint64_t mantissa = f16.tryNormalizeMantissaUpdateExponent<OutFloatProp>(exponent);
         OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
         outbits = outprop.getBits();
@@ -109,7 +87,7 @@ T f16_t::convertTo() const
     else
     {
         int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissa<OutFloatProp>();
+        uint64_t mantissa = f16.mapNormalizedMantissaFIXME<OutFloatProp>();
         OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
         outbits = outprop.getBits();
     }
@@ -287,8 +265,8 @@ static const double MIN_U64_F64 = 0.0;
 static const f16_t MIN_S8_F16 (-128.0);   
 static const f16_t MAX_S8_F16 ( 127.0);   
 
-static const f16_t MIN_S16_F16(-32768.0); 
-static const f16_t MAX_S16_F16( 32767.0); 
+static const f16_t MIN_S16_F16(-32768.0, RND_ZERO); /// \todo Do like this everywhere instead of manually found values like 65504.0
+static const f16_t MAX_S16_F16( 32767.0, RND_ZERO); 
 
 static const f16_t MIN_S32_F16(-65504.0); 
 static const f16_t MAX_S32_F16( 65504.0); 
