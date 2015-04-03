@@ -822,10 +822,11 @@ public:
   static const uint32_t F_DEFAULT_ULPS_PRECISION;
   static const double F_DEFAULT_RELATIVE_PRECISION;
   Comparison() : method(CM_DECIMAL), result(false) { }
-  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_), minLimit(false), maxLimit(false), flushDenorms(false), result(false) { }
-  void SetMinLimit(Value limit, bool isLimited = true);
-  void SetMaxLimit(Value limit, bool isLimited = true);
-  void SetFlushDenorms(bool flushDenorms);
+  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_),
+             minLimit(-std::numeric_limits<float>::infinity()), maxLimit(std::numeric_limits<float>::infinity()), flushDenorms(false), result(false) { }
+  void SetMinLimit(float limit); //Adds additional check for floating expected and actual results to be >= minLimit, NaNs are ignored
+  void SetMaxLimit(float limit); //Adds additional check for floating expected and actual results to be <= maxLimit, NaNs are ignored
+  void SetFlushDenorms(bool flushDenorms); //If set, Compare() will also compute error_ftz (when denorms are flushed to 0) and return min(error, error_ftz)
   void Reset(ValueType type);
   void SetDefaultPrecision(ValueType type);
   bool GetResult() const { return result; }
@@ -846,8 +847,7 @@ public:
 private:
   ComparisonMethod method;
   Value precision;
-  Value minVal, maxVal;
-  bool minLimit, maxLimit;
+  float minLimit, maxLimit;
   bool flushDenorms;
   bool result;
   Value error;
