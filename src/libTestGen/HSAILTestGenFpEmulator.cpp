@@ -546,12 +546,33 @@ f32_t emulate_min(f32_t val1, f32_t val2) { return Val(val1).isNan()? val2 : Val
 f64_t emulate_min(f64_t val1, f64_t val2) { return Val(val1).isNan()? val2 : Val(val2).isNan()? val1 : std::min(val1, val2); }
 
 f16_t emulate_fma(f16_t val1, f16_t val2, f16_t val3, unsigned rounding) { validateFpRounding(rounding); return f16_t(val1.f64() * val2.f64() + val3.f64(), rounding); }
-f32_t emulate_fma(f32_t val1, f32_t val2, f32_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; } //TODO: not enough precision
-f64_t emulate_fma(f64_t val1, f64_t val2, f64_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; } //TODO: not enough precision
+f32_t emulate_fma(f32_t val1, f32_t val2, f32_t val3, unsigned rounding) { validateFpRounding(rounding); return static_cast<float>(double(val1) * val2 + val3); }
+/// \todo Precision of f64 fma emulation is not enough.
+/// \todo While f64 fma emulation has bad precision, specify relaxed precision.
+f64_t emulate_fma(f64_t val1, f64_t val2, f64_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; }
 
-//TODO: the way MAD is computed should be specified by option
+/// [HSA-PRM-1.02 5.12 Floating-Point Optimization Instruction]: <blockquote>
+/// The computation must be performed using the semantic equivalent of one of
+/// the following methods:
+/// -  Single Round Method: fma_ftz_round_fLength dest, src0, src1, scr2;
+/// -  Double Round Method: mul_ftz_round_fLength temp, src0, src1;
+///                         add_ftz_round_fLength dest, temp, src2;
+/// Where each instruction uses the same modifiers and type as the mad
+/// instruction. No alternative method is allowed. The same method must
+/// be used for all floating-point mad instructions on a specific kernel agent.
+/// An HSA runtime query is available to determine
+/// the method used on a kernel agent. </blockquote>
+/// 
+/// The quote above implies that some HSA_AGENT_INFO_ (to be specified in
+/// HSA-Runtime) attribute shall report if SINGLE or DOUBLE round method is
+/// used. For now, let's assume that the same method shall be used for ftz- and
+/// non-ftz versions of mad_fxx.
+/// 
+/// \todo Rsa-Runtime spec, HSA_AGENT_INFO_ reporting mad_fxx rounding method:
+/// Track runtime spec and and update implementation accordingly.
+/// For now, let's assume that SINGLE ROUND is used.
 f16_t emulate_mad(f16_t val1, f16_t val2, f16_t val3, unsigned rounding) { validateFpRounding(rounding); return f16_t(val1.f64() * val2.f64() + val3.f64(), rounding); }
-f32_t emulate_mad(f32_t val1, f32_t val2, f32_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; }
+f32_t emulate_mad(f32_t val1, f32_t val2, f32_t val3, unsigned rounding) { validateFpRounding(rounding); return static_cast<float>(double(val1) * val2 + val3); }
 f64_t emulate_mad(f64_t val1, f64_t val2, f64_t val3, unsigned rounding) { validateFpRounding(rounding); return val1 * val2 + val3; }
 
 f16_t emulate_sqrt(f16_t val, unsigned rounding)  { validateFpRounding(rounding); return f16_t(sqrt(val.f64()), rounding); }
