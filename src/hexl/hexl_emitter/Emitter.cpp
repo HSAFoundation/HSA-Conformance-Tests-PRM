@@ -1720,7 +1720,10 @@ double EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
   }
 
   if(samplerFilter == BRIG_FILTER_LINEAR)
+  {
+    assert(c->Type() == MV_FLOAT); //only f32 is allowed with linear filter
     df -= 0.5;
+  }
 
   //coordinates are undefined in case of NaN or INF (PRM 7.1.6.1)
   assert(!isNanOrInf(df));
@@ -2396,11 +2399,11 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
   float x_frac = u - floorf(u);
 
   uint32_t y0_index = ind[1];
-  uint32_t y1_index = GetTexelIndex(v + 1.0f, imageGeometry.ImageSize(1));
+  uint32_t y1_index = ind[1];
   float y_frac = v - floorf(v);
 
   uint32_t z0_index = ind[2];
-  uint32_t z1_index = GetTexelIndex(w + 1.0f, imageGeometry.ImageSize(2));
+  uint32_t z1_index = ind[2];
   float z_frac = w - floorf(w);
 
   double filtered_color[4];
@@ -2420,6 +2423,7 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
   case BRIG_GEOMETRY_2DA:
   case BRIG_GEOMETRY_2DDEPTH:
   case BRIG_GEOMETRY_2DADEPTH:
+    y1_index = GetTexelIndex(v + 1.0f, imageGeometry.ImageSize(1));
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);
@@ -2432,6 +2436,8 @@ void EImageCalc::EmulateImageRd(Value* _coords, Value* _color) const
     }
     break;
   case BRIG_GEOMETRY_3D:
+    y1_index = GetTexelIndex(v + 1.0f, imageGeometry.ImageSize(1));
+    z1_index = GetTexelIndex(w + 1.0f, imageGeometry.ImageSize(2));
     LoadFloatTexel(x0_index, y0_index, z0_index, colors[0]);
     LoadFloatTexel(x1_index, y0_index, z0_index, colors[1]);
     LoadFloatTexel(x0_index, y1_index, z0_index, colors[2]);

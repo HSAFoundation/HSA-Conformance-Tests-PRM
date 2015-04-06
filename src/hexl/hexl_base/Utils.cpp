@@ -300,6 +300,7 @@ bool IsImageQueryGeometrySupport(BrigImageGeometry imageGeometryProp, BrigImageQ
   return true;
 }
 
+//todo Revise
 bool IsImageGeometrySupported(BrigImageGeometry imageGeometryProp, ImageGeometry imageGeometry) 
 {
   switch (imageGeometryProp)
