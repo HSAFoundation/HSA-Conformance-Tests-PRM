@@ -76,14 +76,14 @@ bool is_denorm(hexl::half h)
 namespace hexl {
   
 template <typename T>
-static T FlushDenormsToZero(T const x)
+T FlushDenormsToZero(T const x)
 { /// \ todo (Artem) move to lib
   if (is_denorm(x) || (x == 0.0)) //will return +0, even if x == -0
     return 0.0;
   return x;
 }
 template <>
-static half FlushDenormsToZero<half>(half const x)
+half FlushDenormsToZero<half>(half const x)
 {
   if (is_denorm(x) || (x.f32() == 0.0f)) //will return +0, even if x == -0
     return half(0.0f);
@@ -91,7 +91,7 @@ static half FlushDenormsToZero<half>(half const x)
 }
 
 template <typename T>
-static int is_inf(T const& x)
+int is_inf(T const& x)
 { /// \todo too narrow impl... Rework this
   if (x == std::numeric_limits<T>::infinity()) return 1;
   if (x == -std::numeric_limits<T>::infinity()) return -1;
