@@ -35,7 +35,6 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
-  Value color[4];
 
 public:
   ImageLdTest(Location codeLocation, 
@@ -66,12 +65,6 @@ public:
     imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
    
     imgobj->InitImageCalculator(NULL);
-
-    Value coords[3];
-    coords[0] = Value(MV_UINT32, 0);
-    coords[1] = Value(MV_UINT32, 0);
-    coords[2] = Value(MV_UINT32, 0);
-    imgobj->LoadColor(coords, color);
 
     switch (imageChannelType)
     {
@@ -121,9 +114,16 @@ public:
     uint16_t channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
       for(uint16_t y = 0; y < geometry->GridSize(1); y++)
-        for(uint16_t x = 0; x < geometry->GridSize(0); x++)
+        for(uint16_t x = 0; x < geometry->GridSize(0); x++){
+          Value coords[3];
+          Value texel[4];
+          coords[0] = Value(MV_UINT32, U32(x));
+          coords[1] = Value(MV_UINT32, U32(y));
+          coords[2] = Value(MV_UINT32, U32(z));
+          imgobj->LoadColor(coords, texel);
           for (unsigned i = 0; i < channels; i++)
-            result->push_back(color[i]);
+            result->push_back(texel[i]);
+        }
   }
 
   uint64_t ResultDim() const override {

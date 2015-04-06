@@ -42,6 +42,7 @@ private:
   BrigSamplerFilter samplerFilter;
   BrigSamplerAddressing samplerAddressing;
   Value color[4];
+  BrigType coordType;
 
 public:
   ImageRdTest(Location codeLocation, 
@@ -54,7 +55,8 @@ public:
   }
   
   void Name(std::ostream& out) const {
-    out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType)) << "_" <<
+    out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" <<
+      ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType)) << "_" <<
       SamplerCoordsString(MObjectSamplerCoords(samplerCoord)) << "_" << SamplerFilterString(MObjectSamplerFilter(samplerFilter)) << "_" << SamplerAddressingString(MObjectSamplerAddressing(samplerAddressing));
   }
 
@@ -121,7 +123,7 @@ public:
       break;
     case BRIG_CHANNEL_TYPE_FLOAT:
       if(samplerFilter == BRIG_FILTER_LINEAR) {
-        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING "flushDenorms");
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",flushDenorms");
       }else{
         output->SetComparisonMethod("ulp=0,flushDenorms"); //flushDenorms
       }
@@ -130,6 +132,7 @@ public:
       break;
     }
     
+    coordType = BRIG_TYPE_F32;
   }
 
   void ModuleDirectives() override {
@@ -157,23 +160,12 @@ public:
   }
 
   bool IsValid() const override {
-    if (samplerFilter == BRIG_FILTER_LINEAR) //only f32 access type is supported for linear filter
+    //only f32 access type is supported for linear filter
+    if (samplerFilter == BRIG_FILTER_LINEAR && ImageAccessType(imageChannelType) != BRIG_TYPE_F32)
+      return false;
+    
+    if (samplerFilter == BRIG_FILTER_LINEAR)
     {
-      switch (imageChannelType)
-      {
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNKNOWN:
-      case BRIG_CHANNEL_TYPE_FIRST_USER_DEFINED:
-        return false;
-        break;
-      default:
-        break;
-      }
 	    //currently rd test will generate coordinate 0, which will sample out of range texel
 	    //for linear filtering. We should not test it, because it implementation defined.
 	    //TODO:
@@ -181,6 +173,35 @@ public:
 	    //to not read from edge of an image
 	    if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
 		    return false;
+    }
+
+    //With undefinied addressing we should not touch any out of range texels.
+    //As linear filtering requires 2, 2x2 or 2x2x2 texels we should avoid slim images.
+    if (samplerFilter == BRIG_FILTER_LINEAR && samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
+    {
+      switch (imageGeometryProp)
+      {
+      case BRIG_GEOMETRY_1D:
+      case BRIG_GEOMETRY_1DA:
+        if(imageGeometry.ImageSize(0) < 2)
+          return false;
+        break;
+
+      case BRIG_GEOMETRY_2D:
+      case BRIG_GEOMETRY_2DA:
+      case BRIG_GEOMETRY_2DDEPTH:
+      case BRIG_GEOMETRY_2DADEPTH:
+        if(imageGeometry.ImageSize(0) < 2 || imageGeometry.ImageSize(1) < 2)
+          return false;
+        break;
+        
+      case BRIG_GEOMETRY_3D:
+        if(imageGeometry.ImageSize(0) < 2 || imageGeometry.ImageSize(1) < 2 || imageGeometry.ImageSize(3) < 2)
+          return false;
+        break;
+      default:
+        break;
+      }
     }
     
     if(!IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing))
@@ -192,13 +213,9 @@ public:
     return ImageAccessType(imageChannelType); 
   }
 
-  BrigType CoordType() const {
-    return BRIG_TYPE_F32; 
-  }
-
   TypedReg Get1dCoord()
   {
-    auto result = be.AddTReg(CoordType());
+    auto result = be.AddTReg(coordType);
     auto x = be.EmitWorkitemAbsId(0, false);
     be.EmitMov(result, x->Reg());
     return result;
@@ -206,7 +223,7 @@ public:
 
   TypedReg Get2dCoord()
   {
-    auto result = be.AddTReg(CoordType(), 2);
+    auto result = be.AddTReg(coordType, 2);
     auto x = be.EmitWorkitemAbsId(1, false);
     auto y = be.EmitWorkitemAbsId(0, false);
     be.EmitMov(result->Reg(0), x->Reg(), 32);
@@ -216,7 +233,7 @@ public:
 
   TypedReg Get3dCoord()
   {
-    auto result = be.AddTReg(CoordType(), 3);
+    auto result = be.AddTReg(coordType, 3);
     auto x = be.EmitWorkitemAbsId(2, false);
     auto y = be.EmitWorkitemAbsId(1, false);
     auto z = be.EmitWorkitemAbsId(0, false);
