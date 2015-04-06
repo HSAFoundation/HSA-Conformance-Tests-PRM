@@ -20,6 +20,8 @@
 #include "MObject.hpp"
 #include <math.h>
 
+#define MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING "relf=0.001"
+
 using namespace hexl::emitter;
 using namespace hexl::scenario;
 using namespace HSAIL_ASM;
@@ -70,7 +72,7 @@ public:
     imageSpec.Depth(imageGeometry.ImageDepth());
     imageSpec.ArraySize(imageGeometry.ImageArray());
     imgobj = kernel->NewImage("%roimage", &imageSpec);
-    imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, 0x32323232)));
+    imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, 0x45245833)));
  
     ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
     samplerSpec.CoordNormalization(samplerCoord);
@@ -80,11 +82,53 @@ public:
 
     imgobj->InitImageCalculator(smpobj);
 
-    Value coords[3];
-    coords[0] = Value(0.0f);
-    coords[1] = Value(0.0f);
-    coords[2] = Value(0.0f);
-    imgobj->ReadColor(coords, color);
+    switch (imageChannelType)
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=-1.0,maxf=1.0");
+      }else{
+        output->SetComparisonMethod("ulp=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
+      }
+      break;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=0.0,maxf=1.0");
+      }else{
+        output->SetComparisonMethod("ulp=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+      }
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+      //integer types are compared for equality
+      break;
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING);
+      }else{
+        output->SetComparisonMethod("ulp=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
+      }
+      break;
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING "flushDenorms");
+      }else{
+        output->SetComparisonMethod("ulp=0,flushDenorms"); //flushDenorms
+      }
+      break;
+    default:
+      break;
+    }
     
   }
 
@@ -93,15 +137,23 @@ public:
   }
 
   uint64_t ResultDim() const override {
-    return 4;
+    return IsImageDepth(imageGeometryProp) ? 1 : 4;
   }
 
   void ExpectedResults(Values* result) const {
-    for (unsigned i = 0; i < 4; i ++)
-    {
-      Value res = Value(MV_UINT32, color[i].U32());
-      result->push_back(res);
-    }
+    uint16_t channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
+    for(uint16_t z = 0; z < geometry->GridSize(2); z++)
+      for(uint16_t y = 0; y < geometry->GridSize(1); y++)
+        for(uint16_t x = 0; x < geometry->GridSize(0); x++){
+          Value coords[3];
+          Value texel[4];
+          coords[0] = Value(0.0f);
+          coords[1] = Value(0.0f);
+          coords[2] = Value(0.0f);
+          imgobj->ReadColor(coords, texel);
+          for (unsigned i = 0; i < channels; i++)
+            result->push_back(texel[i]);
+        }
   }
 
   bool IsValid() const override {
@@ -137,7 +189,7 @@ public:
   }
  
   BrigType ResultType() const {
-    return BRIG_TYPE_U32; 
+    return ImageAccessType(imageChannelType); 
   }
 
   BrigType CoordType() const {

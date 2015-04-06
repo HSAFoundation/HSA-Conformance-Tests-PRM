@@ -166,7 +166,7 @@ private:
     unsigned vecSize = isDst? data.dst.getDim() : data.mem.getDim();
     BrigType type = (BrigType) (isDst? data.dst.getValType() : data.mem.getValType());
     Buffer buffer = dispatch->NewBuffer(name, HOST_RESULT_BUFFER, BufferValueType(type), BufferArraySize(type, vecSize * testGroup->getFlatSize()));
-    if (buffer->VType() == MV_FLOAT16 || buffer->VType() == MV_PLAIN_FLOAT16) { buffer->SetComparisonMethod("1ulp"); }
+    if (buffer->VType() == MV_FLOAT16 || buffer->VType() == MV_PLAIN_FLOAT16) { buffer->SetComparisonMethod("ulp=1"); }
     for (unsigned flatIdx = 0; flatIdx < testGroup->getFlatSize(); ++flatIdx) {
       TestData& data = testGroup->getData(flatIdx);
       for (unsigned k = 0; k < vecSize; ++k) {

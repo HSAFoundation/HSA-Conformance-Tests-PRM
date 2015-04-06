@@ -796,7 +796,7 @@ std::ostream& operator<<(std::ostream& out, const Value& value);
 
 enum ComparisonMethod {
   CM_DECIMAL,  // precision = decimal points, default
-  CM_ULPS,     // precision = max ULPS, minumum is 1
+  CM_ULPS,     // precision = max ULPS
   CM_RELATIVE  // (simulated_value - expected_value) / expected_value <= precision
 };
 //NOTE

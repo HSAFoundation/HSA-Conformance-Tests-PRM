@@ -1644,63 +1644,100 @@ unsigned str2u(const std::string& s)
   return n;
 }
 
-//Current syntax for method is:
-//   Xulp[,option1,...] where X is integer
-//options (currently affect only f32 type):
-//  flushDenorms - all denorms are treated as 0
-//  minf=X - comparison fails if actual value is less then X (X is float)
-//  maxf=X - comparison fails if actual value is greater then X (X is float)
+//Current options (currently affect only floating types):
+//  comparision method (see enum ComparisionMethod):
+//    ulp=X  - set CM_ULPS comparision method with X precision (X is integer)
+//    absf=X - set CM_DECIMAL comparision method with X precision (X is double)
+//    relf=X - set CM_RELATIVE comparision method with X precision (X is double)
+//  additional options:
+//    flushDenorms - if set, Compare() will also compute error_ftz (when denorms are flushed to 0) and return min(error, error_ftz)
+//    minf=X - comparison fails if actual value is less then X (X is float)
+//    maxf=X - comparison fails if actual value is greater then X (X is float)
 //examples:
-//  "3ulp,maxf=52.8,flushDenorms"
+//  "ulp=0,maxf=52.8,flushDenorms"
+//  "absf=0.05,maxf=1.0"
 //  ""
-//  "0ulp"
+//  "ulp=0"
 //
-//NOTE. CM_RELATIVE is not supported at a time.
 Comparison* NewComparison(const std::string& c, ValueType type)
 {
   Comparison* result;
-  std::string method(c);
+  std::string options(c);
   const std::string flushOption="flushDenorms";
-  const std::string ulpOption="ulp";
+  const std::string ulpOption="ulp=";
   const std::string minOption="minf=";
   const std::string maxOption="maxf=";
+  const std::string relOption="relf=";
+  const std::string absOption="absf=";
   size_t idx;
   float fLimit;
+  Value precision;
+  ComparisonMethod method;
   
-  if (method.empty()) { method = "0ulp"; }
-  unsigned ulps = std::stoul(method, &idx);
-  assert(method.compare(idx, ulpOption.length(), ulpOption) == 0);
+  if (options.empty()) { options="ulp=0"; }
+
+  idx = options.find(ulpOption);
+  if(idx != std::string::npos) {
+     uint64_t ulps = std::stoul(options.substr(idx + ulpOption.length()));
+     method = CM_ULPS;
+     switch (type)
+     {
+     case MV_PLAIN_FLOAT16:
+     case MV_FLOAT16:
+       precision = Value(MV_UINT64, U16(ulps));
+       break;
+     case MV_FLOAT:
+       precision = Value(MV_UINT64, U32(ulps));
+       break;
+     case MV_DOUBLE:
+       precision = Value(MV_UINT64, U64(ulps));
+       break;
+     default:
+       break;
+     }
+     
+  }
+
+  idx = options.find(absOption);
+  if(idx != std::string::npos) {
+    double maxError = std::stod(options.substr(idx + absOption.length()));
+    method = CM_DECIMAL;
+    precision = Value(MV_DOUBLE, D(maxError));
+  }
+
+  idx = options.find(relOption);
+  if(idx != std::string::npos) {
+    double maxError = std::stod(options.substr(idx + relOption.length()));
+    method = CM_RELATIVE;
+    precision = Value(MV_DOUBLE, D(maxError));
+  }
 
   switch (type)
   {
   case MV_PLAIN_FLOAT16:
   case MV_FLOAT16:
-    result = new Comparison(CM_ULPS, Value(MV_UINT16, U16(ulps)));
-    break;
   case MV_FLOAT:
-    result = new Comparison(CM_ULPS, Value(MV_UINT32, U32(ulps)));
-    break;
   case MV_DOUBLE:
-    result = new Comparison(CM_ULPS, Value(MV_UINT64, U64(ulps)));
+    result = new Comparison(method, precision);
     break;
   default:
     result = new Comparison(CM_DECIMAL, Value(MV_UINT64, U64(0)));
     break;
   }
 
-  idx = method.find(minOption);
+  idx = options.find(minOption);
   if(idx != std::string::npos) {
-    fLimit = std::stof(method.substr(idx + minOption.length()));
+    fLimit = std::stof(options.substr(idx + minOption.length()));
     result->SetMinLimit(fLimit);
   }
 
-  idx = method.find(maxOption);
+  idx = options.find(maxOption);
   if(idx != std::string::npos) {
-    fLimit = std::stof(method.substr(idx + maxOption.length()));
+    fLimit = std::stof(options.substr(idx + maxOption.length()));
     result->SetMaxLimit(fLimit);
   }
 
-  idx = method.find(flushOption);
+  idx = options.find(flushOption);
   result->SetFlushDenorms(idx != std::string::npos);
   
   return result;
