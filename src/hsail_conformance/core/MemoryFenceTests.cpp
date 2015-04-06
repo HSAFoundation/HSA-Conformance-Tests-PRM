@@ -227,6 +227,7 @@ protected:
 //    be.EmitMemfence(memoryOrder1, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
 
     OperandAddress flagAddr = be.Address(globalFlag);
+    (void)flagAddr; /// \todo -warn
     be.EmitAtomic(NULL, be.Address(globalFlag, offsetFlagReg->Reg(), 0), wiID, NULL, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
 
     be.EmitLabel(s_label_skip_store);

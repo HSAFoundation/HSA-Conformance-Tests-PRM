@@ -10,94 +10,11 @@ using std::numeric_limits;
 
 namespace TESTGEN {
 
-// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
-namespace impl {
-  template<typename T1, typename T2> union Unionier { // provides ctor for const union
-    T1 val; T2 reinterpreted;
-    explicit Unionier(T1 x) : val(x) {}
-  };
-  template<typename T> struct AsBitsTraits; // allowed pairs of types:
-  template<> struct AsBitsTraits<float> { typedef uint32_t DestType; };
-  template<> struct AsBitsTraits<double> { typedef uint64_t DestType; };
-  template<typename T> struct AsBits {
-    typedef typename AsBitsTraits<T>::DestType DestType;
-    const Unionier<T,DestType> u;
-    explicit AsBits(T x) : u(x) { };
-    DestType Get() const { return u.reinterpreted; }
-  };
-  template<typename T> struct AsFloatingTraits;
-  template<> struct AsFloatingTraits<uint32_t> { typedef float DestType; };
-  template<> struct AsFloatingTraits<uint64_t> { typedef double DestType; };
-  template<typename T> struct AsFloating {
-    typedef typename AsFloatingTraits<T>::DestType DestType;
-    const Unionier<T,DestType> u;
-    explicit AsFloating(T x) : u(x) {}
-    DestType Get() const { return u.reinterpreted; }
-  };
-}
-
-template <typename T> // select T and instantiate specialized class
-typename impl::AsBits<T>::DestType asBits(T f) { return impl::AsBits<T>(f).Get(); }
-template <typename T>
-typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating<T>(x).Get(); }
 
 //==============================================================================
 //==============================================================================
 //==============================================================================
 // Implementation of F16 type
-
-template<typename T> struct FloatProp; // allowed pairs of types:
-template<> struct FloatProp<float>  { typedef FloatProp32 PropType; };
-template<> struct FloatProp<double> { typedef FloatProp64 PropType; };
-
-template<typename T>
-void f16_t::convertFrom(T x, unsigned rounding)
-{
-    typedef typename FloatProp<T>::PropType InProp;
-    InProp input(asBits(x));
-    if (!input.isRegular()) {
-        bits = input.mapSpecialValues<FloatProp16>();
-        return;
-    }
-    DecodedFpValue v(input);
-    FloatProp16::TransformMantissaAdjustExponent(v,rounding);
-    FloatProp16 f16(v);
-    bits = f16.getBits();
-}
-
-template<typename T>
-T f16_t::convertTo() const
-{ 
-    FloatProp16 f16(bits);
-    typedef typename FloatProp<T>::PropType OutFloatProp;
-    typename OutFloatProp::Type outbits;
-
-    if (!f16.isRegular())
-    {
-        outbits = f16.mapSpecialValues<OutFloatProp>();
-    }
-    else if (f16.isSubnormal())
-    {
-        assert(f16.decodeExponent() == FloatProp16::DECODED_EXP_SUBNORMAL_OR_ZERO);
-        int64_t exponent = FloatProp16::DECODED_EXP_NORM_MIN;
-        uint64_t mantissa = f16.tryNormalizeMantissaUpdateExponent<OutFloatProp>(exponent);
-        OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
-        outbits = outprop.getBits();
-    }
-    else
-    {
-        int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissaFIXME<OutFloatProp>();
-        OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
-        outbits = outprop.getBits();
-    }
-
-    return asFloating(outbits);
-}
-
-//==============================================================================
-//==============================================================================
-//==============================================================================
 
 void f16_t::sanityTests()
 {

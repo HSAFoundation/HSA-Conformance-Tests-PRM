@@ -254,16 +254,17 @@ public:
 #endif
 
 public:
-    template<typename TargetType> typename TargetType::Type mapSpecialValues()
+    template<typename BT, int MW>
+    static Type mapSpecialValues(const IEEE754<BT,MW>& val)
     {
-        assert(!isRegular());
+        assert(!val.isRegular());
 
-        if      (isPositiveZero()) { return TargetType::getPositiveZero();  }
-        else if (isNegativeZero()) { return TargetType::getNegativeZero();  }
-        else if (isPositiveInf())  { return TargetType::getPositiveInf();   }
-        else if (isNegativeInf())  { return TargetType::getNegativeInf();   }
-        else if (isQuietNan())     { return TargetType::getQuietNan();      }
-        else if (isSignalingNan()) { assert(false); }
+        if      (val.isPositiveZero()) { return getPositiveZero();  }
+        else if (val.isNegativeZero()) { return getNegativeZero();  }
+        else if (val.isPositiveInf())  { return getPositiveInf();   }
+        else if (val.isNegativeInf())  { return getNegativeInf();   }
+        else if (val.isQuietNan())     { return getQuietNan();      }
+        else if (val.isSignalingNan()) { assert(false); }
 
         assert(false);
         return 0;
@@ -625,9 +626,49 @@ public:
 //=============================================================================
 // Decoders for IEEE 754 numbers
 
-typedef IEEE754 <uint16_t, 10> FloatProp16;
-typedef IEEE754 <uint32_t, 23> FloatProp32;
-typedef IEEE754 <uint64_t, 52> FloatProp64;
+typedef IEEE754<uint16_t, 10> FloatProp16;
+typedef IEEE754<uint32_t, 23> FloatProp32;
+typedef IEEE754<uint64_t, 52> FloatProp64;
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
+
+// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
+namespace impl {
+  template<typename T1, typename T2> union Unionier { // provides ctor for const union
+    T1 val; T2 reinterpreted;
+    explicit Unionier(T1 x) : val(x) {}
+  };
+  template<typename T> struct AsBitsTraits; // allowed pairs of types:
+  template<> struct AsBitsTraits<float> { typedef uint32_t DestType; };
+  template<> struct AsBitsTraits<double> { typedef uint64_t DestType; };
+  template<typename T> struct AsBits {
+    typedef typename AsBitsTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsBits(T x) : u(x) { };
+    DestType Get() const { return u.reinterpreted; }
+  };
+  template<typename T> struct AsFloatingTraits;
+  template<> struct AsFloatingTraits<uint32_t> { typedef float DestType; };
+  template<> struct AsFloatingTraits<uint64_t> { typedef double DestType; };
+  template<typename T> struct AsFloating {
+    typedef typename AsFloatingTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsFloating(T x) : u(x) {}
+    DestType Get() const { return u.reinterpreted; }
+  };
+}
+
+template <typename T> // select T and instantiate specialized class
+typename impl::AsBits<T>::DestType asBits(T f) { return impl::AsBits<T>(f).Get(); }
+template <typename T>
+typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating<T>(x).Get(); }
+
+// Finding property types for floating types
+template<typename T> struct FloatProp; // allowed pairs of types:
+template<> struct FloatProp<float>  { typedef FloatProp32 PropType; };
+template<> struct FloatProp<double> { typedef FloatProp64 PropType; };
 
 //==============================================================================
 //==============================================================================
@@ -651,7 +692,44 @@ public:
     //explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) : f16_t(float(x), rounding) {};
     explicit f16_t(int32_t x) { bits = f16_t((f64_t)x).getBits(); }
 private:
-    template<typename T> void convertFrom(T x, unsigned rounding);
+    template<typename T> void convertFrom(T x, unsigned rounding) {
+        typedef typename FloatProp<T>::PropType InProp;
+        InProp input(asBits(x));
+        if (!input.isRegular()) {
+            bits = FloatProp16::mapSpecialValues(input);
+            return;
+        }
+        DecodedFpValue val(input);
+        FloatProp16::TransformMantissaAdjustExponent(val,rounding);
+        bits = FloatProp16(val).getBits();
+    }
+
+public:
+    f32_t f32() const { return convertTo<float>(); };
+    f64_t f64() const { return convertTo<double>(); };
+    operator float() const { return f32(); }
+    operator double() const { return f64(); }
+private:
+    template<typename T> T convertTo() const {
+        FloatProp16 f16(bits);
+        typedef typename FloatProp<T>::PropType OutFloatProp;
+        typename OutFloatProp::Type outbits;
+        if (!f16.isRegular()) {
+            outbits = OutFloatProp::mapSpecialValues(f16);
+        } else if (f16.isSubnormal()) {
+            assert(f16.decodeExponent() == FloatProp16::DECODED_EXP_SUBNORMAL_OR_ZERO);
+            int64_t exponent = FloatProp16::DECODED_EXP_NORM_MIN;
+            uint64_t mantissa = f16.tryNormalizeMantissaUpdateExponent<OutFloatProp>(exponent);
+            OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
+            outbits = outprop.getBits();
+        } else {
+            int64_t exponent = f16.decodeExponent();
+            uint64_t mantissa = f16.mapNormalizedMantissaFIXME<OutFloatProp>();
+            OutFloatProp outprop(f16.isPositive(), mantissa, exponent);
+            outbits = outprop.getBits();
+        }
+        return asFloating(outbits);
+    }
 
 public:
     bool operator>  (const f16_t& x) const { return f64() >  x.f64(); } /// \todo reimplement all via f32 at least
@@ -662,14 +740,6 @@ public:
 
 public:
     f16_t& operator+= (f16_t x) { bits = f16_t(f64() + x.f64()).bits; return *this; }
-
-public:
-    f32_t f32() const { return convertTo<float>(); };
-    f64_t f64() const { return convertTo<double>(); };
-    operator float() const { return f32(); }
-    operator double() const { return f64(); }
-private:
-    template<typename T> T convertTo() const;
 
 public:
     f16_t neg() const { return make(FloatProp16(bits).negate()); }
