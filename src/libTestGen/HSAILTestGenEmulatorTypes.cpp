@@ -54,7 +54,7 @@ template<typename T>
 void f16_t::convertFrom(T x, unsigned rounding)
 {
     typedef typename FloatProp<T>::PropType InProp;
-    const InProp input(asBits(x));
+    InProp input(asBits(x));
     if (!input.isRegular()) {
         bits = input.mapSpecialValues<FloatProp16>();
         return;
@@ -70,7 +70,7 @@ T f16_t::convertTo() const
 { 
     FloatProp16 f16(bits);
     typedef typename FloatProp<T>::PropType OutFloatProp;
-    OutFloatProp::Type outbits;
+    typename OutFloatProp::Type outbits;
 
     if (!f16.isRegular())
     {

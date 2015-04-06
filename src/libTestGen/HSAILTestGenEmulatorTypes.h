@@ -168,7 +168,7 @@ private:
 
     Type bits;
 
-    template<typename T> IEEE754(T); // = delete;
+    //template<typename TT> IEEE754(TT); // = delete;
 public:
     explicit IEEE754(Type val) : bits(val) {}
     IEEE754(bool isPositive, uint64_t mantissa, int64_t decodedExponent)
@@ -254,7 +254,7 @@ public:
 #endif
 
 public:
-    template<typename TargetType> typename TargetType::Type mapSpecialValues() const
+    template<typename TargetType> typename TargetType::Type mapSpecialValues()
     {
         assert(!isRegular());
 
