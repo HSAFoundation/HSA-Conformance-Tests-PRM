@@ -154,6 +154,7 @@ public:
 
     imgobj->EmitImageSt(storeValues, imageaddr, coords);
     //todo EmitImageFence();
+    be.EmitImageFence();
     imgobj->EmitImageLd(regs_dest, imageaddr, coords);
    
     return regs_dest;

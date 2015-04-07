@@ -1734,6 +1734,11 @@ void BrigEmitter::EmitMemfence(BrigMemoryOrder memoryOrder, BrigMemoryScope glob
   inst.operands() = ItemList();
 }
 
+void BrigEmitter::EmitImageFence() {
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_IMAGEFENCE, BRIG_TYPE_NONE);
+  inst.operands() = ItemList();
+}
+
 }
 
 }
