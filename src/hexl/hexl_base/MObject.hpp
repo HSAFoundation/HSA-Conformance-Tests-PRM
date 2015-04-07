@@ -748,6 +748,7 @@ void WriteTo(void *dest, const Values& values);
 void ReadFrom(void *dest, ValueType type, size_t count, Values& values);
 void SerializeValues(std::ostream& out, const Values& values);
 void DeserializeValues(std::istream& in, Values& values);
+uint32_t SizeOf(const Values& values);
 
 class MBuffer : public MObject {
 public:

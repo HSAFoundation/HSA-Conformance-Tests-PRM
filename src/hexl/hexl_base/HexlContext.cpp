@@ -135,12 +135,11 @@ namespace hexl {
 
 #endif // _WIN32
 
-  Value GetRuntimeValue(Value v, Context* context)
+  Value Context::GetRuntimeValue(Value v)
   {
     switch (v.Type()) {
-    case MV_EXPR: {
-      return context->GetValue(v.S());
-    }
+    case MV_EXPR: return GetValue(v.S());
+    case MV_STRING: return GetValue(v.Str());
     default: return v;
     }
   }
@@ -160,7 +159,7 @@ namespace hexl {
     Value actualValue;
     const char *aptr = (const char *) actualPtr;
     for (unsigned i = 0; i < expected.size(); ++i) {
-      Value expectedValue = GetRuntimeValue(expected[i], context);
+      Value expectedValue = context->GetRuntimeValue(expected[i]);
       actualValue.ReadFrom(aptr, expectedValue.Type()); aptr += actualValue.Size();
       bool passed = comparison->Compare(expectedValue, actualValue);
       if ((!passed && comparison->GetFailed() < maxShownFailures) || verboseData) {

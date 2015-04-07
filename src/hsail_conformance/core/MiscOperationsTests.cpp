@@ -251,14 +251,20 @@ public:
   void Init() {
     GroupBasePtrIdentityTest::Init();
     offsetArg = kernel->NewVariable("offset", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
-    offsetArg->AddData(Value(offsetArg->VType(), offsetValue));
+    //offsetArg->AddData(Value(offsetArg->VType(), offsetValue));
   }
 
   void SetupDispatch(const std::string& dispatchId) override {
     Test::SetupDispatch(dispatchId);
     auto offsetType = Brig2ValueType(offsetArg->Type());
-    te->TestScenario()->Commands()->DispatchValueArg(dispatchId, Value(offsetType, 322));
+    te->TestScenario()->Commands()->DispatchValueArg(dispatchId, te->InitialContext()->GetValue("static_group_segment_size"));
     te->InitialContext()->Put(dispatchId, "dynamicgroupsize", Value(MV_UINT32, U32(DynamicMemorySize())));
+  }
+
+  TypedReg Result() override {
+    auto offset = be.AddAReg(BRIG_SEGMENT_GROUP);
+    offsetArg->EmitLoadTo(offset);
+    return offset;
   }
 };
 

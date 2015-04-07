@@ -412,24 +412,74 @@ namespace scenario {
   private:
     std::string imageId;
     std::string imageParamsId;
-    std::string imageDataId;
 
   public:
-    ImageCreateCommand(const std::string& imageId_, const std::string& imageParamsId_, const std::string& imageDataId_)
-      : imageId(imageId_), imageParamsId(imageParamsId_), imageDataId(imageDataId_) { }
+    ImageCreateCommand(const std::string& imageId_, const std::string& imageParamsId_)
+      : imageId(imageId_), imageParamsId(imageParamsId_) { }
 
     virtual bool Execute(runtime::RuntimeState* rt) {
-      return rt->ImageCreate(imageId, imageParamsId, imageDataId);
+      return rt->ImageCreate(imageId, imageParamsId);
     }
 
     void Print(std::ostream& out) const {
-      out << "image_create " << imageId << " " << imageParamsId << " " << imageDataId;
+      out << "image_create " << imageId << " " << imageParamsId;
     }
   };
 
-  bool CommandsBuilder::ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId)
+  bool CommandsBuilder::ImageCreate(const std::string& imageId, const std::string& imageParamsId)
   {
-    commands->Add(new ImageCreateCommand(imageId, imageParamsId, initValuesId));
+    commands->Add(new ImageCreateCommand(imageId, imageParamsId));
+    return true;
+  }
+
+  class ImageInitializeCommand : public Command {
+  private:
+    std::string imageId;
+    std::string imageParamsId;
+    std::string initValueId;
+
+  public:
+    ImageInitializeCommand(const std::string& imageId_, const std::string& imageParamsId_, const std::string& initValueId_)
+      : imageId(imageId_), imageParamsId(imageParamsId_), initValueId(initValueId_) { }
+
+    virtual bool Execute(runtime::RuntimeState* rt) {
+      return rt->ImageInitialize(imageId, imageParamsId, initValueId);
+    }
+
+    void Print(std::ostream& out) const {
+      out << "image_initialize " << imageId << " " << imageParamsId << " " << initValueId;
+    }
+  };
+
+  bool CommandsBuilder::ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId)
+  {
+    commands->Add(new ImageInitializeCommand(imageId, imageParamsId, initValueId));
+    return true;
+  }
+
+  class ImageWriteCommand : public Command {
+  private:
+    std::string imageId;
+    std::string writeValuesId;
+    ImageRegion region;
+
+  public:
+    ImageWriteCommand(const std::string& imageId_, const std::string& writeValuesId_, const ImageRegion& region_)
+      : imageId(imageId_), writeValuesId(writeValuesId_), region(region_) { }
+
+    virtual bool Execute(runtime::RuntimeState* rt) {
+      return rt->ImageWrite(imageId, writeValuesId, region);
+    }
+
+    void Print(std::ostream& out) const {
+      out << "image_write " << imageId << " " << writeValuesId << " ";
+      region.Print(out);
+    }
+  };
+
+  bool CommandsBuilder::ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region)
+  {
+    commands->Add(new ImageWriteCommand(imageId, writeValuesId, region));
     return true;
   }
 

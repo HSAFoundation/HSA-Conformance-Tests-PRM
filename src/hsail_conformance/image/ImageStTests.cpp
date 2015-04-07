@@ -63,8 +63,8 @@ public:
     imageSpec.Height(imageGeometry.ImageHeight());
     imageSpec.Depth(imageGeometry.ImageDepth());
     imageSpec.ArraySize(imageGeometry.ImageArray());
-    imgobj = kernel->NewImage("%rwimage", &imageSpec);
-    imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
+    imgobj = kernel->NewImage("%rwimage", HOST_INPUT_IMAGE, &imageSpec);
+    imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
 
     imgobj->InitImageCalculator(NULL);
 

@@ -137,8 +137,8 @@ public:
    imageSpec.Height(imageGeometry.ImageHeight());
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
-   imgobj = kernel->NewImage("%roimage", &imageSpec);
-   imgobj->AddData(Value(MV_UINT8, 0xFF));
+   imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec);
+   imgobj->SetInitialData(Value(MV_UINT8, 0xFF));
   }
 
   void ModuleDirectives() override {

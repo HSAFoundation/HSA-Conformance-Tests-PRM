@@ -35,7 +35,6 @@ namespace hexl {
     size_t height;
     size_t depth;
     size_t arraySize;
-    bool bLimitTest;
 
     ImageParams(
       BrigType imageType_,
@@ -45,11 +44,10 @@ namespace hexl {
       size_t width_,
       size_t height_,
       size_t depth_,
-      size_t arraySize_,
-      bool bLimitTest_)
+      size_t arraySize_)
       : imageType(imageType_),
         geometry(geometry_), channelOrder(channelOrder_), channelType(channelType_),
-        width(width_), height(height_), depth(depth_), arraySize(arraySize_), bLimitTest(bLimitTest_) { }
+        width(width_), height(height_), depth(depth_), arraySize(arraySize_) { }
     ImageParams() { }
     void Print(std::ostream& out) const;
   };
@@ -69,6 +67,22 @@ namespace hexl {
     SamplerParams() { }
     void Print(std::ostream& out) const;
   };
+
+  class ImageRegion {
+  public:
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+    uint32_t size_x;
+    uint32_t size_y;
+    uint32_t size_z;
+
+    ImageRegion(uint32_t x_ = 0, uint32_t y_ = 0, uint32_t z_ = 0,
+                uint32_t size_x_ = 1, uint32_t size_y_ = 1, uint32_t size_z_ = 1)
+                : x(x_), y(y_), z(z_), size_x(size_x_), size_y(size_y_), size_z(size_z_) {}
+    void Print(std::ostream& out) const;
+  };
+
 
   namespace runtime {
 
@@ -128,7 +142,9 @@ namespace hexl {
       virtual bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId = "") = 0;
       virtual bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") = 0;
 
-      virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId) = 0;
+      virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId) = 0;
+      virtual bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId) = 0;
+      virtual bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region) = 0;
       virtual bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") = 0;
       virtual bool SamplerCreate(const std::string& samplerId, const std::string& samplerParamsId) = 0;
 

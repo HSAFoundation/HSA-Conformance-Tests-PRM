@@ -64,6 +64,13 @@ enum BufferType {
   KERNEL_BUFFER,
 };
 
+enum ImageType {
+  HOST_INPUT_IMAGE,
+  HOST_IMAGE,
+  KERNEL_IMAGE,
+  HOST_OUTPUT_IMAGE,
+};
+
 class EString {
 private:
   typedef std::basic_string<char, std::char_traits<char>, ArenaAllocator<char>> estring;
@@ -405,7 +412,7 @@ public:
   Signal NewSignal(const std::string& id, uint64_t initialValue);
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
-  Image NewImage(const std::string& id, ImageSpec spec);
+  Image NewImage(const std::string& id, ImageType type, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
   Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };
@@ -542,7 +549,7 @@ protected:
 public:
   explicit EImageSpec(
     BrigSegment brigseg_ = BRIG_SEGMENT_GLOBAL, 
-    BrigType imageType_ = BRIG_TYPE_RWIMG, 
+    BrigType type_ = BRIG_TYPE_RWIMG, 
     Location location_ = Location::KERNEL, 
     uint64_t dim_ = 0, 
     bool isConst_ = false, 
@@ -553,8 +560,7 @@ public:
     size_t width_ = 0, 
     size_t height_ = 0, 
     size_t depth_ = 0, 
-    size_t array_size_ = 0,
-    bool bLimitTest = false
+    size_t array_size_ = 0
     );
 
   bool IsValid() const;
@@ -566,7 +572,6 @@ public:
   size_t Height() { return height; }
   size_t Depth() { return depth; }
   size_t ArraySize() { return arraySize; }
-  bool IsLimitTest() { return bLimitTest; }
   void Geometry(BrigImageGeometry geometry_) { geometry = geometry_; }
   void ChannelOrder(BrigImageChannelOrder channelOrder_) { channelOrder = channelOrder_; }
   void ChannelType(BrigImageChannelType channelType_) { channelType = channelType_; }
@@ -574,7 +579,6 @@ public:
   void Height(size_t height_) { height = height_; }
   void Depth(size_t depth_) { depth = depth_; }
   void ArraySize(size_t arraySize_) { arraySize = arraySize_; }
-  void LimitTest(bool bLimitTest_) { bLimitTest = bLimitTest_; }
 
   hexl::ImageGeometry ImageGeometry() { return hexl::ImageGeometry((unsigned)width, (unsigned)height, (unsigned)depth, (unsigned)arraySize); }
 };
@@ -648,9 +652,11 @@ public:
 class EImage : public EImageSpec {
 private:
   EString id;
+  ImageType imageType;
   HSAIL_ASM::DirectiveVariable var;
-  std::unique_ptr<Values> data;
+  std::unique_ptr<Value> initialData;
   EImageCalc calculator;
+  uint32_t writeCount;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitInitializer();
@@ -659,12 +665,15 @@ private:
   Location RealLocation() const;
 
 public:
-  EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec);
+  EImage(TestEmitter* te_, const std::string& id_, ImageType imageType_, const EImageSpec* spec);
   ~EImage() {}
 
   const char *Id() const { return id; }
+  ImageType EImageType() const { return imageType; }
   std::string IdData() const { return id.str() + ".data"; }
   std::string IdParams() const { return id.str() + ".params"; }
+  std::string IdHandle() const { return id.str() + ".handle"; }
+  std::string IdWrite() const { return id.str() + ".write" + std::to_string(writeCount); }
 
   void KernelArguments();
   void ModuleVariables();
@@ -672,6 +681,8 @@ public:
   void FunctionFormalInputArguments();
   void FunctionVariables();
   void KernelVariables();
+
+  void ScenarioImageWrite(std::unique_ptr<Values> writeData, const ImageRegion& region);
 
   void ScenarioInit();
   void SetupDispatch(const std::string& dispatchId);
@@ -683,10 +694,8 @@ public:
   HSAIL_ASM::DirectiveVariable Variable() { assert(var != 0); return var; }
 
   Value GenMemValue(Value v);
-  void AddData(Value v) { data->push_back(v); }
-  void SetData(Values* values) { data.reset(values); }
-  Values* ReleaseData() { return data.release(); }
-  Value GetRawData() { return (*data).at(0); }
+  void SetInitialData(Value initial);
+  Value GetInitialData() { assert(initialData.get()); return *initialData; }
   void InitImageCalculator(Sampler pSampler) { calculator.Init(this, pSampler); }
   void SetValueForCalculator(Value val) { calculator.ValueSet(val); }
   void ReadColor(Value* _coords, Value* _channels) const { calculator.EmulateImageRd(_coords, _channels); }
@@ -927,7 +936,7 @@ public:
   Signal NewSignal(const std::string& id, uint64_t initialValue);
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
-  Image NewImage(const std::string& id, ImageSpec spec);
+  Image NewImage(const std::string& id, ImageType type, ImageSpec spec);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
   Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };

@@ -784,6 +784,15 @@ void ReadFrom(void *src, ValueType type, size_t count, Values& values)
   }
 }
 
+uint32_t SizeOf(const Values& values) 
+{
+  size_t size = 0;
+  for (const auto value: values) {
+    size += value.Size();
+  }
+  return size;
+}
+
 void MBuffer::Print(std::ostream& out) const
 {
   MObject::Print(out);

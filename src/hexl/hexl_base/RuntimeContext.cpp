@@ -68,6 +68,17 @@ namespace hexl {
       HSAIL_ASM::anyEnum2str(filter) << ")";
   }
 
+  void ImageRegion::Print(std::ostream& out) const 
+  {
+    out << "image_region" <<
+           "(x = " << x <<
+           "; y = " << y <<
+           "; z = " << z <<
+           "; size_x = " << size_x <<
+           "; size_y = " << size_y <<
+           "; size_z = " << size_z << ")";
+  }
+
 
   class NoneRuntimeState : public runtime::RuntimeState {
   private:
@@ -99,7 +110,9 @@ namespace hexl {
     bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId = "") { return true; }
     bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") { return true; }
 
-    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId) { return true; }
+    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId) { return true; }
+    bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId) { return true; }
+    bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region) { return true; }
     bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") { return true; }
     bool SamplerCreate(const std::string& samplerId, const std::string& samplerParamsId) override { return true;  }
 

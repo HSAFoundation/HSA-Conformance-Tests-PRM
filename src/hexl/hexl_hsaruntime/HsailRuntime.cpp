@@ -349,13 +349,18 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     virtual bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId) override
     {
       size = (std::max)(size, (size_t) 256);
-      void *ptr = alignedMalloc(size, 256);
+      char *ptr = (char *) alignedMalloc(size, 256);
       hsa_status_t status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); alignedFree(ptr); return 0; }
       if (!initValuesId.empty()) {
         Values* initValues = context->Get<Values>(initValuesId);
         assert(initValues->size() <= size);
-        WriteTo(ptr, *initValues);
+        char *vptr = ptr;
+        for (size_t i = 0; i < initValues->size(); ++i) {
+          Value v = context->GetRuntimeValue((*initValues)[i]);
+          v.WriteTo(vptr);
+          vptr += v.Size();
+        }
       }
       Put(bufferId, new HsailBuffer(this, ptr));
       return true;
@@ -416,45 +421,64 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       alignedFree(data);
     }
 
-    void ImageWriter(void* ptr, Values InitValues, hsa_ext_image_t image, const std::string imageParamsId, size_t image_size)
+    virtual bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, 
+                                 const std::string& initValueId) override 
     {
-      assert(ptr);
-      const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
-      char *p = (char *) ptr;
-      Value value = Value(MV_UINT8, 0);
-      if (InitValues.size() > 0) {
-        value = InitValues[0];
-      }
+      auto image = context->Get<HsailImage>(imageId);
+      auto initValue = context->GetValue(initValueId);
+      auto imageParams = context->Get<ImageParams>(imageParamsId);
       
-      if (ip->bLimitTest)
-      {
-        hsa_ext_image_region_t img_region;
+      hsa_ext_image_region_t hsaRegion;
+      hsaRegion.offset.x = 0;
+      hsaRegion.offset.y = 0;
+      hsaRegion.offset.z = 0;
+      hsaRegion.range.x = (uint32_t)imageParams->width;
+      hsaRegion.range.y = (uint32_t)imageParams->height;
+      hsaRegion.range.z = (uint32_t)imageParams->depth;
 
-        img_region.offset.x = (uint32_t)ip->width - 1;
-        img_region.offset.y = (uint32_t)ip->height - 1;
-        img_region.offset.z = (uint32_t)ip->depth - 1;
-
-        img_region.range.x = 1;
-        img_region.range.y = 1;
-        img_region.range.z = 1;
-
-        char* pBuff = new char[value.Size()];
-        value.WriteTo(pBuff);
-        hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), pBuff, value.Size(), 1, image, &img_region);
-        delete[] pBuff;
-        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return; }
+      auto size = imageParams->width * imageParams->height * imageParams->depth;
+      auto buff = new char[size * initValue.Size()];
+      auto cbuff = buff;
+      for (uint32_t i = 0; i < size; ++i) {
+        initValue.WriteTo(cbuff);
+        cbuff += initValue.Size();      
       }
-      else
-      {
-        size_t size_val = value.Size();
-        for (size_t i = 0; i < image_size/size_val; ++i) {
-          value.WriteTo(p);
-          p += size_val;
-        }
-      }
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), buff, 
+        imageParams->width, imageParams->width * imageParams->height, image->Image(), &hsaRegion);
+      delete[] buff;
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return false; }
+      return true;
     }
 
-    virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId) override
+    virtual bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, 
+                            const ImageRegion& region) override 
+    {
+      if (region.size_x == 0 || region.size_y == 0 || region.size_z == 0) {
+        return true;
+      }
+      auto size = region.size_x * region.size_y * region.size_z;
+      auto image = context->Get<HsailImage>(imageId);
+      auto writeValues = context->Get<Values>(writeValuesId);
+      assert(writeValues->size() == size);
+      
+      hsa_ext_image_region_t hsaRegion;
+      hsaRegion.offset.x = region.x;
+      hsaRegion.offset.y = region.y;
+      hsaRegion.offset.z = region.z;
+      hsaRegion.range.x = region.size_x;
+      hsaRegion.range.y = region.size_y;
+      hsaRegion.range.z = region.size_z;
+
+      char* buff = new char[SizeOf(*writeValues)];
+      WriteTo(buff, *writeValues);
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), buff, 
+        region.size_x, region.size_x * region.size_y, image->Image(), &hsaRegion);
+      delete[] buff;
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return false; }
+      return true;
+    }
+
+    virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId) override
     {
       const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
       hsa_ext_image_descriptor_t image_descriptor;
@@ -475,9 +499,6 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       void *imageData = NULL;
       size_t size = (std::max)(image_info.size, (size_t) 256);
       imageData = alignedMalloc(size, image_info.alignment);
-      if (!initValuesId.empty()) {
-        ImageWriter(imageData, *context->Get<Values>(initValuesId), image, imageParamsId, image_info.size);
-      }
 
       /*
       status = Runtime()->Hsa()->hsa_memory_register(imageData, size);
@@ -495,6 +516,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData); return 0; }
 
       Put(imageId, new HsailImage(this, image, imageData));
+      context->Put(imageId + ".handle", Value(MV_UINT64, image.handle));
       return true;
     }
 
@@ -623,8 +645,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
         kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE, &p->group_segment_size);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE) failed", status); return false; }
-      if (context->Has("dynamicgroupsize")) {
-        p->group_segment_size += context->GetValue("dynamicgroupsize").U32();
+      context->Put("static_group_segment_size", Value(MV_UINT32, p->group_segment_size));
+      if (context->Has(dispatchId, "dynamicgroupsize")) {
+        p->group_segment_size += context->GetValue(dispatchId, "dynamicgroupsize").U32();
       }
 
       status = Runtime()->Hsa()->hsa_signal_create(1, 0, 0, &p->completion_signal);

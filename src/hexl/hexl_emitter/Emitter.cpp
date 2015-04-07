@@ -285,9 +285,9 @@ Function EmittableContainer::NewFunction(const std::string& id)
   return function;
 }
 
-Image EmittableContainer::NewImage(const std::string& id, ImageSpec spec)
+Image EmittableContainer::NewImage(const std::string& id, ImageType type, ImageSpec spec)
 {
-  Image image = te->NewImage(id, spec);
+  Image image = te->NewImage(id, type, spec);
   Add(image);
   return image;
 }
@@ -522,10 +522,11 @@ void EVariable::EmitStoreFrom(TypedReg src, bool useVectorInstructions)
 
 void EVariable::SetupDispatch(const std::string& dispatchId) {
   if (segment == BRIG_SEGMENT_KERNARG) {
-    CommandsBuilder* commands = te->TestScenario()->Commands();
     Values* data = this->data.release();
-    assert(data);
-    commands->DispatchValuesArg(dispatchId, data);
+    if (data) {
+      CommandsBuilder* commands = te->TestScenario()->Commands();
+      commands->DispatchValuesArg(dispatchId, data);
+    }
   }
 }
 
@@ -1002,7 +1003,7 @@ void EUserModeQueue::EmitCasQueueWriteIndex(BrigSegment segment, BrigMemoryOrder
 
 EImageSpec::EImageSpec(
   BrigSegment brigseg_,
-  BrigType imageType_,
+  BrigType type_,
   Location location_,
   uint64_t dim_,
   bool isConst_,
@@ -1013,11 +1014,10 @@ EImageSpec::EImageSpec(
   size_t width_,
   size_t height_,
   size_t depth_,
-  size_t arraySize_,
-  bool bLimitTest_
+  size_t arraySize_
   )
-  : EVariableSpec(brigseg_, imageType_, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_),
-    ImageParams(imageType_, geometry_, channelOrder_, channelType_, width_, height_, depth_, arraySize_, bLimitTest_) {
+  : EVariableSpec(brigseg_, type_, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_),
+    ImageParams(type_, geometry_, channelOrder_, channelType_, width_, height_, depth_, arraySize_) {
   // Init rowPitch and slicePitch Params (depend of chanel_order and channel_type)
   //rowPitch = 
   //slicePitch = 
@@ -1049,8 +1049,8 @@ bool EImageSpec::IsValid() const
   return EVariableSpec::IsValid() && IsValidSegment() && IsValidType();
 }
 
-EImage::EImage(TestEmitter* te_, const std::string& id_, const EImageSpec* spec)
-  : EImageSpec(*spec), id(id_, te_->Ap()), data(new Values())
+EImage::EImage(TestEmitter* te_, const std::string& id_, ImageType imageType_, const EImageSpec* spec)
+  : EImageSpec(*spec), id(id_, te_->Ap()), imageType(imageType_), initialData(nullptr), writeCount(0)
 {
   te = te_;
 }
@@ -1321,17 +1321,50 @@ Value EImage::GenMemValue(Value v)
   return result;
 }
 
+void EImage::SetInitialData(Value initial) {
+  if (initialData.get() == nullptr) {
+    initialData = std::unique_ptr<Value>(new Value());
+  }
+  *initialData = initial;
+}
+
 void EImage::ScenarioInit()
-{
-  te->InitialContext()->Move(IdData(), data.release());
+{  
   te->InitialContext()->Move(IdParams(), new ImageParams(*this));
-  te->TestScenario()->Commands()->ImageCreate(Id(), IdParams(), IdData());
+  switch (imageType) {
+  case HOST_INPUT_IMAGE:
+  case HOST_IMAGE:
+    te->TestScenario()->Commands()->ImageCreate(Id(), IdParams());
+    if (initialData.get()) {
+      te->InitialContext()->Put(IdData(), *initialData);
+      //te->InitialContext()->Move(IdData(), initialData.release());
+      te->TestScenario()->Commands()->ImageInitialize(Id(), IdParams(), IdData());
+    }
+    break;
+  case HOST_OUTPUT_IMAGE:
+    te->TestScenario()->Commands()->ImageCreate(Id(), IdParams());
+    break;
+  default:
+    break;
+  }
+}
+
+void EImage::ScenarioImageWrite(std::unique_ptr<Values> writeData, const ImageRegion& region) {
+  assert(te->InitialContext()->Has(IdParams()));
+  te->InitialContext()->Move(IdWrite(), writeData.release());
+  te->TestScenario()->Commands()->ImageWrite(Id(), IdWrite(), region);
+  ++writeCount;
 }
 
 void EImage::SetupDispatch(const std::string& dispatchId)
 {
-  if (segment == BRIG_SEGMENT_KERNARG) {  
+  switch (imageType) {
+  case HOST_INPUT_IMAGE:
+  case HOST_OUTPUT_IMAGE:
     te->TestScenario()->Commands()->DispatchArg(dispatchId, DARG_IMAGE, Id());
+    break;
+  default:
+    break;
   }
 }
 
@@ -1427,35 +1460,36 @@ void EImage::KernelVariables()
 
 void EImage::FunctionFormalOutputArguments()
 {
-  if (RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && output) {
+  if (imageType == KERNEL_IMAGE && RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && output) {
     EmitDefinition();
   }
 }
 
 void EImage::FunctionFormalInputArguments()
 {
-  if (RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && !output) {
+  if (imageType == HOST_INPUT_IMAGE && RealLocation() == FUNCTION && segment == BRIG_SEGMENT_ARG && !output) {
     EmitDefinition();
   }
 }
 
 void EImage::KernelArguments()
 {
-  if (segment == BRIG_SEGMENT_KERNARG && RealLocation() == Location::KERNEL) {
+  if ((imageType == HOST_INPUT_IMAGE || imageType == HOST_OUTPUT_IMAGE) && 
+      segment == BRIG_SEGMENT_KERNARG && RealLocation() == Location::KERNEL) {
     EmitDefinition();
   }
 }
 
 void EImage::ModuleVariables()
 {
-  if (RealLocation() == Location::MODULE) {
+  if (imageType == KERNEL_IMAGE && RealLocation() == Location::MODULE) {
     EmitDefinition();
   }
 }
 
 void EImage::FunctionVariables()
 {
-  if (RealLocation() == FUNCTION && segment != BRIG_SEGMENT_ARG) {
+  if (imageType == KERNEL_IMAGE && RealLocation() == FUNCTION && segment != BRIG_SEGMENT_ARG) {
     EmitDefinition();
   }
 }
@@ -1463,8 +1497,22 @@ void EImage::FunctionVariables()
 void EImage::EmitDefinition() 
 {
   assert(!var);
-  var = EmitAddressDefinition(segment);
-  EmitInitializer();
+  switch (imageType) {
+  case HOST_INPUT_IMAGE:
+  case HOST_OUTPUT_IMAGE:
+  case KERNEL_IMAGE:
+    var = EmitAddressDefinition(segment);
+    break;
+  default:
+    break;
+  }
+  switch (imageType) {
+  case KERNEL_IMAGE:
+    EmitInitializer();
+    break;
+  default:
+    break;
+  }
 }
 
 void EImage::EmitInitializer()
@@ -2524,7 +2572,7 @@ void EImageCalc::Init(EImage * eimage, ESampler* esampler)
   isDepth = IsImageDepth(imageGeometryProp);
 
   //set default
-  existVal = eimage->GetRawData();
+  existVal = eimage->GetInitialData();
 }
 
 Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
@@ -3478,9 +3526,9 @@ Function TestEmitter::NewFunction(const std::string& id)
   return new(Ap()) EFunction(this, id);
 }
 
-Image TestEmitter::NewImage(const std::string& id, ImageSpec spec)
+Image TestEmitter::NewImage(const std::string& id, ImageType type, ImageSpec spec)
 {
-  return new(Ap()) EImage(this, id, spec);
+  return new(Ap()) EImage(this, id, type, spec);
 }
 
 Sampler TestEmitter::NewSampler(const std::string& id, SamplerSpec spec) 

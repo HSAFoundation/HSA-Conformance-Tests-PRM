@@ -80,7 +80,9 @@ namespace scenario {
     bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId);
     bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "");
 
-    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId);
+    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId);
+    bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId);
+    bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region);
     bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "");
     bool SamplerCreate(const std::string& samplerID, const std::string& samplerParamsId);
 
