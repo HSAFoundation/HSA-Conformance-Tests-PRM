@@ -232,7 +232,7 @@ public:
     OperandAddress addr = be.Address(globalVar);
     switch (segment) {
       case BRIG_SEGMENT_FLAT: {
-        PointerReg flatAddr = be.AddAReg(globalVar.segment().enumValue());
+        PointerReg flatAddr = be.AddAReg(globalVar.segment());
         be.EmitLda(flatAddr, addr);
         addr = be.Address(flatAddr);
         break;

@@ -337,7 +337,6 @@ public:
       auto kernArgOutRegs = te->Brig()->AddTRegList();
       te->Brig()->EmitCallSeq(function, kernArgInRegs, kernArgOutRegs);
     }
-    dispatch = te->NewDispatch("dispatch", "executable", kernel->Id());
   }
 
   void FunctionCode() override {

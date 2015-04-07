@@ -582,7 +582,7 @@ public:
         if (!atomicVarAddr)
         {
             Comment("Load variable address");
-            atomicVarAddr = be.AddAReg(testVar.segment().enumValue());
+            atomicVarAddr = be.AddAReg(testVar.segment());
             be.EmitLda(atomicVarAddr, testVar);
         }
         return atomicVarAddr;
@@ -756,7 +756,7 @@ public:
 
     // ========================================================================
 
-    TypedReg Cond(BrigCompareOperation cond, TypedReg val1, uint64_t val2)
+    TypedReg Cond(unsigned cond, TypedReg val1, uint64_t val2)
     {
         TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
         InstCmp inst = be.EmitCmp(cReg->Reg(), val1, be.Immed(val1->Type(), val2), cond);
@@ -767,7 +767,7 @@ public:
         return cReg;
     }
     
-    TypedReg Cond(BrigCompareOperation cond, TypedReg val1, Operand val2)
+    TypedReg Cond(unsigned cond, TypedReg val1, Operand val2)
     {
         TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
         InstCmp inst = be.EmitCmp(cReg->Reg(), val1, val2, cond);
@@ -807,7 +807,7 @@ public:
         return dst;
     }
 
-    string IfCond(BrigCompareOperation cond, TypedReg val1, uint64_t val2)
+    string IfCond(unsigned cond, TypedReg val1, uint64_t val2)
     {
         string label = be.AddLabel();
         TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
@@ -822,7 +822,7 @@ public:
         be.EmitLabel(label);
     }
     
-    BrigCompareOperation InvertCond(BrigCompareOperation cond)
+    unsigned InvertCond(unsigned cond)
     {
         switch(cond)
         {
