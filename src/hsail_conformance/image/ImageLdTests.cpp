@@ -70,7 +70,7 @@ public:
     {
     case BRIG_CHANNEL_TYPE_SNORM_INT8:
     case BRIG_CHANNEL_TYPE_SNORM_INT16:
-      output->SetComparisonMethod("ulp=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
+      output->SetComparisonMethod("ulps=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
       break;
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_UNORM_INT16:
@@ -78,7 +78,7 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-      output->SetComparisonMethod("ulp=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+      output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
       break;
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT16:
@@ -89,10 +89,10 @@ public:
       //integer types are compared for equality
       break;
     case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      output->SetComparisonMethod("ulp=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
+      output->SetComparisonMethod("ulps=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
       break;
     case BRIG_CHANNEL_TYPE_FLOAT:
-      output->SetComparisonMethod("ulp=0,flushDenorms"); //flushDenorms
+      output->SetComparisonMethod("ulps=0,flushDenorms"); //flushDenorms
       break;
     default:
       break;

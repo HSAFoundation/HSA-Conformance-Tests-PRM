@@ -91,7 +91,7 @@ public:
       if(samplerFilter == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=-1.0,maxf=1.0");
       }else{
-        output->SetComparisonMethod("ulp=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
+        output->SetComparisonMethod("ulps=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
       }
       break;
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
@@ -103,7 +103,7 @@ public:
       if(samplerFilter == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=0.0,maxf=1.0");
       }else{
-        output->SetComparisonMethod("ulp=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+        output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
       }
       break;
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
@@ -118,14 +118,14 @@ public:
       if(samplerFilter == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING);
       }else{
-        output->SetComparisonMethod("ulp=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
+        output->SetComparisonMethod("ulps=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
       }
       break;
     case BRIG_CHANNEL_TYPE_FLOAT:
       if(samplerFilter == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",flushDenorms");
       }else{
-        output->SetComparisonMethod("ulp=0,flushDenorms"); //flushDenorms
+        output->SetComparisonMethod("ulps=0,flushDenorms"); //flushDenorms
       }
       break;
     default:
