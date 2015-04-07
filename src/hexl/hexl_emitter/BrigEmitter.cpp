@@ -68,8 +68,6 @@ BrigEmitter::BrigEmitter()
     brigantine(*BrigC()),
     currentScope(ES_MODULE)
 {
-  workitemabsid[0] = 0;
-  workitemabsid[1] = 0;
   workitemflatabsid[0] = 0;
   workitemflatabsid[1] = 0;
 }
@@ -1399,16 +1397,12 @@ TypedReg BrigEmitter::WorkitemFlatAbsId(bool large)
   return workitemflatabsid[i];
 }
 
-
 TypedReg BrigEmitter::EmitWorkitemAbsId(uint32_t dim, bool large)
 {
-  unsigned i = large ? 1 : 0;
-  if (!workitemabsid[i]) {
-    workitemabsid[large] = AddTReg(large ? BRIG_TYPE_U64 : BRIG_TYPE_U32);
-    InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_WORKITEMABSID, workitemabsid[i]->Type());
-    inst.operands() = Operands(workitemabsid[i]->Reg(), brigantine.createImmed(dim, BRIG_TYPE_U32));
-  }
-  return workitemabsid[i];
+  TypedReg dest = AddTReg(large ? BRIG_TYPE_U64 : BRIG_TYPE_U32);
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_WORKITEMABSID, dest->Type());
+  inst.operands() = Operands(dest->Reg(), brigantine.createImmed(dim, BRIG_TYPE_U32));
+  return dest;
 }
 
 std::string BrigEmitter::GetVariableNameHere(const std::string& name)
