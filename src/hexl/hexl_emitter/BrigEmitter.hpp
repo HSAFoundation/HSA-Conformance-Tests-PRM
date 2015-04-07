@@ -24,6 +24,7 @@
 #include "Arena.hpp"
 #include "HexlTest.hpp"
 #include "EmitterCommon.hpp"
+#include "Emitter.hpp"
 
 #define OFFSETOF_FIELD(structName, field) ((size_t)&(((structName*)0)->field))
 #define EmitStructLoad(data, ptr, structName, field) te->Brig()->EmitLoad(BRIG_SEGMENT_GLOBAL, data, te->Brig()->Address(ptr, OFFSETOF_FIELD(structName, field)))
@@ -35,6 +36,161 @@
 namespace hexl {
 
 namespace emitter {
+
+  struct InstBuilder {
+    HSAIL_ASM::ItemList operands;
+  };
+
+
+  template <typename I, typename O>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, O o);
+
+  template <typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, BrigType type) {
+    if (inst.type() == BRIG_TYPE_NONE) {
+      inst.type() = type;
+    } else {
+      assert(inst.type() == type);
+    }
+  }
+
+  template<typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, BrigRound round) { inst.round() = round; }
+
+  template <typename I, typename O>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, O o)
+  {
+    if (o != 0) {
+      ib.operands.push_back(o);
+    }
+  }
+
+  template <typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, HSAIL_ASM::ItemList operands)
+  {
+    for (HSAIL_ASM::Operand o : operands)
+      ib.operands.push_back(o);
+  }
+
+  template <typename I, typename E, typename B=int>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, const HSAIL_ASM::EnumValRef<E, B>& e)
+  {
+    ApplyOperand(inst, ib, e.enumValue());
+  }
+
+  template<typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, TypedReg r)
+  {
+    ApplyOperand(inst, ib, r->Type());
+    ApplyOperand(inst, ib, r->Reg());
+  }
+
+  template<typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, PointerReg r)
+  {
+    ApplyOperand(inst, ib, r->Type());
+    ApplyOperand(inst, ib, r->Segment());
+    ApplyOperand(inst, ib, r->Reg());
+  }
+
+  template <>
+  inline void ApplyOperand<HSAIL_ASM::InstSourceType>(HSAIL_ASM::InstSourceType& inst, InstBuilder& ib, BrigType type)
+  {
+    if (inst.type() == BRIG_TYPE_NONE) {
+      inst.type() = type;
+    } else {
+      inst.sourceType() = type;
+    }
+  }
+
+  template <>
+  inline void ApplyOperand<HSAIL_ASM::InstLane>(HSAIL_ASM::InstLane& inst, InstBuilder& ib, BrigType type)
+  {
+    if (inst.type() == BRIG_TYPE_NONE) {
+      inst.type() = type;
+    } else {
+      inst.sourceType() = type;
+    }
+  }
+
+  template<typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, BrigSegment segment) { inst.segment() = segment; }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstMem& inst, InstBuilder& ib, BrigAlignment align) { inst.align() = align; }
+
+  template<typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, BrigWidth width) { inst.width() = width; }
+
+  template<typename I>
+  inline void ApplyOperand(I& inst, InstBuilder& ib, BrigMemoryOrder memoryOrder) { inst.memoryOrder() = memoryOrder; }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstMem& inst, InstBuilder& ib, uint8_t equiv) { inst.equivClass() = equiv; }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstQueue& inst, InstBuilder& ib, BrigMemoryOrder memoryOrder) { inst.memoryOrder() = memoryOrder; }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstBr& inst, InstBuilder& ib, BrigWidth width) { inst.width() = width; }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstCmp& inst, InstBuilder& ib, BrigCompareOperation cmp) { inst.compare() = cmp; }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstCmp& inst, InstBuilder& ib, BrigType type)
+  {
+    if (inst.type() == BRIG_TYPE_NONE) {
+      inst.type() = type;
+    } else {
+      inst.sourceType() = type;
+    }
+  }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstSegCvt& inst, InstBuilder& ib, bool nonull) { inst.modifier().isNoNull() = nonull; }
+
+  template<>
+  inline void ApplyOperand(HSAIL_ASM::InstSegCvt& inst, InstBuilder& ib, BrigType type)
+  {
+    if (inst.type() == BRIG_TYPE_NONE) {
+      inst.type() = type;
+    } else {
+      inst.sourceType() = type;
+    }
+  }
+
+  template <>
+  inline void ApplyOperand<HSAIL_ASM::InstCvt>(HSAIL_ASM::InstCvt& inst, InstBuilder& ib, BrigType type)
+  {
+    if (inst.type() == BRIG_TYPE_NONE) {
+      inst.type() = type;
+    } else {
+      inst.sourceType() = type;
+    }
+  }
+
+  template <typename I, typename... Os>
+  void ApplyOperands(I& inst, InstBuilder& ib, Os... os);
+
+  template <typename I>
+  void ApplyOperands(I& inst, InstBuilder& ib) { }
+
+  template <typename I, typename O, typename... Os>
+  void ApplyOperands(I& inst, InstBuilder& ib, O o, Os... os)
+  {
+    ApplyOperand(inst, ib, o);
+    ApplyOperands<I, Os...>(inst, ib, os...);
+  }
+
+  template <typename I, typename... Os>
+  I Emit(I inst, Os... os)
+  {
+    InstBuilder ib;
+    ApplyOperands(inst, ib, os...);
+    inst.operands() = ib.operands;
+    return inst;
+  }
 
 class CoreConfig;
 
@@ -64,6 +220,14 @@ public:
   BrigEmitter();
   ~BrigEmitter();
 
+  template <typename I, typename... Args>
+  I Emit(BrigOpcode opcode, Args... args)
+  {
+    I inst = brigantine.addInst<I>(opcode, BRIG_TYPE_NONE);
+    hexl::emitter::Emit(inst, args...);
+    return inst;
+  }
+
   void SetCoreConfig(CoreConfig* coreConfig) { assert(coreConfig && !this->coreConfig); this->coreConfig = coreConfig; }
   HSAIL_ASM::BrigContainer* BrigC();
   brig_container_t Brig();
@@ -74,23 +238,25 @@ public:
   HSAIL_ASM::OperandRegister Reg(const std::string& name);
 
   HSAIL_ASM::OperandRegister AddReg(const std::string& name);
-  HSAIL_ASM::OperandRegister AddReg(BrigType16_t type);
+  HSAIL_ASM::OperandRegister AddReg(BrigType type);
   HSAIL_ASM::OperandRegister AddSReg() { return AddReg("$s"); }
   HSAIL_ASM::OperandRegister AddDReg() { return AddReg("$d"); }
   HSAIL_ASM::OperandRegister AddQReg() { return AddReg("$q"); }
   HSAIL_ASM::OperandRegister AddCReg() { return AddReg("$c"); }
 
-  HSAIL_ASM::OperandOperandList AddVec(BrigType16_t type, unsigned count);
+  HSAIL_ASM::OperandOperandList AddVec(BrigType type, unsigned count);
 
   TypedReg AddCTReg();
 
-  PointerReg AddAReg(BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL);
-  PointerReg AddAReg(HSAIL_ASM::DirectiveVariable v) { return AddAReg(v.segment()); }
+  PointerReg AddAReg(BrigSegment segment = BRIG_SEGMENT_GLOBAL);
+  PointerReg AddAReg(HSAIL_ASM::DirectiveVariable v) { return AddAReg(v.segment().enumValue()); }
 
-  TypedReg AddTReg(BrigType16_t type, unsigned count = 1);
+  TypedReg AddTReg(unsigned type, unsigned count = 1) { return AddTReg((BrigType) type, count); }
+  TypedReg AddTReg(const HSAIL_ASM::EnumValRef<BrigType, uint16_t>& type, unsigned count = 1) { return AddTReg(type.enumValue(), count); }
+  TypedReg AddTReg(BrigType type, unsigned count = 1);
   TypedRegList AddTRegList();
 
-  BrigType PointerType(BrigSegment8_t asegment = BRIG_SEGMENT_GLOBAL) const;
+  BrigType PointerType(BrigSegment asegment = BRIG_SEGMENT_GLOBAL) const;
 
   std::string TName(unsigned n = 0) { return AddName("tmp"); }
   std::string IName(unsigned n = 0) { return AddName("in"); }
@@ -118,8 +284,9 @@ public:
   hexl::Value GenerateTestValue(BrigType type, uint64_t id = 0) const;
 
   // Immediates
-  HSAIL_ASM::Operand Immed(BrigType16_t type, uint64_t imm);
-  HSAIL_ASM::Operand Immed(BrigType16_t type, HSAIL_ASM::SRef data);
+  HSAIL_ASM::Operand Immed(unsigned type, uint64_t imm) { return Immed((BrigType)type, imm); }
+  HSAIL_ASM::Operand Immed(BrigType type, uint64_t imm);
+  HSAIL_ASM::Operand Immed(BrigType type, HSAIL_ASM::SRef data);
   HSAIL_ASM::Operand Immed(float imm);
   HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
@@ -127,50 +294,49 @@ public:
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
   void EmitMov(TypedReg dst, HSAIL_ASM::Operand src);
   void EmitMov(TypedReg dst, TypedReg src);
-  HSAIL_ASM::InstBasic EmitTypedMov(BrigType16_t moveType, HSAIL_ASM::OperandRegister dst, HSAIL_ASM::Operand src);
-  TypedReg AddInitialTReg(BrigType16_t type, uint64_t initialValue, unsigned count = 1);
+  HSAIL_ASM::InstBasic EmitTypedMov(BrigType moveType, HSAIL_ASM::OperandRegister dst, HSAIL_ASM::Operand src);
+  TypedReg AddInitialTReg(BrigType type, uint64_t initialValue, unsigned count = 1);
 
   // Memory operations
   HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset);
   HSAIL_ASM::OperandAddress Address(PointerReg ptr, int64_t offset = 0);
   HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, int64_t offset = 0);
 
-  HSAIL_ASM::InstMem EmitLoad(BrigSegment8_t segment, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
-  void EmitLoad(BrigSegment8_t segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
+  HSAIL_ASM::InstMem EmitLoad(BrigSegment segment, BrigType type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
+  void EmitLoad(BrigSegment segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
   void EmitLoad(TypedReg dst, HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0);
   void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0);
   void EmitLoads(TypedRegList dsts, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
-  BrigType16_t MemOpType(BrigType16_t type);
-  HSAIL_ASM::InstMem EmitStore(BrigSegment8_t segment, BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
-  void EmitStore(BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
+  BrigType MemOpType(BrigType type);
+  HSAIL_ASM::InstMem EmitStore(BrigSegment segment, BrigType type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
+  void EmitStore(BrigSegment segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
   void EmitStore(TypedReg src, HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset = 0, bool useVectorInstructions = false);
   void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false, uint8_t equiv = 0);
-  void EmitStore(BrigSegment8_t segment, BrigType type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
   void EmitStore(BrigType type, HSAIL_ASM::Operand src, PointerReg addr, uint8_t equiv = 0);
   void EmitStores(TypedRegList src, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   // Buffer memory operations.
-  void EmitBufferIndex(PointerReg dst, BrigType16_t type, TypedReg index, size_t count = 1);
-  void EmitBufferIndex(PointerReg dst, BrigType16_t type, size_t count = 1);
-  void EmitLoadFromBuffer(TypedReg dst, HSAIL_ASM::DirectiveVariable buffer, BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
-  void EmitStoreToBuffer(TypedReg src, HSAIL_ASM::DirectiveVariable buffer, BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
-  void EmitLoadsFromBuffers(TypedRegList dsts, HSAIL_ASM::ItemList buffers, BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
-  void EmitStoresToBuffers(TypedRegList srcs, HSAIL_ASM::ItemList buffers, BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
+  void EmitBufferIndex(PointerReg dst, BrigType type, TypedReg index, size_t count = 1);
+  void EmitBufferIndex(PointerReg dst, BrigType type, size_t count = 1);
+  void EmitLoadFromBuffer(TypedReg dst, HSAIL_ASM::DirectiveVariable buffer, BrigSegment segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
+  void EmitStoreToBuffer(TypedReg src, HSAIL_ASM::DirectiveVariable buffer, BrigSegment segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
+  void EmitLoadsFromBuffers(TypedRegList dsts, HSAIL_ASM::ItemList buffers, BrigSegment segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
+  void EmitStoresToBuffers(TypedRegList srcs, HSAIL_ASM::ItemList buffers, BrigSegment segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
 
-  BrigType16_t ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const;
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1 = HSAIL_ASM::Operand(), HSAIL_ASM::Operand src2 = HSAIL_ASM::Operand());
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand op);
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, HSAIL_ASM::Operand src2);
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, const TypedReg& src2);
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2);
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand o);
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand op);
-  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, BrigType16_t type, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
+  BrigType ArithType(BrigOpcode opcode, BrigType operandType) const;
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode opcode, BrigType type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1 = HSAIL_ASM::Operand(), HSAIL_ASM::Operand src2 = HSAIL_ASM::Operand());
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand op);
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, HSAIL_ASM::Operand src2);
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, const TypedReg& src2);
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2);
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, HSAIL_ASM::Operand o);
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand op);
+  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, BrigType type, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, const TypedReg& src1, BrigCompareOperation8_t cmp);
   void EmitCmpTo(TypedReg result, TypedReg src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
-  HSAIL_ASM::InstCvt EmitCvt(HSAIL_ASM::Operand dst, BrigType16_t dstType, HSAIL_ASM::Operand src, BrigType16_t srcType);
+  HSAIL_ASM::InstCvt EmitCvt(HSAIL_ASM::Operand dst, BrigType dstType, HSAIL_ASM::Operand src, BrigType srcType);
   HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src);
   HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round);
   void EmitCvtOrMov(const TypedReg& dst, const TypedReg& src);
@@ -180,12 +346,12 @@ public:
 
   HSAIL_ASM::InstSegCvt EmitStof(PointerReg dst, PointerReg src, bool nonull = false);
   HSAIL_ASM::InstSegCvt EmitFtos(PointerReg dst, PointerReg src, bool nonull = false);
-  HSAIL_ASM::InstSegCvt EmitSegmentp(const TypedReg& dst, PointerReg src, BrigSegment8_t segment, bool nonull = false);
+  HSAIL_ASM::InstSegCvt EmitSegmentp(const TypedReg& dst, PointerReg src, BrigSegment segment, bool nonull = false);
 
   HSAIL_ASM::InstSeg EmitNullPtr(PointerReg dst);
 
-  HSAIL_ASM::DirectiveVariable EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t type, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
-  HSAIL_ASM::DirectiveVariable EmitPointerDefinition(const std::string& name, BrigSegment8_t segment, BrigSegment8_t asegment = BRIG_SEGMENT_GLOBAL);
+  HSAIL_ASM::DirectiveVariable EmitVariableDefinition(const std::string& name, BrigSegment segment, BrigType type, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
+  HSAIL_ASM::DirectiveVariable EmitPointerDefinition(const std::string& name, BrigSegment segment, BrigSegment asegment = BRIG_SEGMENT_GLOBAL);
   void EmitVariableInitializer(HSAIL_ASM::DirectiveVariable var, HSAIL_ASM::SRef data);
 
   HSAIL_ASM::InstBr EmitCall(HSAIL_ASM::DirectiveFunction f, HSAIL_ASM::ItemList ins, HSAIL_ASM::ItemList outs);

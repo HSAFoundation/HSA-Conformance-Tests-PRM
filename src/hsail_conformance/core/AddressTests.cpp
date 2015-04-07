@@ -28,10 +28,10 @@ namespace hsail_conformance {
 
 class StofNullTest : public Test {
 private:
-  BrigSegment8_t segment;
+  BrigSegment segment;
 
 public:
-  StofNullTest(BrigSegment8_t segment_)
+  StofNullTest(BrigSegment segment_)
     : segment(segment_) { }
 
   void Name(std::ostream& out) const {
@@ -107,7 +107,7 @@ protected:
 
   TypedReg Result() {
     PointerReg inp = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    be.EmitLoad(in.segment(), inp, be.Address(in));
+    be.EmitLoad(in.segment().enumValue(), inp, be.Address(in));
     TypedReg data = be.AddTReg(addressSpec->Type());
     be.EmitLoad(data, inp);
 //    PointerReg segmentAddr = addressSpec->AddAReg();
@@ -138,10 +138,10 @@ protected:
 
 class FtosNullTest : public Test {
 private:
-  BrigSegment8_t segment;
+  BrigSegment segment;
 
 public:
-  FtosNullTest(BrigSegment8_t segment_)
+  FtosNullTest(BrigSegment segment_)
     : segment(segment_) { }
 
   void Name(std::ostream& out) const {
@@ -207,12 +207,8 @@ protected:
     in = be.EmitVariableDefinition(be.IName(), BRIG_SEGMENT_KERNARG, be.PointerType());
   }
 
-  void SetupDispatch(DispatchSetup* dsetup) {
-    Test::SetupDispatch(dsetup);
-    unsigned id = dsetup->MSetup().Count();
-    MObject* in = NewMValue(id++, "Input", MEM_GLOBAL, addressSpec->VType(), U64(42));
-    dsetup->MSetup().Add(in);
-    dsetup->MSetup().Add(NewMValue(id++, "Input (arg)", MEM_KERNARG, MV_REF, R(in->Id())));
+  void SetupDispatch(const std::string& dispatchId) {
+    Test::SetupDispatch(dispatchId);
   }
 
   TypedReg Result() {
@@ -253,10 +249,10 @@ protected:
 
 class SegmentpNullTest : public Test {
 private:
-  BrigSegment8_t segment;
+  BrigSegment segment;
 
 public:
-  SegmentpNullTest(BrigSegment8_t segment_)
+  SegmentpNullTest(BrigSegment segment_)
     : segment(segment_) { }
 
   void Name(std::ostream& out) const {

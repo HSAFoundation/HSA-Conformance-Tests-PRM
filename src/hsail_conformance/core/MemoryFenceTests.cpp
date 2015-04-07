@@ -182,8 +182,8 @@ protected:
       case BRIG_SEGMENT_GROUP: globalVarName = "group_var"; break;
       default: break;
     }
-    globalVar = be.EmitVariableDefinition(globalVarName, segment, elementType2arrayType(type), 0, geometry->GridSize());
-    globalFlag = be.EmitVariableDefinition(globalFlagName, BRIG_SEGMENT_GLOBAL, elementType2arrayType(be.PointerType()), 0, geometry->GridSize());
+    globalVar = be.EmitVariableDefinition(globalVarName, segment, (BrigType) elementType2arrayType(type), 0, geometry->GridSize());
+    globalFlag = be.EmitVariableDefinition(globalFlagName, BRIG_SEGMENT_GLOBAL, (BrigType) elementType2arrayType(be.PointerType()), 0, geometry->GridSize());
   }
 
   void EmitVectorInstrToTest(BrigOpcode opcode, BrigType t, TypedReg reg, DirectiveVariable var, TypedReg offsetReg) {

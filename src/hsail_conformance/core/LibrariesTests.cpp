@@ -448,12 +448,12 @@ private:
 protected:
   void FirstFunctionBody() override {
     // return VALUE from first function
-    be.EmitStore(ResultType(), BRIG_SEGMENT_ARG, be.Immed(ResultType(), ResultValue()), be.Address(firstFunctionOutArg->Variable()));
+    be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Immed(ResultType(), ResultValue()), be.Address(firstFunctionOutArg->Variable()));
   }
 
   void SecondFunctionBody() override {
     // return SECOND_VALUE from first function
-    be.EmitStore(ResultType(), BRIG_SEGMENT_ARG, be.Immed(ResultType(), SECOND_VALUE), be.Address(secondFunctionOutArg->Variable()));
+    be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Immed(ResultType(), SECOND_VALUE), be.Address(secondFunctionOutArg->Variable()));
   }
 
 public:

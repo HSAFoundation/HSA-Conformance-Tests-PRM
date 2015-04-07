@@ -162,15 +162,15 @@ class ETypedReg : public EmitterObject {
 public:
   ETypedReg(unsigned count = MAX_REGS)
     : type(BRIG_TYPE_NONE), count(0) { }
-  ETypedReg(BrigType16_t type_)
+  ETypedReg(BrigType type_)
     : type(type_), count(0) { }
-  ETypedReg(HSAIL_ASM::OperandRegister reg, BrigType16_t type_)
+  ETypedReg(HSAIL_ASM::OperandRegister reg, BrigType type_)
     : type(type_), count(0) { Add(reg); }
 
   HSAIL_ASM::OperandRegister Reg() const { assert(Count() == 1); return regs[0]; }
   HSAIL_ASM::OperandRegister Reg(size_t i) const { return regs[(int) i]; }
   HSAIL_ASM::OperandOperandList CreateOperandList(HSAIL_ASM::Brigantine& be);
-  BrigType16_t Type() const { return type; }
+  BrigType Type() const { return type; }
   unsigned TypeSizeBytes() const { return HSAIL_ASM::getBrigTypeNumBytes(type); }
   unsigned TypeSizeBits() const { return HSAIL_ASM::getBrigTypeNumBits(type); }
   unsigned RegSizeBytes() const { return (std::max)(TypeSizeBytes(), (unsigned) 4); }
@@ -179,7 +179,7 @@ public:
   void Add(HSAIL_ASM::OperandRegister reg) { assert(count < MAX_REGS); regs[count++] = reg; }
 
 private:
-  BrigType16_t type;
+  BrigType type;
   size_t count;
   HSAIL_ASM::OperandRegister regs[MAX_REGS];
 };
@@ -198,16 +198,16 @@ public:
 
 class EPointerReg : public ETypedReg {
 public:
-  static BrigType GetSegmentPointerType(BrigSegment8_t segment, bool large);
+  static BrigType GetSegmentPointerType(BrigSegment segment, bool large);
 
-  EPointerReg(HSAIL_ASM::OperandRegister reg_, BrigType16_t type_, BrigSegment8_t segment_)
+  EPointerReg(HSAIL_ASM::OperandRegister reg_, BrigType type_, BrigSegment segment_)
     : ETypedReg(reg_, type_), segment(segment_) { }
 
-  BrigSegment8_t Segment() const { return segment; }
+  BrigSegment Segment() const { return segment; }
   bool IsLarge() const { return Type() == BRIG_TYPE_U64; }
 
 private:
-  BrigSegment8_t segment;
+  BrigSegment segment;
 };
 
 class EVariableSpec : public Emittable {
