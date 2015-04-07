@@ -39,7 +39,7 @@
 /// For now, plain f16 i/o values are passed to kernels in elements of u32 arrays, in lower 16 bits.
 /// f16x2 values occupy the whole 32 bits. To differientiate, use:
 /// - MV_PLAIN_FLOAT16: for plain f16 vars, size = 4 bytes
-/// - MV_FLOAT16: for elemants of f16xN vars, size = 2 bytes
+/// - MV_FLOAT16: for elements of f16xN vars, size = 2 bytes
 #define MBUFFER_PASS_PLAIN_F16_AS_U32
 
 namespace hexl {
@@ -517,6 +517,41 @@ public:
 //==============================================================================
 //==============================================================================
 //==============================================================================
+
+// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
+namespace impl {
+  template<typename T1, typename T2> union Unionier { // provides ctor for const union
+    T1 val; T2 reinterpreted;
+    explicit Unionier(T1 x) : val(x) {}
+  };
+  template<typename T> struct AsBitsTraits; // allowed pairs of types:
+  template<> struct AsBitsTraits<float> { typedef uint32_t DestType; };
+  template<> struct AsBitsTraits<double> { typedef uint64_t DestType; };
+  template<typename T> struct AsBits {
+    typedef typename AsBitsTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsBits(T x) : u(x) { };
+    DestType Get() const { return u.reinterpreted; }
+  };
+  template<typename T> struct AsFloatingTraits;
+  template<> struct AsFloatingTraits<uint32_t> { typedef float DestType; };
+  template<> struct AsFloatingTraits<uint64_t> { typedef double DestType; };
+  template<typename T> struct AsFloating {
+    typedef typename AsFloatingTraits<T>::DestType DestType;
+    const Unionier<T,DestType> u;
+    explicit AsFloating(T x) : u(x) {}
+    DestType Get() const { return u.reinterpreted; }
+  };
+}
+
+template <typename T> // select T and instantiate specialized class
+typename impl::AsBits<T>::DestType asBits(T f) { return impl::AsBits<T>(f).Get(); }
+template <typename T>
+typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating<T>(x).Get(); }
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
 // F16 type
 
 class f16_t
@@ -797,7 +832,7 @@ std::ostream& operator<<(std::ostream& out, const Value& value);
 
 enum ComparisonMethod {
   CM_DECIMAL,  // precision = decimal points, default
-  CM_ULPS,     // precision = max ULPS, minumum is 1
+  CM_ULPS,     // precision = max ULPS
   CM_RELATIVE  // (simulated_value - expected_value) / expected_value <= precision
 };
 //NOTE
@@ -808,9 +843,9 @@ enum ComparisonMethod {
 
 class Comparison {
 public:
-  static const int F64_DEFAULT_DECIMAL_PRECISION = 14; // Default F64 arithmetic precision (if not set in results) 
-  static const int F32_DEFAULT_DECIMAL_PRECISION = 5;  // Default F32 arithmetic precision (if not set in results)
-  static const int F16_DEFAULT_DECIMAL_PRECISION = 4;  // Default F16 arithmetic precision (if not set in results)
+  static const int F64_DEFAULT_DECIMAL_PRECISION = 7; // Default F64 arithmetic precision (if not set in results) 
+  static const int F32_DEFAULT_DECIMAL_PRECISION = 3;  // Default F32 arithmetic precision (if not set in results)
+  static const int F16_DEFAULT_DECIMAL_PRECISION = 2;  // Default F16 arithmetic precision (if not set in results)
 #if defined(LINUX)
   static const int F64_MAX_DECIMAL_PRECISION = 17; // Max F64 arithmetic precision
   static const int F32_MAX_DECIMAL_PRECISION = 9; // Max F32 arithmetic precision
@@ -822,11 +857,17 @@ public:
 #endif
   static const uint32_t F_DEFAULT_ULPS_PRECISION;
   static const double F_DEFAULT_RELATIVE_PRECISION;
-  Comparison() : method(CM_DECIMAL), result(false) { }
-  Comparison(ComparisonMethod method_, const Value& precision_) : method(method_), precision(precision_), result(false), minLimit(false), maxLimit(false), flushDenorms(false) { }
-  void SetMinLimit(Value limit, bool isLimited = true);
-  void SetMaxLimit(Value limit, bool isLimited = true);
-  void SetFlushDenorms(bool flushDenorms);
+  Comparison(ComparisonMethod method_ = CM_DECIMAL, const Value& precision_ = Value())
+    : method(method_)
+    , precision(precision_)
+    , minLimit(-std::numeric_limits<float>::infinity())
+    , maxLimit( std::numeric_limits<float>::infinity())
+    , flushDenorms(false)
+    , result(false)
+  { }
+  void SetMinLimit(float limit); //Adds additional check for floating expected and actual results to be >= minLimit, NaNs are ignored
+  void SetMaxLimit(float limit); //Adds additional check for floating expected and actual results to be <= maxLimit, NaNs are ignored
+  void SetFlushDenorms(bool flushDenorms); //If set, Compare() will also compute error_ftz (when denorms are flushed to 0) and return min(error, error_ftz)
   void Reset(ValueType type);
   void SetDefaultPrecision(ValueType type);
   bool GetResult() const { return result; }
@@ -842,17 +883,16 @@ public:
   void PrintShort(std::ostream& out) const;
   void PrintLong(std::ostream& out);
 
-  bool Compare(const Value& evalue, const Value& rvalue);
+  bool Compare(const Value& expected, const Value& actual);
 
 private:
   ComparisonMethod method;
   Value precision;
-  Value minVal, maxVal;
-  bool minLimit, maxLimit;
+  float minLimit, maxLimit;
   bool flushDenorms;
   bool result;
   Value error;
-  Value evalue, rvalue;
+  Value expected, actual;
 
   unsigned checks, failed;
   Value maxError;

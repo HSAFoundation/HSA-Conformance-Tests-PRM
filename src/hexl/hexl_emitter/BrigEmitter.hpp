@@ -54,7 +54,6 @@ private:
   EmitterScope currentScope;
   HSAIL_ASM::DirectiveExecutable currentExecutable;
 
-  TypedReg workitemabsid[2];
   TypedReg workitemflatabsid[2];
 
   HSAIL_ASM::OperandAddress IncrementAddress(HSAIL_ASM::OperandAddress addr, int64_t offset);

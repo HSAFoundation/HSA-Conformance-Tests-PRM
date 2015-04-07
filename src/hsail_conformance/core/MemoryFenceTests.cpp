@@ -224,9 +224,7 @@ protected:
 
     EmitVectorInstrToTest(BRIG_OPCODE_ST, type, idReg, globalVar, offsetReg);
     be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
-//    be.EmitMemfence(memoryOrder1, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
 
-    OperandAddress flagAddr = be.Address(globalFlag);
     be.EmitAtomic(NULL, be.Address(globalFlag, offsetFlagReg->Reg(), 0), wiID, NULL, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);
 
     be.EmitLabel(s_label_skip_store);
@@ -236,7 +234,6 @@ protected:
     be.EmitCmp(cReg->Reg(), flagReg2, wiID_ld->Reg(), BRIG_COMPARE_NE);
     be.EmitCbr(cReg, s_label_skip_store);
     be.EmitMemfence(memoryOrder2, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
-//    be.EmitMemfence(memoryOrder2, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_SYSTEM, BRIG_MEMORY_SCOPE_NONE);
 
     EmitVectorInstrToTest(BRIG_OPCODE_LD, type, result, globalVar, offsetReg_ld);
     return result;
@@ -271,8 +268,6 @@ public:
       return false;
     //if (isFloatType(type) || isFloatType(type2))
     //  return false;
-//    if (16 == getBrigTypeNumBits(type) || 16 == getBrigTypeNumBits(type2))
-//      return false;
     if (BRIG_SEGMENT_GROUP == segment2 && geometry->WorkgroupSize() != geometry->GridSize())
       return false;
     return true;

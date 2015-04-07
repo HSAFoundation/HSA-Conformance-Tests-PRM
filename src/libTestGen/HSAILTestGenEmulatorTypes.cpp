@@ -10,181 +10,11 @@ using std::numeric_limits;
 
 namespace TESTGEN {
 
-// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
-namespace impl {
-  template<typename T1, typename T2> union Unionier { // provides ctor for const union
-    T1 val; T2 reinterpreted;
-    explicit Unionier(T1 x) : val(x) {}
-  };
-  template<typename T> struct AsBitsTraits; // allowed pairs of types:
-  template<> struct AsBitsTraits<float> { typedef uint32_t DestType; };
-  template<> struct AsBitsTraits<double> { typedef uint64_t DestType; };
-  template<typename T> struct AsBits {
-    typedef typename AsBitsTraits<T>::DestType DestType;
-    const Unionier<T,DestType> u;
-    explicit AsBits(T x) : u(x) { };
-    DestType Get() const { return u.reinterpreted; }
-  };
-  template<typename T> struct AsFloatingTraits;
-  template<> struct AsFloatingTraits<uint32_t> { typedef float DestType; };
-  template<> struct AsFloatingTraits<uint64_t> { typedef double DestType; };
-  template<typename T> struct AsFloating {
-    typedef typename AsFloatingTraits<T>::DestType DestType;
-    const Unionier<T,DestType> u;
-    explicit AsFloating(T x) : u(x) {}
-    DestType Get() const { return u.reinterpreted; }
-  };
-}
-
-template <typename T> // select T and instantiate specialized class
-typename impl::AsBits<T>::DestType asBits(T f) { return impl::AsBits<T>(f).Get(); }
-template <typename T>
-typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating<T>(x).Get(); }
 
 //==============================================================================
 //==============================================================================
 //==============================================================================
 // Implementation of F16 type
-
-f16_t::f16_t(double x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
-{ 
-    const FloatProp64 input(asBits(x));
-
-    if (!input.isRegular())
-    {
-        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
-    }
-    else if (input.isSubnormal()) // f64 subnormal should be mapped to (f16)0
-    {
-        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
-        bits = f16.getBits();
-    }
-    else
-    {
-        int64_t exponent = input.decodeExponent();
-        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
-
-        if (!FloatProp16::isValidExponent(exponent))
-        {
-            if (exponent > 0)
-            {
-                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
-            }
-            else
-            {
-                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
-                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
-                bits = f16.getBits();
-            }
-        }
-        else
-        {
-            FloatProp16 f16(input.isPositive(), mantissa, exponent);
-            bits = f16.getBits();
-        }
-    }
-}
-
-f16_t::f16_t(float x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
-{ 
-    const FloatProp32 input(asBits(x));
-
-    if (!input.isRegular())
-    {
-        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
-    }
-    else if (input.isSubnormal()) // subnormal -> (f16)0
-    {
-        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
-        bits = f16.getBits();
-    }
-    else
-    {
-        int64_t exponent = input.decodeExponent();
-        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
-
-        if (!FloatProp16::isValidExponent(exponent))
-        {
-            if (exponent > 0)
-            {
-                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
-            }
-            else
-            {
-                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
-                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
-                bits = f16.getBits();
-            }
-        }
-        else
-        {
-            FloatProp16 f16(input.isPositive(), mantissa, exponent);
-            bits = f16.getBits();
-        }
-    }
-}
-
-f64_t f16_t::f64() const 
-{ 
-    FloatProp16 f16(bits);
-    uint64_t bits64;
-
-    if (!f16.isRegular())
-    {
-        bits64 = f16.mapSpecialValues<FloatProp64>();
-    }
-    else if (f16.isSubnormal())
-    {
-        int64_t exponent = f16.decodeExponent();
-        assert(exponent == FloatProp16::decodedSubnormalExponent());
-        exponent = FloatProp16::actualSubnormalExponent();
-        uint64_t mantissa = f16.normalizeMantissa<FloatProp64>(exponent);
-        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
-        bits64 = f64.getBits();
-    }
-    else
-    {
-        int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp64>();
-        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
-        bits64 = f64.getBits();
-    }
-
-    return asFloating(bits64);
-}
-
-f32_t f16_t::f32() const 
-{ 
-    FloatProp16 f16(bits);
-    uint32_t outbits;
-
-    if (!f16.isRegular())
-    {
-        outbits = f16.mapSpecialValues<FloatProp32>();
-    }
-    else if (f16.isSubnormal())
-    {
-        int64_t exponent = f16.decodeExponent();
-        assert(exponent == FloatProp16::decodedSubnormalExponent());
-        exponent = FloatProp16::actualSubnormalExponent();
-        uint64_t mantissa = f16.normalizeMantissa<FloatProp32>(exponent);
-        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
-        outbits = outprop.getBits();
-    }
-    else
-    {
-        int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp32>();
-        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
-        outbits = outprop.getBits();
-    }
-
-    return asFloating(outbits);
-}
-
-//==============================================================================
-//==============================================================================
-//==============================================================================
 
 void f16_t::sanityTests()
 {
@@ -352,8 +182,8 @@ static const double MIN_U64_F64 = 0.0;
 static const f16_t MIN_S8_F16 (-128.0);   
 static const f16_t MAX_S8_F16 ( 127.0);   
 
-static const f16_t MIN_S16_F16(-32768.0); 
-static const f16_t MAX_S16_F16( 32767.0); 
+static const f16_t MIN_S16_F16(-32768.0, RND_ZERO); /// \todo Do like this everywhere instead of manually found values like 65504.0
+static const f16_t MAX_S16_F16( 32767.0, RND_ZERO); 
 
 static const f16_t MIN_S32_F16(-65504.0); 
 static const f16_t MAX_S32_F16( 65504.0); 

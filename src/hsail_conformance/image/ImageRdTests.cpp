@@ -20,6 +20,8 @@
 #include "MObject.hpp"
 #include <math.h>
 
+#define MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING "relf=0.001"
+
 using namespace hexl::emitter;
 using namespace hexl::scenario;
 using namespace HSAIL_ASM;
@@ -40,6 +42,7 @@ private:
   BrigSamplerFilter samplerFilter;
   BrigSamplerAddressing samplerAddressing;
   Value color[4];
+  BrigType coordType;
 
 public:
   ImageRdTest(Location codeLocation, 
@@ -49,11 +52,14 @@ public:
       samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_)
   {
      imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2), Array_);
+     coordType = BRIG_TYPE_S32;
   }
   
   void Name(std::ostream& out) const {
-    out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" << ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType)) << "_" <<
-      SamplerCoordsString(MObjectSamplerCoords(samplerCoord)) << "_" << SamplerFilterString(MObjectSamplerFilter(samplerFilter)) << "_" << SamplerAddressingString(MObjectSamplerAddressing(samplerAddressing));
+    out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" <<
+      ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType)) << "_" <<
+      SamplerCoordsString(MObjectSamplerCoords(samplerCoord)) << "_" << SamplerFilterString(MObjectSamplerFilter(samplerFilter)) << "_" <<
+      SamplerAddressingString(MObjectSamplerAddressing(samplerAddressing)) << "_" << type2str(coordType);
   }
 
   ImageCalc calc;
@@ -70,7 +76,7 @@ public:
     imageSpec.Depth(imageGeometry.ImageDepth());
     imageSpec.ArraySize(imageGeometry.ImageArray());
     imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec);
-    imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, 0x32323232)));
+    imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, 0x45245833)));
  
     ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
     samplerSpec.CoordNormalization(samplerCoord);
@@ -80,11 +86,53 @@ public:
 
     imgobj->InitImageCalculator(smpobj);
 
-    Value coords[3];
-    coords[0] = Value(0.0f);
-    coords[1] = Value(0.0f);
-    coords[2] = Value(0.0f);
-    imgobj->ReadColor(coords, color);
+    switch (imageChannelType)
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=-1.0,maxf=1.0");
+      }else{
+        output->SetComparisonMethod("ulps=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
+      }
+      break;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=0.0,maxf=1.0");
+      }else{
+        output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+      }
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+      //integer types are compared for equality
+      break;
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING);
+      }else{
+        output->SetComparisonMethod("ulps=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
+      }
+      break;
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      if(samplerFilter == BRIG_FILTER_LINEAR) {
+        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",flushDenorms");
+      }else{
+        output->SetComparisonMethod("ulps=0,flushDenorms"); //flushDenorms
+      }
+      break;
+    default:
+      break;
+    }
     
   }
 
@@ -93,42 +141,94 @@ public:
   }
 
   uint64_t ResultDim() const override {
-    return 4;
+    return IsImageDepth(imageGeometryProp) ? 1 : 4;
   }
 
   void ExpectedResults(Values* result) const {
-    for (unsigned i = 0; i < 4; i ++)
-    {
-      Value res = Value(MV_UINT32, color[i].U32());
-      result->push_back(res);
-    }
+    uint16_t channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
+    for(uint16_t z = 0; z < geometry->GridSize(2); z++)
+      for(uint16_t y = 0; y < geometry->GridSize(1); y++)
+        for(uint16_t x = 0; x < geometry->GridSize(0); x++){
+          Value coords[3];
+          Value texel[4];
+          switch (coordType)
+          {
+          case BRIG_TYPE_S32:
+            coords[0] = Value(MV_INT32, S32(x));
+            coords[1] = Value(MV_INT32, S32(y));
+            coords[2] = Value(MV_INT32, S32(z));
+            break;
+
+          case BRIG_TYPE_F32:{
+            double fcoords[3];
+            fcoords[0] = x;
+            fcoords[1] = y;
+            fcoords[2] = z;
+            //avoiding accessing out of range texels
+            if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED && samplerFilter == BRIG_FILTER_LINEAR){
+              for(int k = 0; k < 3; k++)
+                fcoords[k] = std::max(fcoords[k], 1.0);
+            }
+
+            if(samplerCoord == BRIG_COORD_NORMALIZED){
+              for(int k = 0; k < 3; k++)
+                fcoords[k] /= imageGeometry.ImageSize(k);
+            }
+            for(int k = 0; k < 3; k++)
+              coords[k] = Value((float)fcoords[k]);
+            }
+            break;
+          default:
+            assert(!"Illegal coordinate type");
+            break;
+          }
+          
+          imgobj->ReadColor(coords, texel);
+          for (unsigned i = 0; i < channels; i++)
+            result->push_back(texel[i]);
+        }
   }
 
   bool IsValid() const override {
-    if (samplerFilter == BRIG_FILTER_LINEAR) //only f32 access type is supported for linear filter
+    //only f32 access type is supported for linear filter
+    if (samplerFilter == BRIG_FILTER_LINEAR && ImageAccessType(imageChannelType) != BRIG_TYPE_F32)
+      return false;
+
+    //only f32 coordinates are supported for linear filter
+    if (samplerFilter == BRIG_FILTER_LINEAR && coordType != BRIG_TYPE_F32)
+      return false;
+
+    //only f32 coordinates is supported for normalized sampler
+    if (samplerCoord == BRIG_COORD_NORMALIZED && coordType != BRIG_TYPE_F32)
+      return false;
+    
+    //With undefinied addressing we should not touch any out of range texels.
+    //As linear filtering requires 2, 2x2 or 2x2x2 texels we should avoid slim images.
+    if (samplerFilter == BRIG_FILTER_LINEAR && samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
     {
-      switch (imageChannelType)
+      switch (imageGeometryProp)
       {
-      case BRIG_CHANNEL_TYPE_SIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_SIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
-      case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
-      case BRIG_CHANNEL_TYPE_UNKNOWN:
-      case BRIG_CHANNEL_TYPE_FIRST_USER_DEFINED:
-        return false;
+      case BRIG_GEOMETRY_1D:
+      case BRIG_GEOMETRY_1DA:
+        if(imageGeometry.ImageSize(0) < 2)
+          return false;
+        break;
+
+      case BRIG_GEOMETRY_2D:
+      case BRIG_GEOMETRY_2DA:
+      case BRIG_GEOMETRY_2DDEPTH:
+      case BRIG_GEOMETRY_2DADEPTH:
+        if(imageGeometry.ImageSize(0) < 2 || imageGeometry.ImageSize(1) < 2)
+          return false;
+        break;
+        
+      case BRIG_GEOMETRY_3D:
+        if(imageGeometry.ImageSize(0) < 2 || imageGeometry.ImageSize(1) < 2 || imageGeometry.ImageSize(3) < 2)
+          return false;
         break;
       default:
         break;
       }
-	    //currently rd test will generate coordinate 0, which will sample out of range texel
-	    //for linear filtering. We should not test it, because it implementation defined.
-	    //TODO:
-	    //Change rd test with linear filter and undefined addressing
-	    //to not read from edge of an image
-	    if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
-		    return false;
     }
     
     if(!IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing))
@@ -137,24 +237,21 @@ public:
   }
  
   BrigType ResultType() const {
-    return BRIG_TYPE_U32; 
-  }
-
-  BrigType CoordType() const {
-    return BRIG_TYPE_F32; 
+    return ImageAccessType(imageChannelType); 
   }
 
   TypedReg Get1dCoord()
   {
-    auto result = be.AddTReg(CoordType());
-    auto x = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result, x->Reg());
+    auto result = be.AddTReg(coordType);
+    //auto x = be.EmitWorkitemAbsId(0, false);
+    //be.EmitMov(result, x->Reg());
+    be.EmitTypedMov(coordType, result->Reg(), be.Immed(coordType, 0));
     return result;
   }
 
   TypedReg Get2dCoord()
   {
-    auto result = be.AddTReg(CoordType(), 2);
+    auto result = be.AddTReg(coordType, 2);
     auto x = be.EmitWorkitemAbsId(1, false);
     auto y = be.EmitWorkitemAbsId(0, false);
     be.EmitMov(result->Reg(0), x->Reg(), 32);
@@ -164,7 +261,7 @@ public:
 
   TypedReg Get3dCoord()
   {
-    auto result = be.AddTReg(CoordType(), 3);
+    auto result = be.AddTReg(coordType, 3);
     auto x = be.EmitWorkitemAbsId(2, false);
     auto y = be.EmitWorkitemAbsId(1, false);
     auto z = be.EmitWorkitemAbsId(0, false);
@@ -216,7 +313,8 @@ void ImageRdTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<ImageRdTest>(ap, it, "image_rd/basic", CodeLocations(), cc->Grids().ImagesSet(),
-     cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Images().ImageArraySets());
+     cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Sampler().SamplerCoords(),
+     cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Images().ImageArraySets());
 }
 
 } // hsail_conformance

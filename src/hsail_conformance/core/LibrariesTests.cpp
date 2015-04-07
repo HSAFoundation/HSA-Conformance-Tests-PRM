@@ -668,6 +668,7 @@ public:
 
     // emit second signature
     auto signature = be.Brigantine().declSignature("&second_sig");
+    (void)signature; /// \todo -warn
     be.StartFunctioinArgScope();
     secondArg->EmitDefinition();
     Test::Executables();

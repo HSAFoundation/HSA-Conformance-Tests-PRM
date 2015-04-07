@@ -35,7 +35,6 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
-  Value color[4];
 
 public:
   ImageLdTest(Location codeLocation, 
@@ -67,17 +66,11 @@ public:
    
     imgobj->InitImageCalculator(NULL);
 
-    Value coords[3];
-    coords[0] = Value(MV_UINT32, 0);
-    coords[1] = Value(MV_UINT32, 0);
-    coords[2] = Value(MV_UINT32, 0);
-    imgobj->LoadColor(coords, color);
-
     switch (imageChannelType)
     {
     case BRIG_CHANNEL_TYPE_SNORM_INT8:
     case BRIG_CHANNEL_TYPE_SNORM_INT16:
-      output->SetComparisonMethod("2ulp,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
+      output->SetComparisonMethod("ulps=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
       break;
     case BRIG_CHANNEL_TYPE_UNORM_INT8:
     case BRIG_CHANNEL_TYPE_UNORM_INT16:
@@ -85,7 +78,7 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-      output->SetComparisonMethod("2ulp,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+      output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
       break;
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT16:
@@ -96,10 +89,10 @@ public:
       //integer types are compared for equality
       break;
     case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      output->SetComparisonMethod("0ulp"); //f16 denorms should not be flushed (as it will produce normalized f32)
+      output->SetComparisonMethod("ulps=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
       break;
     case BRIG_CHANNEL_TYPE_FLOAT:
-      output->SetComparisonMethod("0ulp,flushDenorms"); //flushDenorms
+      output->SetComparisonMethod("ulps=0,flushDenorms"); //flushDenorms
       break;
     default:
       break;
@@ -121,9 +114,16 @@ public:
     uint16_t channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
       for(uint16_t y = 0; y < geometry->GridSize(1); y++)
-        for(uint16_t x = 0; x < geometry->GridSize(0); x++)
+        for(uint16_t x = 0; x < geometry->GridSize(0); x++){
+          Value coords[3];
+          Value texel[4];
+          coords[0] = Value(MV_UINT32, U32(x));
+          coords[1] = Value(MV_UINT32, U32(y));
+          coords[2] = Value(MV_UINT32, U32(z));
+          imgobj->LoadColor(coords, texel);
           for (unsigned i = 0; i < channels; i++)
-            result->push_back(color[i]);
+            result->push_back(texel[i]);
+        }
   }
 
   uint64_t ResultDim() const override {
