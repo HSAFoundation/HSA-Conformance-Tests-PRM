@@ -52,7 +52,7 @@ public:
       samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_)
   {
      imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2), Array_);
-     coordType = BRIG_TYPE_S32;
+     coordType = BRIG_TYPE_F32;
   }
   
   void Name(std::ostream& out) const {
@@ -184,6 +184,10 @@ public:
           }
           
           imgobj->ReadColor(coords, texel);
+          /*texel[0] = coords[0];
+          texel[1] = coords[1];
+          texel[2] = coords[2];
+          texel[3] = Value(MV_INT32, 777);*/
           for (unsigned i = 0; i < channels; i++)
             result->push_back(texel[i]);
         }
@@ -240,34 +244,62 @@ public:
     return ImageAccessType(imageChannelType); 
   }
 
-  TypedReg Get1dCoord()
+  TypedReg GetCoords()
   {
-    auto result = be.AddTReg(coordType);
-    //auto x = be.EmitWorkitemAbsId(0, false);
-    //be.EmitMov(result, x->Reg());
-    be.EmitTypedMov(coordType, result->Reg(), be.Immed(coordType, 0));
-    return result;
-  }
+    int dim = 0;
+    switch (imageGeometryProp)
+    {
+    case BRIG_GEOMETRY_1D:
+    case BRIG_GEOMETRY_1DB:
+      dim = 1;
+      break;
+    case BRIG_GEOMETRY_1DA:
+    case BRIG_GEOMETRY_2D:
+    case BRIG_GEOMETRY_2DDEPTH:
+      dim = 2;
+      break;
+    case BRIG_GEOMETRY_3D:
+    case BRIG_GEOMETRY_2DA:
+    case BRIG_GEOMETRY_2DADEPTH:
+      dim = 3;
+      break;
+    default:
+      assert(0);
+    }
 
-  TypedReg Get2dCoord()
-  {
-    auto result = be.AddTReg(coordType, 2);
-    auto x = be.EmitWorkitemAbsId(1, false);
-    auto y = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result->Reg(0), x->Reg(), 32);
-    be.EmitMov(result->Reg(1), y->Reg(), 32);
-    return result;
-  }
+    auto result = be.AddTReg(coordType, dim);
 
-  TypedReg Get3dCoord()
-  {
-    auto result = be.AddTReg(coordType, 3);
-    auto x = be.EmitWorkitemAbsId(2, false);
-    auto y = be.EmitWorkitemAbsId(1, false);
-    auto z = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result->Reg(0), x->Reg(), 32);
-    be.EmitMov(result->Reg(1), y->Reg(), 32);
-    be.EmitMov(result->Reg(2), z->Reg(), 32);
+    for(int i=0; i<dim; i++){
+      auto gid = be.EmitWorkitemAbsId(i, false);
+      switch (coordType)
+      {
+      case BRIG_TYPE_S32:
+        be.EmitMov(result->Reg(i), gid->Reg(), 32);
+        break;
+
+      case BRIG_TYPE_F32:{
+        if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED && samplerFilter == BRIG_FILTER_LINEAR)
+          be.EmitArith(BRIG_OPCODE_MAX, gid, gid, be.Immed(BRIG_TYPE_U32, 1));
+        auto fgid = be.AddTReg(coordType);
+        be.EmitCvt(fgid, gid, BRIG_ROUND_FLOAT_DEFAULT);
+
+        if(samplerCoord == BRIG_COORD_NORMALIZED){
+          TypedReg divisor = be.AddTReg(BRIG_TYPE_F32);
+          TypedReg dimSize = be.AddTReg(BRIG_TYPE_U32);
+          be.EmitMov(dimSize, be.Immed(BRIG_TYPE_U32, imageGeometry.ImageSize(i)));
+          be.EmitCvt(divisor, dimSize);
+          be.EmitArith(BRIG_OPCODE_DIV, fgid, fgid, divisor->Reg());
+        }
+
+        be.EmitMov(result->Reg(i), fgid->Reg(), 32);
+        }
+        break;
+      default:
+        assert(!"Illegal coord type");
+        break;
+      }
+    }
+
     return result;
   }
 
@@ -280,30 +312,15 @@ public:
     be.EmitLoad(smpobj->Segment(), sampleraddr->Type(), sampleraddr->Reg(), be.Address(smpobj->Variable())); 
 
     auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    switch (imageGeometryProp)
-    {
-    case BRIG_GEOMETRY_1D:
-    case BRIG_GEOMETRY_1DB:
-      imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, Get1dCoord());
-      break;
-    case BRIG_GEOMETRY_1DA:
-    case BRIG_GEOMETRY_2D:
-      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get2dCoord());
-      break;
-    case BRIG_GEOMETRY_2DDEPTH:
-      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get2dCoord());
-      break;
-    case BRIG_GEOMETRY_3D:
-    case BRIG_GEOMETRY_2DA:
-      imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, Get3dCoord());
-      break;
-    case BRIG_GEOMETRY_2DADEPTH:
-      imgobj->EmitImageRd(regs_dest, imageaddr, sampleraddr, Get3dCoord());
-      break;
-    default:
-      assert(0);
-    }
+    auto coords = GetCoords();
 
+    imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, coords);
+    //imgobj->EmitImageLd(regs_dest,  imageaddr, coords);
+/*    
+    for(int i=0; i<3; i++)
+      be.EmitMov(regs_dest->Reg(i), coords->Reg(i), 32);
+    be.EmitTypedMov(BRIG_TYPE_S32, regs_dest->Reg(3), be.Immed(BRIG_TYPE_S32, 894));
+*/
     return regs_dest;
   }
 };

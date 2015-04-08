@@ -265,6 +265,7 @@ public:
   // Images operations
   BrigType ImageType(unsigned access) const;
   BrigType SamplerType() const;
+  void EmitImageFence();
 
   // Exception operations
   HSAIL_ASM::InstBasic EmitClearDetectExcept(uint32_t exceptionNumber);

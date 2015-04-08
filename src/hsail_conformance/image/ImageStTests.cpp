@@ -36,6 +36,7 @@ private:
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
   Value color[4];
+  BrigType coordType;
 
 public:
   ImageStTest(Location codeLocation, 
@@ -43,6 +44,7 @@ public:
       imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_)
   {
     imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2), Array_);
+    coordType = BRIG_TYPE_U32;
   }
   
   void Name(std::ostream& out) const {
@@ -98,49 +100,46 @@ public:
   }
   
   uint64_t ResultDim() const override {
-    return 4;
+    return IsImageDepth(imageGeometryProp) ? 1 : 4;
   }
 
-  TypedReg Get1dCoord()
+  TypedReg GetCoords()
   {
-    auto result = be.AddTReg(BRIG_TYPE_U32);
-    auto x = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result, x->Reg());
+    int dim = 0;
+    switch (imageGeometryProp)
+    {
+    case BRIG_GEOMETRY_1D:
+    case BRIG_GEOMETRY_1DB:
+      dim = 1;
+      break;
+    case BRIG_GEOMETRY_1DA:
+    case BRIG_GEOMETRY_2D:
+    case BRIG_GEOMETRY_2DDEPTH:
+      dim = 2;
+      break;
+    case BRIG_GEOMETRY_3D:
+    case BRIG_GEOMETRY_2DA:
+    case BRIG_GEOMETRY_2DADEPTH:
+      dim = 3;
+      break;
+    default:
+      assert(0);
+    }
+
+    auto result = be.AddTReg(coordType, dim);
+
+    for(int i=0; i<dim; i++){
+      auto gid = be.EmitWorkitemAbsId(i, false);
+      be.EmitMov(result->Reg(i), gid->Reg(), 32);
+    }
+
     return result;
   }
 
-  TypedReg Get2dCoord()
-  {
-    auto result = be.AddTReg(BRIG_TYPE_U32, 2);
-    auto x = be.EmitWorkitemAbsId(1, false);
-    auto y = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result->Reg(0), x->Reg(), 32);
-    be.EmitMov(result->Reg(1), y->Reg(), 32);
-    return result;
-  }
-
-  TypedReg Get3dCoord()
-  {
-    auto result = be.AddTReg(BRIG_TYPE_U32, 3);
-    auto x = be.EmitWorkitemAbsId(2, false);
-    auto y = be.EmitWorkitemAbsId(1, false);
-    auto z = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result->Reg(0), x->Reg(), 32);
-    be.EmitMov(result->Reg(1), y->Reg(), 32);
-    be.EmitMov(result->Reg(2), z->Reg(), 32);
-    return result;
-  }
-
-
-  TypedReg StoreValues(int cnt) {
-    auto result = be.AddTReg(BRIG_TYPE_U32, cnt);
-    for (int i = 0; i < cnt; i++)
-      be.EmitMov(result->Reg(i), be.Immed(ResultType(), StorePerRegValue()), 32);
-    return result;
-  }
 
   TypedReg Result() {
     auto result = be.AddTReg(ResultType());
+    int channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
     be.EmitMov(result, be.Immed(ResultType(), 0));
     // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
@@ -148,39 +147,15 @@ public:
 
     auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     be.EmitMov(result, be.Immed(ResultType(), StorePerRegValue()));
-    switch (imageGeometryProp)
-    {
-    case BRIG_GEOMETRY_1D:
-    case BRIG_GEOMETRY_1DB:
-      imgobj->EmitImageSt(StoreValues(4), imageaddr, Get1dCoord());
-     // be.EmitBarrier();
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get1dCoord());
-      break;
-    case BRIG_GEOMETRY_1DA:
-    case BRIG_GEOMETRY_2D:
-      imgobj->EmitImageSt(StoreValues(4), imageaddr, Get2dCoord());
-    //  be.EmitBarrier();
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get2dCoord());
-      break;
-    case BRIG_GEOMETRY_2DDEPTH:
-      imgobj->EmitImageSt(StoreValues(1), imageaddr, Get2dCoord());
-   //   be.EmitBarrier();
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get2dCoord());
-      break;
-    case BRIG_GEOMETRY_3D:
-    case BRIG_GEOMETRY_2DA:
-      imgobj->EmitImageSt(StoreValues(4), imageaddr, Get3dCoord());
-    //  be.EmitBarrier();
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get3dCoord());
-      break;
-    case BRIG_GEOMETRY_2DADEPTH:
-      imgobj->EmitImageSt(StoreValues(1), imageaddr, Get3dCoord());
-    //  be.EmitBarrier();
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get3dCoord());
-      break;
-    default:
-      assert(0);
-    }
+    TypedReg coords = GetCoords();    
+    TypedReg storeValues = be.AddTReg(BRIG_TYPE_U32, channels);
+    for(int i = 0; i < channels; i++)
+      be.EmitMov(storeValues->Reg(i), be.Immed(ResultType(), StorePerRegValue()), 32);
+
+    imgobj->EmitImageSt(storeValues, imageaddr, coords);
+    //todo EmitImageFence();
+    be.EmitImageFence();
+    imgobj->EmitImageLd(regs_dest, imageaddr, coords);
    
     return regs_dest;
   }
