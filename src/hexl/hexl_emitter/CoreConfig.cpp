@@ -367,6 +367,14 @@ static const BrigSegment functionScopeArray[] = {
   BRIG_SEGMENT_READONLY
 };
 
+static const uint32_t staticGroupSizeArray[] = {
+  0,
+  7,
+  10,
+  1024
+};
+
+
 CoreConfig::SegmentsConfig::SegmentsConfig(CoreConfig* cc)
   : ConfigBase(cc),
     all(NEWA hexl::ArraySequence<BrigSegment>(allSegments, NELEM(allSegments))),
@@ -374,7 +382,8 @@ CoreConfig::SegmentsConfig::SegmentsConfig(CoreConfig* cc)
     atomic(NEWA hexl::ArraySequence<BrigSegment>(atomicSegments, NELEM(atomicSegments))),
     initializable(NEWA hexl::ArraySequence<BrigSegment>(initializableSegments, NELEM(initializableSegments))),
     moduleScope(NEWA hexl::ArraySequence<BrigSegment>(moduleScopeArray, NELEM(moduleScopeArray))),
-    functionScope(NEWA hexl::ArraySequence<BrigSegment>(functionScopeArray, NELEM(functionScopeArray)))
+    functionScope(NEWA hexl::ArraySequence<BrigSegment>(functionScopeArray, NELEM(functionScopeArray))),
+    staticGroupSize(NEWA hexl::ArraySequence<uint32_t>(staticGroupSizeArray, NELEM(staticGroupSizeArray)))
 {
   for (unsigned segment = BRIG_SEGMENT_NONE; segment != BRIG_SEGMENT_MAX; ++segment) {
     singleList[segment] = new (ap) hexl::OneValueSequence<BrigSegment>((BrigSegment) segment);

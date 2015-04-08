@@ -137,6 +137,7 @@ namespace hexl {
         hexl::Sequence<BrigSegment>* moduleScope;
         hexl::Sequence<BrigSegment>* functionScope;
         hexl::Sequence<BrigSegment>* singleList[BRIG_SEGMENT_MAX];
+        hexl::Sequence<uint32_t>* staticGroupSize;
 
       public:
         SegmentsConfig(CoreConfig* cc);
@@ -154,6 +155,7 @@ namespace hexl {
         hexl::Sequence<BrigSegment>* ModuleScopeVariableSegments() { return moduleScope; }
         hexl::Sequence<BrigSegment>* FunctionScopeVariableSegments() { return functionScope; }
         hexl::Sequence<BrigSegment>* Single(BrigSegment segment);
+        hexl::Sequence<uint32_t>* StaticGroupSize() { return staticGroupSize; }
       };
 
       class TypesConfig : public ConfigBase {

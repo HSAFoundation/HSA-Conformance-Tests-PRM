@@ -171,6 +171,15 @@ namespace hexl {
       return DispatchArg(dispatchId, DARG_VALUES, argKey);
     }
 
+    bool RuntimeState::DispatchGroupOffsetArg(const std::string& dispatchId, Value value) 
+    {
+      std::ostringstream ss;
+      ss << dispatchId << ".arg." << (argNum++);
+      std::string argKey(ss.str());
+      GetContext()->Put(argKey, value);
+      return DispatchArg(dispatchId, DARG_GROUPOFFSET, argKey);
+    }
+
     void RuntimeState::Set(const std::string& key, Value value)
     {
       GetContext()->Put(key, value);
