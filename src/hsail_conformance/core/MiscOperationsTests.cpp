@@ -112,6 +112,8 @@ protected:
   virtual PointerReg StoreAddress(PointerReg groupBase) = 0;
   virtual PointerReg LoadAddress(PointerReg groupBase) { return StoreAddress(groupBase); }
   virtual size_t DynamicMemorySize() { return 0; }
+  virtual void EmitIntermediateCode() {}
+  virtual BrigAlignment Alignment() { return getNaturalAlignment(VALUE_TYPE); }
 
 public:
   explicit GroupBasePtrIdentityTest(Location codeLocation_, bool emitControlDirective_, uint32_t testValue_ = 156) 
@@ -144,11 +146,13 @@ public:
     auto loadAddr = LoadAddress(groupBase);
 
     // store input value group memory at groupAddr
-    be.EmitStore(in, storeAddr);
+    be.EmitStore(in, storeAddr, 0, false, 0, Alignment());
+
+    EmitIntermediateCode();
 
     // load input value from group memory
     auto out = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitLoad(out, loadAddr);
+    be.EmitLoad(out, loadAddr, 0, true, 0, Alignment());
     return out;
   }
 
@@ -190,7 +194,7 @@ public:
 
   void Init() {
     GroupBasePtrIdentityTest::Init();
-    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, ResultType(), MODULE);
+    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, ResultType(), Location::MODULE);
   }
 
   void ModuleVariables() {
@@ -201,21 +205,26 @@ public:
 
 class GroupBasePtrDynamicMemoryIdentityTest : public GroupBasePtrIdentityTest {
 private:
-  static const uint32_t offsetValue = 0;
+  uint32_t staticGroupSize;
   Variable offsetArg;
+  Variable moreOffsetArg;
+  Variable staticVar;
 
   PointerReg groupAddr;
 
+  static const uint32_t INITIAL_VALUE = 987654321;
+  static const uint32_t OFFSET_SIZE = 1234;
+
   PointerReg GroupAddress(PointerReg groupBase) {
     // get dynamic group memory offset
-    auto offset = be.AddAReg(BRIG_SEGMENT_GROUP);
-    offsetArg->EmitLoadTo(offset);
+    auto moreOffset = be.AddAReg(BRIG_SEGMENT_GROUP);
+    moreOffsetArg->EmitLoadTo(moreOffset);
 
     // get address of dynamic group memory
     auto dynamicAddr = be.AddAReg(BRIG_SEGMENT_GROUP);
-    be.EmitArith(BRIG_OPCODE_ADD, dynamicAddr, groupBase, offset->Reg());
+    be.EmitArith(BRIG_OPCODE_ADD, dynamicAddr, groupBase, moreOffset->Reg());
 
-    auto wiId = be.EmitWorkitemFlatAbsId(false);
+    auto wiId = be.EmitWorkitemFlatId();
     auto cvt = be.AddTReg(dynamicAddr->Type());
     be.EmitCvtOrMov(cvt, wiId);
     be.EmitArith(BRIG_OPCODE_MAD, dynamicAddr, cvt, be.Immed(cvt->Type(), 
@@ -239,32 +248,64 @@ protected:
   }
 
   size_t DynamicMemorySize() override {
-    return getBrigTypeNumBytes(ResultType()) * geometry->GridSize();
+    return getBrigTypeNumBytes(ResultType()) * geometry->GridSize() + OFFSET_SIZE;
+  }
+
+  void EmitIntermediateCode() override {
+    if (staticGroupSize != 0) {
+      // initialize group static memory and part of dynamic memory in first workitem
+      auto initializationSize = staticGroupSize + OFFSET_SIZE;
+      auto initializationLoop = "@initialization_loop";
+      auto endInitializeLabel = "@end_initialize";
+      auto wiId = be.EmitCurrentWorkitemFlatId();
+      auto cmp = be.AddCTReg();
+      // skip initialization if not first work-item
+      be.EmitCmp(cmp->Reg(), wiId, be.Immed(wiId->Type(), 0), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), endInitializeLabel);
+      // initialization loop
+      auto count = be.AddInitialTReg(BRIG_TYPE_U32, 0);
+      be.EmitLabel(initializationLoop);
+      be.EmitStore(BRIG_SEGMENT_GROUP, staticVar->Type(), be.Immed(staticVar->Type(), INITIAL_VALUE), 
+                   be.Address(staticVar->Variable(), count->Reg(), 0));
+      be.EmitArith(BRIG_OPCODE_ADD, count, count, be.Immed(count->Type(), 1));
+      be.EmitCmp(cmp->Reg(), count, be.Immed(count->Type(), initializationSize), BRIG_COMPARE_LT);
+      be.EmitCbr(cmp->Reg(), initializationLoop);
+      // end of initialization - wait on barrier
+      be.EmitLabel(endInitializeLabel);
+      be.EmitBarrier();
+    }
+  }
+
+  BrigAlignment Alignment() override {
+    return BRIG_ALIGNMENT_1;
   }
 
 public:
-  explicit GroupBasePtrDynamicMemoryIdentityTest(Location codeLocation, bool emitControlDirective_) 
-    : GroupBasePtrIdentityTest(codeLocation, emitControlDirective_, 322), groupAddr(nullptr) 
-  {
-  }
+  explicit GroupBasePtrDynamicMemoryIdentityTest(Location codeLocation, bool emitControlDirective_, uint32_t staticGroupSize_) 
+    : GroupBasePtrIdentityTest(codeLocation, emitControlDirective_, 322), staticGroupSize(staticGroupSize_), groupAddr(nullptr) { }
 
   void Init() {
     GroupBasePtrIdentityTest::Init();
     offsetArg = kernel->NewVariable("offset", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
-    //offsetArg->AddData(Value(offsetArg->VType(), offsetValue));
+    moreOffsetArg = kernel->NewVariable("more_offset", BRIG_SEGMENT_KERNARG, BRIG_TYPE_U32);
+    if (staticGroupSize) {
+      staticVar = kernel->NewVariable("static", BRIG_SEGMENT_GROUP, BRIG_TYPE_U8, Location::AUTO, BRIG_ALIGNMENT_NONE, staticGroupSize);
+    }
+  }
+
+  void Name(std::ostream& out) const override {
+    GroupBasePtrIdentityTest::Name(out);
+    if (staticGroupSize != 0) {
+      out << "_" << staticGroupSize;
+    }
   }
 
   void SetupDispatch(const std::string& dispatchId) override {
     Test::SetupDispatch(dispatchId);
     auto offsetType = Brig2ValueType(offsetArg->Type());
-    te->TestScenario()->Commands()->DispatchValueArg(dispatchId, te->InitialContext()->GetValue("static_group_segment_size"));
-    te->InitialContext()->Put(dispatchId, "dynamicgroupsize", Value(MV_UINT32, U32(DynamicMemorySize())));
-  }
-
-  TypedReg Result() override {
-    auto offset = be.AddAReg(BRIG_SEGMENT_GROUP);
-    offsetArg->EmitLoadTo(offset);
-    return offset;
+    te->TestScenario()->Commands()->DispatchGroupOffsetArg(dispatchId, Value(MV_UINT32, 0));
+    te->TestScenario()->Commands()->DispatchGroupOffsetArg(dispatchId, Value(MV_UINT32, OFFSET_SIZE));
+    te->InitialContext()->Put(dispatchId, "dynamicgroupsize", Value(MV_UINT32, U32((uint32_t)DynamicMemorySize())));
   }
 };
 
@@ -311,7 +352,6 @@ public:
         && secondVarSpec->IsValid();
   }
 };
-
 
 
 class NopTest : public Test {
@@ -842,7 +882,7 @@ void MiscOperationsTests::Iterate(TestSpecIterator& it)
   TestForEach<KernargBasePtrAlignmentTest>(ap, it, "misc/kernargbaseptr/alignment", cc->Variables().ByTypeAlign(BRIG_SEGMENT_KERNARG));
 
   TestForEach<GroupBasePtrStaticMemoryIdentityTest>(ap, it, "misc/groupbaseptr/static", KernelLocation(), Bools::All());  
-  TestForEach<GroupBasePtrDynamicMemoryIdentityTest>(ap, it, "misc/groupbaseptr/dynamic", KernelLocation(), Bools::All());
+  TestForEach<GroupBasePtrDynamicMemoryIdentityTest>(ap, it, "misc/groupbaseptr/dynamic", KernelLocation(), Bools::All(), cc->Segments().StaticGroupSize());
   TestForEach<GroupBasePtrAlignmentTest>(ap, it, "misc/groupbaseptr/alignment", cc->Variables().ByTypeAlign(BRIG_SEGMENT_GROUP), cc->Variables().ByTypeAlign(BRIG_SEGMENT_GROUP));
   
   TestForEach<NopTest>(ap, it, "misc/nop", CodeLocations());

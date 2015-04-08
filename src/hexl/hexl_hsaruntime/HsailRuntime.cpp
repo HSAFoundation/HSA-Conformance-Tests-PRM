@@ -645,7 +645,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
         kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE, &p->group_segment_size);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_GROUP_SEGMENT_SIZE) failed", status); return false; }
-      context->Put("static_group_segment_size", Value(MV_UINT32, p->group_segment_size));
+      context->Put(dispatchId, "staticgroupsize", Value(MV_UINT32, p->group_segment_size));
       if (context->Has(dispatchId, "dynamicgroupsize")) {
         p->group_segment_size += context->GetValue(dispatchId, "dynamicgroupsize").U32();
       }
@@ -678,7 +678,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       return true;
     }
 
-    Value GetValue(DispatchArgType argType, const std::string& argKey)
+    Value GetValue(const std::string& dispatchId, DispatchArgType argType, const std::string& argKey)
     {
       switch (argType) {
       case DARG_VALUE:
@@ -708,6 +708,13 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         HsailQueue* queue = context->Get<HsailQueue>(argKey);
         return Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uint64_t) (uintptr_t) queue->Queue());
       }
+      case DARG_GROUPOFFSET : 
+      {
+        Value dynamicOffset = context->GetValue(argKey);
+        assert(dynamicOffset.Type() == MV_UINT32);
+        Value groupSize = context->GetValue(dispatchId, "staticgroupsize");
+        return Value(MV_UINT32, groupSize.U32() + dynamicOffset.U32());
+      }
       default:
         assert(!"Unsupported arg type in GetValue"); return Value(MV_UINT64, 0);
       }
@@ -730,7 +737,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       }
       default:
       {
-        Value v = GetValue(argType, argKey);
+        Value v = GetValue(dispatchId, argType, argKey);
         d->kernargOffset = ((d->kernargOffset + v.Size() - 1) / v.Size()) * v.Size();
         v.WriteTo(kernarg + d->kernargOffset);
         d->kernargOffset += v.Size();

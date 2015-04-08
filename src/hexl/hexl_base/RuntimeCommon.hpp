@@ -107,6 +107,7 @@ namespace hexl {
       DARG_SAMPLER,
       DARG_SIGNAL,
       DARG_QUEUE,
+      DARG_GROUPOFFSET
     };
 
     class RuntimeState {
@@ -152,6 +153,7 @@ namespace hexl {
       virtual bool DispatchArg(const std::string& dispatchId, DispatchArgType argType, const std::string& argKey) = 0;
       bool DispatchValueArg(const std::string& dispatchId, Value value);
       bool DispatchValuesArg(const std::string& dispatchId, Values* values);
+      bool RuntimeState::DispatchGroupOffsetArg(const std::string& dispatchId, Value value = Value(MV_UINT32, 0));
       virtual bool DispatchExecute(const std::string& dispatchId = "dispatch") = 0;
 
       virtual bool SignalCreate(const std::string& signalId, uint64_t signalInitialValue = 1) = 0;
