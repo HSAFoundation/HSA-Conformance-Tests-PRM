@@ -353,6 +353,7 @@ namespace hexl {
         hexl::Sequence<BrigType>* imageAccessTypes;
         hexl::Sequence<unsigned>* imageArray;
         hexl::Sequence<uint32_t>* numberRW;
+        hexl::Sequence<BrigType>* rdCoordTypes;
 
       public:
         ImageConfig(CoreConfig* cc);
@@ -367,6 +368,7 @@ namespace hexl {
         hexl::Sequence<BrigType>* ImageAccessTypes() { return imageAccessTypes; };
         hexl::Sequence<unsigned>* ImageArraySets() { return imageArray; };
         hexl::Sequence<uint32_t>* NumberOfRwImageHandles() { return numberRW; }
+        hexl::Sequence<BrigType>* ImageRdCoordinateTypes() { return rdCoordTypes; }
       };
 
       class SamplerConfig : public ConfigBase {

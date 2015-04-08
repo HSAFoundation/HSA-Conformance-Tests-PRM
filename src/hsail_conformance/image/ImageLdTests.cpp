@@ -166,10 +166,11 @@ public:
   }
 
   TypedReg Result() {
-   // Load input
+    // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable()));
-    auto regs_dest = be.AddTReg(BRIG_TYPE_U32, ResultDim());
+
+    auto regs_dest = be.AddTReg(ResultType(), ResultDim());
     imgobj->EmitImageLd(regs_dest, imageaddr, GetCoords());
     return regs_dest;
   }

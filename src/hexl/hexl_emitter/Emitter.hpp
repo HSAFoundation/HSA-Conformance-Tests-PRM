@@ -723,7 +723,7 @@ public:
     BrigSamplerAddressing addressing_ = BRIG_ADDRESSING_UNDEFINED
   ) 
   : EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
-    SamplerParams(addressing, coord, filter) { }
+    SamplerParams(addressing_, coord_, filter_) { }
 
   bool IsValid() const;
 

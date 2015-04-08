@@ -47,12 +47,11 @@ private:
 public:
   ImageRdTest(Location codeLocation, 
       Grid geometry, BrigImageGeometry imageGeometryProp_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_, unsigned Array_ = 1): Test(codeLocation, geometry), 
+      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_, BrigType coordType_, unsigned Array_ = 1): Test(codeLocation, geometry), 
       imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_), 
-      samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_)
+      samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_), coordType(coordType_)
   {
      imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2), Array_);
-     coordType = BRIG_TYPE_F32;
   }
   
   void Name(std::ostream& out) const {
@@ -184,10 +183,6 @@ public:
           }
           
           imgobj->ReadColor(coords, texel);
-          /*texel[0] = coords[0];
-          texel[1] = coords[1];
-          texel[2] = coords[2];
-          texel[3] = Value(MV_INT32, 777);*/
           for (unsigned i = 0; i < channels; i++)
             result->push_back(texel[i]);
         }
@@ -315,12 +310,7 @@ public:
     auto coords = GetCoords();
 
     imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, coords);
-    //imgobj->EmitImageLd(regs_dest,  imageaddr, coords);
-/*    
-    for(int i=0; i<3; i++)
-      be.EmitMov(regs_dest->Reg(i), coords->Reg(i), 32);
-    be.EmitTypedMov(BRIG_TYPE_S32, regs_dest->Reg(3), be.Immed(BRIG_TYPE_S32, 894));
-*/
+
     return regs_dest;
   }
 };
@@ -331,7 +321,7 @@ void ImageRdTestSet::Iterate(hexl::TestSpecIterator& it)
   Arena* ap = cc->Ap();
   TestForEach<ImageRdTest>(ap, it, "image_rd/basic", CodeLocations(), cc->Grids().ImagesSet(),
      cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Sampler().SamplerCoords(),
-     cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Images().ImageArraySets());
+     cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Images().ImageRdCoordinateTypes(), cc->Images().ImageArraySets());
 }
 
 } // hsail_conformance
