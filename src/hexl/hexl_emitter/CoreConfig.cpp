@@ -241,6 +241,11 @@ static const BrigImageGeometry rdGeometry[] = {
     BRIG_GEOMETRY_2DA,
 };
 
+static const BrigType rdCoordTypeArray[] = {
+    BRIG_TYPE_S32,
+    BRIG_TYPE_F32,
+};
+
 static const BrigImageGeometry DepthGeometry[] = {
     BRIG_GEOMETRY_2DDEPTH,
     BRIG_GEOMETRY_2DADEPTH,
@@ -277,7 +282,8 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigType>(allAccess, NELEM(allAccess))),
     imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry))),
-    numberRW(NEWA ArraySequence<unsigned>(numberRwArray, NELEM(numberRwArray)))
+    numberRW(NEWA ArraySequence<unsigned>(numberRwArray, NELEM(numberRwArray))),
+    rdCoordTypes(NEWA ArraySequence<BrigType>(rdCoordTypeArray, NELEM(rdCoordTypeArray)))
 {
    defaultImageGeometry->Add(NEWA ImageGeometry(1000));
    defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
