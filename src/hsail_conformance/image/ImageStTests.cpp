@@ -138,22 +138,17 @@ public:
 
 
   TypedReg Result() {
-    auto result = be.AddTReg(ResultType());
-    int channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
-    be.EmitMov(result, be.Immed(ResultType(), 0));
     // Load input
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
 
-    auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
-    be.EmitMov(result, be.Immed(ResultType(), StorePerRegValue()));
+    auto regs_dest = be.AddTReg(BRIG_TYPE_U32, ResultDim());
     TypedReg coords = GetCoords();    
-    TypedReg storeValues = be.AddTReg(BRIG_TYPE_U32, channels);
-    for(int i = 0; i < channels; i++)
+    TypedReg storeValues = be.AddTReg(BRIG_TYPE_U32, ResultDim());
+    for(int i = 0; i < ResultDim(); i++)
       be.EmitMov(storeValues->Reg(i), be.Immed(ResultType(), StorePerRegValue()), 32);
 
     imgobj->EmitImageSt(storeValues, imageaddr, coords);
-    //todo EmitImageFence();
     be.EmitImageFence();
     imgobj->EmitImageLd(regs_dest, imageaddr, coords);
    

@@ -59,13 +59,59 @@ namespace hexl {
       ")";
   }
 
+  bool SamplerParams::IsValid() const
+  {
+    switch (coord)
+    {
+    case BRIG_COORD_UNNORMALIZED:
+    case BRIG_COORD_NORMALIZED:
+      break;
+    default:
+      return false;
+    }
+
+    switch (filter)
+    {
+    case BRIG_FILTER_NEAREST:
+    case BRIG_FILTER_LINEAR:
+      break;
+    default:
+      return false;
+    }
+
+    //see PRM Table 7-6 Image Instruction Combination
+    switch (addressing)
+    {
+    case BRIG_ADDRESSING_UNDEFINED:
+    case BRIG_ADDRESSING_CLAMP_TO_EDGE:
+    case BRIG_ADDRESSING_CLAMP_TO_BORDER:
+      return true;
+    case BRIG_ADDRESSING_REPEAT:
+    case BRIG_ADDRESSING_MIRRORED_REPEAT:
+      return (coord == BRIG_COORD_NORMALIZED) ? true : false;
+    default:
+      return false;
+    }
+
+    assert(0);
+    return false;
+  }
+
   void SamplerParams::Print(std::ostream& out) const
   {
     out <<
       "sampler" << "(" <<
-      HSAIL_ASM::anyEnum2str(addressing) << ", " <<
       HSAIL_ASM::anyEnum2str(coord) << ", " <<
-      HSAIL_ASM::anyEnum2str(filter) << ")";
+      HSAIL_ASM::anyEnum2str(filter) << ", " <<
+      HSAIL_ASM::anyEnum2str(addressing) << ")";
+  }
+
+  void SamplerParams::Name(std::ostream& out) const
+  {
+    out <<
+      HSAIL_ASM::samplerCoordNormalization2str(coord) << "_" <<
+      HSAIL_ASM::samplerFilter2str(filter) << "_" <<
+      HSAIL_ASM::samplerAddressing2str(addressing);
   }
 
   void ImageRegion::Print(std::ostream& out) const 

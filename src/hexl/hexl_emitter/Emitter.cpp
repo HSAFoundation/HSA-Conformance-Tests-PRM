@@ -1558,6 +1558,7 @@ bool ESamplerSpec::IsValidSegment() const
   }
 }
 
+
 bool ESamplerSpec::IsValid() const
 {
   return EVariableSpec::IsValid() && IsValidSegment();
@@ -1662,9 +1663,9 @@ void ESampler::EmitInitializer()
     for (uint64_t i = 0; i < std::max<uint64_t>(dim, (uint64_t)1); ++i) {
       auto init = te->Brig()->Brigantine().append<OperandConstantSampler>();
       init.type() = type;
-      init.addressing() = addressing;
-      init.coord() = coord;
-      init.filter() = filter;
+      init.addressing() = Addressing();
+      init.coord() = Coord();
+      init.filter() = Filter();
       list.push_back(init);
     }
     if (dim == 0) {
@@ -2548,9 +2549,9 @@ void EImageCalc::Init(EImage * eimage, ESampler* esampler)
   imageChannelOrder = eimage->ChannelOrder();
   imageChannelType = eimage->ChannelType();
   if (esampler != NULL) {
-    samplerCoord = esampler->CoordNormalization();
+    samplerCoord = esampler->Coord();
     samplerFilter = esampler->Filter();
-    samplerAddressing = esampler->Addresing();    
+    samplerAddressing = esampler->Addressing();    
     assert(IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing));
   }
   else {

@@ -53,20 +53,36 @@ namespace hexl {
   };
 
   class SamplerParams {
-  public:
-    BrigSamplerAddressing addressing;
+  private:
     BrigSamplerCoordNormalization coord;
     BrigSamplerFilter filter;
+    BrigSamplerAddressing addressing;
+
+  public:
     SamplerParams(
-      BrigSamplerAddressing addressing_,
       BrigSamplerCoordNormalization coord_,
-      BrigSamplerFilter filter_)
-      : addressing(addressing_),
-        coord(coord_),
-        filter(filter_) { }
+      BrigSamplerFilter filter_,
+      BrigSamplerAddressing addressing_)
+      : coord(coord_),
+        filter(filter_),
+        addressing(addressing_) { }
     SamplerParams() { }
+
+    bool IsValid() const;
+
+    BrigSamplerCoordNormalization Coord() const { return coord; }
+    BrigSamplerFilter Filter() const { return filter; }
+    BrigSamplerAddressing Addressing() const { return addressing; }
+  
+    void Coord(BrigSamplerCoordNormalization coord_) { coord = coord_; }
+    void Filter(BrigSamplerFilter filter_) { filter = filter_; }
+    void Addressing(BrigSamplerAddressing addressing_) { addressing = addressing_; }
+
     void Print(std::ostream& out) const;
+    void Name(std::ostream& out) const;
   };
+
+  inline std::ostream& operator<<(std::ostream& out, const SamplerParams& params) { params.Name(out); return out; }
 
   class ImageRegion {
   public:
@@ -153,7 +169,7 @@ namespace hexl {
       virtual bool DispatchArg(const std::string& dispatchId, DispatchArgType argType, const std::string& argKey) = 0;
       bool DispatchValueArg(const std::string& dispatchId, Value value);
       bool DispatchValuesArg(const std::string& dispatchId, Values* values);
-      bool RuntimeState::DispatchGroupOffsetArg(const std::string& dispatchId, Value value = Value(MV_UINT32, 0));
+      bool DispatchGroupOffsetArg(const std::string& dispatchId, Value value = Value(MV_UINT32, 0));
       virtual bool DispatchExecute(const std::string& dispatchId = "dispatch") = 0;
 
       virtual bool SignalCreate(const std::string& signalId, uint64_t signalInitialValue = 1) = 0;

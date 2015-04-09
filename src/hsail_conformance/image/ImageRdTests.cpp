@@ -38,28 +38,25 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
-  BrigSamplerCoordNormalization samplerCoord;
-  BrigSamplerFilter samplerFilter;
-  BrigSamplerAddressing samplerAddressing;
+  SamplerParams samplerParams;
   Value color[4];
   BrigType coordType;
 
 public:
   ImageRdTest(Location codeLocation, 
       Grid geometry, BrigImageGeometry imageGeometryProp_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_, unsigned Array_ = 1): Test(codeLocation, geometry), 
-      imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_), 
-      samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_)
+      SamplerParams* samplerParams_,
+      BrigType coordType_, unsigned Array_ = 1): Test(codeLocation, geometry), 
+      imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_),
+      samplerParams(*samplerParams_), coordType(coordType_)
   {
      imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2), Array_);
-     coordType = BRIG_TYPE_F32;
   }
   
   void Name(std::ostream& out) const {
     out << CodeLocationString() << '_' << geometry << '/' << imageGeometry << "_" << ImageGeometryString(MObjectImageGeometry(imageGeometryProp)) << "_" <<
       ImageChannelOrderString(MObjectImageChannelOrder(imageChannelOrder)) << "_" << ImageChannelTypeString(MObjectImageChannelType(imageChannelType)) << "_" <<
-      SamplerCoordsString(MObjectSamplerCoords(samplerCoord)) << "_" << SamplerFilterString(MObjectSamplerFilter(samplerFilter)) << "_" <<
-      SamplerAddressingString(MObjectSamplerAddressing(samplerAddressing)) << "_" << type2str(coordType);
+      samplerParams << "_" << type2str(coordType);
   }
 
   ImageCalc calc;
@@ -79,9 +76,9 @@ public:
     imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, 0x45245833)));
  
     ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
-    samplerSpec.CoordNormalization(samplerCoord);
-    samplerSpec.Filter(samplerFilter);
-    samplerSpec.Addresing(samplerAddressing);
+    samplerSpec.Coord(samplerParams.Coord());
+    samplerSpec.Filter(samplerParams.Filter());
+    samplerSpec.Addressing(samplerParams.Addressing());
     smpobj = kernel->NewSampler("%sampler", &samplerSpec);
 
     imgobj->InitImageCalculator(smpobj);
@@ -90,7 +87,7 @@ public:
     {
     case BRIG_CHANNEL_TYPE_SNORM_INT8:
     case BRIG_CHANNEL_TYPE_SNORM_INT16:
-      if(samplerFilter == BRIG_FILTER_LINEAR) {
+      if(samplerParams.Filter() == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=-1.0,maxf=1.0");
       }else{
         output->SetComparisonMethod("ulps=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
@@ -102,7 +99,7 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-      if(samplerFilter == BRIG_FILTER_LINEAR) {
+      if(samplerParams.Filter() == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=0.0,maxf=1.0");
       }else{
         output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
@@ -117,14 +114,14 @@ public:
       //integer types are compared for equality
       break;
     case BRIG_CHANNEL_TYPE_HALF_FLOAT:
-      if(samplerFilter == BRIG_FILTER_LINEAR) {
+      if(samplerParams.Filter() == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING);
       }else{
         output->SetComparisonMethod("ulps=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
       }
       break;
     case BRIG_CHANNEL_TYPE_FLOAT:
-      if(samplerFilter == BRIG_FILTER_LINEAR) {
+      if(samplerParams.Filter() == BRIG_FILTER_LINEAR) {
         output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",flushDenorms");
       }else{
         output->SetComparisonMethod("ulps=0,flushDenorms"); //flushDenorms
@@ -165,12 +162,12 @@ public:
             fcoords[1] = y;
             fcoords[2] = z;
             //avoiding accessing out of range texels
-            if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED && samplerFilter == BRIG_FILTER_LINEAR){
+            if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR){
               for(int k = 0; k < 3; k++)
                 fcoords[k] = std::max(fcoords[k], 1.0);
             }
 
-            if(samplerCoord == BRIG_COORD_NORMALIZED){
+            if(samplerParams.Coord() == BRIG_COORD_NORMALIZED){
               for(int k = 0; k < 3; k++)
                 fcoords[k] /= imageGeometry.ImageSize(k);
             }
@@ -184,10 +181,6 @@ public:
           }
           
           imgobj->ReadColor(coords, texel);
-          /*texel[0] = coords[0];
-          texel[1] = coords[1];
-          texel[2] = coords[2];
-          texel[3] = Value(MV_INT32, 777);*/
           for (unsigned i = 0; i < channels; i++)
             result->push_back(texel[i]);
         }
@@ -195,20 +188,20 @@ public:
 
   bool IsValid() const override {
     //only f32 access type is supported for linear filter
-    if (samplerFilter == BRIG_FILTER_LINEAR && ImageAccessType(imageChannelType) != BRIG_TYPE_F32)
+    if (samplerParams.Filter() == BRIG_FILTER_LINEAR && ImageAccessType(imageChannelType) != BRIG_TYPE_F32)
       return false;
 
     //only f32 coordinates are supported for linear filter
-    if (samplerFilter == BRIG_FILTER_LINEAR && coordType != BRIG_TYPE_F32)
+    if (samplerParams.Filter() == BRIG_FILTER_LINEAR && coordType != BRIG_TYPE_F32)
       return false;
 
     //only f32 coordinates is supported for normalized sampler
-    if (samplerCoord == BRIG_COORD_NORMALIZED && coordType != BRIG_TYPE_F32)
+    if (samplerParams.Coord() == BRIG_COORD_NORMALIZED && coordType != BRIG_TYPE_F32)
       return false;
     
     //With undefinied addressing we should not touch any out of range texels.
     //As linear filtering requires 2, 2x2 or 2x2x2 texels we should avoid slim images.
-    if (samplerFilter == BRIG_FILTER_LINEAR && samplerAddressing == BRIG_ADDRESSING_UNDEFINED)
+    if (samplerParams.Filter() == BRIG_FILTER_LINEAR && samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED)
     {
       switch (imageGeometryProp)
       {
@@ -235,8 +228,7 @@ public:
       }
     }
     
-    if(!IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing))
-      return false;
+    if (!samplerParams.IsValid()) { return false; }
     return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
  
@@ -278,12 +270,12 @@ public:
         break;
 
       case BRIG_TYPE_F32:{
-        if(samplerAddressing == BRIG_ADDRESSING_UNDEFINED && samplerFilter == BRIG_FILTER_LINEAR)
+        if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR)
           be.EmitArith(BRIG_OPCODE_MAX, gid, gid, be.Immed(BRIG_TYPE_U32, 1));
         auto fgid = be.AddTReg(coordType);
         be.EmitCvt(fgid, gid, BRIG_ROUND_FLOAT_DEFAULT);
 
-        if(samplerCoord == BRIG_COORD_NORMALIZED){
+        if(samplerParams.Coord() == BRIG_COORD_NORMALIZED){
           TypedReg divisor = be.AddTReg(BRIG_TYPE_F32);
           TypedReg dimSize = be.AddTReg(BRIG_TYPE_U32);
           be.EmitMov(dimSize, be.Immed(BRIG_TYPE_U32, imageGeometry.ImageSize(i)));
@@ -315,12 +307,7 @@ public:
     auto coords = GetCoords();
 
     imgobj->EmitImageRd(regs_dest,  imageaddr, sampleraddr, coords);
-    //imgobj->EmitImageLd(regs_dest,  imageaddr, coords);
-/*    
-    for(int i=0; i<3; i++)
-      be.EmitMov(regs_dest->Reg(i), coords->Reg(i), 32);
-    be.EmitTypedMov(BRIG_TYPE_S32, regs_dest->Reg(3), be.Immed(BRIG_TYPE_S32, 894));
-*/
+
     return regs_dest;
   }
 };
@@ -330,8 +317,8 @@ void ImageRdTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<ImageRdTest>(ap, it, "image_rd/basic", CodeLocations(), cc->Grids().ImagesSet(),
-     cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Sampler().SamplerCoords(),
-     cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Images().ImageArraySets());
+     cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(),
+     cc->Samplers().All(), cc->Images().ImageRdCoordinateTypes(), cc->Images().ImageArraySets());
 }
 
 } // hsail_conformance

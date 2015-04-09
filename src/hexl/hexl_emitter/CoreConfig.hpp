@@ -97,7 +97,7 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *barrier, *fbarrier, 
+          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *mmodel, *barrier, *fbarrier, 
           *images, *memfence, *partial;
 
       public:
@@ -123,6 +123,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* LimitGridSet() { return limitGrids; }
         hexl::Sequence<hexl::Grid>* SingleGroupSet() { return singleGroup; }
         hexl::Sequence<hexl::Grid>* AtomicSet() { return atomic; }
+        hexl::Sequence<hexl::Grid>* MModelSet() { return mmodel; }
         hexl::Sequence<hexl::Grid>* ImagesSet() { return images; }
         hexl::Sequence<hexl::Grid>* MemfenceSet() { return memfence; }
         hexl::Sequence<hexl::Grid>* PartialSet() { return partial; }
@@ -160,7 +161,7 @@ namespace hexl {
 
       class TypesConfig : public ConfigBase {
       private:
-        hexl::Sequence<BrigType> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128, *atomic, *memfence;
+        hexl::Sequence<BrigType> *compound, *compoundIntegral, *compoundFloating, *packed, *packed128, *atomic, *memModel, *memfence;
         hexl::Sequence<size_t>* registerSizes;
 
       public:
@@ -170,6 +171,7 @@ namespace hexl {
         hexl::Sequence<BrigType>* Packed() { return packed; }
         hexl::Sequence<BrigType>* Packed128Bit() { return packed128; }
         hexl::Sequence<BrigType>* Atomic() { return atomic; }
+        hexl::Sequence<BrigType>* MemModel() { return memModel; }
         hexl::Sequence<BrigType>* Memfence() { return memfence; }
         hexl::Sequence<BrigType>* CompoundIntegral() { return compoundIntegral; }
         hexl::Sequence<BrigType>* CompoundFloating() { return compoundFloating; }
@@ -236,7 +238,7 @@ namespace hexl {
       private:
         hexl::Sequence<BrigMemoryOrder> *allMemoryOrders, *signalSendMemoryOrders, *signalWaitMemoryOrders, *memfenceMemoryOrders;
         hexl::Sequence<BrigMemoryScope> *allMemoryScopes, *memfenceMemoryScopes;
-        hexl::Sequence<BrigAtomicOperation> *allAtomics, *atomicOperations, *signalSendAtomics, *signalWaitAtomics;
+        hexl::Sequence<BrigAtomicOperation> *allAtomics, *limitedAtomics, *atomicOperations, *signalSendAtomics, *signalWaitAtomics;
         hexl::Sequence<BrigSegment> *memfenceSegments;
         hexl::Sequence<BrigOpcode> *ldStOpcodes, *atomicOpcodes;
 
@@ -249,6 +251,7 @@ namespace hexl {
         hexl::Sequence<BrigMemoryScope>* AllMemoryScopes() { return allMemoryScopes; }
         hexl::Sequence<BrigMemoryScope>* MemfenceMemoryScopes() { return memfenceMemoryScopes; }
         hexl::Sequence<BrigAtomicOperation>* AllAtomics() { return allAtomics; }
+        hexl::Sequence<BrigAtomicOperation>* LimitedAtomics() { return limitedAtomics; }
         hexl::Sequence<BrigAtomicOperation>* AtomicOperations() { return atomicOperations; }
         hexl::Sequence<BrigAtomicOperation>* SignalSendAtomics() { return signalSendAtomics; }
         hexl::Sequence<BrigAtomicOperation>* SignalWaitAtomics() { return signalWaitAtomics; }
@@ -350,6 +353,7 @@ namespace hexl {
         hexl::Sequence<BrigType>* imageAccessTypes;
         hexl::Sequence<unsigned>* imageArray;
         hexl::Sequence<uint32_t>* numberRW;
+        hexl::Sequence<BrigType>* rdCoordTypes;
 
       public:
         ImageConfig(CoreConfig* cc);
@@ -364,6 +368,7 @@ namespace hexl {
         hexl::Sequence<BrigType>* ImageAccessTypes() { return imageAccessTypes; };
         hexl::Sequence<unsigned>* ImageArraySets() { return imageArray; };
         hexl::Sequence<uint32_t>* NumberOfRwImageHandles() { return numberRW; }
+        hexl::Sequence<BrigType>* ImageRdCoordinateTypes() { return rdCoordTypes; }
       };
 
       class SamplerConfig : public ConfigBase {
@@ -371,14 +376,16 @@ namespace hexl {
         hexl::Sequence<BrigSamplerCoordNormalization>* samplerCoords;
         hexl::Sequence<BrigSamplerFilter>* samplerFilters;
         hexl::Sequence<BrigSamplerAddressing>* samplerAddressings;
+        hexl::Sequence<SamplerParams*>* allSamplers;
         hexl::Sequence<BrigSamplerQuery>* samplerQueryTypes;
-        
+
       public:
         SamplerConfig(CoreConfig* cc);
 
         hexl::Sequence<BrigSamplerCoordNormalization>* SamplerCoords() { return samplerCoords; }
         hexl::Sequence<BrigSamplerFilter>* SamplerFilters() { return samplerFilters; }
         hexl::Sequence<BrigSamplerAddressing>* SamplerAddressings() { return samplerAddressings; }
+        hexl::Sequence<SamplerParams*>* All() { return allSamplers; }
         hexl::Sequence<BrigSamplerQuery>* SamplerQueryTypes() { return samplerQueryTypes; }
       };
 
@@ -391,7 +398,7 @@ namespace hexl {
       ControlDirectivesConfig& Directives() { return directives; }
       ControlFlowConfig& ControlFlow() { return controlFlow; }
       ImageConfig& Images() { return images; }
-      SamplerConfig& Sampler() { return samplers; }
+      SamplerConfig& Samplers() { return samplers; }
 
     private:
       GridsConfig grids;
