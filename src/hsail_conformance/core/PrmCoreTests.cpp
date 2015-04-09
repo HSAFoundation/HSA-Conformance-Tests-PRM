@@ -224,7 +224,6 @@ PrmCoreTests::PrmCoreTests()
   Add(new VariablesTests());
   Add(new DirectiveTestsUnion());
   Add(new LimitsTestsUnion());
-  Add(new LimitsTestsUnion());
   Add(new LibrariesTestsUnion());
 }
 

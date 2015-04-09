@@ -436,6 +436,7 @@ public:
           be.EmitMov(imageElement->Reg(j), be.Immed(imageElement->Type(), STORE_VALUE), imageElement->TypeSizeBits());
         }
         image->EmitImageSt(imageElement, rwImageAddr, coord);
+        be.EmitImageFence();
         image->EmitImageLd(imageElement, rwImageAddr, coord);
       } else { // wo images
         imagesBuffer->EmitLoadData(woImageAddr, indexReg);

@@ -302,7 +302,6 @@ public:
 
   void SetupDispatch(const std::string& dispatchId) override {
     Test::SetupDispatch(dispatchId);
-    auto offsetType = Brig2ValueType(offsetArg->Type());
     te->TestScenario()->Commands()->DispatchGroupOffsetArg(dispatchId, Value(MV_UINT32, 0));
     te->TestScenario()->Commands()->DispatchGroupOffsetArg(dispatchId, Value(MV_UINT32, OFFSET_SIZE));
     te->InitialContext()->Put(dispatchId, "dynamicgroupsize", Value(MV_UINT32, U32((uint32_t)DynamicMemorySize())));
