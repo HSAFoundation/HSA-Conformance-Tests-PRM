@@ -29,6 +29,7 @@
 #endif // ENABLE_HEXL_AGENT
 #include "CoreConfig.hpp"
 #include "SignalTests.hpp"
+#include "Brig.h"
 
 using namespace hexl;
 using namespace hexl::emitter;
@@ -156,6 +157,12 @@ TestSet* HCRunner::CreateTestSet()
 
 void HCRunner::Run()
 {
+  std::cout <<
+    "HSA PRM Conformance" <<
+    " (" <<
+    "HSAIL " << BRIG_VERSION_HSAIL_MAJOR << "." << BRIG_VERSION_HSAIL_MINOR <<
+    ", BRIG " << BRIG_VERSION_BRIG_MAJOR << "." << BRIG_VERSION_BRIG_MINOR <<
+    ")" << std::endl << std::endl;
   OptionRegistry optReg;
   optReg.RegisterOption("rt");
   optReg.RegisterOption("runner");
