@@ -53,10 +53,12 @@ namespace hexl {
   };
 
   class SamplerParams {
-  public:
+  private:
     BrigSamplerAddressing addressing;
     BrigSamplerCoordNormalization coord;
     BrigSamplerFilter filter;
+
+  public:
     SamplerParams(
       BrigSamplerAddressing addressing_,
       BrigSamplerCoordNormalization coord_,
@@ -65,8 +67,22 @@ namespace hexl {
         coord(coord_),
         filter(filter_) { }
     SamplerParams() { }
+
+    bool IsValid() const;
+
+    BrigSamplerCoordNormalization CoordNormalization() const { return coord; }
+    BrigSamplerFilter Filter() const { return filter; }
+    BrigSamplerAddressing Addressing() const { return addressing; }
+  
+    void CoordNormalization(BrigSamplerCoordNormalization coord_) { coord = coord_; }
+    void Filter(BrigSamplerFilter filter_) { filter = filter_; }
+    void Addressing(BrigSamplerAddressing addressing_) { addressing = addressing_; }
+
     void Print(std::ostream& out) const;
+    void Name(std::ostream& out) const;
   };
+
+  inline std::ostream& operator<<(std::ostream& out, const SamplerParams& params) { params.Name(out); return out; }
 
   class ImageRegion {
   public:

@@ -703,12 +703,8 @@ public:
   Value StoreColor(Value* _coords, Value* _channels) const {  return calculator.EmulateImageSt(_coords, _channels); }
 };
 
-class ESamplerSpec : public EVariableSpec, protected SamplerParams {
+class ESamplerSpec : public EVariableSpec, public SamplerParams {
 protected:
-  BrigSamplerAddressing addressing;
-  BrigSamplerCoordNormalization coord;
-  BrigSamplerFilter filter;
-
   bool IsValidSegment() const;
   
 public:
@@ -727,13 +723,11 @@ public:
 
   bool IsValid() const;
 
-  BrigSamplerCoordNormalization CoordNormalization() { return coord; }
-  BrigSamplerFilter Filter() { return filter; }
-  BrigSamplerAddressing Addresing() { return addressing; }
-  
-  void CoordNormalization(BrigSamplerCoordNormalization coord_) { coord = coord_; }
-  void Filter(BrigSamplerFilter filter_) { filter = filter_; }
-  void Addresing(BrigSamplerAddressing addressing_) { addressing = addressing_; }
+  void Params(const SamplerParams& params) {
+    Addressing(params.Addressing());
+    Filter(params.Filter());
+    CoordNormalization(params.CoordNormalization());
+  }
 };
 
 class ESampler : public ESamplerSpec {

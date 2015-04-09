@@ -30,29 +30,25 @@ namespace hsail_conformance {
 class ImageQuerySamplerTest:  public Test {
 private:
   Sampler smpobj;
-  BrigSamplerCoordNormalization samplerCoord;
-  BrigSamplerFilter samplerFilter;
-  BrigSamplerAddressing samplerAddressing;
+  SamplerParams samplerParams;
   BrigSamplerQuery samplerQuery;
 
 public:
   ImageQuerySamplerTest(Location codeLocation, Grid geometry, 
     BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_, BrigSamplerQuery samplerQuery_): Test(codeLocation, geometry),
-    samplerCoord(samplerCoord_), samplerFilter(samplerFilter_), samplerAddressing(samplerAddressing_), samplerQuery(samplerQuery_)
+    samplerParams(samplerAddressing_, samplerCoord_, samplerFilter_), samplerQuery(samplerQuery_)
   {
   }
   
   void Name(std::ostream& out) const {
     out << CodeLocationString() << '_' << geometry << "_" <<
-      SamplerCoordsString(MObjectSamplerCoords(samplerCoord)) << "_" << SamplerFilterString(MObjectSamplerFilter(samplerFilter)) << "_" << SamplerAddressingString(MObjectSamplerAddressing(samplerAddressing)) << "_" << SamplerQueryString(MObjectSamplerQuery(samplerQuery));
+      samplerParams << "_" << SamplerQueryString(MObjectSamplerQuery(samplerQuery));
   }
 
   void Init() {
    Test::Init();
    ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
-   samplerSpec.CoordNormalization(samplerCoord);
-   samplerSpec.Filter(samplerFilter);
-   samplerSpec.Addresing(samplerAddressing);
+   samplerSpec.Params(samplerParams);
    smpobj = kernel->NewSampler("%sampler", &samplerSpec);
   }
 
@@ -67,7 +63,7 @@ public:
     //  return false;
     //}
 
-    return IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing) && (codeLocation != FUNCTION);
+    return samplerParams.IsValid() && (codeLocation != FUNCTION);
   }
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }
@@ -76,11 +72,11 @@ public:
     switch (samplerQuery)
     {
     case BRIG_SAMPLER_QUERY_ADDRESSING:
-      return Value(MV_UINT32, samplerAddressing);
+      return Value(MV_UINT32, samplerParams.Addressing());
     case BRIG_SAMPLER_QUERY_COORD:
-      return Value(MV_UINT32, samplerCoord);
+      return Value(MV_UINT32, samplerParams.CoordNormalization());
     case BRIG_SAMPLER_QUERY_FILTER:
-      return Value(MV_UINT32, samplerFilter);
+      return Value(MV_UINT32, samplerParams.Filter());
     default:
       assert(0);
       break;

@@ -60,7 +60,7 @@ public:
     ESamplerSpec samplerSpec(segment, initializerLocation, dim, isConst);
     samplerSpec.CoordNormalization(coord);
     samplerSpec.Filter(filter);
-    samplerSpec.Addresing(addresing);
+    samplerSpec.Addressing(addresing);
     sampler = te->NewSampler("sampler", &samplerSpec);
   }
 

@@ -59,6 +59,74 @@ namespace hexl {
       ")";
   }
 
+  const char *SamplerFilterString(BrigSamplerFilter filter)
+  {
+    switch (filter) {
+    case BRIG_FILTER_NEAREST: return "nearest";
+    case BRIG_FILTER_LINEAR: return "linear";
+    default: assert(false); return "<unknown filter>";
+    }
+  }
+
+  const char *SamplerCoordsString(BrigSamplerCoordNormalization coord)
+  {
+    switch (coord) {
+    case BRIG_COORD_NORMALIZED: return "normalized";
+    case BRIG_COORD_UNNORMALIZED: return "unnormalized";
+    default: assert(false); return "<unknown coords>";
+    }
+  }
+
+  const char *SamplerAddressingString(BrigSamplerAddressing addressing)
+  {
+    switch (addressing) {
+    case BRIG_ADDRESSING_UNDEFINED: return "undefined";
+    case BRIG_ADDRESSING_CLAMP_TO_EDGE: return "clamp_to_edge";
+    case BRIG_ADDRESSING_CLAMP_TO_BORDER: return "clamp_to_border";
+    case BRIG_ADDRESSING_REPEAT: return "repeat";
+    case BRIG_ADDRESSING_MIRRORED_REPEAT: return "mirrored_repeat";
+    default: assert(false); return "<unknown addressing>";
+    }
+  }
+
+  bool SamplerParams::IsValid() const
+  {
+    switch (coord)
+    {
+    case BRIG_COORD_UNNORMALIZED:
+    case BRIG_COORD_NORMALIZED:
+      break;
+    default:
+      return false;
+    }
+
+    switch (filter)
+    {
+    case BRIG_FILTER_NEAREST:
+    case BRIG_FILTER_LINEAR:
+      break;
+    default:
+      return false;
+    }
+
+    //see PRM Table 7-6 Image Instruction Combination
+    switch (addressing)
+    {
+    case BRIG_ADDRESSING_UNDEFINED:
+    case BRIG_ADDRESSING_CLAMP_TO_EDGE:
+    case BRIG_ADDRESSING_CLAMP_TO_BORDER:
+      return true;
+    case BRIG_ADDRESSING_REPEAT:
+    case BRIG_ADDRESSING_MIRRORED_REPEAT:
+      return (coord == BRIG_COORD_NORMALIZED) ? true : false;
+    default:
+      return false;
+    }
+
+    assert(0);
+    return false;
+  }
+
   void SamplerParams::Print(std::ostream& out) const
   {
     out <<
@@ -66,6 +134,14 @@ namespace hexl {
       HSAIL_ASM::anyEnum2str(addressing) << ", " <<
       HSAIL_ASM::anyEnum2str(coord) << ", " <<
       HSAIL_ASM::anyEnum2str(filter) << ")";
+  }
+
+  void SamplerParams::Name(std::ostream& out) const
+  {
+    out <<
+      SamplerAddressingString(addressing) << "_" <<
+      SamplerCoordsString(coord) << "_" <<
+      SamplerFilterString(filter);
   }
 
   void ImageRegion::Print(std::ostream& out) const 

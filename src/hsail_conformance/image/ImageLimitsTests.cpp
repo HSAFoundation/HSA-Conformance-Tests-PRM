@@ -521,7 +521,7 @@ public:
     ESamplerSpec samplerSpec(BRIG_SEGMENT_GLOBAL, Location::KERNEL);
     samplerSpec.CoordNormalization(coord);
     samplerSpec.Filter(filter);
-    samplerSpec.Addresing(addresing);
+    samplerSpec.Addressing(addresing);
     for (uint32_t i = 0; i < LIMIT; ++i) {
       samplers.push_back(kernel->NewSampler("sampler" + std::to_string(i), &samplerSpec));
     }

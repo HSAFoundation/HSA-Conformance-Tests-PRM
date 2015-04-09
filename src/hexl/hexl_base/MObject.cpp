@@ -348,18 +348,6 @@ const char *ImageChannelOrderString(MObjectImageChannelOrder mem)
   }
 }
 
-const char *ImageAccessString(MObjectImageAccess mem)
-{
-  switch (mem) {
-  case IMG_ACCESS_READ_ONLY: return "ro";
-  case IMG_ACCESS_WRITE_ONLY: return "wo";
-  case IMG_ACCESS_READ_WRITE: return "rw";
-  case IMG_ACCESS_NOT_SUPPORTED:
-  case IMG_ACCESS_READ_MODIFY_WRITE:
-  default: assert(false); return "<unknown access type>";
-  }
-};
-
 const char *ImageQueryString(MObjectImageQuery mem)
 {
   switch (mem)
@@ -374,35 +362,6 @@ const char *ImageQueryString(MObjectImageQuery mem)
   }
 };
 
-const char *SamplerFilterString(MObjectSamplerFilter mem)
-{
-  switch (mem) {
-  case SMP_NEAREST: return "nearest";
-  case SMP_LINEAR: return "linear";
-  default: assert(false); return "<unknown filter>";
-  }
-}
-
-const char *SamplerCoordsString(MObjectSamplerCoords mem)
-{
-  switch (mem) {
-  case SMP_NORMALIZED: return "normalized";
-  case SMP_UNNORMALIZED: return "unnormalized";
-  default: assert(false); return "<unknown coords>";
-  }
-}
-
-const char *SamplerAddressingString(MObjectSamplerAddressing mem)
-{
-  switch (mem) {
-  case SMP_UNDEFINED: return "undefined";
-  case SMP_CLAMP_TO_EDGE: return "clamp_to_edge";
-  case SMP_CLAMP_TO_BORDER: return "clamp_to_border";
-  case SMP_MODE_REPEAT: return "repeat";
-  case SMP_MIRRORED_REPEAT: return "mirrored_repeat";
-  default: assert(false); return "<unknown addressing>";
-  }
-}
 
 const char *SamplerQueryString(MObjectSamplerQuery mem)
 {

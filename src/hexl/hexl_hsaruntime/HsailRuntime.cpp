@@ -555,9 +555,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     {
       SamplerParams* params = context->Get<SamplerParams>(samplerParamsId);
       hsa_ext_sampler_descriptor_t sampler_descriptor;
-      sampler_descriptor.address_mode = (hsa_ext_sampler_addressing_mode_t) params->addressing;
-      sampler_descriptor.coordinate_mode = (hsa_ext_sampler_coordinate_mode_t) params->coord;
-      sampler_descriptor.filter_mode = (hsa_ext_sampler_filter_mode_t) params->filter;
+      sampler_descriptor.address_mode = (hsa_ext_sampler_addressing_mode_t) params->Addressing();
+      sampler_descriptor.coordinate_mode = (hsa_ext_sampler_coordinate_mode_t) params->CoordNormalization();
+      sampler_descriptor.filter_mode = (hsa_ext_sampler_filter_mode_t) params->Filter();
       hsa_ext_sampler_t sampler;
       hsa_status_t status = Runtime()->Hsa()->hsa_ext_sampler_create(Runtime()->Agent(), &sampler_descriptor, &sampler);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_sampler_create failed", status); return false; }

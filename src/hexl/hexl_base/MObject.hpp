@@ -123,14 +123,6 @@ enum MObjectImageChannelOrder {
   IMG_ORDER_DEPTH_STENCIL
 };
 
-enum MObjectImageAccess {
-  IMG_ACCESS_NOT_SUPPORTED = 0x0,
-  IMG_ACCESS_READ_ONLY,
-  IMG_ACCESS_WRITE_ONLY,
-  IMG_ACCESS_READ_WRITE,
-  IMG_ACCESS_READ_MODIFY_WRITE = 0x8
-};
-
 enum MObjectImageQuery {
     IMG_QUERY_WIDTH = 0,
     IMG_QUERY_HEIGHT,
@@ -138,24 +130,6 @@ enum MObjectImageQuery {
     IMG_QUERY_ARRAY,
     IMG_QUERY_CHANNELORDER,
     IMG_QUERY_CHANNELTYPE
-};
-
-enum MObjectSamplerFilter {
-  SMP_NEAREST = 0,
-  SMP_LINEAR
-};
-
-enum MObjectSamplerCoords {
-  SMP_UNNORMALIZED = 0,
-  SMP_NORMALIZED,
-};
-
-enum MObjectSamplerAddressing {
-  SMP_UNDEFINED = 0,
-  SMP_CLAMP_TO_EDGE,
-  SMP_CLAMP_TO_BORDER,
-  SMP_MODE_REPEAT,
-  SMP_MIRRORED_REPEAT
 };
 
 enum MObjectSamplerQuery {
@@ -172,11 +146,7 @@ enum SpecialValues {
 const char *ImageGeometryString(MObjectImageGeometry mem);
 const char *ImageChannelTypeString(MObjectImageChannelType mem);
 const char *ImageChannelOrderString(MObjectImageChannelOrder mem);
-const char *ImageAccessString(MObjectImageAccess mem);
 const char *ImageQueryString(MObjectImageQuery mem);
-const char *SamplerFilterString(MObjectSamplerFilter mem);
-const char *SamplerCoordsString(MObjectSamplerCoords mem);
-const char *SamplerAddressingString(MObjectSamplerAddressing mem);
 const char *SamplerQueryString(MObjectSamplerQuery mem);
 
 class MObject {
