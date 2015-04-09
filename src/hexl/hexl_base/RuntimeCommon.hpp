@@ -54,27 +54,27 @@ namespace hexl {
 
   class SamplerParams {
   private:
-    BrigSamplerAddressing addressing;
     BrigSamplerCoordNormalization coord;
     BrigSamplerFilter filter;
+    BrigSamplerAddressing addressing;
 
   public:
     SamplerParams(
-      BrigSamplerAddressing addressing_,
       BrigSamplerCoordNormalization coord_,
-      BrigSamplerFilter filter_)
-      : addressing(addressing_),
-        coord(coord_),
-        filter(filter_) { }
+      BrigSamplerFilter filter_,
+      BrigSamplerAddressing addressing_)
+      : coord(coord_),
+        filter(filter_),
+        addressing(addressing_) { }
     SamplerParams() { }
 
     bool IsValid() const;
 
-    BrigSamplerCoordNormalization CoordNormalization() const { return coord; }
+    BrigSamplerCoordNormalization Coord() const { return coord; }
     BrigSamplerFilter Filter() const { return filter; }
     BrigSamplerAddressing Addressing() const { return addressing; }
   
-    void CoordNormalization(BrigSamplerCoordNormalization coord_) { coord = coord_; }
+    void Coord(BrigSamplerCoordNormalization coord_) { coord = coord_; }
     void Filter(BrigSamplerFilter filter_) { filter = filter_; }
     void Addressing(BrigSamplerAddressing addressing_) { addressing = addressing_; }
 

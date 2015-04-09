@@ -59,36 +59,6 @@ namespace hexl {
       ")";
   }
 
-  const char *SamplerFilterString(BrigSamplerFilter filter)
-  {
-    switch (filter) {
-    case BRIG_FILTER_NEAREST: return "nearest";
-    case BRIG_FILTER_LINEAR: return "linear";
-    default: assert(false); return "<unknown filter>";
-    }
-  }
-
-  const char *SamplerCoordsString(BrigSamplerCoordNormalization coord)
-  {
-    switch (coord) {
-    case BRIG_COORD_NORMALIZED: return "normalized";
-    case BRIG_COORD_UNNORMALIZED: return "unnormalized";
-    default: assert(false); return "<unknown coords>";
-    }
-  }
-
-  const char *SamplerAddressingString(BrigSamplerAddressing addressing)
-  {
-    switch (addressing) {
-    case BRIG_ADDRESSING_UNDEFINED: return "undefined";
-    case BRIG_ADDRESSING_CLAMP_TO_EDGE: return "clamp_to_edge";
-    case BRIG_ADDRESSING_CLAMP_TO_BORDER: return "clamp_to_border";
-    case BRIG_ADDRESSING_REPEAT: return "repeat";
-    case BRIG_ADDRESSING_MIRRORED_REPEAT: return "mirrored_repeat";
-    default: assert(false); return "<unknown addressing>";
-    }
-  }
-
   bool SamplerParams::IsValid() const
   {
     switch (coord)
@@ -131,17 +101,17 @@ namespace hexl {
   {
     out <<
       "sampler" << "(" <<
-      HSAIL_ASM::anyEnum2str(addressing) << ", " <<
       HSAIL_ASM::anyEnum2str(coord) << ", " <<
-      HSAIL_ASM::anyEnum2str(filter) << ")";
+      HSAIL_ASM::anyEnum2str(filter) << ", " <<
+      HSAIL_ASM::anyEnum2str(addressing) << ")";
   }
 
   void SamplerParams::Name(std::ostream& out) const
   {
     out <<
-      SamplerAddressingString(addressing) << "_" <<
-      SamplerCoordsString(coord) << "_" <<
-      SamplerFilterString(filter);
+      HSAIL_ASM::samplerCoordNormalization2str(coord) << "_" <<
+      HSAIL_ASM::samplerFilter2str(filter) << "_" <<
+      HSAIL_ASM::samplerAddressing2str(addressing);
   }
 
   void ImageRegion::Print(std::ostream& out) const 

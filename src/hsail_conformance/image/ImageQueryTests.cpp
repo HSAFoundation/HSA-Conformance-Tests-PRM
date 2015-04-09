@@ -35,8 +35,8 @@ private:
 
 public:
   ImageQuerySamplerTest(Location codeLocation, Grid geometry, 
-    BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_, BrigSamplerQuery samplerQuery_): Test(codeLocation, geometry),
-    samplerParams(samplerAddressing_, samplerCoord_, samplerFilter_), samplerQuery(samplerQuery_)
+    SamplerParams* samplerParams_, BrigSamplerQuery samplerQuery_): Test(codeLocation, geometry),
+    samplerParams(*samplerParams_), samplerQuery(samplerQuery_)
   {
   }
   
@@ -74,7 +74,7 @@ public:
     case BRIG_SAMPLER_QUERY_ADDRESSING:
       return Value(MV_UINT32, samplerParams.Addressing());
     case BRIG_SAMPLER_QUERY_COORD:
-      return Value(MV_UINT32, samplerParams.CoordNormalization());
+      return Value(MV_UINT32, samplerParams.Coord());
     case BRIG_SAMPLER_QUERY_FILTER:
       return Value(MV_UINT32, samplerParams.Filter());
     default:
@@ -188,7 +188,7 @@ void ImageQueryTestSet::Iterate(hexl::TestSpecIterator& it)
   TestForEach<ImageQueryTest>(ap, it, "image_query/basic", CodeLocations(), cc->Grids().ImagesSet(),
     cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes(), cc->Images().ImageArraySets());
  
-  TestForEach<ImageQuerySamplerTest>(ap, it, "image_query_sampler/basic", CodeLocations(), cc->Grids().ImagesSet(), cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Sampler().SamplerQueryTypes());
+  TestForEach<ImageQuerySamplerTest>(ap, it, "image_query_sampler/basic", CodeLocations(), cc->Grids().ImagesSet(), cc->Samplers().All(), cc->Samplers().SamplerQueryTypes());
 }
 
 } // hsail_conformance

@@ -1664,7 +1664,7 @@ void ESampler::EmitInitializer()
       auto init = te->Brig()->Brigantine().append<OperandConstantSampler>();
       init.type() = type;
       init.addressing() = Addressing();
-      init.coord() = CoordNormalization();
+      init.coord() = Coord();
       init.filter() = Filter();
       list.push_back(init);
     }
@@ -2549,7 +2549,7 @@ void EImageCalc::Init(EImage * eimage, ESampler* esampler)
   imageChannelOrder = eimage->ChannelOrder();
   imageChannelType = eimage->ChannelType();
   if (esampler != NULL) {
-    samplerCoord = esampler->CoordNormalization();
+    samplerCoord = esampler->Coord();
     samplerFilter = esampler->Filter();
     samplerAddressing = esampler->Addressing();    
     assert(IsSamplerLegal(samplerCoord, samplerFilter, samplerAddressing));

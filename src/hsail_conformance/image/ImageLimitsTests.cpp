@@ -465,9 +465,7 @@ class SamplerHandlesNumber : public Test {
 private:
   std::vector<Sampler> samplers;
   Image image;
-  BrigSamplerAddressing addresing;
-  BrigSamplerCoordNormalization coord;
-  BrigSamplerFilter filter;
+  SamplerParams samplerParams;
   Value red;
 
   static const uint32_t LIMIT = 16;
@@ -475,29 +473,24 @@ private:
   static const BrigType ELEMENT_TYPE = BRIG_TYPE_F32;
 
 public:
-  SamplerHandlesNumber(Grid geometry, BrigSamplerAddressing addresing_, BrigSamplerCoordNormalization coord_, BrigSamplerFilter filter_)
-    : Test(Location::KERNEL, geometry), addresing(addresing_), coord(coord_), filter(filter_) {}
+  SamplerHandlesNumber(Grid geometry, SamplerParams* samplerParams_)
+    : Test(Location::KERNEL, geometry), samplerParams(*samplerParams_) { }
 
   void Name(std::ostream& out) const override {
-    out << samplerAddressing2str(addresing) << "_" 
-        << samplerCoordNormalization2str(coord) << "_" 
-        << samplerFilter2str(filter);
+    out << samplerParams;
   }
 
   bool IsValid() const override {
-    if (filter == BRIG_FILTER_LINEAR) // only f32 access type is supported for linear filter
+    if (!samplerParams.IsValid()) { return false; }
+    if (samplerParams.Filter() == BRIG_FILTER_LINEAR) // only f32 access type is supported for linear filter
     {
       //currently rd test will generate coordinate 0, which will sample out of range texel
       //for linear filtering. We should not test it, because it implementation defined.
       //TODO:
       //Change rd test with linear filter and undefined addressing
       //to not read from edge of an image
-      if(addresing == BRIG_ADDRESSING_UNDEFINED)
+      if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED)
         return false;
-    }
-    if (coord == BRIG_COORD_UNNORMALIZED && 
-       (addresing == BRIG_ADDRESSING_REPEAT || addresing == BRIG_ADDRESSING_MIRRORED_REPEAT)) {
-      return false;
     }
     return Test::IsValid();
   }
@@ -519,9 +512,7 @@ public:
 
     samplers.reserve(LIMIT);
     ESamplerSpec samplerSpec(BRIG_SEGMENT_GLOBAL, Location::KERNEL);
-    samplerSpec.CoordNormalization(coord);
-    samplerSpec.Filter(filter);
-    samplerSpec.Addressing(addresing);
+    samplerSpec.Params(samplerParams);
     for (uint32_t i = 0; i < LIMIT; ++i) {
       samplers.push_back(kernel->NewSampler("sampler" + std::to_string(i), &samplerSpec));
     }
@@ -568,7 +559,7 @@ public:
 
       // check query sampler filter mode
       sampler->EmitSamplerQuery(query, samplerAddr, BRIG_SAMPLER_QUERY_FILTER);
-      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), filter), BRIG_COMPARE_NE);
+      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), samplerParams.Filter()), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
 
       // read from image with sampler and compare R channel with INITIAL_VALUE
@@ -603,7 +594,7 @@ void ImageLimitsTestSet::Iterate(hexl::TestSpecIterator& it)
   TestForEach<ROImageHandlesNumber>(ap, it, "limits/ro_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
   TestForEach<RWImageHandlesNumber>(ap, it, "limits/rw_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().NumberOfRwImageHandles());
   
-  TestForEach<SamplerHandlesNumber>(ap, it, "limits/sampler_number", cc->Grids().TrivialGeometrySet(), cc->Sampler().SamplerAddressings(), cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters());
+  TestForEach<SamplerHandlesNumber>(ap, it, "limits/sampler_number", cc->Grids().TrivialGeometrySet(), cc->Samplers().All());
 }
 
 } // hsail_conformance

@@ -45,9 +45,10 @@ private:
 public:
   ImageRdTest(Location codeLocation, 
       Grid geometry, BrigImageGeometry imageGeometryProp_, BrigImageChannelOrder imageChannelOrder_, BrigImageChannelType imageChannelType_, 
-      BrigSamplerCoordNormalization samplerCoord_, BrigSamplerFilter samplerFilter_, BrigSamplerAddressing samplerAddressing_, BrigType coordType_, unsigned Array_ = 1): Test(codeLocation, geometry), 
-      imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_), 
-      samplerParams(samplerAddressing_, samplerCoord_, samplerFilter_), coordType(coordType_)
+      SamplerParams* samplerParams_,
+      BrigType coordType_, unsigned Array_ = 1): Test(codeLocation, geometry), 
+      imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_),
+      samplerParams(*samplerParams_), coordType(coordType_)
   {
      imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2), Array_);
   }
@@ -75,7 +76,7 @@ public:
     imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, 0x45245833)));
  
     ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
-    samplerSpec.CoordNormalization(samplerParams.CoordNormalization());
+    samplerSpec.Coord(samplerParams.Coord());
     samplerSpec.Filter(samplerParams.Filter());
     samplerSpec.Addressing(samplerParams.Addressing());
     smpobj = kernel->NewSampler("%sampler", &samplerSpec);
@@ -166,7 +167,7 @@ public:
                 fcoords[k] = std::max(fcoords[k], 1.0);
             }
 
-            if(samplerParams.CoordNormalization() == BRIG_COORD_NORMALIZED){
+            if(samplerParams.Coord() == BRIG_COORD_NORMALIZED){
               for(int k = 0; k < 3; k++)
                 fcoords[k] /= imageGeometry.ImageSize(k);
             }
@@ -195,7 +196,7 @@ public:
       return false;
 
     //only f32 coordinates is supported for normalized sampler
-    if (samplerParams.CoordNormalization() == BRIG_COORD_NORMALIZED && coordType != BRIG_TYPE_F32)
+    if (samplerParams.Coord() == BRIG_COORD_NORMALIZED && coordType != BRIG_TYPE_F32)
       return false;
     
     //With undefinied addressing we should not touch any out of range texels.
@@ -274,7 +275,7 @@ public:
         auto fgid = be.AddTReg(coordType);
         be.EmitCvt(fgid, gid, BRIG_ROUND_FLOAT_DEFAULT);
 
-        if(samplerParams.CoordNormalization() == BRIG_COORD_NORMALIZED){
+        if(samplerParams.Coord() == BRIG_COORD_NORMALIZED){
           TypedReg divisor = be.AddTReg(BRIG_TYPE_F32);
           TypedReg dimSize = be.AddTReg(BRIG_TYPE_U32);
           be.EmitMov(dimSize, be.Immed(BRIG_TYPE_U32, imageGeometry.ImageSize(i)));
@@ -316,8 +317,8 @@ void ImageRdTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<ImageRdTest>(ap, it, "image_rd/basic", CodeLocations(), cc->Grids().ImagesSet(),
-     cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Sampler().SamplerCoords(),
-     cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Images().ImageRdCoordinateTypes(), cc->Images().ImageArraySets());
+     cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(),
+     cc->Samplers().All(), cc->Images().ImageRdCoordinateTypes(), cc->Images().ImageArraySets());
 }
 
 } // hsail_conformance

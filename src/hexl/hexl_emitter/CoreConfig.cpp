@@ -324,6 +324,7 @@ CoreConfig::SamplerConfig::SamplerConfig(CoreConfig* cc)
     samplerCoords(NEWA ArraySequence<BrigSamplerCoordNormalization>(allCoords, NELEM(allCoords))),
     samplerFilters(NEWA ArraySequence<BrigSamplerFilter>(allFilters, NELEM(allFilters))),
     samplerAddressings(NEWA ArraySequence<BrigSamplerAddressing>(allAddressing, NELEM(allAddressing))),
+    allSamplers(SequenceMap<SamplerParams>(ap, SequenceProduct(ap, samplerCoords, samplerFilters, samplerAddressings))),
     samplerQueryTypes(NEWA ArraySequence<BrigSamplerQuery>(allSmpQueries, NELEM(allSmpQueries)))
 {
 

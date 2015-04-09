@@ -376,14 +376,16 @@ namespace hexl {
         hexl::Sequence<BrigSamplerCoordNormalization>* samplerCoords;
         hexl::Sequence<BrigSamplerFilter>* samplerFilters;
         hexl::Sequence<BrigSamplerAddressing>* samplerAddressings;
+        hexl::Sequence<SamplerParams*>* allSamplers;
         hexl::Sequence<BrigSamplerQuery>* samplerQueryTypes;
-        
+
       public:
         SamplerConfig(CoreConfig* cc);
 
         hexl::Sequence<BrigSamplerCoordNormalization>* SamplerCoords() { return samplerCoords; }
         hexl::Sequence<BrigSamplerFilter>* SamplerFilters() { return samplerFilters; }
         hexl::Sequence<BrigSamplerAddressing>* SamplerAddressings() { return samplerAddressings; }
+        hexl::Sequence<SamplerParams*>* All() { return allSamplers; }
         hexl::Sequence<BrigSamplerQuery>* SamplerQueryTypes() { return samplerQueryTypes; }
       };
 
@@ -396,7 +398,7 @@ namespace hexl {
       ControlDirectivesConfig& Directives() { return directives; }
       ControlFlowConfig& ControlFlow() { return controlFlow; }
       ImageConfig& Images() { return images; }
-      SamplerConfig& Sampler() { return samplers; }
+      SamplerConfig& Samplers() { return samplers; }
 
     private:
       GridsConfig grids;

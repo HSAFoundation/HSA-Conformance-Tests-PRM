@@ -719,14 +719,14 @@ public:
     BrigSamplerAddressing addressing_ = BRIG_ADDRESSING_UNDEFINED
   ) 
   : EVariableSpec(brigseg_, BRIG_TYPE_SAMP, location_, BRIG_ALIGNMENT_8, dim_, isConst_, output_), 
-    SamplerParams(addressing_, coord_, filter_) { }
+    SamplerParams(coord_, filter_, addressing_) { }
 
   bool IsValid() const;
 
   void Params(const SamplerParams& params) {
     Addressing(params.Addressing());
     Filter(params.Filter());
-    CoordNormalization(params.CoordNormalization());
+    Coord(params.Coord());
   }
 };
 
