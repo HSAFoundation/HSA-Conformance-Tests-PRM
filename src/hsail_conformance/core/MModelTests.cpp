@@ -176,7 +176,7 @@
 
 namespace hsail_conformance {
 
-//#define QUICK_TEST
+#define QUICK_TEST
 
 //=====================================================================================
 
