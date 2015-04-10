@@ -148,6 +148,19 @@ public:
         for(uint16_t x = 0; x < geometry->GridSize(0); x++){
           Value coords[3];
           Value texel[4];
+          int arrayCoord = -1; //array coord is always unnormalised
+          switch (imageGeometryProp)
+          {
+          case BRIG_GEOMETRY_1DA:
+            arrayCoord = 1;
+            break;
+          case BRIG_GEOMETRY_2DA:
+          case BRIG_GEOMETRY_2DADEPTH:
+            arrayCoord = 2;
+            break;
+          default:
+            break;
+          }
           switch (coordType)
           {
           case BRIG_TYPE_S32:
@@ -161,18 +174,19 @@ public:
             fcoords[0] = x;
             fcoords[1] = y;
             fcoords[2] = z;
-            //avoiding accessing out of range texels
-            if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR){
-              for(int k = 0; k < 3; k++)
-                fcoords[k] = std::max(fcoords[k], 1.0);
-            }
 
-            if(samplerParams.Coord() == BRIG_COORD_NORMALIZED){
-              for(int k = 0; k < 3; k++)
-                fcoords[k] /= imageGeometry.ImageSize(k);
-            }
             for(int k = 0; k < 3; k++)
+            {
+              //avoiding accessing out of range texels
+              if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR && k != arrayCoord)
+                fcoords[k] = std::max(fcoords[k], 1.0);
+
+              //normalize coordinates
+              if(samplerParams.Coord() == BRIG_COORD_NORMALIZED && k != arrayCoord)
+                fcoords[k] /= imageGeometry.ImageSize(k);
+              
               coords[k] = Value((float)fcoords[k]);
+            }
             }
             break;
           default:
@@ -239,6 +253,7 @@ public:
   TypedReg GetCoords()
   {
     int dim = 0;
+    int arrayCoord = -1;
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
@@ -258,32 +273,47 @@ public:
     default:
       assert(0);
     }
+    switch (imageGeometryProp)
+    {
+    case BRIG_GEOMETRY_1DA:
+      arrayCoord = 1;
+      break;
+    case BRIG_GEOMETRY_2DA:
+    case BRIG_GEOMETRY_2DADEPTH:
+      arrayCoord = 2;
+      break;
+    default:
+      break;
+    }
 
     auto result = be.AddTReg(coordType, dim);
 
-    for(int i=0; i<dim; i++){
-      auto gid = be.EmitWorkitemAbsId(i, false);
+    for(int k=0; k<dim; k++){
+      auto gid = be.EmitWorkitemAbsId(k, false);
       switch (coordType)
       {
       case BRIG_TYPE_S32:
-        be.EmitMov(result->Reg(i), gid->Reg(), 32);
+        be.EmitMov(result->Reg(k), gid->Reg(), 32);
         break;
 
       case BRIG_TYPE_F32:{
+        //avoiding accessing out of range texels
         if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR)
-          be.EmitArith(BRIG_OPCODE_MAX, gid, gid, be.Immed(BRIG_TYPE_U32, 1));
+          if(k != arrayCoord) be.EmitArith(BRIG_OPCODE_MAX, gid, gid, be.Immed(BRIG_TYPE_U32, 1));
         auto fgid = be.AddTReg(coordType);
+        
         be.EmitCvt(fgid, gid, BRIG_ROUND_FLOAT_DEFAULT);
 
-        if(samplerParams.Coord() == BRIG_COORD_NORMALIZED){
+        //normalize coordinates
+        if(samplerParams.Coord() == BRIG_COORD_NORMALIZED && k != arrayCoord){
           TypedReg divisor = be.AddTReg(BRIG_TYPE_F32);
           TypedReg dimSize = be.AddTReg(BRIG_TYPE_U32);
-          be.EmitMov(dimSize, be.Immed(BRIG_TYPE_U32, imageGeometry.ImageSize(i)));
+          be.EmitMov(dimSize, be.Immed(BRIG_TYPE_U32, imageGeometry.ImageSize(k)));
           be.EmitCvt(divisor, dimSize);
           be.EmitArith(BRIG_OPCODE_DIV, fgid, fgid, divisor->Reg());
         }
 
-        be.EmitMov(result->Reg(i), fgid->Reg(), 32);
+        be.EmitMov(result->Reg(k), fgid->Reg(), 32);
         }
         break;
       default:
