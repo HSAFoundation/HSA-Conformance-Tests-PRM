@@ -24,7 +24,7 @@ namespace hsail_conformance {
 class AtomicTest : public TestHelper
 {
 public:
-    static unsigned wavesize;
+    static unsigned wavesize; 
 
 protected:
     static const unsigned FLAG_NONE = 0;

@@ -176,7 +176,7 @@
 
 namespace hsail_conformance {
 
-#define QUICK_TEST
+//#define QUICK_TEST
 
 //=====================================================================================
 
@@ -309,7 +309,7 @@ public:
         resArrayAddr(0),
         wgCompleteAddr(0),
         indexInResArray(0),
-        testComplete(0)
+        loopIdx(0)
     {
         SetTestKind();
 

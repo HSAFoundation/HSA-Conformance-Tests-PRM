@@ -28,7 +28,7 @@ using namespace hexl::scenario;
 using namespace hexl::emitter;
 using namespace HSAIL_ASM;
 
-namespace hsail_conformance {
+namespace hsail_conformance { 
 
 //=====================================================================================
 
