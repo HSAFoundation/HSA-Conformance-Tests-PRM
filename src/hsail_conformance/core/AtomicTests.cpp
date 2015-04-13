@@ -24,7 +24,7 @@ namespace hsail_conformance {
 class AtomicTest : public TestHelper
 {
 public:
-    static unsigned wavesize;
+    static unsigned wavesize; 
 
 protected:
     static const unsigned FLAG_NONE = 0;
@@ -59,8 +59,6 @@ private:
     TypedReg atomicMem;
 
 public:
-    //static const uint32_t gridSize = 256;
-
     AtomicTest(Grid geometry_,
                 BrigAtomicOperation atomicOp_,
                 BrigSegment segment_,
@@ -528,13 +526,17 @@ public:
         InitRes();
 
         Comment("Synchronize");
-        Barrier();
+        //MemFence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
+        Barrier(); //F
+        //MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
 
         ItemList operands = AtomicOperands();
         Atomic(operands);
 
         Comment("Synchronize");
-        Barrier();
+        //MemFence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
+        Barrier(); //F
+        //MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
 
         ValidateDst();
         ValidateMem();
@@ -599,7 +601,7 @@ public:
     {
         Comment("Clear result array");
 
-        OperandAddress target = TargetAddr(LoadResAddr(), Index());
+        OperandAddress target = TargetAddr(LoadResAddr(), Index(), ResultType());
         InstAtomic inst = AtomicInst(ResultType(), BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
         inst.operands() = be.Operands(target, be.Immed(ResultType(), FLAG_NONE_VAL));
     }
@@ -663,7 +665,7 @@ public:
     void SetFlag(TypedReg index, unsigned flag)
     {
         TypedReg flagValue = GetFlag(flag);
-        OperandAddress target = TargetAddr(LoadResAddr(), index);
+        OperandAddress target = TargetAddr(LoadResAddr(), index, ResultType());
         InstAtomic inst = AtomicInst(ResultType(), BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, memoryScope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
         inst.operands() = be.Operands(target, flagValue->Reg());
     }
@@ -729,8 +731,8 @@ public:
 
     bool IsValidGrid() const
     {
-        if (memoryScope == BRIG_MEMORY_SCOPE_WAVEFRONT && (geometry->GridSize() != geometry->WorkgroupSize() || geometry->WorkgroupSize() > Wavesize())) return false;
-        if (memoryScope == BRIG_MEMORY_SCOPE_WORKGROUP &&  geometry->GridSize() != geometry->WorkgroupSize()) return false;
+        if (memoryScope == BRIG_MEMORY_SCOPE_WAVEFRONT && (geometry->GridSize() != geometry->WorkgroupSize() || geometry->WorkgroupSize() > Wavesize())) return false; //F?
+        if (memoryScope == BRIG_MEMORY_SCOPE_WORKGROUP &&  geometry->GridSize() != geometry->WorkgroupSize()) return false; //F?
 
         switch (atomicOp)
         {
@@ -761,3 +763,17 @@ void AtomicTests::Iterate(hexl::TestSpecIterator& it)
 //=====================================================================================
 
 } // namespace hsail_conformance
+
+// SIMPLE TODO
+// - enable relaxed atomics
+// - add flat mapping
+// - enable scope inclusion
+// - add test kind flag
+// - add test description
+// HARD TODO
+// - think over grid size for different test kinds
+// - do we always need barriers?
+// - do we need fences?
+// - what is better and simpler: generalize each kind for any grid or enable loops?
+// - how to fix bug for AGENT kind?
+// - code refactoring

@@ -28,7 +28,7 @@ using namespace hexl::scenario;
 using namespace hexl::emitter;
 using namespace HSAIL_ASM;
 
-namespace hsail_conformance {
+namespace hsail_conformance { 
 
 //=====================================================================================
 
@@ -64,7 +64,7 @@ public:
         be.Brigantine().addComment("//");
     }
 
-    OperandAddress TargetAddr(PointerReg addr, TypedReg index)
+    OperandAddress TargetAddr(PointerReg addr, TypedReg index, BrigType elemType)
     {
         assert(isUnsignedType(addr->Type()));
 
@@ -76,7 +76,7 @@ public:
         }
 
         PointerReg res = be.AddAReg(addr->Segment());
-        EmitArith(BRIG_OPCODE_MAD, res, index, be.Immed(addr->Type(), getBrigTypeNumBytes(ResultType())), addr);
+        EmitArith(BRIG_OPCODE_MAD, res, index, be.Immed(addr->Type(), getBrigTypeNumBytes(elemType)), addr);
         return be.Address(res);
     }
 
