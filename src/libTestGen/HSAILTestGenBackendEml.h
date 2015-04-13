@@ -1461,9 +1461,13 @@ private:
     static bool testableTypes(Inst inst)
     {
         assert(inst);
-        if (isF16(getType(inst)) || isF16(getSrcType(inst)))
+        if (isF16(getType(inst)) || isF16(getSrcType(inst))) {
+            if (!TestDataProvider::testF16())
+                return false;
             if (isHavingFtz(inst))
-              return TestDataProvider::testFtzF16();
+                return TestDataProvider::testFtzF16();
+            return true;
+        }
         return true;
     }
 
