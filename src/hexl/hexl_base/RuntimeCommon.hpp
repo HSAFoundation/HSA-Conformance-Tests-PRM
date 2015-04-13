@@ -35,7 +35,6 @@ namespace hexl {
     size_t height;
     size_t depth;
     size_t arraySize;
-    bool bLimitTest;
 
     ImageParams(
       BrigType imageType_,
@@ -45,30 +44,61 @@ namespace hexl {
       size_t width_,
       size_t height_,
       size_t depth_,
-      size_t arraySize_,
-      bool bLimitTest_)
+      size_t arraySize_)
       : imageType(imageType_),
         geometry(geometry_), channelOrder(channelOrder_), channelType(channelType_),
-        width(width_), height(height_), depth(depth_), arraySize(arraySize_), bLimitTest(bLimitTest_) { }
+        width(width_), height(height_), depth(depth_), arraySize(arraySize_) { }
     ImageParams() { }
     void Print(std::ostream& out) const;
   };
 
   class SamplerParams {
-  public:
-    BrigSamplerAddressing addressing;
+  private:
     BrigSamplerCoordNormalization coord;
     BrigSamplerFilter filter;
+    BrigSamplerAddressing addressing;
+
+  public:
     SamplerParams(
-      BrigSamplerAddressing addressing_,
       BrigSamplerCoordNormalization coord_,
-      BrigSamplerFilter filter_)
-      : addressing(addressing_),
-        coord(coord_),
-        filter(filter_) { }
+      BrigSamplerFilter filter_,
+      BrigSamplerAddressing addressing_)
+      : coord(coord_),
+        filter(filter_),
+        addressing(addressing_) { }
     SamplerParams() { }
+
+    bool IsValid() const;
+
+    BrigSamplerCoordNormalization Coord() const { return coord; }
+    BrigSamplerFilter Filter() const { return filter; }
+    BrigSamplerAddressing Addressing() const { return addressing; }
+  
+    void Coord(BrigSamplerCoordNormalization coord_) { coord = coord_; }
+    void Filter(BrigSamplerFilter filter_) { filter = filter_; }
+    void Addressing(BrigSamplerAddressing addressing_) { addressing = addressing_; }
+
+    void Print(std::ostream& out) const;
+    void Name(std::ostream& out) const;
+  };
+
+  inline std::ostream& operator<<(std::ostream& out, const SamplerParams& params) { params.Name(out); return out; }
+
+  class ImageRegion {
+  public:
+    uint32_t x;
+    uint32_t y;
+    uint32_t z;
+    uint32_t size_x;
+    uint32_t size_y;
+    uint32_t size_z;
+
+    ImageRegion(uint32_t x_ = 0, uint32_t y_ = 0, uint32_t z_ = 0,
+                uint32_t size_x_ = 1, uint32_t size_y_ = 1, uint32_t size_z_ = 1)
+                : x(x_), y(y_), z(z_), size_x(size_x_), size_y(size_y_), size_z(size_z_) {}
     void Print(std::ostream& out) const;
   };
+
 
   namespace runtime {
 
@@ -93,6 +123,7 @@ namespace hexl {
       DARG_SAMPLER,
       DARG_SIGNAL,
       DARG_QUEUE,
+      DARG_GROUPOFFSET
     };
 
     class RuntimeState {
@@ -128,7 +159,9 @@ namespace hexl {
       virtual bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId = "") = 0;
       virtual bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") = 0;
 
-      virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId) = 0;
+      virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId) = 0;
+      virtual bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId) = 0;
+      virtual bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region) = 0;
       virtual bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") = 0;
       virtual bool SamplerCreate(const std::string& samplerId, const std::string& samplerParamsId) = 0;
 
@@ -136,6 +169,7 @@ namespace hexl {
       virtual bool DispatchArg(const std::string& dispatchId, DispatchArgType argType, const std::string& argKey) = 0;
       bool DispatchValueArg(const std::string& dispatchId, Value value);
       bool DispatchValuesArg(const std::string& dispatchId, Values* values);
+      bool DispatchGroupOffsetArg(const std::string& dispatchId, Value value = Value(MV_UINT32, 0));
       virtual bool DispatchExecute(const std::string& dispatchId = "dispatch") = 0;
 
       virtual bool SignalCreate(const std::string& signalId, uint64_t signalInitialValue = 1) = 0;

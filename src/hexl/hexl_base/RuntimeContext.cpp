@@ -59,13 +59,70 @@ namespace hexl {
       ")";
   }
 
+  bool SamplerParams::IsValid() const
+  {
+    switch (coord)
+    {
+    case BRIG_COORD_UNNORMALIZED:
+    case BRIG_COORD_NORMALIZED:
+      break;
+    default:
+      return false;
+    }
+
+    switch (filter)
+    {
+    case BRIG_FILTER_NEAREST:
+    case BRIG_FILTER_LINEAR:
+      break;
+    default:
+      return false;
+    }
+
+    //see PRM Table 7-6 Image Instruction Combination
+    switch (addressing)
+    {
+    case BRIG_ADDRESSING_UNDEFINED:
+    case BRIG_ADDRESSING_CLAMP_TO_EDGE:
+    case BRIG_ADDRESSING_CLAMP_TO_BORDER:
+      return true;
+    case BRIG_ADDRESSING_REPEAT:
+    case BRIG_ADDRESSING_MIRRORED_REPEAT:
+      return (coord == BRIG_COORD_NORMALIZED) ? true : false;
+    default:
+      return false;
+    }
+
+    assert(0);
+    return false;
+  }
+
   void SamplerParams::Print(std::ostream& out) const
   {
     out <<
       "sampler" << "(" <<
-      HSAIL_ASM::anyEnum2str(addressing) << ", " <<
       HSAIL_ASM::anyEnum2str(coord) << ", " <<
-      HSAIL_ASM::anyEnum2str(filter) << ")";
+      HSAIL_ASM::anyEnum2str(filter) << ", " <<
+      HSAIL_ASM::anyEnum2str(addressing) << ")";
+  }
+
+  void SamplerParams::Name(std::ostream& out) const
+  {
+    out <<
+      HSAIL_ASM::samplerCoordNormalization2str(coord) << "_" <<
+      HSAIL_ASM::samplerFilter2str(filter) << "_" <<
+      HSAIL_ASM::samplerAddressing2str(addressing);
+  }
+
+  void ImageRegion::Print(std::ostream& out) const 
+  {
+    out << "image_region" <<
+           "(x = " << x <<
+           "; y = " << y <<
+           "; z = " << z <<
+           "; size_x = " << size_x <<
+           "; size_y = " << size_y <<
+           "; size_z = " << size_z << ")";
   }
 
 
@@ -99,7 +156,9 @@ namespace hexl {
     bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId = "") { return true; }
     bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") { return true; }
 
-    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, const std::string& initValuesId) { return true; }
+    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId) { return true; }
+    bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId) { return true; }
+    bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region) { return true; }
     bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") { return true; }
     bool SamplerCreate(const std::string& samplerId, const std::string& samplerParamsId) override { return true;  }
 
@@ -156,6 +215,15 @@ namespace hexl {
       std::string argKey(ss.str());
       GetContext()->Move(argKey, values);
       return DispatchArg(dispatchId, DARG_VALUES, argKey);
+    }
+
+    bool RuntimeState::DispatchGroupOffsetArg(const std::string& dispatchId, Value value) 
+    {
+      std::ostringstream ss;
+      ss << dispatchId << ".arg." << (argNum++);
+      std::string argKey(ss.str());
+      GetContext()->Put(argKey, value);
+      return DispatchArg(dispatchId, DARG_GROUPOFFSET, argKey);
     }
 
     void RuntimeState::Set(const std::string& key, Value value)

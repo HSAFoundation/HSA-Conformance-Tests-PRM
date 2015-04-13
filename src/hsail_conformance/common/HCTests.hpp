@@ -282,6 +282,31 @@ public:
   }
 };
 
+template <typename T, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10, typename P11, typename P12>
+class TestAction12 : public hexl::Action<hexl::Pair<P1, hexl::Pair<P2, hexl::Pair<P3, hexl::Pair<P4, hexl::Pair<P5, hexl::Pair<P6, hexl::Pair<P7, hexl::Pair<P8, hexl::Pair<P9, hexl::Pair<P10, hexl::Pair<P11, P12>>>>>>>>>>>> {
+private:
+  std::string base;
+  hexl::TestSpecIterator& it;
+
+public:
+  TestAction12(const std::string& base_, hexl::TestSpecIterator& it_) : base(base_), it(it_) { }
+
+  void operator()(const hexl::Pair<P1, hexl::Pair<P2, hexl::Pair<P3, hexl::Pair<P4, hexl::Pair<P5, hexl::Pair<P6, hexl::Pair<P7, hexl::Pair<P8, hexl::Pair<P9, hexl::Pair<P10, hexl::Pair<P11, P12>>>>>>>>>>>& p) {
+    it(base, new T(p.First(),
+                   p.Second().First(),
+                   p.Second().Second().First(),
+                   p.Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().Second().Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().Second().Second().Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().Second().Second().Second().Second().Second().Second().First(),
+                   p.Second().Second().Second().Second().Second().Second().Second().Second().Second().Second().Second()));
+  }
+};
+
 template <typename Test, typename P1>
 void TestForEach(hexl::Arena* ap, hexl::TestSpecIterator& it, const std::string& base, hexl::Sequence<P1>* p1s)
 {
@@ -362,10 +387,18 @@ void TestForEach(hexl::Arena* ap, hexl::TestSpecIterator& it, const std::string&
 }
 
 template <typename Test, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10, typename P11>
-void TestForEach(hexl::Arena* ap, hexl::TestSpecIterator& it, const std::string& base, hexl::Sequence<P1>* p1s, hexl::Sequence<P2>* p2s, hexl::Sequence<P3>* p3s, hexl::Sequence<P4>* p4s, hexl::Sequence<P5>* p5s, hexl::Sequence<P6>* p6s, hexl::Sequence<P7>* p7s, hexl::Sequence<P8>* p8s, hexl::Sequence<P9>* p9s, hexl::Sequence<P10>* p10s, hexl::Sequence<P10>* p11s)
+void TestForEach(hexl::Arena* ap, hexl::TestSpecIterator& it, const std::string& base, hexl::Sequence<P1>* p1s, hexl::Sequence<P2>* p2s, hexl::Sequence<P3>* p3s, hexl::Sequence<P4>* p4s, hexl::Sequence<P5>* p5s, hexl::Sequence<P6>* p6s, hexl::Sequence<P7>* p7s, hexl::Sequence<P8>* p8s, hexl::Sequence<P9>* p9s, hexl::Sequence<P10>* p10s, hexl::Sequence<P11>* p11s)
 {
   TestAction11<Test, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11> a(base, it);
   auto ps = SequenceProduct(ap, p1s, p2s, p3s, p4s, p5s, p6s, p7s, p8s, p9s, p10s, p11s);
+  ps->Iterate(a);
+}
+
+template <typename Test, typename P1, typename P2, typename P3, typename P4, typename P5, typename P6, typename P7, typename P8, typename P9, typename P10, typename P11, typename P12>
+void TestForEach(hexl::Arena* ap, hexl::TestSpecIterator& it, const std::string& base, hexl::Sequence<P1>* p1s, hexl::Sequence<P2>* p2s, hexl::Sequence<P3>* p3s, hexl::Sequence<P4>* p4s, hexl::Sequence<P5>* p5s, hexl::Sequence<P6>* p6s, hexl::Sequence<P7>* p7s, hexl::Sequence<P8>* p8s, hexl::Sequence<P9>* p9s, hexl::Sequence<P10>* p10s, hexl::Sequence<P11>* p11s, hexl::Sequence<P12>* p12s)
+{
+  TestAction12<Test, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12> a(base, it);
+  auto ps = SequenceProduct(ap, p1s, p2s, p3s, p4s, p5s, p6s, p7s, p8s, p9s, p10s, p11s, p12s);
   ps->Iterate(a);
 }
 

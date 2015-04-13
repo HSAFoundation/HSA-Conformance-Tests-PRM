@@ -54,7 +54,6 @@ private:
   EmitterScope currentScope;
   HSAIL_ASM::DirectiveExecutable currentExecutable;
 
-  TypedReg workitemabsid[2];
   TypedReg workitemflatabsid[2];
 
   HSAIL_ASM::OperandAddress IncrementAddress(HSAIL_ASM::OperandAddress addr, int64_t offset);
@@ -136,19 +135,19 @@ public:
   HSAIL_ASM::OperandAddress Address(PointerReg ptr, int64_t offset = 0);
   HSAIL_ASM::OperandAddress Address(HSAIL_ASM::DirectiveVariable v, int64_t offset = 0);
 
-  HSAIL_ASM::InstMem EmitLoad(BrigSegment8_t segment, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
-  void EmitLoad(BrigSegment8_t segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
-  void EmitLoad(TypedReg dst, HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0);
-  void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0);
+  HSAIL_ASM::InstMem EmitLoad(BrigSegment8_t segment, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitLoad(BrigSegment8_t segment, TypedReg dst, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitLoad(TypedReg dst, HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitLoad(TypedReg dst, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = true, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
   void EmitLoads(TypedRegList dsts, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   BrigType16_t MemOpType(BrigType16_t type);
-  HSAIL_ASM::InstMem EmitStore(BrigSegment8_t segment, BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
-  void EmitStore(BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0);
-  void EmitStore(TypedReg src, HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset = 0, bool useVectorInstructions = false);
-  void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false, uint8_t equiv = 0);
-  void EmitStore(BrigSegment8_t segment, BrigType type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0);
-  void EmitStore(BrigType type, HSAIL_ASM::Operand src, PointerReg addr, uint8_t equiv = 0);
+  HSAIL_ASM::InstMem EmitStore(BrigSegment8_t segment, BrigType16_t type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitStore(BrigSegment8_t segment, TypedReg src, HSAIL_ASM::OperandAddress addr, bool useVectorInstructions = true, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitStore(TypedReg src, HSAIL_ASM::DirectiveVariable v, HSAIL_ASM::OperandRegister reg, int64_t offset = 0, bool useVectorInstructions = false, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitStore(TypedReg src, PointerReg addr, int64_t offset = 0, bool useVectorInstructions = false, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitStore(BrigSegment8_t segment, BrigType type, HSAIL_ASM::Operand src, HSAIL_ASM::OperandAddress addr, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
+  void EmitStore(BrigType type, HSAIL_ASM::Operand src, PointerReg addr, uint8_t equiv = 0, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE);
   void EmitStores(TypedRegList src, HSAIL_ASM::ItemList vars, bool useVectorInstructions = true);
 
   // Buffer memory operations.
@@ -266,6 +265,7 @@ public:
   // Images operations
   BrigType ImageType(unsigned access) const;
   BrigType SamplerType() const;
+  void EmitImageFence();
 
   // Exception operations
   HSAIL_ASM::InstBasic EmitClearDetectExcept(uint32_t exceptionNumber);

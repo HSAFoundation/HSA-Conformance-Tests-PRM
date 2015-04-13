@@ -29,9 +29,7 @@ namespace hsail_conformance {
 
 class SamplerInitializerTest: public Test {
 private:
-  BrigSamplerCoordNormalization coord; 
-  BrigSamplerFilter filter;
-  BrigSamplerAddressing addresing;
+  SamplerParams samplerParams;
   BrigSegment segment;
   Location initializerLocation;
   uint64_t dim;
@@ -44,23 +42,19 @@ private:
 
 public:
   explicit SamplerInitializerTest(
-    BrigSamplerCoordNormalization coord_, 
-    BrigSamplerFilter filter_,
-    BrigSamplerAddressing addresing_,
+    SamplerParams* samplerParams_,
     BrigSegment segment_,
     Location initializerLocation_,
     uint64_t dim_,
     bool isConst_)
     : Test(initializerLocation_ == Location::FUNCTION ? Location::FUNCTION : Location::KERNEL), 
-      coord(coord_), filter(filter_), addresing(addresing_), segment(segment_), 
+      samplerParams(*samplerParams_), segment(segment_), 
       initializerLocation(initializerLocation_), dim(dim_), isConst(isConst_) {}
 
   void Init() override {
     Test::Init();
     ESamplerSpec samplerSpec(segment, initializerLocation, dim, isConst);
-    samplerSpec.CoordNormalization(coord);
-    samplerSpec.Filter(filter);
-    samplerSpec.Addresing(addresing);
+    samplerSpec.Params(samplerParams);
     sampler = te->NewSampler("sampler", &samplerSpec);
   }
 
@@ -70,19 +64,14 @@ public:
     if (isConst) {
       out << "const_";
     }
-    out << samplerCoordNormalization2str(coord) << "_" 
-        << samplerFilter2str(filter) << "_"
-        << samplerAddressing2str(addresing);
+    out << samplerParams;
     if (dim != 0) {
       out << "[" << dim << "]";
     }
   }
 
   bool IsValid() const override {
-    if (coord == BRIG_COORD_UNNORMALIZED && 
-       (addresing == BRIG_ADDRESSING_REPEAT || addresing == BRIG_ADDRESSING_MIRRORED_REPEAT)) {
-      return false;
-    }
+    if (!samplerParams.IsValid()) { return false; }
     if (initializerLocation != Location::KERNEL && 
         initializerLocation != Location::MODULE && 
         initializerLocation != Location::FUNCTION) {
@@ -134,20 +123,20 @@ public:
     // query sampler addresing
     // if addresing is set to "undefined" then implementation can return any addresing mode
     // skip addresing mode checking if it was set to "undefined"
-    if (addresing != BRIG_ADDRESSING_UNDEFINED) {
+    if (samplerParams.Addressing() != BRIG_ADDRESSING_UNDEFINED) {
       sampler->EmitSamplerQuery(dest, samplerAddr, BRIG_SAMPLER_QUERY_ADDRESSING);
-      be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), addresing), BRIG_COMPARE_NE);
+      be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), samplerParams.Addressing()), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
     }
 
     //// query sampler coordinate
     sampler->EmitSamplerQuery(dest, samplerAddr, BRIG_SAMPLER_QUERY_COORD);
-    be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), coord), BRIG_COMPARE_NE);
+    be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), samplerParams.Coord()), BRIG_COMPARE_NE);
     be.EmitCbr(cmp->Reg(), falseLabel);
 
     // query sampler filter
     sampler->EmitSamplerQuery(dest, samplerAddr, BRIG_SAMPLER_QUERY_FILTER);
-    be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), filter), BRIG_COMPARE_NE);
+    be.EmitCmp(cmp->Reg(), dest, be.Immed(dest->Type(), samplerParams.Filter()), BRIG_COMPARE_NE);
     be.EmitCbr(cmp->Reg(), falseLabel);
 
     be.EmitArith(BRIG_OPCODE_ADD, counter, counter, be.Immed(counter->Type(), 1));
@@ -173,7 +162,7 @@ void ImageInitializerTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
 
-  TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters(), cc->Sampler().SamplerAddressings(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), cc->Variables().InitializerDims(), Bools::All());
+  TestForEach<SamplerInitializerTest>(ap, it, "initializer/sampler", cc->Samplers().All(), cc->Segments().InitializableSegments(), cc->Variables().InitializerLocations(), cc->Variables().InitializerDims(), Bools::All());
 }
 
 } // hsail_conformance

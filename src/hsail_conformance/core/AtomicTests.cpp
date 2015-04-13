@@ -15,26 +15,17 @@
 */
 
 #include "AtomicTests.hpp"
-#include "HsailRuntime.hpp"
-#include "BrigEmitter.hpp"
-#include "HCTests.hpp"
-#include "Scenario.hpp"
-
-using namespace hexl;
-using namespace hexl::scenario;
-using namespace hexl::emitter;
-using namespace HSAIL_ASM;
+#include "TestHelper.hpp"
 
 namespace hsail_conformance {
 
-#define COND(x, cnd, y)       Cond(BRIG_COMPARE_##cnd, x, y)
-#define STARTIF(x, cond, y) { string lab__ = IfCond(BRIG_COMPARE_##cond, x, y);
-#define ENDIF                 EndIfCond(lab__); }
-
 //=====================================================================================
 
-class AtomicTest : public Test
+class AtomicTest : public TestHelper
 {
+public:
+    static unsigned wavesize; 
+
 protected:
     static const unsigned FLAG_NONE = 0;
     static const unsigned FLAG_MEM  = 1;
@@ -68,8 +59,6 @@ private:
     TypedReg atomicMem;
 
 public:
-    static const uint32_t gridSize = 256;
-
     AtomicTest(Grid geometry_,
                 BrigAtomicOperation atomicOp_,
                 BrigSegment segment_,
@@ -77,7 +66,7 @@ public:
                 BrigMemoryScope memoryScope_,
                 BrigType type_,
                 bool noret)
-    : Test(KERNEL, geometry_),
+    : TestHelper(KERNEL, geometry_),
         atomicOp(atomicOp_),
         segment(segment_),
         memoryOrder(memoryOrder_),
@@ -90,36 +79,29 @@ public:
         indexInResArray(0),
         atomicDst(0),
         atomicMem(0)
-        {
-        }
+    {
+    }
 
-    void Name(std::ostream& out) const { out << (atomicNoRet ? "atomicnoret" : "atomic")
-                                             << "_" << atomicOperation2str(atomicOp) << "_"
-                                             << (segment != BRIG_SEGMENT_FLAT ? segment2str(segment) : "")
-                                             << (segment != BRIG_SEGMENT_FLAT ? "_" : "")
-                                             << memoryOrder2str(be.AtomicMemoryOrder(atomicOp, memoryOrder))
-                                             << "_" << memoryScope2str(memoryScope)
-                                             << "_" << type2str(type)
-                                             << "/" << geometry; }
+    void Name(std::ostream& out) const 
+    { 
+        out << (atomicNoRet ? "atomicnoret" : "atomic")
+            << "_" << atomicOperation2str(atomicOp) << "_"
+            << (segment != BRIG_SEGMENT_FLAT ? segment2str(segment) : "")
+            << (segment != BRIG_SEGMENT_FLAT ? "_" : "")
+            << memoryOrder2str(be.AtomicMemoryOrder(atomicOp, memoryOrder))
+            << "_" << memoryScope2str(memoryScope)
+            << "_" << type2str(type)
+            << "/" << geometry; 
+    }
 
     BrigType ResultType() const { return BRIG_TYPE_U32; }
-
-
-
+    
     Value ExpectedResult() const
     {
         unsigned expected = FLAG_MEM_VAL | (Encryptable()? FLAG_VLD_MEM_VAL : FLAG_NONE_VAL);
         if (!atomicNoRet) expected |= FLAG_DST_VAL | (Encryptable()? FLAG_VLD_DST_VAL : FLAG_NONE_VAL);
         return Value(MV_UINT32, U32(expected));
-
-        //switch (atomicOp) 
-        //{
-        //case BRIG_ATOMIC_ADD:     return Value(MV_UINT32, U32(FLAG_MEM_VAL | FLAG_DST_VAL));
-        //case BRIG_ATOMIC_EXCH:    return Value(MV_UINT32, U32(FLAG_MEM_VAL | FLAG_DST_VAL));
-        //default:                  return Value(MV_UINT32, U32(FLAG_MEM_VAL | FLAG_DST_VAL));
-        //}
     }
-
 
     void Init()
     {
@@ -136,7 +118,9 @@ public:
         case BRIG_SEGMENT_GLOBAL: varName = "global_var"; break;
         case BRIG_SEGMENT_GROUP:  varName = "group_var";  break;
         case BRIG_SEGMENT_FLAT:   varName = "flat_var";   varSeg = BRIG_SEGMENT_GLOBAL; break;
-        default: break;
+        default: 
+            assert(false);
+            break;
         }
 
         testVar = be.EmitVariableDefinition(varName, varSeg, type);
@@ -146,6 +130,7 @@ public:
 
     // ========================================================================
 
+    unsigned Wavesize()  const { return wavesize; }
     uint64_t LoopCount() const { return 1; }
 
     uint64_t Key() const
@@ -196,7 +181,7 @@ public:
         return val;
     }
 
-    Operand Initializer(unsigned t)
+    Operand Initializer(BrigType t)
     {
         uint64_t init = InitialValue();
         if (Encryptable()) init = Encode(init);
@@ -204,25 +189,6 @@ public:
     }
 
     // ========================================================================
-
-    bool IsValidGrid() const
-    {
-        uint32_t ws = 64; //FF HARDCODED
-
-        if (memoryScope == BRIG_MEMORY_SCOPE_WAVEFRONT && (geometry->GridSize() != geometry->WorkgroupSize() || geometry->WorkgroupSize() > ws)) return false;
-        if (memoryScope == BRIG_MEMORY_SCOPE_WORKGROUP &&  geometry->GridSize() != geometry->WorkgroupSize()) return false;
-
-        switch (atomicOp)
-        {
-        case BRIG_ATOMIC_AND:
-        case BRIG_ATOMIC_OR:
-        case BRIG_ATOMIC_XOR:
-            return getBrigTypeNumBits(type) == geometry->GridSize();
-            
-        default:
-            return true;
-        }
-    }
 
     bool Encryptable() const
     {
@@ -300,30 +266,30 @@ public:
 
         case BRIG_ATOMIC_OR:
         case BRIG_ATOMIC_XOR:
-            be.EmitArith(BRIG_OPCODE_SHL, src0, be.Immed(type, 1), TestId(false)->Reg());
+            be.EmitArith(BRIG_OPCODE_SHL, src0, be.Immed(type, 1), TestAbsId(false)->Reg());
             break;
 
         case BRIG_ATOMIC_AND:
-            be.EmitArith(BRIG_OPCODE_SHL, src0, be.Immed(type, 1), TestId(false)->Reg());
+            be.EmitArith(BRIG_OPCODE_SHL, src0, be.Immed(type, 1), TestAbsId(false)->Reg());
             be.EmitArith(BRIG_OPCODE_NOT, src0, src0->Reg());
             break;
 
         case BRIG_ATOMIC_MAX:
         case BRIG_ATOMIC_MIN:
-            src0 = TestId(getBrigTypeNumBits(type) == 64);
+            src0 = TestAbsId(getBrigTypeNumBits(type) == 64);
             break;
 
         case BRIG_ATOMIC_EXCH:
-            src0 = TestId(getBrigTypeNumBits(type) == 64);
+            src0 = TestAbsId(getBrigTypeNumBits(type) == 64);
             break;
 
         case BRIG_ATOMIC_CAS:
             be.EmitMov(src0, be.Immed(type2bitType(type), InitialValue())); // value which is being compared
-            src1 = TestId(getBrigTypeNumBits(type) == 64);    // value to swap
+            src1 = TestAbsId(getBrigTypeNumBits(type) == 64);    // value to swap
             break;
 
         case BRIG_ATOMIC_ST:
-            src0 = TestId(getBrigTypeNumBits(type) == 64);
+            src0 = TestAbsId(getBrigTypeNumBits(type) == 64);
             break;
 
         case BRIG_ATOMIC_LD:
@@ -349,7 +315,7 @@ public:
             atomicDst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(type)));
             operands.push_back(atomicDst->Reg());
         }
-        operands.push_back(be.Address(VarAddr()));
+        operands.push_back(be.Address(LoadVarAddr()));
         if (src0) operands.push_back(src0->Reg());
         if (src1) operands.push_back(src1->Reg());
 
@@ -469,11 +435,11 @@ public:
             case BRIG_ATOMIC_CAS:       return Or(
                                                 And(
                                                     COND(atomicDst, EQ, InitialValue()),
-                                                    COND(atomicMem, EQ, TestId(getBrigTypeNumBits(type) == 64)->Reg())
+                                                    COND(atomicMem, EQ, TestAbsId(getBrigTypeNumBits(type) == 64)->Reg())
                                                    ),
                                                 And(
                                                     COND(atomicDst, EQ, atomicMem->Reg()),
-                                                    COND(atomicMem, NE, TestId(getBrigTypeNumBits(type) == 64)->Reg())
+                                                    COND(atomicMem, NE, TestAbsId(getBrigTypeNumBits(type) == 64)->Reg())
                                                    )
                                                );
 
@@ -553,18 +519,24 @@ public:
     {
         assert(codeLocation == emitter::KERNEL);
 
-        VarAddr();
+        LoadVarAddr();
         InitVar();
 
-        ResAddr();
+        LoadResAddr();
         InitRes();
 
-        Barrier();
+        Comment("Synchronize");
+        //MemFence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
+        Barrier(); //F
+        //MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
 
         ItemList operands = AtomicOperands();
         Atomic(operands);
 
-        Barrier();
+        Comment("Synchronize");
+        //MemFence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
+        Barrier(); //F
+        //MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP); //F
 
         ValidateDst();
         ValidateMem();
@@ -577,7 +549,7 @@ public:
         }
     }
 
-    PointerReg VarAddr()
+    PointerReg LoadVarAddr()
     {
         if (!atomicVarAddr)
         {
@@ -588,7 +560,7 @@ public:
         return atomicVarAddr;
     }
 
-    PointerReg ResAddr()
+    PointerReg LoadResAddr()
     {
         if (!resArrayAddr)
         {
@@ -602,18 +574,16 @@ public:
     {
         if (!indexInResArray)
         {
-            indexInResArray = be.EmitWorkitemFlatAbsId(ResAddr()->IsLarge());
+            indexInResArray = be.EmitWorkitemFlatAbsId(LoadResAddr()->IsLarge());
         }
         return indexInResArray;
     }
-
-    TypedReg TestId(bool isLarge) { return be.EmitWorkitemFlatAbsId(isLarge); }
 
     void InitVar()
     {
         if (segment == BRIG_SEGMENT_GROUP)
         {
-            PointerReg varAddr = VarAddr(); // NB: unconditional
+            PointerReg varAddr = LoadVarAddr(); // NB: unconditional
 
             Comment("Init variable");
 
@@ -621,7 +591,7 @@ public:
             STARTIF(id, EQ, 0)
 
             InstAtomic inst = AtomicInst(type, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, segment, equivClass, false);
-            inst.operands() = be.Operands(be.Address(varAddr), Initializer(type2bitType(type)));
+            inst.operands() = be.Operands(be.Address(varAddr), Initializer((BrigType)type2bitType(type)));
 
             ENDIF
         }
@@ -631,8 +601,8 @@ public:
     {
         Comment("Clear result array");
 
-        OperandAddress target = TargetAddr(ResAddr(), Index());
-        InstAtomic inst = AtomicInst(ResultType(), BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, (BrigSegment)ResAddr()->Segment(), 0, false);
+        OperandAddress target = TargetAddr(LoadResAddr(), Index(), ResultType());
+        InstAtomic inst = AtomicInst(ResultType(), BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
         inst.operands() = be.Operands(target, be.Immed(ResultType(), FLAG_NONE_VAL));
     }
 
@@ -652,7 +622,7 @@ public:
 
             atomicMem = be.AddTReg(type);
             InstAtomic inst = AtomicInst(type, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, memoryScope, segment, equivClass);
-            inst.operands() = be.Operands(atomicMem->Reg(), be.Address(VarAddr()));
+            inst.operands() = be.Operands(atomicMem->Reg(), be.Address(LoadVarAddr()));
         }
         return atomicMem;
     }
@@ -692,109 +662,11 @@ public:
 
     // ========================================================================
 
-    OperandAddress TargetAddr(PointerReg addr, TypedReg index)
-    {
-        if (addr->TypeSizeBits() != index->TypeSizeBits())
-        {
-            TypedReg reg = be.AddTReg(addr->Type());
-            EmitCvt(reg, index);
-            index = reg;
-        }
-        PointerReg res = be.AddAReg(addr->Segment());
-        EmitArith(BRIG_OPCODE_MAD, res, index, be.Immed(addr->Type(), getBrigTypeNumBytes(ResultType())), addr);
-        return be.Address(res);
-    }
-
-    Inst AtomicInst(unsigned t, BrigAtomicOperation op, BrigMemoryOrder order, BrigMemoryScope scope, BrigSegment segment, uint8_t eqclass, bool ret = true)
-    {
-        if (op == BRIG_ATOMIC_LD || op == BRIG_ATOMIC_ST) t = type2bitType(t);
-
-        InstAtomic inst = be.Brigantine().addInst<InstAtomic>(ret? BRIG_OPCODE_ATOMIC : BRIG_OPCODE_ATOMICNORET, t);
-        inst.segment() = segment;
-        inst.atomicOperation() = op;
-        inst.memoryOrder() = order;
-        inst.memoryScope() = scope;
-        inst.equivClass() = eqclass;
-
-        return inst;
-    }
-
-    void Barrier()
-    {
-        Comment("Synchronize");
-        be.EmitBarrier();
-    }
-
-    TypedReg MinVal(TypedReg val, uint64_t max)
-    {
-        TypedReg res = be.AddTReg(val->Type());
-        InstBasic inst = be.EmitArith(BRIG_OPCODE_MIN, res, val, be.Immed(val->Type(), max));
-        if (isBitType(inst.type()))
-        {
-            inst.type() = getUnsignedType(getBrigTypeNumBits(inst.type()));
-        }
-
-        return res;
-    }
-
-    TypedReg Popcount(TypedReg src)
-    {
-        TypedReg dst = be.AddTReg(BRIG_TYPE_U32);
-        InstSourceType inst = be.Brigantine().addInst<InstSourceType>(BRIG_OPCODE_POPCOUNT, BRIG_TYPE_U32);
-        inst.sourceType() = type2bitType(src->Type());
-        inst.operands() = be.Operands(dst->Reg(), src->Reg());
-        return dst;
-    }
-
-    void Comment(string s)
-    {
-        s = "// " + s;
-        be.Brigantine().addComment("//");
-        be.Brigantine().addComment(s.c_str());
-        be.Brigantine().addComment("//");
-    }
-
-    // ========================================================================
-
-    TypedReg Cond(unsigned cond, TypedReg val1, uint64_t val2)
-    {
-        TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-        InstCmp inst = be.EmitCmp(cReg->Reg(), val1, be.Immed(val1->Type(), val2), cond);
-        if (inst.compare() != BRIG_COMPARE_EQ && inst.compare() != BRIG_COMPARE_NE && isBitType(inst.sourceType()))
-        {
-            inst.sourceType() = getUnsignedType(getBrigTypeNumBits(inst.sourceType()));
-        }
-        return cReg;
-    }
-    
-    TypedReg Cond(unsigned cond, TypedReg val1, Operand val2)
-    {
-        TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-        InstCmp inst = be.EmitCmp(cReg->Reg(), val1, val2, cond);
-        if (inst.compare() != BRIG_COMPARE_EQ && inst.compare() != BRIG_COMPARE_NE && isBitType(inst.sourceType()))
-        {
-            inst.sourceType() = getUnsignedType(getBrigTypeNumBits(inst.sourceType()));
-        }
-        return cReg;
-    }
-    
-    TypedReg Or(TypedReg x, TypedReg y)
-    {
-        be.EmitArith(BRIG_OPCODE_OR, x, x->Reg(), y->Reg());
-        return x;
-    }
-    
-    TypedReg And(TypedReg x, TypedReg y)
-    {
-        be.EmitArith(BRIG_OPCODE_AND, x, x->Reg(), y->Reg());
-        return x;
-    }
-    
     void SetFlag(TypedReg index, unsigned flag)
     {
         TypedReg flagValue = GetFlag(flag);
-        OperandAddress target = TargetAddr(ResAddr(), index);
-        InstAtomic inst = AtomicInst(ResultType(), BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, memoryScope, (BrigSegment)ResAddr()->Segment(), 0, false);
+        OperandAddress target = TargetAddr(LoadResAddr(), index, ResultType());
+        InstAtomic inst = AtomicInst(ResultType(), BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, memoryScope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
         inst.operands() = be.Operands(target, flagValue->Reg());
     }
     
@@ -805,37 +677,6 @@ public:
         InstBasic inst = be.Brigantine().addInst<InstBasic>(BRIG_OPCODE_CMOV, type2bitType(ResultType()));
         inst.operands() = be.Operands(dst->Reg(), cond->Reg(), be.Immed(ResultType(), GetFlagVal(flag)), be.Immed(ResultType(), GetFlagVal(FLAG_NONE_VAL)));
         return dst;
-    }
-
-    string IfCond(unsigned cond, TypedReg val1, uint64_t val2)
-    {
-        string label = be.AddLabel();
-        TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-        be.EmitCmp(cReg->Reg(), val1, be.Immed(val1->Type(), val2), InvertCond(cond));
-        be.EmitCbr(cReg, label);
-    
-        return label;
-    }
-
-    void EndIfCond(string label)
-    {
-        be.EmitLabel(label);
-    }
-    
-    unsigned InvertCond(unsigned cond)
-    {
-        switch(cond)
-        {
-        case BRIG_COMPARE_EQ : return BRIG_COMPARE_NE;
-        case BRIG_COMPARE_NE : return BRIG_COMPARE_EQ;
-        case BRIG_COMPARE_GE : return BRIG_COMPARE_LT;
-        case BRIG_COMPARE_LT : return BRIG_COMPARE_GE;
-        case BRIG_COMPARE_GT : return BRIG_COMPARE_LE;
-        case BRIG_COMPARE_LE : return BRIG_COMPARE_GT;
-        default :
-            assert(false);
-            return cond;
-        }
     }
 
     const char* GetFlagComment(unsigned flag)
@@ -871,161 +712,50 @@ public:
 
     // ========================================================================
 
-    BrigType16_t ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const
-    {
-        switch (opcode) {
-        case BRIG_OPCODE_SHL:
-        case BRIG_OPCODE_SHR:
-        case BRIG_OPCODE_MAD:
-        case BRIG_OPCODE_MUL:
-        case BRIG_OPCODE_DIV:
-        case BRIG_OPCODE_REM:
-            return getUnsignedType(getBrigTypeNumBits(operandType));
-
-        default: return operandType;
-        }
-    }
-
-    InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand o)
-    {
-        assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(src0->Type()));
-        InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
-        inst.operands() = be.Operands(dst->Reg(), src0->Reg(), o);
-        return inst;
-    }
-
-    InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, Operand o)
-    {
-        assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(src0->Type()));
-        InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
-        inst.operands() = be.Operands(dst->Reg(), src0->Reg(), src1->Reg(), o);
-        return inst;
-    }
-
-    InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, const TypedReg& src2)
-    {
-        assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(src0->Type()));
-        InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
-        inst.operands() = be.Operands(dst->Reg(), src0->Reg(), src1, src2->Reg());
-        return inst;
-    }
-
-    InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src)
-    {
-       InstCvt inst = be.Brigantine().addInst<InstCvt>(BRIG_OPCODE_CVT, dst->Type());
-       inst.sourceType() = getUnsignedType(getBrigTypeNumBits(src->Type()));
-       inst.operands() = be.Operands(dst->Reg(), src->Reg());
-       return inst;
-    }
-
-    // ========================================================================
-
     bool IsValid() const
     {
-        //--------------------------------------
-        switch (atomicOp)
-        {
-        case BRIG_ATOMIC_WRAPINC:
-        case BRIG_ATOMIC_WRAPDEC:
-        case BRIG_ATOMIC_SUB:
-        case BRIG_ATOMIC_ADD:
+        if (!IsValidAtomic(atomicOp, segment, memoryOrder, memoryScope, type, atomicNoRet)) return false;
+        if (!IsValidGrid()) return false;
 
-        case BRIG_ATOMIC_AND:
-        case BRIG_ATOMIC_OR:
-        case BRIG_ATOMIC_XOR:
-
-        case BRIG_ATOMIC_MAX:
-        case BRIG_ATOMIC_MIN:
-
-        case BRIG_ATOMIC_EXCH:
-        case BRIG_ATOMIC_CAS:
-        case BRIG_ATOMIC_ST:
-            break;
-
-        //case BRIG_ATOMIC_LD:
-        default:
-            return false;
-        }
-
-        if (atomicOp == BRIG_ATOMIC_LD && memoryOrder != BRIG_MEMORY_ORDER_SC_ACQUIRE) return false;
-        if (atomicOp == BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_RELEASE) return false;
-        if (atomicOp != BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE) return false;
-//if (segment != BRIG_SEGMENT_GLOBAL) return false;
-//if (type != BRIG_TYPE_S32) return false;
-//if (memoryScope != BRIG_MEMORY_SCOPE_COMPONENT) return false;
-        //--------------------------------------
-
-        switch (atomicOp)
-        {
-        case BRIG_ATOMIC_LD:
-        case BRIG_ATOMIC_ST:
-        case BRIG_ATOMIC_AND:
-        case BRIG_ATOMIC_OR:
-        case BRIG_ATOMIC_XOR:
-        case BRIG_ATOMIC_EXCH:
-        case BRIG_ATOMIC_CAS:
-            if (!isBitType(type)) return false;
-            break;
-
-        case BRIG_ATOMIC_ADD:
-        case BRIG_ATOMIC_SUB:
-        case BRIG_ATOMIC_MAX:
-        case BRIG_ATOMIC_MIN:
-            if (!isSignedType(type) && !isUnsignedType(type)) return false;
-            break;
-
-        case BRIG_ATOMIC_WRAPDEC:
-        case BRIG_ATOMIC_WRAPINC:
-            if (!isUnsignedType(type)) return false;
-            break;
-
-        default:
-            assert(false);
-            return false;
-        }
-
-        if (atomicOp == BRIG_ATOMIC_ST &&
-            (memoryOrder == BRIG_MEMORY_ORDER_SC_ACQUIRE || memoryOrder == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE))
-            return false;
-
-        if (atomicOp == BRIG_ATOMIC_LD &&
-            (memoryOrder == BRIG_MEMORY_ORDER_SC_RELEASE || memoryOrder == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE))
-            return false;
-    
-        if (atomicOp == BRIG_ATOMIC_ST && !atomicNoRet) return false; // ret mode is not applicable for ST
-    
-        if ((atomicOp == BRIG_ATOMIC_LD ||
-             atomicOp == BRIG_ATOMIC_CAS ||
-             atomicOp == BRIG_ATOMIC_EXCH) && atomicNoRet) return false; // atomicNoRet mode is not applicable for EXCH
-
-        //F postponed
+        // List of current limitations (features that require special testing setup)
+        // Tests for the following features should be implemented separately
+        if (atomicOp == BRIG_ATOMIC_LD) return false;
         if (memoryScope == BRIG_MEMORY_SCOPE_SYSTEM) return false;
 
-        switch (segment)
-        {
-        case BRIG_SEGMENT_FLAT:
-        case BRIG_SEGMENT_GLOBAL:
-            // TODO: For a flat address, any value can be used, but if the address references the group segment,
-            // cmp and sys behave as if wg was specified
-            if (memoryScope == BRIG_MEMORY_SCOPE_WORKITEM || memoryScope == BRIG_MEMORY_SCOPE_NONE) return false;
-            break;
-        case BRIG_SEGMENT_GROUP:
-            if (memoryScope != BRIG_MEMORY_SCOPE_WAVEFRONT && memoryScope != BRIG_MEMORY_SCOPE_WORKGROUP) return false;
-            break;
-        default:
-            return false;
-        }
+        // List of current limitations which should be alleviated
+        if (atomicOp == BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_RELEASE) return false;            //F todo
+        if (atomicOp != BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE) return false;    //F todo
 
-        return IsValidGrid();
+        return true;
+    }
+
+    bool IsValidGrid() const
+    {
+        if (memoryScope == BRIG_MEMORY_SCOPE_WAVEFRONT && (geometry->GridSize() != geometry->WorkgroupSize() || geometry->WorkgroupSize() > Wavesize())) return false; //F?
+        if (memoryScope == BRIG_MEMORY_SCOPE_WORKGROUP &&  geometry->GridSize() != geometry->WorkgroupSize()) return false; //F?
+
+        switch (atomicOp)
+        {
+        case BRIG_ATOMIC_AND:
+        case BRIG_ATOMIC_OR:
+        case BRIG_ATOMIC_XOR:
+            return getBrigTypeNumBits(type) == geometry->GridSize();
+            
+        default:
+            return true;
+        }
     }
 
 }; // class AtomicTest
+
+unsigned AtomicTest::wavesize;
 
 //=====================================================================================
 
 void AtomicTests::Iterate(hexl::TestSpecIterator& it)
 {
     CoreConfig* cc = CoreConfig::Get(context);
+    AtomicTest::wavesize = cc->Wavesize(); //F: how to get the value from inside of AtomicTest?
     Arena* ap = cc->Ap();
     TestForEach<AtomicTest>(ap, it, "atomicity", cc->Grids().AtomicSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), cc->Types().Atomic(), Bools::All());
 }
@@ -1033,3 +763,17 @@ void AtomicTests::Iterate(hexl::TestSpecIterator& it)
 //=====================================================================================
 
 } // namespace hsail_conformance
+
+// SIMPLE TODO
+// - enable relaxed atomics
+// - add flat mapping
+// - enable scope inclusion
+// - add test kind flag
+// - add test description
+// HARD TODO
+// - think over grid size for different test kinds
+// - do we always need barriers?
+// - do we need fences?
+// - what is better and simpler: generalize each kind for any grid or enable loops?
+// - how to fix bug for AGENT kind?
+// - code refactoring

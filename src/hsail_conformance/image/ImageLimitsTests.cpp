@@ -34,7 +34,6 @@ private:
   BrigImageChannelType channelType;
 
 protected:
-
   BrigImageGeometry ImageGeometry() const { return imageGeometry; }
   BrigImageChannelOrder ChannelOrder() const { return channelOrder; }
   BrigImageChannelType ChannelType() const { return channelType; }
@@ -104,7 +103,7 @@ class ImageSizeLimitTest : public ImageLimitTest {
 private:
   Image image;
 
-  static const uint32_t INITIAL_VALUE = 0xFF;
+  static const uint32_t INITIAL_VALUE = 123;
 
   uint32_t LimitWidth() const {
     switch (ImageGeometry()) {
@@ -174,9 +173,7 @@ public:
     imageSpec.Height(std::max<uint32_t>(LimitHeight(), 1));
     imageSpec.Depth(std::max<uint32_t>(LimitDepth(), 1));
     imageSpec.ArraySize(std::max<uint32_t>(LimitArraySize(), 1));
-    imageSpec.LimitTest(true);
-    image = kernel->NewImage("image", &imageSpec);
-    image->AddData(image->GenMemValue(Value(MV_UINT32, INITIAL_VALUE)));
+    image = kernel->NewImage("image", HOST_INPUT_IMAGE, &imageSpec);
   }
 
   TypedReg Result() override {
@@ -195,11 +192,39 @@ public:
     auto imageAddr = be.AddTReg(image->Type());
     be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(image->Variable())); 
     
-    // read from first element
+    // query image size and check it
+    auto query = be.AddTReg(BRIG_TYPE_U32);
+    auto cmp = be.AddCTReg();
+    image->EmitImageQuery(query, imageAddr, BRIG_IMAGE_QUERY_WIDTH);
+    be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), LimitWidth()), BRIG_COMPARE_NE);
+    be.EmitCbr(cmp->Reg(), falseLabel);
+    if (ImageGeometryDims(ImageGeometry()) >= 2) { // check height only for 2d and greater geometries
+      image->EmitImageQuery(query, imageAddr, BRIG_IMAGE_QUERY_HEIGHT);
+      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), LimitHeight()), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
+    if (ImageGeometryDims(ImageGeometry()) >= 3) { // check height only for 3d geometry
+      image->EmitImageQuery(query, imageAddr, BRIG_IMAGE_QUERY_DEPTH);
+      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), LimitDepth()), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
+    if (IsImageGeometryArray(ImageGeometry())) { // check array size only for array images
+      image->EmitImageQuery(query, imageAddr, BRIG_IMAGE_QUERY_ARRAY);
+      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), LimitArraySize()), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
+    }
+
+    // read from first element and compare it with INITIAL_VALUE
     image->EmitImageLd(imageElement, imageAddr, firstCoord);
+    be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(3), 
+               be.Immed(imageElement->Type(), INITIAL_VALUE), BRIG_COMPARE_NE);
+    be.EmitCbr(cmp->Reg(), falseLabel);
 
     // read from last element
     image->EmitImageLd(imageElement, imageAddr, lastCoord);
+    be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(3), 
+               be.Immed(imageElement->Type(), INITIAL_VALUE), BRIG_COMPARE_NE);
+    be.EmitCbr(cmp->Reg(), falseLabel);
 
     // true
     be.EmitLabel(trueLabel);
@@ -212,17 +237,37 @@ public:
     be.EmitLabel(endLabel);
     return result;
   }
+
+  void ScenarioInit() override {
+    ImageLimitTest::ScenarioInit();
+    auto data = std::unique_ptr<Values>(new Values(1, Value(MV_UINT32, INITIAL_VALUE)));
+    ImageRegion region;
+    image->ScenarioImageWrite(std::move(data), region);
+    region.x = (uint32_t)image->Width() - 1;
+    region.y = (uint32_t)image->Height() - 1;
+    if (ImageGeometry() == BRIG_GEOMETRY_1DA) { // for 1da geometry we use y coordinate as array coordinate
+      region.y = (uint32_t)image->ArraySize() - 1;
+    }
+    region.z = (uint32_t)image->Depth() - 1;
+    if (ImageGeometry() == BRIG_GEOMETRY_2DA || ImageGeometry() == BRIG_GEOMETRY_2DADEPTH) { 
+      // for 2da and 2dadepth geometry we use z coordinate as array coordinate
+      region.z = (uint32_t)image->ArraySize() - 1;
+    }
+    data = std::unique_ptr<Values>(new Values(1, Value(MV_UINT32, INITIAL_VALUE)));
+    image->ScenarioImageWrite(std::move(data), region);
+  }
 };
 
 
 class ImageHandlesNumber : public ImageLimitTest {
 protected:
   std::vector<Image> images;
-  Variable imagesBuffer;
+  Buffer imagesBuffer;
 
   uint32_t InitialValue() const { return 123456789; }
   
   virtual uint32_t Limit() const = 0;
+  virtual void InitImages() = 0;
 
 public:
   ImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_)
@@ -230,45 +275,12 @@ public:
 
   void Init() override {
     Test::Init();
-    imagesBuffer = te->NewVariable("images_buffer", BRIG_SEGMENT_KERNARG, EPointerReg::GetSegmentPointerType(BRIG_SEGMENT_GLOBAL, te->CoreCfg()->IsLarge()));
-    images.reserve(Limit());
-  }
+    InitImages();
 
-  void KernelArguments() override {
-    ImageLimitTest::KernelArguments();
-    imagesBuffer->KernelArguments();
-  }
-
-  void KernelVariables() override {
-    // do nothing
-  }
-
-  void SetupDispatch(const std::string& dispatchId) override {
-    ImageLimitTest::SetupDispatch(dispatchId);
-    /*
-    unsigned count = setup->MSetup().Count();
-    // allocate memory for buffer with image handles
-    uint32_t sizes[] = {(uint32_t)images.size(), 1, 1};
-    auto buffer = new MBuffer(count++, "images_buffer", MEM_GLOBAL, MV_IMAGEREF, 1, sizes);
-    setup->MSetup().Add(buffer);
-
-    // allocate memory for kernel argument with reference to that buffer
-    setup->MSetup().Add(NewMValue(count++, "images_buffer.kernarg", MEM_KERNARG, MV_REF, U64(buffer->Id())));
-
-    // allocate memory for all images
-    for (uint32_t i = 0; i < images.size(); ++i) {
-
-      auto image = images[i];
-      auto mimage = new MImage(count++, image->Id(), image->Segment(), image->Geometry(), 
-                               image->ChannelOrder(), image->ChannelType(), image->Type(), 
-                               image->Width(), image->Height(), image->Depth(), image->ArraySize());
-      setup->MSetup().Add(mimage);
-      mimage->ContentData() = *image->ReleaseData();
-      Value value = mimage->ContentData()[0];
-      mimage->VType() = value.Type();
-      buffer->Data().push_back(Value(MV_IMAGEREF, mimage->Id()));
+    imagesBuffer = kernel->NewBuffer("images_buffer", HOST_INPUT_BUFFER, MV_UINT64, Limit());
+    for (auto image: images) {
+      imagesBuffer->AddData(Value(MV_STRING, Str(new std::string(image->IdHandle()))));
     }
-      */
   }
 };
 
@@ -279,13 +291,7 @@ private:
 protected:
   uint32_t Limit() const override { return LIMIT; }
 
-public:
-  ROImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_)
-    : ImageHandlesNumber(gridGeometry_, imageGeometry_, channelOrder_, channelType_) {}
-
-  void Init() override {
-    ImageHandlesNumber::Init();
-
+  void InitImages() override {
     EImageSpec imageSpec(BRIG_SEGMENT_GLOBAL, BRIG_TYPE_ROIMG);
     imageSpec.Geometry(ImageGeometry());
     imageSpec.ChannelOrder(ChannelOrder());
@@ -296,22 +302,23 @@ public:
     imageSpec.ArraySize(1);
     Image image;
     for (uint32_t i = 0; i < LIMIT; ++i) {
-      image = kernel->NewImage("image" + std::to_string(i), &imageSpec);
-      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
+      image = kernel->NewImage("image" + std::to_string(i), HOST_IMAGE, &imageSpec);
+      image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
   }
+
+public:
+  ROImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_)
+    : ImageHandlesNumber(gridGeometry_, imageGeometry_, channelOrder_, channelType_) {}
 
   TypedReg Result() override {
     auto trueLabel = "@true";
     auto falseLabel = "@false";
     auto endLabel = "@end";
 
-    // load address of images buffer
-    auto imagesAddr = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    imagesBuffer->EmitLoadTo(imagesAddr);
-    
     auto imageAddr = be.AddTReg(images[0]->Type());
+    auto indexReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
     auto coord = CreateCoordList(0, 0, 0, 0);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     auto query = be.AddTReg(BRIG_TYPE_U32);
@@ -319,16 +326,17 @@ public:
 
     for (uint32_t i = 0; i < images.size(); ++i) {
       auto image = images[i];
-      be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(imagesAddr)); 
+      be.EmitMov(indexReg, be.Immed(indexReg->Type(), i));
+      imagesBuffer->EmitLoadData(imageAddr, indexReg);
 
       // check image query for each image 
       image->EmitImageQuery(query, imageAddr, BRIG_IMAGE_QUERY_WIDTH);
+
       be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), 1), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
 
       // load from each image
       image->EmitImageLd(imageElement, imageAddr, coord);
-      be.EmitArith(BRIG_OPCODE_ADD, imagesAddr, imagesAddr, be.Immed(imagesAddr->Type(), getBrigTypeNumBytes(image->Type())));
     }
 
     // true
@@ -349,26 +357,12 @@ private:
   uint32_t numberRW;
 
   static const uint32_t LIMIT = 64;
+  static const uint32_t STORE_VALUE = 987654321;
 
 protected:
   uint32_t Limit() const override { return LIMIT; }
 
-public:
-  RWImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_, uint32_t numberRW_)
-    : ImageHandlesNumber(gridGeometry_, imageGeometry_, channelOrder_, channelType_), numberRW(numberRW_) {}
-
-  bool IsValid() const override {
-    return ImageHandlesNumber::IsValid() && numberRW <= 64;
-  }
-
-  void Name(std::ostream& out) const override {
-    ImageHandlesNumber::Name(out);
-    out << "/" << "rw" << numberRW << "_wo" << (Limit() - numberRW);
-  }
-
-  void Init() override {
-    ImageHandlesNumber::Init();
-
+  void InitImages() override {
     // rw images
     EImageSpec rwImageSpec(BRIG_SEGMENT_GLOBAL, BRIG_TYPE_RWIMG);
     rwImageSpec.Geometry(ImageGeometry());
@@ -380,8 +374,8 @@ public:
     rwImageSpec.ArraySize(1);
     Image image;
     for (uint32_t i = 0; i < numberRW; ++i) {
-      image = kernel->NewImage("rw_image" + std::to_string(i), &rwImageSpec);
-      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
+      image = kernel->NewImage("rw_image" + std::to_string(i), HOST_IMAGE, &rwImageSpec);
+      image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
 
@@ -395,10 +389,23 @@ public:
     woImageSpec.Depth(1);
     woImageSpec.ArraySize(1);
     for (uint32_t i = 0; i < Limit() - numberRW; ++i) {
-      image = kernel->NewImage("wo_image" + std::to_string(i), &woImageSpec);
-      image->AddData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
+      image = kernel->NewImage("wo_image" + std::to_string(i), HOST_IMAGE, &woImageSpec);
+      image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
+  }
+
+public:
+  RWImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_, uint32_t numberRW_)
+    : ImageHandlesNumber(gridGeometry_, imageGeometry_, channelOrder_, channelType_), numberRW(numberRW_) {}
+
+  bool IsValid() const override {
+    return ImageHandlesNumber::IsValid() && numberRW <= LIMIT;
+  }
+
+  void Name(std::ostream& out) const override {
+    ImageHandlesNumber::Name(out);
+    out << "/" << "rw" << numberRW << "_wo" << (Limit() - numberRW);
   }
 
   TypedReg Result() override {
@@ -406,11 +413,9 @@ public:
     auto falseLabel = "@false";
     auto endLabel = "@end";
 
-    // load address of images buffer
-    auto imagesAddr = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    imagesBuffer->EmitLoadTo(imagesAddr);
-    
-    auto imageAddr = be.AddTReg(images[0]->Type());
+    auto rwImageAddr = be.AddTReg(BRIG_TYPE_RWIMG);
+    auto woImageAddr = be.AddTReg(BRIG_TYPE_WOIMG);
+    auto indexReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
     auto coord = CreateCoordList(0, 0, 0, 0);
     auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     auto query = be.AddTReg(BRIG_TYPE_U32);
@@ -418,20 +423,29 @@ public:
 
     for (uint32_t i = 0; i < images.size(); ++i) {
       auto image = images[i];
-      be.EmitLoad(image->Segment(), imageAddr->Type(), imageAddr->Reg(), be.Address(imagesAddr)); 
+      be.EmitMov(indexReg, be.Immed(indexReg->Type(), i));
 
-      // check image query for each image 
-      image->EmitImageQuery(query, imageAddr, BRIG_IMAGE_QUERY_WIDTH);
-      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), 1), BRIG_COMPARE_NE);
-      be.EmitCbr(cmp->Reg(), falseLabel);
-
-      // store in each image
-      image->EmitImageSt(imageElement, imageAddr, coord);
-
-      // if image is rw also load from it
-      if (i < numberRW) {
-        image->EmitImageLd(imageElement, imageAddr, coord);
-        be.EmitArith(BRIG_OPCODE_ADD, imagesAddr, imagesAddr, be.Immed(imagesAddr->Type(), getBrigTypeNumBytes(image->Type())));
+      if (i < numberRW) {   // rw images
+        imagesBuffer->EmitLoadData(rwImageAddr, indexReg);
+        // check image query
+        image->EmitImageQuery(query, rwImageAddr, BRIG_IMAGE_QUERY_WIDTH);
+        be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), 1), BRIG_COMPARE_NE);
+        be.EmitCbr(cmp->Reg(), falseLabel);
+        // store in image
+        for (uint32_t j = 0; j < imageElement->Count(); ++j) {
+          be.EmitMov(imageElement->Reg(j), be.Immed(imageElement->Type(), STORE_VALUE), imageElement->TypeSizeBits());
+        }
+        image->EmitImageSt(imageElement, rwImageAddr, coord);
+        be.EmitImageFence();
+        image->EmitImageLd(imageElement, rwImageAddr, coord);
+      } else { // wo images
+        imagesBuffer->EmitLoadData(woImageAddr, indexReg);
+        // check image query
+        image->EmitImageQuery(query, woImageAddr, BRIG_IMAGE_QUERY_WIDTH);
+        be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), 1), BRIG_COMPARE_NE);
+        be.EmitCbr(cmp->Reg(), falseLabel);
+        // store in image
+        image->EmitImageSt(imageElement, woImageAddr, coord);
       }
     }
 
@@ -452,9 +466,7 @@ class SamplerHandlesNumber : public Test {
 private:
   std::vector<Sampler> samplers;
   Image image;
-  BrigSamplerAddressing addresing;
-  BrigSamplerCoordNormalization coord;
-  BrigSamplerFilter filter;
+  SamplerParams samplerParams;
   Value red;
 
   static const uint32_t LIMIT = 16;
@@ -462,29 +474,24 @@ private:
   static const BrigType ELEMENT_TYPE = BRIG_TYPE_F32;
 
 public:
-  SamplerHandlesNumber(Grid geometry, BrigSamplerAddressing addresing_, BrigSamplerCoordNormalization coord_, BrigSamplerFilter filter_)
-    : Test(Location::KERNEL, geometry), addresing(addresing_), coord(coord_), filter(filter_) {}
+  SamplerHandlesNumber(Grid geometry, SamplerParams* samplerParams_)
+    : Test(Location::KERNEL, geometry), samplerParams(*samplerParams_) { }
 
   void Name(std::ostream& out) const override {
-    out << samplerAddressing2str(addresing) << "_" 
-        << samplerCoordNormalization2str(coord) << "_" 
-        << samplerFilter2str(filter);
+    out << samplerParams;
   }
 
   bool IsValid() const override {
-    if (filter == BRIG_FILTER_LINEAR) // only f32 access type is supported for linear filter
+    if (!samplerParams.IsValid()) { return false; }
+    if (samplerParams.Filter() == BRIG_FILTER_LINEAR) // only f32 access type is supported for linear filter
     {
       //currently rd test will generate coordinate 0, which will sample out of range texel
       //for linear filtering. We should not test it, because it implementation defined.
       //TODO:
       //Change rd test with linear filter and undefined addressing
       //to not read from edge of an image
-      if(addresing == BRIG_ADDRESSING_UNDEFINED)
+      if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED)
         return false;
-    }
-    if (coord == BRIG_COORD_UNNORMALIZED && 
-       (addresing == BRIG_ADDRESSING_REPEAT || addresing == BRIG_ADDRESSING_MIRRORED_REPEAT)) {
-      return false;
     }
     return Test::IsValid();
   }
@@ -501,14 +508,12 @@ public:
     imageSpec.Height(1);
     imageSpec.Depth(1);
     imageSpec.ArraySize(1);
-    image = kernel->NewImage("image", &imageSpec);
-    image->AddData(image->GenMemValue(Value(static_cast<float>(INITIAL_VALUE))));
+    image = kernel->NewImage("image", HOST_INPUT_IMAGE, &imageSpec);
+    image->SetInitialData(image->GenMemValue(Value(static_cast<float>(INITIAL_VALUE))));
 
     samplers.reserve(LIMIT);
     ESamplerSpec samplerSpec(BRIG_SEGMENT_GLOBAL, Location::KERNEL);
-    samplerSpec.CoordNormalization(coord);
-    samplerSpec.Filter(filter);
-    samplerSpec.Addresing(addresing);
+    samplerSpec.Params(samplerParams);
     for (uint32_t i = 0; i < LIMIT; ++i) {
       samplers.push_back(kernel->NewSampler("sampler" + std::to_string(i), &samplerSpec));
     }
@@ -555,7 +560,7 @@ public:
 
       // check query sampler filter mode
       sampler->EmitSamplerQuery(query, samplerAddr, BRIG_SAMPLER_QUERY_FILTER);
-      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), filter), BRIG_COMPARE_NE);
+      be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), samplerParams.Filter()), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
 
       // read from image with sampler and compare R channel with INITIAL_VALUE
@@ -590,7 +595,7 @@ void ImageLimitsTestSet::Iterate(hexl::TestSpecIterator& it)
   TestForEach<ROImageHandlesNumber>(ap, it, "limits/ro_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
   TestForEach<RWImageHandlesNumber>(ap, it, "limits/rw_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().NumberOfRwImageHandles());
   
-  TestForEach<SamplerHandlesNumber>(ap, it, "limits/sampler_number", cc->Grids().TrivialGeometrySet(), cc->Sampler().SamplerAddressings(), cc->Sampler().SamplerCoords(), cc->Sampler().SamplerFilters());
+  TestForEach<SamplerHandlesNumber>(ap, it, "limits/sampler_number", cc->Grids().TrivialGeometrySet(), cc->Samplers().All());
 }
 
 } // hsail_conformance

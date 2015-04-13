@@ -304,7 +304,7 @@ public:
   }
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), 1); }
 
   TypedReg Result() override {
     auto falseLabel = "@false";
@@ -330,7 +330,7 @@ public:
     be.EmitCmp(cmp->Reg(), last, value, BRIG_COMPARE_NE);
     be.EmitCbr(cmp->Reg(), falseLabel);
 
-    auto result = be.AddTReg(BRIG_TYPE_U32);
+    auto result = be.AddTReg(ResultType());
     be.EmitMov(result, be.Immed(result->Type(), 1));
     be.EmitBr(endLabel);
 
@@ -512,6 +512,8 @@ public:
   void Name(std::ostream& out) const override {
     out << geometry;
   }
+
+  BrigType ResultType() const override  { return VALUE_TYPE; }
 
   bool IsValid() const override {
     return MemorySegmentSizeLimitTest::IsValid()

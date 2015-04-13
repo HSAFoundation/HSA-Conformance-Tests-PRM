@@ -35,6 +35,7 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
+  BrigType coordType;
 
 public:
   ImageLdTest(Location codeLocation, 
@@ -42,6 +43,7 @@ public:
       imageGeometryProp(imageGeometryProp_), imageChannelOrder(imageChannelOrder_), imageChannelType(imageChannelType_)
   {
     imageGeometry = ImageGeometry(geometry->GridSize(0), geometry->GridSize(1), geometry->GridSize(2), Array_);
+    coordType = BRIG_TYPE_U32;
   }
   
   void Name(std::ostream& out) const {
@@ -61,8 +63,8 @@ public:
     imageSpec.Height(imageGeometry.ImageHeight());
     imageSpec.Depth(imageGeometry.ImageDepth());
     imageSpec.ArraySize(imageGeometry.ImageArray());
-    imgobj = kernel->NewImage("%roimage", &imageSpec);
-    imgobj->AddData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
+    imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec);
+    imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
    
     imgobj->InitImageCalculator(NULL);
 
@@ -111,7 +113,7 @@ public:
 
   void ExpectedResults(Values* result) const
   {
-    uint16_t channels = IsImageDepth(imageGeometryProp) ? 1 : 4;
+    uint16_t channels = ResultDim();
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
       for(uint16_t y = 0; y < geometry->GridSize(1); y++)
         for(uint16_t x = 0; x < geometry->GridSize(0); x++){
@@ -130,65 +132,46 @@ public:
     return IsImageDepth(imageGeometryProp) ? 1 : 4;
   }
 
-  TypedReg Get1dCoord()
+  TypedReg GetCoords()
   {
-    auto result = be.AddTReg(BRIG_TYPE_U32);
-    auto x = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result, x->Reg());
-    return result;
-  }
-
-  TypedReg Get2dCoord()
-  {
-    auto result = be.AddTReg(BRIG_TYPE_U32, 2);
-    auto x = be.EmitWorkitemAbsId(1, false);
-    auto y = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result->Reg(0), x->Reg(), 32);
-    be.EmitMov(result->Reg(1), y->Reg(), 32);
-    return result;
-  }
-
-  TypedReg Get3dCoord()
-  {
-    auto result = be.AddTReg(BRIG_TYPE_U32, 3);
-    auto x = be.EmitWorkitemAbsId(2, false);
-    auto y = be.EmitWorkitemAbsId(1, false);
-    auto z = be.EmitWorkitemAbsId(0, false);
-    be.EmitMov(result->Reg(0), x->Reg(), 32);
-    be.EmitMov(result->Reg(1), y->Reg(), 32);
-    be.EmitMov(result->Reg(2), z->Reg(), 32);
-    return result;
-  }
-
-  TypedReg Result() {
-   // Load input
-    auto imageaddr = be.AddTReg(imgobj->Variable().type());
-    be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
-
-    auto regs_dest = IsImageDepth(imageGeometryProp) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
+    int dim = 0;
     switch (imageGeometryProp)
     {
     case BRIG_GEOMETRY_1D:
     case BRIG_GEOMETRY_1DB:
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get1dCoord());
+      dim = 1;
       break;
     case BRIG_GEOMETRY_1DA:
     case BRIG_GEOMETRY_2D:
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get2dCoord());
-      break;
     case BRIG_GEOMETRY_2DDEPTH:
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get2dCoord());
+      dim = 2;
       break;
     case BRIG_GEOMETRY_3D:
     case BRIG_GEOMETRY_2DA:
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get3dCoord());
-      break;
     case BRIG_GEOMETRY_2DADEPTH:
-      imgobj->EmitImageLd(regs_dest, imageaddr, Get3dCoord());
+      dim = 3;
       break;
     default:
       assert(0);
     }
+
+    auto result = be.AddTReg(coordType, dim);
+
+    for(int i=0; i<dim; i++){
+      auto gid = be.EmitWorkitemAbsId(i, false);
+      be.EmitMov(result->Reg(i), gid->Reg(), 32);
+    }
+
+    return result;
+  }
+
+  TypedReg Result() {
+    // Load input
+    auto imageaddr = be.AddTReg(imgobj->Variable().type());
+    be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable()));
+
+    auto regs_dest = be.AddTReg(ResultType(), ResultDim());
+    imgobj->EmitImageLd(regs_dest, imageaddr, GetCoords());
     return regs_dest;
   }
 };

@@ -77,6 +77,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     limitGrids(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     atomic(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    mmodel(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     barrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     fbarrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     images(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
@@ -139,6 +140,9 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   atomic->Add(NEWA GridGeometry(1,   32,             1,   1,              16,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              64,  1,   1));
   atomic->Add(NEWA GridGeometry(1,   64,             1,   1,              32,  1,   1));
+  mmodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 8,   1,   1,  cc->Wavesize(),      1,   1));
+  mmodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 32,  1,   1,  cc->Wavesize() * 4,  1,   1));
+  mmodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 64,  1,   1,  cc->Wavesize() * 8,  1,   1));
   barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*8,  1,   1,  cc->Wavesize()*2,  1,   1));
   barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));
   fbarrier->Add(NEWA GridGeometry(1, cc->Wavesize(), 1, 1, cc->Wavesize(), 1, 1));
@@ -241,6 +245,11 @@ static const BrigImageGeometry rdGeometry[] = {
     BRIG_GEOMETRY_2DA,
 };
 
+static const BrigType rdCoordTypeArray[] = {
+    BRIG_TYPE_S32,
+    BRIG_TYPE_F32,
+};
+
 static const BrigImageGeometry DepthGeometry[] = {
     BRIG_GEOMETRY_2DDEPTH,
     BRIG_GEOMETRY_2DADEPTH,
@@ -277,7 +286,8 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigType>(allAccess, NELEM(allAccess))),
     imageArray(NEWA ArraySequence<unsigned>(arrayGeometry, NELEM(arrayGeometry))),
-    numberRW(NEWA ArraySequence<unsigned>(numberRwArray, NELEM(numberRwArray)))
+    numberRW(NEWA ArraySequence<unsigned>(numberRwArray, NELEM(numberRwArray))),
+    rdCoordTypes(NEWA ArraySequence<BrigType>(rdCoordTypeArray, NELEM(rdCoordTypeArray)))
 {
    defaultImageGeometry->Add(NEWA ImageGeometry(1000));
    defaultImageGeometry->Add(NEWA ImageGeometry(100, 10));
@@ -314,6 +324,7 @@ CoreConfig::SamplerConfig::SamplerConfig(CoreConfig* cc)
     samplerCoords(NEWA ArraySequence<BrigSamplerCoordNormalization>(allCoords, NELEM(allCoords))),
     samplerFilters(NEWA ArraySequence<BrigSamplerFilter>(allFilters, NELEM(allFilters))),
     samplerAddressings(NEWA ArraySequence<BrigSamplerAddressing>(allAddressing, NELEM(allAddressing))),
+    allSamplers(SequenceMap<SamplerParams>(ap, SequenceProduct(ap, samplerCoords, samplerFilters, samplerAddressings))),
     samplerQueryTypes(NEWA ArraySequence<BrigSamplerQuery>(allSmpQueries, NELEM(allSmpQueries)))
 {
 
@@ -367,6 +378,14 @@ static const BrigSegment functionScopeArray[] = {
   BRIG_SEGMENT_READONLY
 };
 
+static const uint32_t staticGroupSizeArray[] = {
+  0,
+  7,
+  10,
+  1024
+};
+
+
 CoreConfig::SegmentsConfig::SegmentsConfig(CoreConfig* cc)
   : ConfigBase(cc),
     all(NEWA hexl::ArraySequence<BrigSegment>(allSegments, NELEM(allSegments))),
@@ -374,7 +393,8 @@ CoreConfig::SegmentsConfig::SegmentsConfig(CoreConfig* cc)
     atomic(NEWA hexl::ArraySequence<BrigSegment>(atomicSegments, NELEM(atomicSegments))),
     initializable(NEWA hexl::ArraySequence<BrigSegment>(initializableSegments, NELEM(initializableSegments))),
     moduleScope(NEWA hexl::ArraySequence<BrigSegment>(moduleScopeArray, NELEM(moduleScopeArray))),
-    functionScope(NEWA hexl::ArraySequence<BrigSegment>(functionScopeArray, NELEM(functionScopeArray)))
+    functionScope(NEWA hexl::ArraySequence<BrigSegment>(functionScopeArray, NELEM(functionScopeArray))),
+    staticGroupSize(NEWA hexl::ArraySequence<uint32_t>(staticGroupSizeArray, NELEM(staticGroupSizeArray)))
 {
   for (unsigned segment = BRIG_SEGMENT_NONE; segment != BRIG_SEGMENT_MAX; ++segment) {
     singleList[segment] = new (ap) hexl::OneValueSequence<BrigSegment>((BrigSegment) segment);
@@ -546,6 +566,12 @@ static const BrigType atomicTypes[] = {
   BRIG_TYPE_B64
 };
 
+static const BrigType memModelTypes[] = {
+  BRIG_TYPE_U32,
+  BRIG_TYPE_S64,
+  BRIG_TYPE_B64
+};
+
 static const BrigType memfenceTypes[] = {
   BRIG_TYPE_U16,
   BRIG_TYPE_U32,
@@ -570,6 +596,7 @@ CoreConfig::TypesConfig::TypesConfig(CoreConfig* cc)
     packed(NEWA ArraySequence<BrigType>(packedTypes, NELEM(packedTypes))),
     packed128(NEWA ArraySequence<BrigType>(packed128BitTypes, NELEM(packed128BitTypes))),
     atomic(NEWA ArraySequence<BrigType>(atomicTypes, NELEM(atomicTypes))),
+    memModel(NEWA ArraySequence<BrigType>(memModelTypes, NELEM(memModelTypes))),
     memfence(NEWA ArraySequence<BrigType>(memfenceTypes, NELEM(memfenceTypes))),
     registerSizes(NEWA ArraySequence<size_t>(registerSizesArr, NELEM(registerSizesArr)))
 {
@@ -659,6 +686,15 @@ static const BrigAtomicOperation allAtomicsValues[] = {
   BRIG_ATOMIC_XOR
 };
 
+static const BrigAtomicOperation limitedAtomicsValues[] = {
+  BRIG_ATOMIC_ADD,
+  BRIG_ATOMIC_AND,
+  BRIG_ATOMIC_CAS,
+  BRIG_ATOMIC_EXCH,
+  BRIG_ATOMIC_MAX,
+  BRIG_ATOMIC_ST,
+  BRIG_ATOMIC_WRAPINC
+};
 
 static const BrigAtomicOperation signalSendAtomicsValues[] = {
   BRIG_ATOMIC_ST,
@@ -723,6 +759,7 @@ CoreConfig::MemoryConfig::MemoryConfig(CoreConfig* cc)
     allMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(ap, BRIG_MEMORY_SCOPE_WORKITEM, BRIG_MEMORY_SCOPE_LAST)),
     memfenceMemoryScopes(NEWA EnumSequence<BrigMemoryScope>(ap, BRIG_MEMORY_SCOPE_WAVEFRONT, BRIG_MEMORY_SCOPE_LAST)),
     allAtomics(NEWA ArraySequence<BrigAtomicOperation>(allAtomicsValues, NELEM(allAtomicsValues))),
+    limitedAtomics(NEWA ArraySequence<BrigAtomicOperation>(limitedAtomicsValues, NELEM(limitedAtomicsValues))),
     atomicOperations(NEWA ArraySequence<BrigAtomicOperation>(atomicOperationsValues, NELEM(atomicOperationsValues))),
     signalSendAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalSendAtomicsValues, NELEM(signalSendAtomicsValues))),
     signalWaitAtomics(NEWA ArraySequence<BrigAtomicOperation>(signalWaitAtomicsValues, NELEM(signalWaitAtomicsValues))),

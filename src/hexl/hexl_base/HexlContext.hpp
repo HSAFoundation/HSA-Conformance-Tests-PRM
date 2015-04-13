@@ -114,6 +114,7 @@ namespace hexl {
     void Dump() const;
 
     bool Has(const std::string& key) const { return map.find(key) != map.end(); }
+    bool Has(const std::string& path, const std::string& key) const { return Has(path + "." + key); }
 
     void Clear() { map.clear(); }
 
@@ -140,6 +141,8 @@ namespace hexl {
     T* Get(const std::string& key) { return GetObject<ContextPointer<T>>(key)->Get(); }
     template<class T>
     const T* Get(const std::string& key) const { return GetObject<ContextPointer<T>>(key)->Get(); }
+
+    Value GetRuntimeValue(Value v);
 
     void Delete(const std::string& key) { map.erase(key); }
 
