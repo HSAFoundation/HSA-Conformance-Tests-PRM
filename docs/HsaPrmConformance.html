@@ -289,25 +289,26 @@ ol[type=i] {
 <p>Test suite revision: 2014-12-12 (CL 1104888)</p>
 <h2 id="overview">Overview</h2>
 <p>HSA PRM Conformance test suite is used to validate an implementation of Heterogeneous System Architecture Intermediate Language (HSAIL) virtual machine and language as described in &quot;HSA Programmer's Reference Manual&quot;. The focus is on verification of ISA produced by HSAIL Finalizer and functionality of kernels on the agent. HSAIL Linking extension is used to finalize test programs while HSA Core Runtime is used to set up and invoke test kernels and to provide certain functionality for test code on the host (for some tests).</p>
-<p>A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for <code>add_u32</code> HSAIL instruction: one kernel, two input buffers and one output buffer.</p>
-<p>Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in <a href="#test-details">Test details</a>. For example, the test for abs instruction consists of several tests for <code>f32</code> and <code>f64</code> types.</p>
+<p>A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for <code>add_u32</code> HSAIL instruction with register operands: one kernel, two input buffers and one output buffer.</p>
+<p>Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in <a href="#test-details">Test details</a> section. For example, the test for abs instruction consists of several tests for <code>f32</code> and <code>f64</code> types.</p>
 <h2 id="building-test-suite">Building test suite</h2>
 <p>HSA PRM Conformance test suite uses <a href="http://www.cmake.org/">CMake</a>. The following dependencies need to be made available before the build:</p>
 <ul>
 <li><code>HSAIL-Tools</code> can be obtained from HSA github repository. <code>HSAIL-Tools-PATH</code> needs to be set to point to it.</li>
 <li>HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. <code>HSA-Runtime-Inc-PATH</code> needs to be set to point to directory with <code>hsa.h</code>. <code>HSA-Runtime-Ext-PATH</code> needs to be set to point to directory with <code>hsa_ext_finalize.h</code>.</li>
 </ul>
-<p>cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.</p>
+<p>The test suite is known to build on Windows and Linux. cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.</p>
 <h2 id="running-test-suite">Running test suite</h2>
-<p>The test suite can be invoked as &quot;hc&quot; program that runs on the host.</p>
-<p>To run the suite you should have a dynamic HSA RT libraries with corresponding bitness in the path (e.g. <code>PATH</code> variable for Windows, <code>LD_LIBRARY_PATH</code> - for Linux).</p>
+<p>The test suite can be invoked as &quot;hcprm&quot; program that runs on the host.</p>
+<p>To run the suite, make sure to have a dynamic HSA RT libraries with corresponding bitness in the search path (e.g. <code>PATH</code> variable for Windows, <code>LD_LIBRARY_PATH</code> - for Linux).</p>
 <p>A simple scenario of running all the tests on Linux 64-bit may look like:</p>
 <pre><code>export LD_LIBRARY_PATH=&quot;$HSA_RT_LIB:$LD_LIBRARY_PATH&quot;
-bin/lnx64a/hc -tests prm/ 
-              -exclude amdhsa.exclude 
-              -runner hrunner 
-              -verbose 
-              -testlog results_linux64.log</code></pre>
+bin/lnx64a/hcprm
+  -tests prm/ 
+  -exclude amdhsa.exclude 
+  -runner hrunner 
+  -verbose 
+  -testlog results_linux64.log</code></pre>
 <p>where <code>$HSA_RT_LIB</code> points to the HSA RT libraries, e.g.<br /><code>/compiler/dist/Obsidian/dist/linux/debug.hsa_foundation/lib/x86_64</code>.</p>
 <p>For convenience the package also contains Linux and Windows batch files, which take path to the HSA Runtime binaries and run the whole suite.</p>
 <p>The following example demonstrates how to run these scripts on Linux. The results grouped by sub-suites will be displayed during the run along with overall statistics, per test results can be found in results_linux64.log:</p>
@@ -325,10 +326,10 @@ Testrun
   Passed: 13729   Failed:    0   Error:    0   NA:    0   Total: 13729</code></pre>
 <p>Using <code>-test</code> it is possible to specify a smaller set of tests, while <code>-exclude</code> allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).</p>
 <h2 id="command-line-options">Command line options</h2>
-<p>The &quot;hc&quot; supports the following command line options:</p>
+<p>&quot;hcprm&quot; program supports the following command line options:</p>
 <ul>
-<li><code>-tests TestSet</code>: prefix of test to run, e.g. <code>-tests prm/</code> to run all the tests;</li>
-<li><code>-exclude File</code>: file containing a list of tests to be excluded from testing;</li>
+<li><code>-tests TestSet</code>: prefix of tests to run, e.g. <code>-tests prm/</code> to run all the tests;</li>
+<li><code>-exclude File</code>: file containing a list of test prefixes to be excluded from testing;</li>
 <li><code>-verbose</code>: enables detailed test output in a log file;</li>
 <li><code>-testlog File</code>: name for a log file, the default name is test.log;</li>
 <li><code>-runner hrunner</code>: a mode of test grouping. By default, tests are not grouped. See also option <code>-testloglevel</code> which also affects grouping.</li>
@@ -339,9 +340,10 @@ Testrun
 <h2 id="interpreting-results">Interpreting results</h2>
 <p><em>TODO</em>: add example of how to interpret test output (both standard and detailed).</p>
 <h2 id="test-names">Test names</h2>
-<p>Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (<code>/</code>). An example of test name is <code>prm/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND</code>. The following scheme for the words is used (starting from the beginning of test name):</p>
+<p>Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (<code>/</code>). An example of test name is <code>prm/core/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND</code>. The following scheme for the words is used (starting from the beginning of test name):</p>
 <ul>
 <li><code>prm</code>: Test suite</li>
+<li><code>core</code>: Core PRM specification</li>
 <li><code>special</code>: Chapter in PRM specification</li>
 <li><code>dispatchpacket</code>: Section in PRM specification</li>
 <li><code>dim</code>: Instruction or group of instructions in PRM specification</li>
@@ -349,7 +351,7 @@ Testrun
 <li><code>kernel_1_200x1x1_64x1x1_ND</code>: Name/identifier of testcase within test. For <code>dim/basic</code> test, it is the testcase for dim instruction in kernel body with dispatch dimension <code>1</code>, grid sizes <code>200x1x1</code>, workgroup sizes <code>64x1x1</code> and no control directives.</li>
 </ul>
 <p>The naming scheme for testcases depends on test. For many tests, it contains text representation of parameters described in <a href="#test-details">Test details</a>, separated by underscore (_). For some tests, simple counter is used. Refer to documentation below for the list of parameters.</p>
-<p>A prefix of test names identifies a collection of tests that have names starting with this prefix. For example, <code>prm/special/dispatchpacket/</code> are the tests for dispatch packet operations.</p>
+<p>A prefix of test names identifies a collection of tests that have names starting with this prefix. For example, <code>prm/core/special/dispatchpacket/</code> are the tests for dispatch packet operations.</p>
 <h2 id="test-parameters">Test parameters</h2>
 <h3 id="code-location-location-of-validated-code">Code Location: location of validated code</h3>
 <ul>
@@ -367,7 +369,8 @@ Testrun
 </ul></li>
 <li>Used sets:
 <ul>
-<li>All: various geometries, includes samples of partial workgroups/workitems, corner cases</li>
+<li><code>Trivial</code>: one work-item/work-group (dimension 1)<br /></li>
+<li><code>All</code>: various geometries, includes samples of partial workgroups/workitems, corner cases</li>
 <li><code>DimensionSet</code>: representative geometry for each dimension</li>
 <li><code>OneGroupSet</code>: one group, one dimension geometry</li>
 <li><code>DefaultPlusNGroupSet</code>: set of geometry with 1 WorkItem, OneGroupSet, and 1 dim &amp; N groups</li>
@@ -777,7 +780,51 @@ Testrun
 <h4 id="barrier-barrier-operations-chapter-9.1">barrier: Barrier operations [chapter 9.1]</h4>
 <p><em>More tests to be implemented.</em></p>
 <h4 id="fine-grain-barrier-operations-chapter-9.2">Fine-grain barrier operations [chapter 9.2]</h4>
-<p><em>Tests to be implemented.</em></p>
+<h5 id="basic-basic-fbarrier-in-divergent-control-flow.">basic: Basic fbarrier in divergent control flow.</h5>
+<ul>
+<li>Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar</li>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="example1-use-leavefbar-to-create-an-fbarrier-that-only-contains-divergent-work-items-based-on-example-1-from-the-specification">example1: Use leavefbar to create an fbarrier that only contains divergent work-items (based on Example 1 from the specification)</h5>
+<ul>
+<li>Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar</li>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="example2-use-joinfbar-to-create-an-fbarrier-that-only-contains-divergent-work-items-based-on-example-2-from-the-specification">example2: Use joinfbar to create an fbarrier that only contains divergent work-items (based on Example 2 from the specification)</h5>
+<ul>
+<li>Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar</li>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="example3-producerconsumer-using-two-fbarriers-that-allow-producer-and-consumer-wavefront-executions-to-overlap-based-on-example-3-from-the-specification">example3: Producer/consumer using two fbarriers that allow producer and consumer wavefront executions to overlap (based on Example 3 from the specification)</h5>
+<ul>
+<li>Used instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar</li>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="ldf-fbarrier-operations-on-barrier-address-obtained-with-ldf">ldf: fbarrier operations on barrier address obtained with ldf</h5>
+<ul>
+<li>Used instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar</li>
+<li>Grid Geometry: TrivialGeometrySet</li>
+</ul>
+<h5 id="joinleave_wait-concurrent-joinfbarleavefbar-and-waitfbar-operations">joinleave_wait: Concurrent joinfbar+leavefbar and waitfbar operations</h5>
+<ul>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="wait_arrive-concurrent-waitfbar-and-arrivefbar-operations">wait_arrive: Concurrent waitfbar and arrivefbar operations</h5>
+<ul>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="wait_leave-concurrent-waitfbar-and-leavefbar-operations">wait_leave: Concurrent waitfbar and leavefbar operations</h5>
+<ul>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="arrive_leave-concurrent-arrivefbar-and-leavefbar-operations">arrive_leave: Concurrent arrivefbar and leavefbar operations</h5>
+<ul>
+<li>Grid Geometry: ??</li>
+</ul>
+<h5 id="wait_race-waitfbar-in-a-loop">wait_race: waitfbar in a loop</h5>
+<ul>
+<li>Grid Geometry: ??</li>
+</ul>
 <h4 id="crosslane-cross-lane-operations-chapter-9.4">crosslane: Cross-lane operations [chapter 9.4]</h4>
 <p><em>More tests to be implemented.</em></p>
 <h3 id="function-operations-chapter-10">Function operations [chapter 10]</h3>
@@ -894,7 +941,25 @@ Testrun
 <h3 id="exceptions-chapter-12">Exceptions: [chapter 12]</h3>
 <p><em>Tests to be implemented.</em></p>
 <h3 id="directives-chapter-13">Directives: [chapter 13]</h3>
-<p><em>Tests to be implemented.</em></p>
+<h4 id="extension-extension-directive">extension: extension directive</h4>
+<h5 id="names-simple-usage-of-one-directive">names: Simple usage of one directive</h5>
+<h5 id="pair-pairs-of-extension-directive.">pair: Pairs of extension directive.</h5>
+<h4 id="loc-loc-directive">loc: loc directive</h4>
+<h5 id="location-different-locations-of-the-directive">location: different locations of the directive</h5>
+<h4 id="pragma-pragma-directive">pragma: pragma directive</h4>
+<h5 id="location-different-locations-of-the-directive-1">location: different locations of the directive</h5>
+<h4 id="control-control-directives">control: control directives</h4>
+<h5 id="exceptionlocation-different-locations-of-the-directive">exception/location: different locations of the directive</h5>
+<ul>
+<li>Locations: beginning of kernel, function</li>
+</ul>
+<h5 id="exceptionargument-different-arguments-of-exception-directives">exception/argument: different arguments of exception directives</h5>
+<h5 id="maxdynamiclocation-different-locations-of-the-directive">maxdynamic/location: different locations of the directive</h5>
+<h5 id="geometrylocation-different-locations-of-the-directives">geometry/location: different locations of the directives</h5>
+<ul>
+<li>Directives: maxflatgridsize, maxflatworkgroupsize, requireddim, requiredgridsize, requiredworkgroupsize, requirenopartialworkgroups</li>
+</ul>
+<p>Note: the effect of control directives is also tested in special operations tests</p>
 <h3 id="version-chapter-14">Version: [chapter 14]</h3>
 <p><em>Tests to be implemented.</em></p>
 <h3 id="libraries-chapter-15">Libraries: [chapter 15]</h3>
@@ -902,7 +967,41 @@ Testrun
 <h3 id="profiles-chapter-16">Profiles: [chapter 16]</h3>
 <p><em>Configuration/tests to be implemented.</em></p>
 <h3 id="limits-appendix-a">Limits: [appendix A]</h3>
+<h4 id="registers-register-limits">registers: Register limits</h4>
+<h5 id="c-s-q-d-use-number-of-registers-reaching-limit-for-give-register-type">c, s, q, d: Use number of registers reaching limit for give register type</h5>
+<ul>
+<li>Grid Geometry: TrivialGeometry</li>
+</ul>
+<h5 id="sdq-use-number-of-s-d-q-registers-reaching-limit-combined">sdq: Use number of s, d, q registers reaching limit combined</h5>
+<ul>
+<li>Grid Geometry: TrivialGeometry</li>
+</ul>
+<h5 id="liveregisters-live-register-limits">liveregisters: Live register limits</h5>
+<h5 id="c-s-q-d-use-number-of-live-registers-reaching-limit-for-give-register-type">c, s, q, d: Use number of live registers reaching limit for give register type</h5>
+<ul>
+<li>Grid Geometry: TrivialGeometry</li>
+</ul>
+<h5 id="sdq-use-number-of-s-d-q-live-registers-reaching-limit-combined">sdq: Use number of s, d, q live registers reaching limit combined</h5>
+<ul>
+<li>Grid Geometry: TrivialGeometry</li>
+</ul>
+<h4 id="equiv-use-number-of-equivalence-classes-reaching-limit">equiv: Use number of equivalence classes reaching limit</h4>
+<ul>
+<li>Instructions: ld, st, atomic/atomicnoret operations</li>
+<li>Grid Geometry: TrivialGeometry</li>
+</ul>
+<h4 id="identifiers">identifiers:</h4>
 <p><em>Tests to be implemented.</em></p>
+<h4 id="wgsize-use-work-group-size-reaching-minimal-limit-256">wgsize: Use work-group size reaching minimal limit (256)</h4>
+<h4 id="wavesize-check-wavesize-is-within-limits-and-is-a-power-of-2">wavesize: Check wavesize is within limits and is a power of 2</h4>
+<h4 id="wgnumber-use-number-of-work-groups-reaching-limit">wgnumber: Use number of work-groups reaching limit</h4>
+<h4 id="dims-grid-dimensions-reaching-limit">dims: Grid dimensions reaching limit</h4>
+<h4 id="fbarnumber">fbarnumber:</h4>
+<p><em>Tests to be implemented.</em></p>
+<h4 id="group_memory_size-use-group-segment-memory-reaching-limit">group_memory_size: Use group segment memory reaching limit</h4>
+<h4 id="private_memory_size-use-private-segment-memory-reaching-limit">private_memory_size: Use private segment memory reaching limit</h4>
+<h4 id="kernarg_memory_size-use-kernarg-segment-memory-reaching-limit">kernarg_memory_size: Use kernarg segment memory reaching limit</h4>
+<h4 id="arg_memory_size-use-arg-segment-variables-reaching-limit">arg_memory_size: Use arg segment variables reaching limit</h4>
 <h2 id="test-suite-internals">Test suite internals</h2>
 <p><em>Information to be added when the suite is finalized.</em></p>
 </body>
