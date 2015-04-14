@@ -7,9 +7,9 @@ Test suite revision: 2014-12-12 (CL 1104888)
 
 HSA PRM Conformance test suite is used to validate an implementation of Heterogeneous System Architecture Intermediate Language (HSAIL) virtual machine and language as described in "HSA Programmer's Reference Manual". The focus is on verification of ISA produced by HSAIL Finalizer and functionality of kernels on the agent. HSAIL Linking extension is used to finalize test programs while HSA Core Runtime is used to set up and invoke test kernels and to provide certain functionality for test code on the host (for some tests).
 
-A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for `add_u32` HSAIL instruction: one kernel, two input buffers and one output buffer.
+A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for `add_u32` HSAIL instruction with register operands: one kernel, two input buffers and one output buffer.
 
-Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in [Test details]. For example, the test for abs instruction consists of several tests for `f32` and `f64` types.
+Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in [Test details] section. For example, the test for abs instruction consists of several tests for `f32` and `f64` types.
 
 ## Building test suite
 
@@ -18,22 +18,23 @@ HSA PRM Conformance test suite uses [CMake](http://www.cmake.org/). The followin
 - `HSAIL-Tools` can be obtained from HSA github repository. `HSAIL-Tools-PATH` needs to be set to point to it.
 - HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. `HSA-Runtime-Inc-PATH` needs to be set to point to directory with `hsa.h`. `HSA-Runtime-Ext-PATH` needs to be set to point to directory with `hsa_ext_finalize.h`.
 
-cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.  
+The test suite is known to build on Windows and Linux. cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.  
 
 ## Running test suite
 
-The test suite can be invoked as "hc" program that runs on the host. 
+The test suite can be invoked as "hcprm" program that runs on the host. 
 
-To run the suite you should have a dynamic HSA RT libraries with corresponding bitness in the path (e.g. `PATH` variable for Windows, `LD_LIBRARY_PATH` - for Linux).
+To run the suite, make sure to have a dynamic HSA RT libraries with corresponding bitness in the search path (e.g. `PATH` variable for Windows, `LD_LIBRARY_PATH` - for Linux).
 
 A simple scenario of running all the tests on Linux 64-bit may look like:
 
 	export LD_LIBRARY_PATH="$HSA_RT_LIB:$LD_LIBRARY_PATH"
-	bin/lnx64a/hc -tests prm/ 
-                  -exclude amdhsa.exclude 
-                  -runner hrunner 
-                  -verbose 
-                  -testlog results_linux64.log
+	bin/lnx64a/hcprm
+      -tests prm/ 
+      -exclude amdhsa.exclude 
+      -runner hrunner 
+      -verbose 
+      -testlog results_linux64.log
 where `$HSA_RT_LIB` points to the HSA RT libraries, e.g.  
 `/compiler/dist/Obsidian/dist/linux/debug.hsa_foundation/lib/x86_64`.
 
@@ -58,10 +59,10 @@ Using `-test` it is possible to specify a smaller set of tests, while `-exclude`
 
 ## Command line options
 
-The "hc" supports the following command line options:
+"hcprm" program supports the following command line options:
 
-- `-tests TestSet`: prefix of test to run, e.g. `-tests prm/` to run all the tests;
-- `-exclude File`: file containing a list of tests to be excluded from testing;
+- `-tests TestSet`: prefix of tests to run, e.g. `-tests prm/` to run all the tests;
+- `-exclude File`: file containing a list of test prefixes to be excluded from testing;
 - `-verbose`: enables detailed test output in a log file;
 - `-testlog File`: name for a log file, the default name is test.log;
 - `-runner hrunner`: a mode of test grouping. By default, tests are not grouped. See also option `-testloglevel` which also affects grouping. 
@@ -75,9 +76,10 @@ The "hc" supports the following command line options:
 
 ## Test names
 
-Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (`/`). An example of test name is `prm/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND`. The following scheme for the words is used (starting from the beginning of test name):
+Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (`/`). An example of test name is `prm/core/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND`. The following scheme for the words is used (starting from the beginning of test name):
 
 - `prm`: Test suite
+- `core`: Core PRM specification
 - `special`: Chapter in PRM specification
 - `dispatchpacket`: Section in PRM specification
 - `dim`: Instruction or group of instructions in PRM specification
@@ -86,7 +88,7 @@ Every test has a unique identifier: test name. A test name consists of several w
 
 The naming scheme for testcases depends on test. For many tests, it contains text representation of parameters described in [Test details], separated by underscore (_). For some tests, simple counter is used. Refer to documentation below for the list of parameters.
 
-A prefix of test names identifies a collection of tests that have names starting with this prefix. For example, `prm/special/dispatchpacket/` are the tests for dispatch packet operations.
+A prefix of test names identifies a collection of tests that have names starting with this prefix. For example, `prm/core/special/dispatchpacket/` are the tests for dispatch packet operations.
 
 ## Test parameters
 ### Code Location: location of validated code
@@ -100,7 +102,8 @@ A prefix of test names identifies a collection of tests that have names starting
 	- Grid sizes for `x`, `y`, `z`. Unused dimensions have value `1`.
 	- Workgroup sizes for `x`, `y`, `z`. Unused dimensions have value `1`.
 - Used sets:
-	- All: various geometries, includes samples of partial workgroups/workitems, corner cases
+    - `Trivial`: one work-item/work-group (dimension 1)   
+	- `All`: various geometries, includes samples of partial workgroups/workitems, corner cases
 	- `DimensionSet`: representative geometry for each dimension
 	- `OneGroupSet`: one group, one dimension geometry
 	- `DefaultPlusNGroupSet `: set of geometry with 1 WorkItem, OneGroupSet, and 1 dim & N groups
@@ -431,8 +434,41 @@ A prefix of test names identifies a collection of tests that have names starting
 
 #### Fine-grain barrier operations [chapter 9.2]
 
-*Tests to be implemented.*
+##### basic: Basic fbarrier in divergent control flow.
+- Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar
+- Grid Geometry: ??
 
+##### example1: Use leavefbar to create an fbarrier that only contains divergent work-items (based on Example 1 from the specification)
+- Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar
+- Grid Geometry: ??
+
+##### example2: Use joinfbar to create an fbarrier that only contains divergent work-items (based on Example 2 from the specification)
+- Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar
+- Grid Geometry: ??
+
+##### example3: Producer/consumer using two fbarriers that allow producer and consumer wavefront executions to overlap (based on Example 3 from the specification)
+- Used instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar
+- Grid Geometry: ??
+
+##### ldf: fbarrier operations on barrier address obtained with ldf
+- Used instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar
+- Grid Geometry: TrivialGeometrySet
+
+##### joinleave_wait: Concurrent joinfbar+leavefbar and waitfbar operations
+- Grid Geometry: ??
+
+##### wait_arrive: Concurrent waitfbar and arrivefbar operations
+- Grid Geometry: ??
+
+##### wait_leave: Concurrent waitfbar and leavefbar operations
+- Grid Geometry: ??
+
+##### arrive_leave: Concurrent arrivefbar and leavefbar operations
+- Grid Geometry: ??
+
+##### wait_race: waitfbar in a loop
+- Grid Geometry: ??
+ 
 #### crosslane: Cross-lane operations [chapter 9.4]
 
 *More tests to be implemented.*
@@ -546,7 +582,33 @@ A prefix of test names identifies a collection of tests that have names starting
 
 ### Directives: [chapter 13]
 
-*Tests to be implemented.*
+#### extension: extension directive
+
+##### names: Simple usage of one directive
+
+##### pair: Pairs of extension directive.
+
+#### loc: loc directive
+
+##### location: different locations of the directive
+
+#### pragma: pragma directive
+
+##### location: different locations of the directive
+
+#### control: control directives
+
+##### exception/location: different locations of the directive
+- Locations: beginning of kernel, function
+
+##### exception/argument: different arguments of exception directives 
+
+##### maxdynamic/location: different locations of the directive
+
+##### geometry/location: different locations of the directives
+- Directives: maxflatgridsize, maxflatworkgroupsize, requireddim, requiredgridsize, requiredworkgroupsize, requirenopartialworkgroups
+
+Note: the effect of control directives is also tested in special operations tests   
 
 ### Version: [chapter 14]
 
@@ -562,9 +624,46 @@ A prefix of test names identifies a collection of tests that have names starting
 
 ### Limits: [appendix A]
 
+#### registers: Register limits
+##### c, s, q, d: Use number of registers reaching limit for give register type  
+- Grid Geometry: TrivialGeometry 
+
+##### sdq: Use number of s, d, q registers reaching limit combined
+- Grid Geometry: TrivialGeometry 
+
+##### liveregisters: Live register limits
+##### c, s, q, d: Use number of live registers reaching limit for give register type  
+- Grid Geometry: TrivialGeometry 
+
+##### sdq: Use number of s, d, q live registers reaching limit combined
+- Grid Geometry: TrivialGeometry 
+
+#### equiv: Use number of equivalence classes reaching limit
+- Instructions: ld, st, atomic/atomicnoret operations
+- Grid Geometry: TrivialGeometry 
+
+#### identifiers:
 *Tests to be implemented.*
 
+#### wgsize: Use work-group size reaching minimal limit (256)
 
+#### wavesize: Check wavesize is within limits and is a power of 2
+
+#### wgnumber: Use number of work-groups reaching limit
+
+#### dims: Grid dimensions reaching limit
+
+#### fbarnumber: 
+*Tests to be implemented.*
+
+#### group_memory_size: Use group segment memory reaching limit
+
+#### private_memory_size: Use private segment memory reaching limit
+
+#### kernarg_memory_size: Use kernarg segment memory reaching limit
+
+#### arg_memory_size: Use arg segment variables reaching limit
+ 
 ## Test suite internals
 
 *Information to be added when the suite is finalized.*
