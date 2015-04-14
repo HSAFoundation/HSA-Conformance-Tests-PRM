@@ -49,6 +49,7 @@ BrigType ImageAccessType(BrigImageChannelType channelType);
 template <>
 struct Serializer<brig_container_t> {
   static void Write(std::ostream& out, const brig_container_t& brig) {
+    /*
     unsigned sectionCount = brig_container_get_section_count(brig);
     size_t totalSize = 0;
     for (unsigned i = 0; i < sectionCount; ++i) {
@@ -61,8 +62,11 @@ struct Serializer<brig_container_t> {
       WriteData(out, sectionSize);
       out.write(brig_container_get_section_bytes(brig, i), sectionSize);
     }
+    */
+    assert(false);
   }
   static void Read(std::istream& in, brig_container_t& brig) {
+    /*
     unsigned sectionCount;
     size_t totalSize;
     ReadData(in, sectionCount);
@@ -73,7 +77,9 @@ struct Serializer<brig_container_t> {
     const char *data = buffer + sizeof(size_t);
     const char *code = data + *((size_t *) data - 1) + sizeof(size_t);
     const char *operand = code + *((size_t *) code - 1) + sizeof(size_t);
-    brig = brig_container_create_copy(data, code, operand, 0);
+    brig = brig_container_create_copy(buffer, data, code, operand, 0);
+    */
+    assert(false);
   }
 };
 
