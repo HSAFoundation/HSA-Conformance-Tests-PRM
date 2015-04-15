@@ -34,12 +34,8 @@ BrigContainer* BrigC(brig_container_t brig)
 
 brig_container_t CreateBrigFromContainer(HSAIL_ASM::BrigContainer* container)
 {
-  return brig_container_create_copy(
-    container->sectionById(BRIG_SECTION_INDEX_DATA).getData(0),
-    container->sectionById(BRIG_SECTION_INDEX_CODE).getData(0),
-    container->sectionById(BRIG_SECTION_INDEX_OPERAND).getData(0),
-    0
-  );
+  BrigModule_t brigModule = container->getBrigModule();
+  return brig_container_create_copy(brigModule, brigModule->byteCount);
 }
 
 

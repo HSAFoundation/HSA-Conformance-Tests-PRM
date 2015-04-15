@@ -532,7 +532,7 @@ public:
 };
 
 
-class RegisterLimitBaseTest: public SkipTest {
+class RegisterLimitBaseTest: public Test {
 private:
   static const uint32_t VALUE = 123456789;
 
@@ -560,7 +560,7 @@ protected:
     be.EmitBr(trueLabel);
   }
 
-  OperandConstantBytes ImmedValue(uint32_t value, BrigType16_t type) {
+  OperandConstantBytes ImmedValue(uint64_t value, BrigType16_t type) {
     if (getBrigTypeNumBits(type) != 128) {
       return be.Immed(type, value);
     } else {
@@ -576,7 +576,7 @@ protected:
   }
 
 public:
-  RegisterLimitBaseTest(Location codeLocation = Location::KERNEL, Grid geometry = 0): SkipTest(codeLocation, geometry) {}
+  RegisterLimitBaseTest(Location codeLocation = Location::KERNEL, Grid geometry = 0): Test(codeLocation, geometry) {}
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), 1); }
@@ -645,7 +645,7 @@ public:
   }
 
   bool IsValid() const override {
-    return SkipTest::IsValid()
+    return RegisterLimitBaseTest::IsValid()
       && (typeSize == 32 || typeSize == 64 || typeSize == 128);
   }
 
@@ -759,7 +759,7 @@ public:
   }
 
   bool IsValid() const override {
-    return SkipTest::IsValid()
+    return RegisterLimitBaseTest::IsValid()
       && ((sNumber + dNumber * 2 + qNumber * 4) <= LIMIT);
   }
 };
@@ -798,7 +798,7 @@ public:
   }
 
   bool IsValid() const override {
-    return SkipTest::IsValid()
+    return LiveRegistersLimitTest::IsValid()
       && ((sNumber + dNumber * 2 + qNumber * 4) <= LIMIT);
   }
 };
