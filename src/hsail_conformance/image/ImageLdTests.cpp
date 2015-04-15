@@ -80,7 +80,18 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
-      output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+      switch (imageChannelOrder)
+      {
+      case BRIG_CHANNEL_ORDER_SRGB:
+      case BRIG_CHANNEL_ORDER_SRGBX:
+      case BRIG_CHANNEL_ORDER_SRGBA:
+      case BRIG_CHANNEL_ORDER_SBGRA:
+        output->SetComparisonMethod("ulps=3,minf=0.0,maxf=1.0"); // s-* channel orders are doing additional math (PRM 7.1.4.1.2)
+        break;
+      default:
+        output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+        break;
+      }
       break;
     case BRIG_CHANNEL_TYPE_SIGNED_INT8:
     case BRIG_CHANNEL_TYPE_SIGNED_INT16:

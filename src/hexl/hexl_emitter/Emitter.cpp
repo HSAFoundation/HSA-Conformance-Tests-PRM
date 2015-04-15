@@ -1235,6 +1235,7 @@ Value EImage::GenMemValue(Value v)
       assert(0); //illegal channel
       break;
     }
+    break;
   case BRIG_CHANNEL_ORDER_INTENSITY:
   case BRIG_CHANNEL_ORDER_LUMINANCE:
     switch (ChannelType())
