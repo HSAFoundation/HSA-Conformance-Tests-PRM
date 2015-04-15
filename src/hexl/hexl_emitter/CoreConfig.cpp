@@ -155,10 +155,10 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   fbarrier->Add(NEWA GridGeometry(3, 2, 32, 4, 2, 32, 4));
   fbarrier->Add(NEWA GridGeometry(3, 5, 7, 12, 3, 5, 7));
   fbarrier->Add(NEWA GridGeometry(3, 3, 9, 13, 2, 7, 11));
-//  images->Add(NEWA GridGeometry(1, 1, 1, 1, 1, 1, 1));
-  images->Add(NEWA GridGeometry(1, 16, 1, 1, 16, 1, 1));
-  images->Add(NEWA GridGeometry(2, 8, 4, 1, 8, 4, 1));
-//  images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
+  images->Add(NEWA GridGeometry(1, 1, 1, 1, 1, 1, 1));
+  images->Add(NEWA GridGeometry(1, 100, 1, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(2, 100, 10, 1, 100, 1, 1));
+  images->Add(NEWA GridGeometry(3, 10, 10, 10, 10, 1, 1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*4,  1,   1,  cc->Wavesize(),  1,   1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*4,  1,   1,  cc->Wavesize()*4,  1,   1));
   memfence->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));
@@ -196,38 +196,37 @@ static const BrigImageChannelOrder allChannelOrder[] = {
 };
 
 static const BrigImageChannelOrder supportedChannelOrder[] = {
-//    BRIG_CHANNEL_ORDER_A,
-//   BRIG_CHANNEL_ORDER_R,
-//   BRIG_CHANNEL_ORDER_RG,
-//   BRIG_CHANNEL_ORDER_RA,
-//   BRIG_CHANNEL_ORDER_RGB,
-//   BRIG_CHANNEL_ORDER_RGBA,
-//   BRIG_CHANNEL_ORDER_BGRA,
-//   BRIG_CHANNEL_ORDER_ARGB,
+    BRIG_CHANNEL_ORDER_A,
+    BRIG_CHANNEL_ORDER_R,
+    BRIG_CHANNEL_ORDER_RG,
+    BRIG_CHANNEL_ORDER_RA,
+    BRIG_CHANNEL_ORDER_RGB,
+    BRIG_CHANNEL_ORDER_RGBA,
+    BRIG_CHANNEL_ORDER_BGRA,
+    BRIG_CHANNEL_ORDER_ARGB,
     //BRIG_CHANNEL_ORDER_ABGR,
-//    BRIG_CHANNEL_ORDER_SRGB,
     BRIG_CHANNEL_ORDER_SRGBA,
-//    BRIG_CHANNEL_ORDER_INTENSITY,
-//    BRIG_CHANNEL_ORDER_LUMINANCE,
+    BRIG_CHANNEL_ORDER_INTENSITY,
+    BRIG_CHANNEL_ORDER_LUMINANCE,
 };
 
 static const  BrigImageChannelType allChannelType[] = {
-//    BRIG_CHANNEL_TYPE_SNORM_INT8,
-//    BRIG_CHANNEL_TYPE_SNORM_INT16,
+    BRIG_CHANNEL_TYPE_SNORM_INT8,
+    BRIG_CHANNEL_TYPE_SNORM_INT16,
     BRIG_CHANNEL_TYPE_UNORM_INT8,
-//    BRIG_CHANNEL_TYPE_UNORM_INT16,
-//    BRIG_CHANNEL_TYPE_UNORM_INT24,
-//    BRIG_CHANNEL_TYPE_UNORM_SHORT_555,
-//    BRIG_CHANNEL_TYPE_UNORM_SHORT_565,
-//    BRIG_CHANNEL_TYPE_UNORM_INT_101010,
-//    BRIG_CHANNEL_TYPE_SIGNED_INT8,
+    BRIG_CHANNEL_TYPE_UNORM_INT16,
+    BRIG_CHANNEL_TYPE_UNORM_INT24,
+    BRIG_CHANNEL_TYPE_UNORM_SHORT_555,
+    BRIG_CHANNEL_TYPE_UNORM_SHORT_565,
+    BRIG_CHANNEL_TYPE_UNORM_INT_101010,
+    BRIG_CHANNEL_TYPE_SIGNED_INT8,
     BRIG_CHANNEL_TYPE_SIGNED_INT16,
-//    BRIG_CHANNEL_TYPE_SIGNED_INT32,
-//    BRIG_CHANNEL_TYPE_UNSIGNED_INT8,
-//    BRIG_CHANNEL_TYPE_UNSIGNED_INT16,
-//    BRIG_CHANNEL_TYPE_UNSIGNED_INT32,
-//    BRIG_CHANNEL_TYPE_HALF_FLOAT,
-//    BRIG_CHANNEL_TYPE_FLOAT,
+    BRIG_CHANNEL_TYPE_SIGNED_INT32,
+    BRIG_CHANNEL_TYPE_UNSIGNED_INT8,
+    BRIG_CHANNEL_TYPE_UNSIGNED_INT16,
+    BRIG_CHANNEL_TYPE_UNSIGNED_INT32,
+    BRIG_CHANNEL_TYPE_HALF_FLOAT,
+    BRIG_CHANNEL_TYPE_FLOAT,
 };
 
 static const BrigImageGeometry allGeometry[] = {
@@ -242,9 +241,9 @@ static const BrigImageGeometry allGeometry[] = {
 static const BrigImageGeometry rdGeometry[] = {
     BRIG_GEOMETRY_1D,
     BRIG_GEOMETRY_2D,
-//    BRIG_GEOMETRY_3D,
-//    BRIG_GEOMETRY_1DA,
-//    BRIG_GEOMETRY_2DA,
+    BRIG_GEOMETRY_3D,
+    BRIG_GEOMETRY_1DA,
+    BRIG_GEOMETRY_2DA,
 };
 
 static const BrigType rdCoordTypeArray[] = {
