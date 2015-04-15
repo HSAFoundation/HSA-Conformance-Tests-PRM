@@ -107,7 +107,10 @@ private:
 
   TestSpec* CreateTestSpec(TestDesc& testDesc)
   {
+    BrigCodeOffset32_t ioffset = testDesc.getInst().brigOffset();
     brig_container_t brig = CreateBrigFromContainer(testDesc.getContainer());
+    // TODO: update inst because CreateBrigFromContainer can modify the container invalidatng sections.
+    testDesc.setInst(Inst(testDesc.getContainer(), ioffset));
     TestGroupArray* testGroup = testDesc.getData();
     TestDataMap* map = testDesc.getMap();
     te.reset(new TestEmitter());
