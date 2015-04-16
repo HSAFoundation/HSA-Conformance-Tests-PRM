@@ -744,7 +744,7 @@ protected:
       registers.push_back(be.AddTReg(BRIG_TYPE_U64));
     }
     for (uint32_t i = 0; i < qNumber; ++i) {
-      registers.push_back(be.AddTReg(BRIG_TYPE_U64X2));
+      registers.push_back(be.AddTReg(BRIG_TYPE_B128));
     }
     return registers;
   }
@@ -783,7 +783,7 @@ protected:
       registers.push_back(be.AddTReg(BRIG_TYPE_U64));
     }
     for (uint32_t i = 0; i < qNumber; ++i) {
-      registers.push_back(be.AddTReg(BRIG_TYPE_U64X2));
+      registers.push_back(be.AddTReg(BRIG_TYPE_B128));
     }
     return registers;
   }

@@ -141,6 +141,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     HostThreads hostThreads;
     std::vector<std::string> keys;
 
+    const static uint32_t TIMEOUT = 120;
+
   public:
     HsailRuntimeContextState(HsailRuntimeContext* runtime_, Context* context_)
       : runtime(runtime_), context(context_), hostThreads(this) { }
@@ -672,7 +674,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       d->kernel = kernel;
       d->packetId = packetId;
       d->packet = p;
-      d->timeout = 60 * CLOCKS_PER_SEC;
+      d->timeout = TIMEOUT * CLOCKS_PER_SEC;
       d->kernargOffset = 0;
       Put(dispatchId, d);
       return true;
@@ -815,7 +817,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
     virtual bool SignalWait(const std::string& signalId, uint64_t expectedValue = 1) override
     {
-      uint64_t timeout = 60 * CLOCKS_PER_SEC;
+      uint64_t timeout = TIMEOUT * CLOCKS_PER_SEC;
       HsailSignal* signal = context->Get<HsailSignal>(signalId);
       hsa_signal_value_t acquiredValue;
       bool result = true;
