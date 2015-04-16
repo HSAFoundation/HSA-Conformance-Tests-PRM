@@ -130,6 +130,7 @@ hexl::ValueType Brig2ValueType(BrigType type)
   case BRIG_TYPE_B64:
   case BRIG_TYPE_U64: return MV_UINT64;
   case BRIG_TYPE_S64: return MV_INT64;
+  case BRIG_TYPE_B128: return MV_UINT128;
   case BRIG_TYPE_F16: 
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
     return MV_PLAIN_FLOAT16;
@@ -182,6 +183,7 @@ BrigType Value2BrigType(hexl::ValueType type)
   case MV_INT32: return BRIG_TYPE_S32;
   case MV_UINT64: return BRIG_TYPE_U64;
   case MV_INT64: return BRIG_TYPE_S64;
+  case MV_UINT128: return BRIG_TYPE_B128;
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16:
 #endif

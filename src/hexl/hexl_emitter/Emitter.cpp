@@ -1182,7 +1182,7 @@ Value EImage::GenMemValue(Value v)
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
     case BRIG_CHANNEL_TYPE_UNORM_INT24:
     case BRIG_CHANNEL_TYPE_FLOAT:
-      result = Value(MV_UINT128, v.U128());
+      result = Value(v.U128());
       break;
     default:
       assert(0); //illegal channel
@@ -2857,7 +2857,7 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
       Raw.ch32.ch2 = rgba[1].U32();
       Raw.ch32.ch3 = rgba[2].U32();
       Raw.ch32.ch4 = rgba[3].U32();
-      texel = Value(MV_UINT128, Raw.data128);
+      texel = Value(Raw.data128);
 			break;
 		default:
 			assert(0);
@@ -2887,7 +2887,7 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
       Raw.ch32.ch2 = rgba[1].U32();
       Raw.ch32.ch3 = rgba[0].U32();
       Raw.ch32.ch4 = rgba[3].U32();
-      texel = Value(MV_UINT128, Raw.data128);
+      texel = Value(Raw.data128);
 			break;
 		default:
 			assert(0);
@@ -2916,7 +2916,7 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
       Raw.ch32.ch2 = rgba[0].U32();
       Raw.ch32.ch3 = rgba[1].U32();
       Raw.ch32.ch4 = rgba[2].U32();
-      texel = Value(MV_UINT128, Raw.data128);
+      texel = Value(Raw.data128);
 			break;
 		default:
 			assert(0);
@@ -2945,7 +2945,7 @@ Value EImageCalc::PackChannelDataToMemoryFormat(Value* _color) const
       Raw.ch32.ch2 = rgba[2].U32();
       Raw.ch32.ch3 = rgba[1].U32();
       Raw.ch32.ch4 = rgba[0].U32();
-      texel = Value(MV_UINT128, Raw.data128);
+      texel = Value(Raw.data128);
 			break;
 		default:
 			assert(0);

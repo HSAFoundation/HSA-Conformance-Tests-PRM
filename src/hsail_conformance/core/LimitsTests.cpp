@@ -566,7 +566,6 @@ protected:
     } else {
       std::vector<char> vect(16, '\0');
       memcpy(vect.data(), (const char*)&value, 8);
-      memcpy(vect.data() + 8, (const char*)&value, 8);
       return be.Immed(BRIG_TYPE_B128, vect);
     }
   }
@@ -655,7 +654,7 @@ public:
     switch (typeSize) {
     case 32: return BRIG_TYPE_U32;
     case 64: return BRIG_TYPE_U64;
-    case 128: return BRIG_TYPE_U64X2;
+    case 128: return BRIG_TYPE_B128;
     default: assert(false); return BRIG_TYPE_NONE;
     }
   }
