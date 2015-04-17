@@ -294,7 +294,7 @@ private:
     AtomicTest* test;
 
 public:
-    ~AtomicTestProp() {}
+    virtual ~AtomicTestProp() {}
 
 public:
     void setup(AtomicTest* test_, BrigType type_, uint64_t testSize_)
