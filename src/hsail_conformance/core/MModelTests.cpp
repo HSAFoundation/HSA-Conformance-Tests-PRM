@@ -14,14 +14,21 @@
    limitations under the License.
 */
 
-// ========================================================================
-// This is a test for compliance with memory model requirements
+//=====================================================================================
+//=====================================================================================
+//=====================================================================================
+// OVERVIEW
+//
+// This is a set of tests for compliance with memory model requirements
 //
 // The purpose of this code is to test the result of execution of 
 // a pair of write instructions A and B which should not be reordered.
 // These instructions are executed by one workitem (X) but results are 
 // inspected by another workitem (Y). If X execute A and B in this order,
 // Y must see the result of A after the result of B is visible.
+//
+//=====================================================================================
+// GENERIC TEST STRUCTURE
 //
 // Each workitem in this test does the following:
 //  1. prepare test data at index wi.id:
@@ -34,6 +41,9 @@
 //  3. validate test data read on the previous step:
 //      - if (H1 == T1) validate(H0 == T0)
 //  
+//=====================================================================================
+// TEST KINDS
+//
 // There are the following types of this test:
 //  1. WAVE kind.
 //     Items withing a wave test data written by other items within the same wave.
@@ -42,6 +52,9 @@
 //  3. AGENT kind.
 //     Items withing a workgroup N+1 (N>0) test data written by items within the workgroup N.
 //     Items withing a workgroup 0 test data written by itself.
+//
+//=====================================================================================
+// DETAILED DESCRIPTION OF TESTS
 //
 // Legend:
 //  - wi.id:   workitemflatabsid
@@ -58,8 +71,8 @@
 //                   - wavesize for WGROUP kind
 //                   - wg.size for AGENT kind
 //
-// --------------------------------------------------------------------------------
-// For WAVE and WGROUP test kinds, the code looks like this:
+//=====================================================================================
+// TEST STRUCTURE FOR WAVE AND WGROUP TEST KINDS
 //
 //                                           // Define and initialize test arrays
 //                                           // NB: initialization is only possible for arrays in GLOBAL segment
@@ -126,8 +139,8 @@
 //        ok[wi.id] |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
 //    }
 // 
-// --------------------------------------------------------------------------------
-// For AGENT test kind, the code looks like this:
+//=====================================================================================
+// TEST STRUCTURE FOR AGENT TEST KIND
 //
 //                                           // Define and initialize test arrays
 //    <type0> GLOBAL testArray0[grid.size] = {InitialValue(0), InitialValue(0), ...}; 
@@ -170,6 +183,7 @@
 //        finished[wg.id + 1]++; // Label this wi as completed
 //    }
 // 
+//=====================================================================================
 
 #include "MModelTests.hpp"
 #include "TestHelper.hpp"
@@ -180,25 +194,12 @@ namespace hsail_conformance {
 
 //=====================================================================================
 
-#define LAB_NAME ("@LoopStart")
-
 class MModelTest : public TestHelper
 {
-public:
-    static unsigned wavesize;
-
-protected:
-    static const unsigned TEST_KIND_WAVE   = 1;
-    static const unsigned TEST_KIND_WGROUP = 2;
-    static const unsigned TEST_KIND_AGENT  = 3;
-
 protected:
     static const BrigType RES_TYPE       = BRIG_TYPE_U32; // Type of elements in output array
     static const unsigned RES_VAL_FAILED = 0;
     static const unsigned RES_VAL_PASSED = 1;
-
-protected:
-    static const BrigType WG_COMPLETE_TYPE = BRIG_TYPE_U32; // Type of elements in "group_complete" array
 
 protected:
     static const unsigned MAX_LOOP = 1000;
@@ -219,19 +220,16 @@ private:
     TypedReg            indexInTestArray[2][2];
 
 private:
-    DirectiveVariable   wgComplete;                         
-    PointerReg          wgCompleteAddr;
-
-private:
     PointerReg          resArrayAddr;
     TypedReg            indexInResArray;
 
 private:
-    unsigned            testKind;
     bool                mapFlat2Group;                     // if true, map flat to group, if false, map flat to global
     TypedReg            loopIdx;
 
 public:
+
+//=====================================================================================
 
 #ifdef QUICK_TEST
 
@@ -248,7 +246,6 @@ public:
                 )
     : TestHelper(KERNEL, geometry_),
         resArrayAddr(0),
-        wgCompleteAddr(0),
         indexInResArray(0),
         loopIdx(0)
     {
@@ -266,7 +263,7 @@ public:
             memoryOrder[i] = (i == 0)? memoryOrder_0 : memoryOrder_1;
             memoryScope[i] = (i == 0)? memoryScope_0 : memoryScope_1;
             type[i]        = (i == 0)? type_0        : type_1;
-            isPlainOp[i]   = (i == 0)? isPlainOp_0 : isPlainOp_1;
+            isPlainOp[i]   = (i == 0)? isPlainOp_0   : isPlainOp_1;
             atomicNoRet[i] = (i == 0);
             equivClass[i]  = 0;
 
@@ -275,7 +272,7 @@ public:
             testArrayAddr[i] = 0;
         }
 
-        // As quich test does not enumerate all possible combinations for first write, 
+        // As quick test does not enumerate all possible combinations for first write, 
         // the following code ensures that attributes of this operation are valid
         if (isPlainOp[0])
         {
@@ -307,7 +304,6 @@ public:
                 )
     : TestHelper(KERNEL, geometry_),
         resArrayAddr(0),
-        wgCompleteAddr(0),
         indexInResArray(0),
         loopIdx(0)
     {
@@ -368,7 +364,7 @@ public:
     void AtomicName(std::ostream& out, unsigned idx) const 
     { 
         assert(idx <= 1);
-        out << (atomicNoRet[idx] ? "atomicnoret" : "atomic")
+        out << (atomicNoRet[idx]? "atomicnoret" : "atomic")
             << "_" << atomicOperation2str(atomicOp[idx])
                    << SegName(segment[idx])
             << "_" << memoryOrder2str(memoryOrder[idx])
@@ -418,7 +414,7 @@ public:
         DefineArray(0);
         DefineArray(1);
 
-        if (testKind == TEST_KIND_AGENT) DefineWgCompletedArray();
+        DefineWgCompletedArray();
     }
 
     void DefineArray(unsigned idx)
@@ -440,23 +436,6 @@ public:
 
         testArray[idx] = be.EmitVariableDefinition(arrayName, ArraySegment(idx), ArrayElemType(idx), BRIG_ALIGNMENT_NONE, ArraySize(idx));
         if (ArraySegment(idx) != BRIG_SEGMENT_GROUP) testArray[idx].init() = ArrayInitializer(idx);
-    }
-
-    void DefineWgCompletedArray()
-    {
-        assert(testKind == TEST_KIND_AGENT);
-
-        ArbitraryData values;
-        unsigned typeSize = getBrigTypeNumBytes(WG_COMPLETE_TYPE);
-        for (unsigned pos = 0; pos <= Groups(); ++pos) 
-        {
-            uint32_t value = (pos == 0)? geometry->WorkgroupSize() : (uint32_t)0;
-            values.write(&value, typeSize, pos * typeSize);
-        }
-        Operand init = be.Brigantine().createOperandConstantBytes(values.toSRef(), WG_COMPLETE_TYPE, true);
-
-        wgComplete = be.EmitVariableDefinition("group_complete", BRIG_SEGMENT_GLOBAL, WG_COMPLETE_TYPE, BRIG_ALIGNMENT_NONE, Groups() + 1);
-        wgComplete.init() = init;
     }
 
     Operand ArrayInitializer(unsigned idx)
@@ -487,14 +466,6 @@ public:
     // ========================================================================
     // Test properties
 
-    unsigned Wavesize()  const { return wavesize; }
-
-    uint64_t Groups() const 
-    { 
-        assert(geometry->GridSize() % geometry->WorkgroupSize() == 0);
-        return geometry->GridSize() / geometry->WorkgroupSize(); 
-    }
-
     uint64_t ArraySize(unsigned idx) const 
     { 
         assert(idx <= 1);
@@ -517,19 +488,6 @@ public:
         case TEST_KIND_WAVE:	return 1;
         case TEST_KIND_WGROUP:	return Wavesize();
         case TEST_KIND_AGENT:	return geometry->WorkgroupSize();
-        default:
-            assert(false);
-            return 0;
-        }
-    }
-
-    std::string TestName() const 
-    { 
-        switch(testKind)
-        {
-        case TEST_KIND_WAVE:	return "wave";
-        case TEST_KIND_WGROUP:	return "workgroup";
-        case TEST_KIND_AGENT:	return "grid";
         default:
             assert(false);
             return 0;
@@ -669,7 +627,7 @@ public:
         assert(idx <= 1);
 
         ItemList operands = AtomicOperands(idx);
-        InstAtomic inst = AtomicInst(type[idx], atomicOp[idx], memoryOrder[idx], memoryScope[idx], segment[idx], equivClass[idx], !atomicNoRet[idx]);
+        InstAtomic inst = Atomic(type[idx], atomicOp[idx], memoryOrder[idx], memoryScope[idx], segment[idx], equivClass[idx], !atomicNoRet[idx]);
         inst.operands() = operands;
     }
 
@@ -688,7 +646,7 @@ public:
         BrigMemoryOrder readOrder = (idx == 0)? BRIG_MEMORY_ORDER_RELAXED : 
                                                 BRIG_MEMORY_ORDER_SC_ACQUIRE; // NB: ACQUIRE_RELEASE is not supported by 'ld'
 
-        InstAtomic inst = AtomicInst(type[idx], BRIG_ATOMIC_LD, readOrder, memoryScope[idx], segment[idx], equivClass[idx]);
+        InstAtomic inst = Atomic(type[idx], BRIG_ATOMIC_LD, readOrder, memoryScope[idx], segment[idx], equivClass[idx]);
         inst.operands() = operands;
 
         return atomicDst;
@@ -875,7 +833,7 @@ public:
             Comment("Init array element");
         
             OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, 0), type[idx]);
-            InstAtomic inst = AtomicInst(type[idx], BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope[idx], segment[idx], equivClass[idx], false);
+            InstAtomic inst = Atomic(type[idx], BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope[idx], segment[idx], equivClass[idx], false);
             inst.operands() = be.Operands(target, Initializer(idx));
         }
     }
@@ -889,7 +847,7 @@ public:
     void SetRes(BrigAtomicOperation op, Operand res)
     {
         OperandAddress target = TargetAddr(LoadResAddr(), ResIndex(), ResultType());
-        InstAtomic inst = AtomicInst(ResultType(), op, BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, (BrigSegment)LoadResAddr()->Segment(), 0, false);
+        InstAtomic inst = Atomic(ResultType(), op, BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, (BrigSegment)LoadResAddr()->Segment(), 0, false);
         inst.operands() = be.Operands(target, res);
     }
 
@@ -979,13 +937,7 @@ public:
     {
         if (testKind == TEST_KIND_AGENT)
         {
-            Comment("Check if all workitems in the previous workgroup have completed");
-            TypedReg cnt = LdWgComplete();
-            TypedReg cond = COND(cnt, LT, geometry->WorkgroupSize());
-            be.EmitCbr(cond, LAB_NAME);
-
-            Comment("Increment number of completed workitems in the current workgroup");
-            IncWgComplete();
+            CheckPrevWg();
         }
         else
         {
@@ -996,59 +948,6 @@ public:
             be.EmitCmp(cReg->Reg(), loopIdx, be.Immed(loopIdx->Type(), 0), BRIG_COMPARE_NE);
             be.EmitCbr(cReg, LAB_NAME, BRIG_WIDTH_ALL);
         }
-    }
-
-    // ========================================================================
-    // Helper code for working with wgComplete array
-
-    PointerReg LoadWgCompleteAddr()
-    {
-        if (testKind == TEST_KIND_AGENT)
-        {
-            if (!wgCompleteAddr)
-            {
-                Comment("Load 'wgComplete' array address");
-                wgCompleteAddr = be.AddAReg(wgComplete.segment());
-                be.EmitLda(wgCompleteAddr, wgComplete);
-            }
-        }
-        return wgCompleteAddr;
-    }
-
-    TypedReg LdWgComplete()
-    {
-        ItemList operands;
-
-        BrigType t = (BrigType)type2bitType(WG_COMPLETE_TYPE);
-        TypedReg atomicDst = be.AddTReg(t);
-        TypedReg idx = TestWgId(LoadWgCompleteAddr()->IsLarge());
-        OperandAddress target = TargetAddr(LoadWgCompleteAddr(), idx, WG_COMPLETE_TYPE);
-
-        operands.push_back(atomicDst->Reg());
-        operands.push_back(target);
-
-        InstAtomic inst = AtomicInst(t, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0);
-        inst.operands() = operands;
-
-        return atomicDst;
-    }
-
-    void IncWgComplete()
-    {
-        TypedReg id = TestWgId(LoadWgCompleteAddr()->IsLarge());
-
-        ItemList operands;
-
-        TypedReg src0 = be.AddTReg(WG_COMPLETE_TYPE);
-        be.EmitMov(src0, be.Immed(WG_COMPLETE_TYPE, 1));
-
-        OperandAddress target = TargetAddr(LoadWgCompleteAddr(), Add(id, 1), WG_COMPLETE_TYPE);
-
-        operands.push_back(target);
-        operands.push_back(src0->Reg());
-
-        InstAtomic inst = AtomicInst(WG_COMPLETE_TYPE, BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0, false);
-        inst.operands() = operands;
     }
 
     // ========================================================================
@@ -1178,7 +1077,7 @@ public:
         if (!IsValidGrid(idx)) return false;
 
         if (atomicOp[idx] == BRIG_ATOMIC_LD) return false;
-        if (memoryScope[idx] == BRIG_MEMORY_SCOPE_SYSTEM) return false;
+        //if (memoryScope[idx] == BRIG_MEMORY_SCOPE_SYSTEM) return false;
 
         return true;
     }
@@ -1200,8 +1099,6 @@ public:
     }
 
 }; // class AtomicTest
-
-unsigned MModelTest::wavesize;
 
 //=====================================================================================
 
@@ -1245,3 +1142,6 @@ void MModelTests::Iterate(hexl::TestSpecIterator& it)
 //=====================================================================================
 
 } // namespace hsail_conformance
+
+// TODO
+// - base initial values on id

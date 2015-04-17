@@ -32,6 +32,8 @@ namespace hsail_conformance {
 
 //=====================================================================================
 
+#define LAB_NAME ("@LoopStart")
+
 #define COND(x, cnd, y)       Cond(BRIG_COMPARE_##cnd, x, y)
 #define STARTIF(x, cond, y) { string lab__ = IfCond(BRIG_COMPARE_##cond, x, y);
 #define ENDIF                 EndIfCond(lab__); }
@@ -44,8 +46,150 @@ namespace hsail_conformance {
 class TestHelper : public Test
 {
 public:
-    TestHelper(Location codeLocation, Grid geometry) : Test(codeLocation, geometry) {}
+    static unsigned wavesize;
 
+protected:
+    static const unsigned TEST_KIND_WAVE   = 1;
+    static const unsigned TEST_KIND_WGROUP = 2;
+    static const unsigned TEST_KIND_AGENT  = 3;
+
+protected:
+    static const BrigType WG_COMPLETE_TYPE = BRIG_TYPE_U32; // Type of elements in "group_complete" array
+
+protected:
+    unsigned            testKind;
+
+protected:
+    DirectiveVariable   wgComplete;                         
+    PointerReg          wgCompleteAddr;
+
+public:
+    TestHelper(Location codeLocation, Grid geometry) : 
+        Test(codeLocation, geometry),
+        wgCompleteAddr(0)
+    {
+    }
+
+    // ========================================================================
+public:
+
+    unsigned Wavesize()  const { return wavesize; }
+
+    uint64_t Groups() const 
+    { 
+        assert(geometry->GridSize() % geometry->WorkgroupSize() == 0);
+        return geometry->GridSize() / geometry->WorkgroupSize(); 
+    }
+
+    uint64_t Waves() const 
+    { 
+        // Note that there may be partial wavefronts
+        uint64_t ws = (Wavesize() <= geometry->WorkgroupSize())? Wavesize() : geometry->WorkgroupSize();
+        assert(geometry->GridSize() % ws == 0);
+        return geometry->GridSize() / ws;
+    }
+
+    std::string TestName() const 
+    { 
+        switch(testKind)
+        {
+        case TEST_KIND_WAVE:	return "wave";
+        case TEST_KIND_WGROUP:	return "workgroup";
+        case TEST_KIND_AGENT:	return "grid";
+        default:
+            assert(false);
+            return 0;
+        }
+    }
+
+    // ========================================================================
+    // Helper code for working with wgComplete array
+public:
+
+    void DefineWgCompletedArray()
+    {
+        if (testKind == TEST_KIND_AGENT)
+        {
+            ArbitraryData values;
+            unsigned typeSize = getBrigTypeNumBytes(WG_COMPLETE_TYPE);
+            for (unsigned pos = 0; pos <= Groups(); ++pos) 
+            {
+                uint32_t value = (pos == 0)? geometry->WorkgroupSize() : (uint32_t)0;
+                values.write(&value, typeSize, pos * typeSize);
+            }
+            Operand init = be.Brigantine().createOperandConstantBytes(values.toSRef(), WG_COMPLETE_TYPE, true);
+
+            wgComplete = be.EmitVariableDefinition("group_complete", BRIG_SEGMENT_GLOBAL, WG_COMPLETE_TYPE, BRIG_ALIGNMENT_NONE, Groups() + 1);
+            wgComplete.init() = init;
+        }
+    }
+
+    PointerReg LoadWgCompleteAddr()
+    {
+        if (testKind == TEST_KIND_AGENT)
+        {
+            if (!wgCompleteAddr)
+            {
+                Comment("Load 'wgComplete' array address");
+                wgCompleteAddr = be.AddAReg(wgComplete.segment());
+                be.EmitLda(wgCompleteAddr, wgComplete);
+            }
+        }
+        return wgCompleteAddr;
+    }
+
+    TypedReg LdWgComplete()
+    {
+        ItemList operands;
+
+        BrigType t = (BrigType)type2bitType(WG_COMPLETE_TYPE);
+        TypedReg atomicDst = be.AddTReg(t);
+        TypedReg idx = TestWgId(LoadWgCompleteAddr()->IsLarge());
+        OperandAddress target = TargetAddr(LoadWgCompleteAddr(), idx, WG_COMPLETE_TYPE);
+
+        operands.push_back(atomicDst->Reg());
+        operands.push_back(target);
+
+        InstAtomic inst = Atomic(t, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0);
+        inst.operands() = operands;
+
+        return atomicDst;
+    }
+
+    void IncWgComplete()
+    {
+        assert(testKind == TEST_KIND_AGENT);
+
+        TypedReg id = TestWgId(LoadWgCompleteAddr()->IsLarge());
+
+        ItemList operands;
+
+        TypedReg src0 = be.AddTReg(WG_COMPLETE_TYPE);
+        be.EmitMov(src0, be.Immed(WG_COMPLETE_TYPE, 1));
+
+        OperandAddress target = TargetAddr(LoadWgCompleteAddr(), Add(id, 1), WG_COMPLETE_TYPE);
+
+        operands.push_back(target);
+        operands.push_back(src0->Reg());
+
+        InstAtomic inst = Atomic(WG_COMPLETE_TYPE, BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0, false);
+        inst.operands() = operands;
+    }
+
+    void CheckPrevWg()
+    {
+        assert(testKind == TEST_KIND_AGENT);
+
+        Comment("Check if all workitems in the previous workgroup have completed");
+        TypedReg cnt = LdWgComplete();
+        TypedReg cond = COND(cnt, LT, geometry->WorkgroupSize());
+        be.EmitCbr(cond, LAB_NAME);
+
+        Comment("Increment number of completed workitems in the current workgroup");
+        IncWgComplete();
+    }
+
+    // ========================================================================
 public:
     void Comment(string s)
     {
@@ -80,7 +224,7 @@ public:
         return be.Address(res);
     }
 
-    Inst AtomicInst(BrigType t, BrigAtomicOperation op, BrigMemoryOrder order, BrigMemoryScope scope, BrigSegment segment, uint8_t eqclass, bool ret = true)
+    Inst Atomic(BrigType t, BrigAtomicOperation op, BrigMemoryOrder order, BrigMemoryScope scope, BrigSegment segment, uint8_t eqclass, bool ret = true)
     {
         switch(op)
         {
@@ -137,18 +281,6 @@ public:
         be.EmitMemfence(memoryOrder, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
     }
 
-    TypedReg MinVal(TypedReg val, uint64_t max)
-    {
-        TypedReg res = be.AddTReg(val->Type());
-        InstBasic inst = be.EmitArith(BRIG_OPCODE_MIN, res, val, be.Immed(val->Type(), max));
-        if (isBitType(inst.type()))
-        {
-            inst.type() = getUnsignedType(getBrigTypeNumBits(inst.type()));
-        }
-
-        return res;
-    }
-
     TypedReg Popcount(TypedReg src)
     {
         TypedReg dst = be.AddTReg(BRIG_TYPE_U32);
@@ -184,6 +316,8 @@ public:
 
     TypedReg Cond(unsigned cond, TypedReg val1, uint64_t val2)
     {
+        assert(val1);
+
         TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
         InstCmp inst = be.EmitCmp(cReg->Reg(), val1, be.Immed(val1->Type(), val2), cond);
         if (inst.compare() != BRIG_COMPARE_EQ && inst.compare() != BRIG_COMPARE_NE && isBitType(inst.sourceType()))
@@ -195,6 +329,9 @@ public:
 
     TypedReg Cond(unsigned cond, TypedReg val1, Operand val2)
     {
+        assert(val1);
+        assert(val2);
+
         TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
         InstCmp inst = be.EmitCmp(cReg->Reg(), val1, val2, cond);
         if (inst.compare() != BRIG_COMPARE_EQ && inst.compare() != BRIG_COMPARE_NE && isBitType(inst.sourceType()))
@@ -206,7 +343,11 @@ public:
     
     TypedReg CondAssign(TypedReg x, TypedReg y, TypedReg cond)
     {
+        assert(x);
+        assert(y);
+        assert(cond);
         assert(x->Type() == y->Type());
+
         TypedReg res = be.AddTReg(x->Type());
         EmitCMov(BRIG_OPCODE_CMOV, res, cond, x, y);
         return res;
@@ -214,7 +355,9 @@ public:
     
     TypedReg CondAssign(BrigType type, int64_t x, int64_t y, TypedReg cond)
     {
+        assert(cond);
         assert(x != y);
+
         TypedReg res = be.AddTReg(type);
         EmitCMov(BRIG_OPCODE_CMOV, res, cond, be.Immed(type, x), be.Immed(type, y));
         return res;
@@ -222,13 +365,17 @@ public:
     
     TypedReg CondAssign(TypedReg res, int64_t x, int64_t y, TypedReg cond)
     {
+        assert(cond);
         assert(x != y);
+
         EmitCMov(BRIG_OPCODE_CMOV, res, cond, be.Immed(res->Type(), x), be.Immed(res->Type(), y));
         return res;
     }
     
     TypedReg Not(TypedReg x)
     {
+        assert(x);
+
         TypedReg res = be.AddTReg(x->Type());
         be.EmitArith(BRIG_OPCODE_NOT, res, x->Reg());
         return res;
@@ -236,6 +383,10 @@ public:
     
     TypedReg Or(TypedReg res, TypedReg x, TypedReg y)
     {
+        assert(x);
+        assert(y);
+        assert(res);
+
         assert(res->Type() == x->Type());
         be.EmitArith(BRIG_OPCODE_OR, res, x->Reg(), y->Reg());
         return res;
@@ -243,6 +394,8 @@ public:
     
     TypedReg Or(TypedReg x, TypedReg y)
     {
+        assert(x);
+        assert(y);
         assert(x->Type() == y->Type());
 
         TypedReg res = be.AddTReg(x->Type());
@@ -252,6 +405,8 @@ public:
     
     TypedReg And(TypedReg x, TypedReg y)
     {
+        assert(x);
+        assert(y);
         assert(x->Type() == y->Type());
 
         TypedReg res = be.AddTReg(x->Type());
@@ -261,6 +416,8 @@ public:
     
     TypedReg Add(TypedReg x, uint64_t y)
     {
+        assert(x);
+
         TypedReg res = be.AddTReg(x->Type());
         be.EmitArith(BRIG_OPCODE_ADD, res, x->Reg(), be.Immed(x->Type(), y));
         return res;
@@ -268,6 +425,9 @@ public:
     
     TypedReg Sub(TypedReg x, Operand y)
     {
+        assert(x);
+        assert(y);
+
         TypedReg res = be.AddTReg(x->Type());
         be.EmitArith(BRIG_OPCODE_SUB, res, x->Reg(), y);
         return res;
@@ -275,6 +435,8 @@ public:
     
     TypedReg Sub(TypedReg x, uint64_t y)
     {
+        assert(x);
+
         TypedReg res = be.AddTReg(x->Type());
         be.EmitArith(BRIG_OPCODE_SUB, res, x->Reg(), be.Immed(x->Type(), y));
         return res;
@@ -282,20 +444,78 @@ public:
     
     TypedReg Sub(TypedReg res, TypedReg x, uint64_t y)
     {
+        assert(res);
+        assert(x);
+
         assert(res->Type() == x->Type());
         be.EmitArith(BRIG_OPCODE_SUB, res, x->Reg(), be.Immed(x->Type(), y));
         return res;
     }
     
-    TypedReg Rem(TypedReg x, uint64_t y)
+    TypedReg Mul(TypedReg x, uint64_t y)
     {
+        assert(x);
+        
         TypedReg res = be.AddTReg(x->Type());
-        be.EmitArith(BRIG_OPCODE_REM, res, x->Reg(), be.Immed(x->Type(), y));
+        EmitArith(BRIG_OPCODE_MUL, res, x, y);
         return res;
     }
     
+    TypedReg Div(TypedReg x, uint64_t y)
+    {
+        assert(x);
+
+        TypedReg res = be.AddTReg(x->Type());
+        EmitArith(BRIG_OPCODE_DIV, res, x, y);
+        return res;
+    }
+    
+    TypedReg Rem(TypedReg x, uint64_t y)
+    {
+        assert(x);
+
+        TypedReg res = be.AddTReg(x->Type());
+        EmitArith(BRIG_OPCODE_REM, res, x, y);
+        return res;
+    }
+    
+    TypedReg Min(TypedReg val, uint64_t max)
+    {
+        assert(val);
+
+        TypedReg res = be.AddTReg(val->Type());
+        InstBasic inst = be.EmitArith(BRIG_OPCODE_MIN, res, val, be.Immed(val->Type(), max));
+        if (isBitType(inst.type()))
+        {
+            inst.type() = getUnsignedType(getBrigTypeNumBits(inst.type()));
+        }
+
+        return res;
+    }
+
+    TypedReg Shl(BrigType type, uint64_t val, TypedReg shift)
+    {
+        assert(shift);
+        assert(getBrigTypeNumBits(shift->Type()) == 32);
+
+        type = ArithType(BRIG_OPCODE_SHL, type);
+        TypedReg res = be.AddTReg(type); 
+        be.EmitArith(BRIG_OPCODE_SHL, res, be.Immed(type, val), shift->Reg());
+
+        return res;
+    }
+
+    TypedReg Mov(BrigType type, uint64_t val) const 
+    { 
+        TypedReg reg = be.AddTReg(type); 
+        be.EmitMov(reg, be.Immed(type2bitType(type), val)); 
+        return reg; 
+    }
+
     string IfCond(unsigned cond, TypedReg val1, uint64_t val2)
     {
+        assert(val1);
+
         string label = be.AddLabel();
         TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
         be.EmitCmp(cReg->Reg(), val1, be.Immed(val1->Type(), val2), InvertCond(cond));
@@ -311,6 +531,8 @@ public:
 
     void EndWhile(TypedReg cond, string label)
     {
+        assert(cond);
+
         be.EmitCbr(cond, label, BRIG_WIDTH_ALL);
     }
 
@@ -332,7 +554,7 @@ public:
 
     // ========================================================================
 
-    static BrigType16_t ArithType(BrigOpcode16_t opcode, BrigType16_t operandType)
+    static BrigType ArithType(BrigOpcode opcode, unsigned operandType)
     {
         switch (opcode) {
         case BRIG_OPCODE_SHL:
@@ -340,17 +562,17 @@ public:
         case BRIG_OPCODE_MAD:
         case BRIG_OPCODE_MUL:
         case BRIG_OPCODE_DIV:
-        case BRIG_OPCODE_REM:
-            return getUnsignedType(getBrigTypeNumBits(operandType));
+        case BRIG_OPCODE_REM: 
+            return (BrigType)getUnsignedType(getBrigTypeNumBits(operandType));
 
         case BRIG_OPCODE_CMOV:
-            return getBitType(getBrigTypeNumBits(operandType));
+            return (BrigType)getBitType(getBrigTypeNumBits(operandType));
 
-        default: return operandType;
+        default: return (BrigType)operandType;
         }
     }
 
-    InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, TypedReg& src1)
+    InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, TypedReg& src1)
     {
         assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(src0->Type()));
         InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
@@ -358,7 +580,17 @@ public:
         return inst;
     }
 
-    InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand o)
+    InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, uint64_t src1)
+    {
+        assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(src0->Type()));
+
+        BrigType type = ArithType(opcode, src0->Type());
+        InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, type);
+        inst.operands() = be.Operands(dst->Reg(), src0->Reg(), be.Immed(type, src1));
+        return inst;
+    }
+
+    InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, Operand o)
     {
         assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(src0->Type()));
         InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
@@ -366,7 +598,7 @@ public:
         return inst;
     }
 
-    InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, Operand o)
+    InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, Operand o)
     {
         assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(src0->Type()));
         InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
@@ -374,21 +606,21 @@ public:
         return inst;
     }
 
-    InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, const TypedReg& src2)
+    InstBasic EmitArith(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, const TypedReg& src2)
     {
         InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, src0->Type()));
         inst.operands() = be.Operands(dst->Reg(), src0->Reg(), src1, src2->Reg());
         return inst;
     }
 
-    InstBasic EmitCMov(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, TypedReg& src1, const TypedReg& src2)
+    InstBasic EmitCMov(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, TypedReg& src1, const TypedReg& src2)
     {
         InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, dst->Type()));
         inst.operands() = be.Operands(dst->Reg(), src0->Reg(), src1->Reg(), src2->Reg());
         return inst;
     }
 
-    InstBasic EmitCMov(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, Operand src2)
+    InstBasic EmitCMov(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, Operand src2)
     {
         InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, dst->Type()));
         inst.operands() = be.Operands(dst->Reg(), src0->Reg(), src1, src2);
