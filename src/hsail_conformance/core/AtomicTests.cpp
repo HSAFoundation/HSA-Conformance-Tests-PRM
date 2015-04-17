@@ -294,6 +294,9 @@ private:
     AtomicTest* test;
 
 public:
+    ~AtomicTestProp() {}
+
+public:
     void setup(AtomicTest* test_, BrigType type_, uint64_t testSize_)
     {
         assert(test_);
