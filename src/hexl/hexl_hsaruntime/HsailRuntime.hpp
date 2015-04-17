@@ -156,13 +156,16 @@ private:
   hsa_agent_t agent;
   hsa_queue_t* queue;
   uint32_t queueSize;
-  bool error;
+  volatile bool queueError;
   hsa_profile_t profile;
   uint32_t wavesize;
   uint32_t wavesPerGroup;
   hsa_endianness_t endianness;
   bool isBreakSupported;
   bool isDetectSupported;
+
+  bool QueueInit();
+  void QueueDestroy();
 
 public:
   HsailRuntimeContext(Context* context);
@@ -179,10 +182,6 @@ public:
 
   const Options* Opts() const { return context->Opts(); }
   virtual runtime::RuntimeState* NewState(Context* context);
-
-  void SetError() { error = true; }
-  void ClearError() { error = false; }
-  bool IsError() const { return error; }
 
   void HsaError(const char *msg, hsa_status_t err) {
     const char *hsamsg = "";
@@ -204,6 +203,10 @@ public:
   hsa_agent_t* Agents() { return &agent; }
   uint32_t AgentCount() { return 1; }
   hsa_queue_t* Queue() { return queue; }
+  hsa_queue_t* QueueNoError();
+  void QueueError(hsa_status_t status);
+  bool IsQueueError() const { return queueError; }
+
   uint32_t QueueSize() const { return queue->size; }
   const HsaApi& Hsa() const { return hsaApi; }
   hsa_region_t GetRegion(RegionMatch match = 0);

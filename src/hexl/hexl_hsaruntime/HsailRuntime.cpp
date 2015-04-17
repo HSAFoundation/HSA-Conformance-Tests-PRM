@@ -131,8 +131,7 @@ bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region);
 void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 {
   HsailRuntimeContext* runtime = static_cast<HsailRuntimeContext*>(data);
-  runtime->HsaError("Queue error", status);
-  runtime->SetError();
+  runtime->QueueError(status);
 }
 
   class HsailRuntimeContextState : public runtime::RuntimeState {
@@ -640,7 +639,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       hsa_region_t kernargRegion = Runtime()->GetRegion(RegionMatchKernarg);
       if (!kernargRegion.handle) { context->Error() << "Failed to find kernarg region" << std::endl; return false; }
 
-      hsa_queue_t* queue = Runtime()->Queue();
+      hsa_queue_t* queue = Runtime()->QueueNoError();
+      if (!queue) { runtime->HsaError("Queue is not available"); return false; }
       uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);
       hsa_kernel_dispatch_packet_t* p = (hsa_kernel_dispatch_packet_t*) queue->base_address + packetId;
       memset(p, 0, sizeof(*p));
@@ -664,9 +664,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_DYNAMIC_CALLSTACK, &dynamicCallStack);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_CODE_SYMBOL_INFO_KERNEL_DYNAMIC_CALLSTACK) failed", status); return false; }
       if (dynamicCallStack) {
-        // Set to 16K for now.
+        // Set to max minimum allowed by the spec for now (64k per work-group).
         // TODO: a strategy for choosing this size, for example, based on expected number of frames/extra allocation used by test.
-        p->private_segment_size = (std::max)((uint32_t) 16 * 1024 * 1024, p->private_segment_size);
+        p->private_segment_size = (std::max)((uint32_t) 256, p->private_segment_size);
       }
 
       status = Runtime()->Hsa()->hsa_executable_symbol_get_info(
@@ -795,8 +795,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
           context->Error() << "Kernel execution timed out, elapsed time: " << (long) clocks << " clocks (clocks per second " << (long) CLOCKS_PER_SEC << ")" << std::endl;
           return false;
         }
-      } while (result!= 0);
-      return !Runtime()->IsError();
+      } while (result!= 0 && !runtime->IsQueueError());
+      return !runtime->IsQueueError();
     }
 
     class HsailSignal {
@@ -913,7 +913,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 HsailRuntimeContext::HsailRuntimeContext(Context* context)
   : RuntimeContext(context),
     hsaApi(context, context->Opts(), HSARUNTIMECORENAME),
-    queue(0), queueSize(0), error(false)
+    queue(0), queueSize(0), queueError(false)
 {
 }
 
@@ -921,6 +921,40 @@ runtime::RuntimeState* HsailRuntimeContext::NewState(Context* context)
 {
   this->context = context;
   return new HsailRuntimeContextState(this, context);
+}
+
+void HsailRuntimeContext::QueueDestroy()
+{
+  assert(queue);
+  hsa_status_t status;
+  status = Hsa()->hsa_queue_destroy(queue);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_queue_destroy failed", status); }
+  queue = 0;
+}
+
+bool HsailRuntimeContext::QueueInit()
+{
+  assert(!queue);
+  hsa_status_t status = Hsa()->hsa_queue_create(agent, queueSize, HSA_QUEUE_TYPE_SINGLE, HsaQueueErrorCallback, this, UINT32_MAX, UINT32_MAX, &queue);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_queue_create failed", status); return false; }
+  return true;
+}
+
+void HsailRuntimeContext::QueueError(hsa_status_t status)
+{
+  // Note: cannot simply do QueueError here because of cleanup of other resource.
+  // That's why queue restart is done in DispatchCreate after previous test
+  // has already completed. Here. simply note the fact that queue is in error state.
+  HsaError("Queue error", status);
+  queueError = true;
+}
+
+hsa_queue_t* HsailRuntimeContext::QueueNoError()
+{
+  if (queueError && queue) { QueueDestroy(); }
+  if (!queue) { QueueInit(); }
+  queueError = false;
+  return queue;
 }
 
 static hsa_status_t IterateAgentGetHsaDevice(hsa_agent_t agent, void *data) {
@@ -982,8 +1016,7 @@ bool HsailRuntimeContext::Init() {
   if (!agent.handle) { HsaError("Failed to find agent"); return false; }
   status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_QUEUE_MAX_SIZE, &queueSize);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
-  status = Hsa()->hsa_queue_create(agent, queueSize, HSA_QUEUE_TYPE_SINGLE, HsaQueueErrorCallback, this, UINT32_MAX, UINT32_MAX, &queue);
-  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_queue_create failed", status); return false; }
+  if (!QueueInit()) { return false; }
 
   status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_PROFILE, &profile);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
@@ -1013,9 +1046,7 @@ bool HsailRuntimeContext::Init() {
 void HsailRuntimeContext::Dispose()
 {
   if (context) {
-    hsa_status_t status;
-    status = Hsa()->hsa_queue_destroy(queue);
-    if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_queue_destroy failed", status); }
+    QueueDestroy();
     Hsa()->hsa_shut_down();
     context = 0;
   }
