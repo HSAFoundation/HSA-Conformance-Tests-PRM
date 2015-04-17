@@ -35,6 +35,7 @@
 #include <string>
 #include <map>
 #include <memory>
+#include <HSAILb128_t.h>
 
 /// For now, plain f16 i/o values are passed to kernels in elements of u32 arrays, in lower 16 bits.
 /// f16x2 values occupy the whole 32 bits. To differientiate, use:
@@ -482,6 +483,11 @@ public:
 
     static uint128 make(Type bits) { uint128 res; res.val[1] = bits.h; res.val[0] = bits.l; return res; }
 
+    bool operator >  (const uint128& x) const;
+    bool operator <  (const uint128& x) const;
+    bool operator >= (const uint128& x) const;
+    bool operator <= (const uint128& x) const;
+    bool operator == (const uint128& x) const;
 };
 
 //==============================================================================
@@ -647,8 +653,8 @@ public:
   Value& operator=(const Value& v) { type = v.type; data = v.data; printExtraHex = v.printExtraHex; return *this; }
   /// \todo HIGHLY unsafe, take care! Example: Value(MV_FLOAT, 1.5F) will cast 1.5F to uint64 1 (0x1), which means float denorm.
   Value(ValueType _type, uint64_t _value) : type(_type), printExtraHex(false) { data.u64 = _value;  data.u128.h = 0;}
-  Value(ValueType _type, uint128_t _value) : type(_type), printExtraHex(false) { data.u128.h = _value.U64H(); data.u128.l = _value.U64L();}
-  Value(ValueType _type, uint128_t::Type _value) : type(_type), printExtraHex(false) { data.u128.h = _value.h; data.u128.l = _value.l;}
+  Value(uint128_t _value) : type(MV_UINT128), printExtraHex(false) { data.u128.h = _value.U64H(); data.u128.l = _value.U64L();}
+  Value(uint128_t::Type _value) : type(MV_UINT128), printExtraHex(false) { data.u128.h = _value.h; data.u128.l = _value.l;}
   explicit Value(float value_) : type(MV_FLOAT), printExtraHex(false)  { data.f = value_;  data.u128.h = 0;}
   explicit Value(double value_) : type(MV_DOUBLE), printExtraHex(false) { data.d = value_;  data.u128.h = 0;}
   ~Value();

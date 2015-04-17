@@ -33,24 +33,24 @@ bool is_denorm(hexl::half h)
   return false; ///\todo (Artem)
 }
 #ifdef _WIN32
-	bool is_denorm(float f)
-	{
-		switch(_fpclassf(f))
-		{
-		case _FPCLASS_ND:
-		case _FPCLASS_PD:
-			return true;
+  bool is_denorm(float f)
+  {
+    switch(_fpclassf(f))
+    {
+    case _FPCLASS_ND:
+    case _FPCLASS_PD:
+      return true;
     default:
       return false;
     }
-	}
+  }
 
   bool is_denorm(double df)
   {
     switch (_fpclass(df))
     {
     case _FPCLASS_ND:
-		case _FPCLASS_PD:
+    case _FPCLASS_PD:
       return true;
     default:
       return false;
@@ -438,7 +438,7 @@ size_t ValueTypePrintWidth(ValueType type)
   case MV_INT32: return ValueTypePrintWidth(MV_UINT32)+1;
   case MV_UINT32X2:
   case MV_UINT32: return std::strlen("4294967295");
-  case MV_UINT128: return ValueTypePrintWidth(MV_UINT64)*2+1;
+  case MV_UINT128: return ValueTypePrintWidth(MV_UINT64)*2 + 6;
   case MV_INT64: return ValueTypePrintWidth(MV_UINT64)+1;
   case MV_UINT64: return std::strlen("9223372036854775807");
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
@@ -558,7 +558,7 @@ void Value::Print(std::ostream& out) const
     out << U64();
     break;
    case MV_UINT128:
-     out << "hidword " << U128().U64H() << ", lodword " << U128().U64L() ;
+     out << "(" << U128().U64H() << ", " << U128().U64L() << ")" ;
     break;
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16:
@@ -639,6 +639,7 @@ bool operator<(const Value& v1, const Value& v2)
   case MV_UINT32: return v1.U32() < v2.U32();
   case MV_INT64: return v1.S64() < v2.S64();
   case MV_UINT64: return v1.U64() < v2.U64();
+  case MV_UINT128: return v1.U128() < v2.U128();
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16:
 #endif
@@ -681,7 +682,7 @@ void Value::WriteTo(void *dest) const
   case MV_UINT16X4: ((uint16_t *) dest)[0] = U16X4(0); ((uint16_t *) dest)[1] = U16X4(1); ((uint16_t *) dest)[2] = U16X4(2); ((uint16_t *) dest)[3] = U16X4(3); break;
   case MV_INT32X2: ((int32_t *) dest)[0] = S32X2(0); ((int32_t *) dest)[1] = S32X2(1); break;
   case MV_UINT32X2: ((uint32_t *) dest)[0] = U32X2(0); ((uint32_t *) dest)[1] = U32X2(1); break;
-  case MV_UINT128: ((uint64_t *) dest)[0] = data.u128.h; ((uint64_t *) dest)[1] = data.u128.l; break;
+  case MV_UINT128: ((uint64_t *) dest)[1] = data.u128.l; ((uint64_t *) dest)[0] = data.u128.h; break; // little endian
   case MV_FLOATX2: ((float *) dest)[0] = FX2(0); ((float *) dest)[1] = FX2(1); break;
   case MV_REF: *((uint32_t *) dest) = data.u32; break;
   case MV_POINTER: *((void **) dest) = data.p; break;
@@ -717,7 +718,7 @@ void Value::ReadFrom(const void *src, ValueType type)
   case MV_UINT16X4: data.u64 = *((uint64_t *) src); break;
   case MV_INT32X2: data.u64 = *((uint64_t *) src); break;
   case MV_UINT32X2: data.u64 = *((uint64_t *) src); break;
-  case MV_UINT128: data.u128.l = *((uint64_t *) src); data.u128.h = ((uint64_t *)src)[1]; break;
+  case MV_UINT128: data.u128.l = *((uint64_t *) src); data.u128.h = ((uint64_t *)src)[1]; break;  // little endian
   case MV_FLOATX2: data.u64 = *((uint64_t *) src); break;
   case MV_REF: case MV_IMAGEREF: data.u32 = *((uint32_t *) src); break;
   case MV_POINTER: data.p = *((void **) src); break;
@@ -759,9 +760,9 @@ void ReadFrom(void *src, ValueType type, size_t count, Values& values)
 
 uint32_t SizeOf(const Values& values) 
 {
-  size_t size = 0;
+  uint32_t size = 0;
   for (const auto value: values) {
-    size += value.Size();
+    size += static_cast<uint32_t>(value.Size());
   }
   return size;
 }
@@ -1046,6 +1047,7 @@ void Comparison::Reset(ValueType type)
     case MV_INT16: maxError = Value(MV_UINT16, U16(0)); break;
     case MV_INT32: maxError = Value(MV_UINT32, U32(0)); break;
     case MV_INT64: maxError = Value(MV_UINT64, U64(0)); break;
+    case MV_UINT128: maxError = Value(uint128_t(0, 0)); break;
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
     case MV_PLAIN_FLOAT16:
 #endif
@@ -1403,6 +1405,13 @@ bool Comparison::CompareValues(const Value& v1 /*expected*/, const Value& v2 /*a
     error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
     return error.U64() == 0;
   }
+  case MV_UINT128: {
+    error = Value(MV_UINT128, U128(uint128_t(
+      (std::max)(v1.U128().U64H(), v2.U128().U64H()) - (std::min)(v1.U128().U64H(), v2.U128().U64H()),
+      (std::max)(v1.U128().U64L(), v2.U128().U64L()) - (std::min)(v1.U128().U64L(), v2.U128().U64L())
+    )));
+    return (error.U128().U64H() == 0) && (error.U128().U64L() == 0);
+  }
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16:
 #endif
@@ -1749,6 +1758,43 @@ void MemorySetup::Deserialize(std::istream& in) {
 
 /// \todo copy-paste from HSAILTestGenEmulatorTypes
 namespace HSAIL_X { // experimental
+
+//==============================================================================
+//==============================================================================
+//==============================================================================
+// Implementation of U128 type
+
+bool uint128::operator > (const uint128& x) const {
+  if (U64H() < x.U64H()) {
+    return false;
+  } else if (U64H() == x.U64H()) {
+    return U64L() > x.U64L();
+  } else {
+    return true;
+  }
+}
+
+bool uint128::operator < (const uint128& x) const {
+  if (U64H() > x.U64H()) {
+    return false;
+  } else if (U64H() == x.U64H()) {
+    return U64L() < x.U64L();
+  } else {
+    return true;
+  }
+}
+
+bool uint128::operator >= (const uint128& x) const {
+  return !(*this < x);
+}
+
+bool uint128::operator <= (const uint128& x) const {
+  return !(*this > x);
+}
+
+bool uint128::operator == (const uint128& x) const {
+  return U64H() == x.U64H() && U64L() == x.U64L();
+}
 
 //==============================================================================
 //==============================================================================
