@@ -124,7 +124,7 @@ public:
 
   void ExpectedResults(Values* result) const
   {
-    uint16_t channels = ResultDim();
+    uint16_t channels =  IsImageDepth(imageGeometryProp) ? 1 : 4;
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
       for(uint16_t y = 0; y < geometry->GridSize(1); y++)
         for(uint16_t x = 0; x < geometry->GridSize(0); x++){
@@ -134,7 +134,7 @@ public:
           coords[1] = Value(MV_UINT32, U32(y));
           coords[2] = Value(MV_UINT32, U32(z));
           imgobj->LoadColor(coords, texel);
-          for (unsigned i = 0; i < channels; i++)
+          for (uint16_t i = 0; i < channels; i++)
             result->push_back(texel[i]);
         }
   }
@@ -181,7 +181,7 @@ public:
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable()));
 
-    auto regs_dest = be.AddTReg(ResultType(), ResultDim());
+    auto regs_dest = be.AddTReg(ResultType(), static_cast<unsigned>(ResultDim()));
     imgobj->EmitImageLd(regs_dest, imageaddr, GetCoords());
     return regs_dest;
   }
