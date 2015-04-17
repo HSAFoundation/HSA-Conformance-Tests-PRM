@@ -96,6 +96,9 @@ namespace scenario {
     bool SignalWait(const std::string& signalId, uint64_t signalExpectedValue = 1);
 
     bool QueueCreate(const std::string& queueId, uint32_t size = 0);
+
+    bool IsDetectSupported();
+    bool IsBreakSupported();
   };
 
   class ScenarioBuilder {

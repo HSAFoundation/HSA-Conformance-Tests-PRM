@@ -46,6 +46,7 @@ CoreConfig::CoreConfig(
     images(this),
     samplers(this)
 {
+  assert(PlatformEndianness() == ENDIANNESS_LITTLE);
 }
 
 void CoreConfig::Init(Context *context) {
@@ -53,9 +54,6 @@ void CoreConfig::Init(Context *context) {
   profile = runtimeContext->IsFullProfile() ? BRIG_PROFILE_FULL : BRIG_PROFILE_BASE;
   wavesize = runtimeContext->Wavesize();
   wavesPerGroup = runtimeContext->WavesPerGroup();
-  endianness = runtimeContext->IsLittleEndianness() ? ENDIANNESS_LITTLE : ENDIANNESS_BIG;
-  isBreakSupported = runtimeContext->IsBreakSupported();
-  isDetectSupported = runtimeContext->IsDetectSupported();
 }
 
 CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)

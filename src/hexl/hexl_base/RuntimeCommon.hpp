@@ -177,6 +177,9 @@ namespace hexl {
       virtual bool SignalWait(const std::string& signalId, uint64_t signalExpectedValue = 1) = 0;
 
       virtual bool QueueCreate(const std::string& queueId, uint32_t size = 0) = 0;
+
+      virtual bool IsDetectSupported() = 0;
+      virtual bool IsBreakSupported() = 0;
     };
 
     class RuntimeContext {
@@ -195,9 +198,7 @@ namespace hexl {
       virtual bool IsFullProfile() = 0;
       virtual uint32_t Wavesize()= 0;
       virtual uint32_t WavesPerGroup() = 0;
-      virtual bool IsLittleEndianness() = 0;
-      virtual bool IsBreakSupported() = 0;
-      virtual bool IsDetectSupported() = 0;
+      virtual bool IsLittleEndianness() { return true; };
     };
 
     class HostThreads {

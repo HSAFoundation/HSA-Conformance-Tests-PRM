@@ -702,6 +702,44 @@ class DispatchCreateCommand : public Command {
     commands->Add(new QueueCreateCommand(queueId, size));
     return true;
   }
+
+
+  class IsDetectSupportedCommand : public Command {
+  public:
+    IsDetectSupportedCommand() { }
+
+    virtual bool Execute(runtime::RuntimeState* rt) {
+      return rt->IsDetectSupported();
+    }
+
+    void Print(std::ostream& out) const {
+      out << "is_detect_supported";
+    }
+  };
+  
+  bool CommandsBuilder::IsDetectSupported() {
+    commands->Add(new IsDetectSupportedCommand());
+    return true;
+  }
+
+
+  class IsBreakSupportedCommand : public Command {
+  public:
+    IsBreakSupportedCommand() { }
+
+    virtual bool Execute(runtime::RuntimeState* rt) {
+      return rt->IsBreakSupported();
+    }
+
+    void Print(std::ostream& out) const {
+      out << "is_break_supported";
+    }
+  };
+
+  bool CommandsBuilder::IsBreakSupported() {
+    commands->Add(new IsBreakSupportedCommand());
+    return true;
+  }
 }
 
 using namespace scenario;

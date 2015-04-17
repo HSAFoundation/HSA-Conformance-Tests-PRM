@@ -26,25 +26,6 @@ using namespace hexl::emitter;
 
 namespace hsail_conformance {
 
-  EndiannessConfig PlatformEndianness(void) {
-    union {
-      uint32_t i;
-      uint8_t c[4];
-    } bin = {0x01020304};
-
-    if (bin.c[0] == 1) { 
-      return ENDIANNESS_BIG;
-    } else {
-      return ENDIANNESS_LITTLE;
-    }
-  }
-
-  void SwapEndian(void* ptr, size_t typeSize) {
-    auto bytePtr = reinterpret_cast<uint8_t *>(ptr);
-    std::reverse(bytePtr, bytePtr + typeSize);
-  }
-
-
 class ValueGenerator {
 private:
   static const unsigned MAX_TYPE_SIZE = 8;

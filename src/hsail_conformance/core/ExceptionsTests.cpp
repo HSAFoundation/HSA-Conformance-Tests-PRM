@@ -62,6 +62,11 @@ public:
   void KernelDirectives() override {
     be.EmitEnableExceptionDirective(false, exceptions);
   }
+
+  void SetupDispatch(const std::string & dispatchId) override {
+    te->TestScenario()->Commands()->IsDetectSupported();
+    Test::SetupDispatch(dispatchId);
+  }
 };
 
 class SetDetectTest : public Test {
@@ -96,6 +101,11 @@ public:
   void KernelDirectives() override {
     be.EmitEnableExceptionDirective(false, exceptions);
   }
+
+  void SetupDispatch(const std::string & dispatchId) override {
+    te->TestScenario()->Commands()->IsDetectSupported();
+    Test::SetupDispatch(dispatchId);
+  }
 };
 
 class GetDetectTest : public Test {
@@ -126,6 +136,11 @@ public:
   void KernelDirectives() override {
     be.EmitEnableExceptionDirective(false, ENABLED_EXCEPTIONS);
   }
+
+  void SetupDispatch(const std::string & dispatchId) override {
+    te->TestScenario()->Commands()->IsDetectSupported();
+    Test::SetupDispatch(dispatchId);
+  }
 };
 
 void ExceptionsTests::Iterate(TestSpecIterator& it)
@@ -134,11 +149,9 @@ void ExceptionsTests::Iterate(TestSpecIterator& it)
   std::string path;
   Arena* ap = cc->Ap();
 
-  if (cc->IsDetectSupported()) {
-    TestForEach<ClearDetectTest>(ap, it, "exception/cleardetect", cc->Directives().ValidExceptionNumbers());
-    TestForEach<SetDetectTest>(ap, it, "exception/setdetect", cc->Directives().ValidExceptionNumbers());
-    TestForEach<GetDetectTest>(ap, it, "exception/getdetect", Bools::Value(true));
-  }
+  TestForEach<ClearDetectTest>(ap, it, "exception/cleardetect", cc->Directives().ValidExceptionNumbers());
+  TestForEach<SetDetectTest>(ap, it, "exception/setdetect", cc->Directives().ValidExceptionNumbers());
+  TestForEach<GetDetectTest>(ap, it, "exception/getdetect", Bools::Value(true));
 }
 
 }

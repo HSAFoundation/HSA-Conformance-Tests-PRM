@@ -26,6 +26,12 @@
 namespace HSAIL_ASM { class BrigContainer; }
 
 namespace hexl {
+
+enum EndiannessConfig {
+  ENDIANNESS_LITTLE,
+  ENDIANNESS_BIG
+};
+
 BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig);
 BrigCodeOffset32_t GetBrigUniqueKernelOffset(brig_container_t brig);
 std::string GetBrigKernelName(brig_container_t brig, BrigCodeOffset32_t kernelOffset);
@@ -45,6 +51,9 @@ bool IsImageLegal(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder
 bool IsImageOptional(BrigImageGeometry geometry, BrigImageChannelOrder channelOrder, BrigImageChannelType channelType, BrigType accessPermission);
 bool IsSamplerLegal(BrigSamplerCoordNormalization coord, BrigSamplerFilter filter, BrigSamplerAddressing addressing);
 BrigType ImageAccessType(BrigImageChannelType channelType);
+
+EndiannessConfig PlatformEndianness(void);
+void SwapEndian(void* ptr, size_t typeSize);
 
 template <>
 struct Serializer<brig_container_t> {

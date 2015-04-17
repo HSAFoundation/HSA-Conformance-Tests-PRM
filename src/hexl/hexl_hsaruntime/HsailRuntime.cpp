@@ -881,6 +881,40 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       return true;
     }
 
+    virtual bool IsDetectSupported() override {
+      bool supported = false;
+      uint16_t exceptionMask;
+      hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
+        Runtime()->Agent(), 
+        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE, 
+        &exceptionMask);
+      if (status == HSA_STATUS_SUCCESS) { 
+        supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
+      }
+      if (!supported) {
+        context->Put("NA", NA);
+        return false;
+      }
+      return true;
+    }
+    
+    virtual bool IsBreakSupported() override {
+      bool supported = false;
+      uint16_t exceptionMask;
+      hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
+        Runtime()->Agent(), 
+        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE, 
+        &exceptionMask);
+      if (status == HSA_STATUS_SUCCESS) { 
+        supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
+      }
+      if (!supported) {
+        context->Put("NA", NA);
+        return false;
+      }
+      return true;
+    }
+
   };
 
 #define HSARUNTIMECORENAME (sizeof(void*) == 4) ? "hsa-runtime" : "hsa-runtime64"
@@ -970,15 +1004,6 @@ bool HsailRuntimeContext::Init() {
   wavesPerGroup = wgMaxSize / wavesize;
   status = Hsa()->hsa_system_get_info(HSA_SYSTEM_INFO_ENDIANNESS, &endianness);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_system_get_info failed", status); return false; }
-  uint16_t exceptionMask;
-  status = Hsa()->hsa_agent_get_exception_policies(agent, profile, &exceptionMask);
-  if (status != HSA_STATUS_SUCCESS) { // in case hsa_agent_get_exception_policies function is not supported
-    isBreakSupported = false;
-    isDetectSupported = false;
-  } else {
-    isBreakSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
-    isDetectSupported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
-  }
 
   context->Put("queueid", Value(MV_UINT32, Queue()->id));
   context->Put("queueptr", Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) Queue()));

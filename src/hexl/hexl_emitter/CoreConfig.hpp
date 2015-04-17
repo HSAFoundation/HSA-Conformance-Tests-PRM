@@ -24,6 +24,7 @@
 #include "Sequence.hpp"
 #include "EmitterCommon.hpp"
 #include "Image.hpp"
+#include "Utils.hpp"
 #include <sstream>
 #include <cassert>
 
@@ -32,11 +33,6 @@
 namespace hexl {
 
   namespace emitter {
-
-    enum EndiannessConfig {
-      ENDIANNESS_LITTLE,
-      ENDIANNESS_BIG
-    };
 
     class CoreConfig {
     private:

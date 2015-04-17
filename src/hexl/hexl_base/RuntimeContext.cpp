@@ -174,6 +174,9 @@ namespace hexl {
     bool SignalWait(const std::string& signalId, uint64_t signalExpectedValue = 1) { return true; }
 
     bool QueueCreate(const std::string& queueId, uint32_t size = 0) { return true; }
+
+    bool IsDetectSupported() { return true; }
+    bool IsBreakSupported() { return true; }
   };
 
     class NoneRuntime : public runtime::RuntimeContext {
@@ -188,8 +191,6 @@ namespace hexl {
       uint32_t Wavesize() override { return 64; }
       uint32_t WavesPerGroup() override { return 4; }
       bool IsLittleEndianness() override { return true; }
-      bool IsBreakSupported() override { return false; }
-      bool IsDetectSupported() override { return false; }
     };
 
     runtime::RuntimeContext* CreateNoneRuntime(Context* context)

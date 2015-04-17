@@ -158,8 +158,6 @@ private:
   uint32_t wavesize;
   uint32_t wavesPerGroup;
   hsa_endianness_t endianness;
-  bool isBreakSupported;
-  bool isDetectSupported;
 
 public:
   HsailRuntimeContext(Context* context);
@@ -209,8 +207,6 @@ public:
   uint32_t Wavesize() override { return wavesize; }
   uint32_t WavesPerGroup() override { return wavesPerGroup; }
   bool IsLittleEndianness() override { return endianness == HSA_ENDIANNESS_LITTLE; }
-  bool IsBreakSupported() override { return isBreakSupported; }
-  bool IsDetectSupported() override { return isDetectSupported; }
 };
 
 HsailRuntimeContext* HsailRuntimeFromContext(runtime::RuntimeContext* runtime);
