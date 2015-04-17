@@ -62,6 +62,8 @@ public:
   bool IsFailed() const { return status == FAILED; }
   void SetError() { status = ERROR; }
   bool IsError() const { return status == ERROR; }
+  void SetNA() { status = NA; }
+  bool IsNA() const { return status == NA; }
   bool IsPassed() const { return status == PASSED; }
   void IncStats(AllStats& allStats) const;
   std::string Output() const { return output; }
@@ -98,6 +100,7 @@ protected:
 
   void SetFailed() { result.SetFailed(); }
   void SetError() { result.SetError(); }
+  void SetNA() { result.SetNA(); }
   void Fail(const std::string& msg);
   virtual void SerializeData(std::ostream& out) const { assert(false); }
   std::string GetOutputName(const std::string& what);

@@ -342,8 +342,8 @@ namespace hexl {
       class ImageConfig : public ConfigBase {
       private:
         hexl::VectorSequence<ImageGeometry*>* defaultImageGeometry;
-        hexl::Sequence<BrigImageGeometry>* imageGeometryProps, *imageRdGeometryProp, *imageDepthGeometryProp;
-        hexl::Sequence<BrigImageChannelOrder>* imageChannelOrders, *imageSupportedChannelOrders;
+        hexl::Sequence<BrigImageGeometry>* imageGeometryProps;
+        hexl::Sequence<BrigImageChannelOrder>* imageChannelOrders;
         hexl::Sequence<BrigImageChannelType>* imageChannelTypes;
         hexl::Sequence<BrigImageQuery>* imageQueryTypes;
         hexl::Sequence<BrigType>* imageAccessTypes;
@@ -355,10 +355,7 @@ namespace hexl {
         ImageConfig(CoreConfig* cc);
         hexl::VectorSequence<hexl::ImageGeometry*>* DefaultImageGeometrySet() { return defaultImageGeometry; }
         hexl::Sequence<BrigImageGeometry>* ImageGeometryProps() { return imageGeometryProps; }
-        hexl::Sequence<BrigImageGeometry>* ImageRdGeometryProp() { return imageRdGeometryProp; }
-        hexl::Sequence<BrigImageGeometry>* ImageDepthGeometryProp() { return imageDepthGeometryProp; }
         hexl::Sequence<BrigImageChannelOrder>* ImageChannelOrders() { return imageChannelOrders; }
-        hexl::Sequence<BrigImageChannelOrder>* ImageSupportedChannelOrders() { return imageSupportedChannelOrders; }
         hexl::Sequence<BrigImageChannelType>* ImageChannelTypes() { return imageChannelTypes; };
         hexl::Sequence<BrigImageQuery>* ImageQueryTypes() { return imageQueryTypes; };
         hexl::Sequence<BrigType>* ImageAccessTypes() { return imageAccessTypes; };

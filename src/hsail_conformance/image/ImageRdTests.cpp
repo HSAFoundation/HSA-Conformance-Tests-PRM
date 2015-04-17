@@ -72,7 +72,7 @@ public:
     imageSpec.Height(imageGeometry.ImageHeight());
     imageSpec.Depth(imageGeometry.ImageDepth());
     imageSpec.ArraySize(imageGeometry.ImageArray());
-    imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec);
+    imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec, IsImageOptional(imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG));
     imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, 0x45245833)));
  
     ESamplerSpec samplerSpec(BRIG_SEGMENT_KERNARG);
@@ -192,6 +192,10 @@ public:
               if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR && k != arrayCoord)
                 fcoords[k] = std::max(fcoords[k], 1.0);
 
+              //currently border color for depth images is implementation defined (PRM table 7-2 Channel Order Properties)
+              if(samplerParams.Addressing() == BRIG_ADDRESSING_CLAMP_TO_BORDER && samplerParams.Filter() == BRIG_FILTER_LINEAR && k != arrayCoord && IsImageDepth(imageGeometryProp))
+                fcoords[k] = std::max(fcoords[k], 1.0);
+
               //normalize coordinates
               if(samplerParams.Coord() == BRIG_COORD_NORMALIZED && k != arrayCoord)
                 fcoords[k] /= imageGeometry.ImageSize(k);
@@ -223,10 +227,13 @@ public:
     //only f32 coordinates is supported for normalized sampler
     if (samplerParams.Coord() == BRIG_COORD_NORMALIZED && coordType != BRIG_TYPE_F32)
       return false;
-    
+
+    if (imageGeometryProp == BRIG_GEOMETRY_1DB)
+      return false;
+
     //With undefinied addressing we should not touch any out of range texels.
     //As linear filtering requires 2, 2x2 or 2x2x2 texels we should avoid slim images.
-    if (samplerParams.Filter() == BRIG_FILTER_LINEAR && samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED)
+    if (samplerParams.Filter() == BRIG_FILTER_LINEAR && (samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED || (samplerParams.Addressing() == BRIG_ADDRESSING_CLAMP_TO_BORDER && IsImageDepth(imageGeometryProp))))
     {
       switch (imageGeometryProp)
       {
@@ -309,9 +316,14 @@ public:
 
       case BRIG_TYPE_F32:{
         //avoiding accessing out of range texels
-        if(samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR)
+        if (((samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED && samplerParams.Filter() == BRIG_FILTER_LINEAR) ) ||
+          ((samplerParams.Addressing() == BRIG_ADDRESSING_CLAMP_TO_BORDER && samplerParams.Filter() == BRIG_FILTER_LINEAR && IsImageDepth(imageGeometryProp))))
           if(k != arrayCoord) be.EmitArith(BRIG_OPCODE_MAX, gid, gid, be.Immed(BRIG_TYPE_U32, 1));
+                
+
         auto fgid = be.AddTReg(coordType);
+
+        
         
         be.EmitCvt(fgid, gid, BRIG_ROUND_FLOAT_DEFAULT);
 
@@ -358,7 +370,7 @@ void ImageRdTestSet::Iterate(hexl::TestSpecIterator& it)
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<ImageRdTest>(ap, it, "image_rd/basic", CodeLocations(), cc->Grids().ImagesSet(),
-     cc->Images().ImageRdGeometryProp(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(),
+     cc->Images().ImageGeometryProps(), cc->Images().ImageChannelOrders(), cc->Images().ImageChannelTypes(),
      cc->Samplers().All(), cc->Images().ImageRdCoordinateTypes(), cc->Images().ImageArraySets());
 }
 

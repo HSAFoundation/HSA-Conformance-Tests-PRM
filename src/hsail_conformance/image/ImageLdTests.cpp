@@ -63,7 +63,7 @@ public:
     imageSpec.Height(imageGeometry.ImageHeight());
     imageSpec.Depth(imageGeometry.ImageDepth());
     imageSpec.ArraySize(imageGeometry.ImageArray());
-    imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec);
+    imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec, IsImageOptional(imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG));
     imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
    
     imgobj->InitImageCalculator(NULL);
@@ -191,7 +191,7 @@ void ImageLdTestSet::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
-  TestForEach<ImageLdTest>(ap, it, "image_ld/basic", CodeLocations(), cc->Grids().ImagesSet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().ImageArraySets());
+  TestForEach<ImageLdTest>(ap, it, "image_ld/basic", CodeLocations(), cc->Grids().ImagesSet(), cc->Images().ImageGeometryProps(), cc->Images().ImageChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().ImageArraySets());
 }
 
 } // hsail_conformance

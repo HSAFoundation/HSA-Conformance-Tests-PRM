@@ -156,7 +156,7 @@ namespace hexl {
     bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId = "") { return true; }
     bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") { return true; }
 
-    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId) { return true; }
+    bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, bool optionalFormat) { return true; }
     bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId) { return true; }
     bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region) { return true; }
     bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") { return true; }

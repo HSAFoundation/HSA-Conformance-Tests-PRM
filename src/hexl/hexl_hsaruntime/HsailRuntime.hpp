@@ -133,6 +133,9 @@ struct HsaApiTable {
                          size_t src_row_pitch, size_t src_slice_pitch,
                          hsa_ext_image_t dst_image,
                          const hsa_ext_image_region_t *image_region);
+  hsa_status_t (*hsa_ext_image_get_capability)(hsa_agent_t agent, hsa_ext_image_geometry_t geometry, 
+                         const hsa_ext_image_format_t* format,
+                         uint32_t* capability_mask);
 };
 
 class HsaApi : public DllApi<HsaApiTable> {
