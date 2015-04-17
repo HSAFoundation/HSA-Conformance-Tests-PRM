@@ -197,21 +197,6 @@ static const BrigImageChannelOrder allChannelOrder[] = {
     BRIG_CHANNEL_ORDER_DEPTH_STENCIL,
 };
 
-static const BrigImageChannelOrder supportedChannelOrder[] = {
-    BRIG_CHANNEL_ORDER_A,
-    BRIG_CHANNEL_ORDER_R,
-    BRIG_CHANNEL_ORDER_RG,
-    BRIG_CHANNEL_ORDER_RA,
-    BRIG_CHANNEL_ORDER_RGB,
-    BRIG_CHANNEL_ORDER_RGBA,
-    BRIG_CHANNEL_ORDER_BGRA,
-    BRIG_CHANNEL_ORDER_ARGB,
-    //BRIG_CHANNEL_ORDER_ABGR,
-    BRIG_CHANNEL_ORDER_SRGBA,
-    BRIG_CHANNEL_ORDER_INTENSITY,
-    BRIG_CHANNEL_ORDER_LUMINANCE,
-};
-
 static const  BrigImageChannelType allChannelType[] = {
     BRIG_CHANNEL_TYPE_SNORM_INT8,
     BRIG_CHANNEL_TYPE_SNORM_INT16,
@@ -238,24 +223,13 @@ static const BrigImageGeometry allGeometry[] = {
     BRIG_GEOMETRY_1DA,
     BRIG_GEOMETRY_2DA,
     BRIG_GEOMETRY_1DB,
-};
-
-static const BrigImageGeometry rdGeometry[] = {
-    BRIG_GEOMETRY_1D,
-    BRIG_GEOMETRY_2D,
-    BRIG_GEOMETRY_3D,
-    BRIG_GEOMETRY_1DA,
-    BRIG_GEOMETRY_2DA,
+    BRIG_GEOMETRY_2DDEPTH,
+    BRIG_GEOMETRY_2DADEPTH,
 };
 
 static const BrigType rdCoordTypeArray[] = {
     BRIG_TYPE_S32,
     BRIG_TYPE_F32,
-};
-
-static const BrigImageGeometry DepthGeometry[] = {
-    BRIG_GEOMETRY_2DDEPTH,
-    BRIG_GEOMETRY_2DADEPTH,
 };
 
 static const BrigType allAccess[] = {
@@ -281,10 +255,7 @@ CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
     defaultImageGeometry(NEWA hexl::VectorSequence<hexl::ImageGeometry*>(ap)),
     imageGeometryProps(NEWA ArraySequence<BrigImageGeometry>(allGeometry, NELEM(allGeometry))),
-    imageRdGeometryProp(NEWA ArraySequence<BrigImageGeometry>(rdGeometry, NELEM(rdGeometry))),
-    imageDepthGeometryProp(NEWA ArraySequence<BrigImageGeometry>(DepthGeometry, NELEM(DepthGeometry))),
     imageChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(allChannelOrder, NELEM(allChannelOrder))),
-    imageSupportedChannelOrders(NEWA ArraySequence<BrigImageChannelOrder>(supportedChannelOrder, NELEM(supportedChannelOrder))),
     imageChannelTypes(NEWA ArraySequence<BrigImageChannelType>(allChannelType, NELEM(allChannelType))),
     imageQueryTypes(NEWA ArraySequence<BrigImageQuery>(allImgQueries, NELEM(allImgQueries))),
     imageAccessTypes(NEWA ArraySequence<BrigType>(allAccess, NELEM(allAccess))),

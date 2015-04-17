@@ -84,6 +84,7 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_ext_sampler_destroy);
   GET_FUNCTION(hsa_ext_image_data_get_info);
   GET_FUNCTION(hsa_ext_image_import);
+  GET_FUNCTION(hsa_ext_image_get_capability);
   return api;
 }
 
@@ -480,9 +481,34 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       return true;
     }
 
-    virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId) override
+    virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, bool optionalFormat) override
     {
+      hsa_status_t status;
+      
       const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
+
+      hsa_access_permission_t access_permission = ImageType2HsaAccessPermission(ip->imageType);
+
+      if (optionalFormat) {
+        hsa_ext_image_format_t format;
+        format.channel_order = (hsa_ext_image_channel_order_t) ip->channelOrder;
+        format.channel_type = (hsa_ext_image_channel_type_t) ip->channelType;
+        uint32_t capability_mask;
+        status = Runtime()->Hsa()->hsa_ext_image_get_capability(Runtime()->Agent(), (hsa_ext_image_geometry_t) ip->geometry, &format, &capability_mask);
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_get_capability failed", status); return false; }
+        bool supported;
+        switch (access_permission) {
+        case HSA_ACCESS_PERMISSION_RO: supported = capability_mask & HSA_EXT_IMAGE_CAPABILITY_READ_ONLY; break;
+        case HSA_ACCESS_PERMISSION_WO: supported = capability_mask & HSA_EXT_IMAGE_CAPABILITY_WRITE_ONLY; break;
+        case HSA_ACCESS_PERMISSION_RW: supported = capability_mask & HSA_EXT_IMAGE_CAPABILITY_READ_WRITE; break;
+        default: assert(false); supported = false; break;
+        }
+        if (!supported) {
+          context->Put("NA", NA);
+          return false;
+        }
+      } 
+
       hsa_ext_image_descriptor_t image_descriptor;
       image_descriptor.geometry = (hsa_ext_image_geometry_t) ip->geometry;
       image_descriptor.format.channel_order = (hsa_ext_image_channel_order_t) ip->channelOrder;
@@ -491,11 +517,10 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       image_descriptor.height = ip->height;
       image_descriptor.depth = ip->depth;
       image_descriptor.array_size = ip->arraySize;
-      hsa_access_permission_t access_permission = ImageType2HsaAccessPermission(ip->imageType);
 
       hsa_ext_image_data_info_t image_info = {0};
-      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_data_get_info(Runtime()->Agent(), &image_descriptor, access_permission, &image_info);
-      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); return 0; }
+      status = Runtime()->Hsa()->hsa_ext_image_data_get_info(Runtime()->Agent(), &image_descriptor, access_permission, &image_info);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); return false; }
 
       hsa_ext_image_t image = {0};
       void *imageData = NULL;
@@ -515,7 +540,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 */
 
       status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, imageData, access_permission, &image);
-      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData); return 0; }
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData); return false; }
 
       Put(imageId, new HsailImage(this, image, imageData));
       context->Put(imageId + ".handle", Value(MV_UINT64, image.handle));
