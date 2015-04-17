@@ -173,7 +173,7 @@ public:
     imageSpec.Height(std::max<uint32_t>(LimitHeight(), 1));
     imageSpec.Depth(std::max<uint32_t>(LimitDepth(), 1));
     imageSpec.ArraySize(std::max<uint32_t>(LimitArraySize(), 1));
-    image = kernel->NewImage("image", HOST_INPUT_IMAGE, &imageSpec);
+    image = kernel->NewImage("image", HOST_INPUT_IMAGE, &imageSpec, IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_ROIMG));
   }
 
   TypedReg Result() override {
@@ -302,7 +302,7 @@ protected:
     imageSpec.ArraySize(1);
     Image image;
     for (uint32_t i = 0; i < LIMIT; ++i) {
-      image = kernel->NewImage("image" + std::to_string(i), HOST_IMAGE, &imageSpec);
+      image = kernel->NewImage("image" + std::to_string(i), HOST_IMAGE, &imageSpec, IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_ROIMG));
       image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
@@ -374,7 +374,7 @@ protected:
     rwImageSpec.ArraySize(1);
     Image image;
     for (uint32_t i = 0; i < numberRW; ++i) {
-      image = kernel->NewImage("rw_image" + std::to_string(i), HOST_IMAGE, &rwImageSpec);
+      image = kernel->NewImage("rw_image" + std::to_string(i), HOST_IMAGE, &rwImageSpec, IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_RWIMG));
       image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
@@ -389,7 +389,7 @@ protected:
     woImageSpec.Depth(1);
     woImageSpec.ArraySize(1);
     for (uint32_t i = 0; i < Limit() - numberRW; ++i) {
-      image = kernel->NewImage("wo_image" + std::to_string(i), HOST_IMAGE, &woImageSpec);
+      image = kernel->NewImage("wo_image" + std::to_string(i), HOST_IMAGE, &woImageSpec, IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_WOIMG));
       image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
@@ -508,7 +508,7 @@ public:
     imageSpec.Height(1);
     imageSpec.Depth(1);
     imageSpec.ArraySize(1);
-    image = kernel->NewImage("image", HOST_INPUT_IMAGE, &imageSpec);
+    image = kernel->NewImage("image", HOST_INPUT_IMAGE, &imageSpec, IsImageOptional(BRIG_GEOMETRY_1D, BRIG_CHANNEL_ORDER_R, BRIG_CHANNEL_TYPE_FLOAT, BRIG_TYPE_ROIMG));
     image->SetInitialData(image->GenMemValue(Value(static_cast<float>(INITIAL_VALUE))));
 
     samplers.reserve(LIMIT);
@@ -592,8 +592,8 @@ void ImageLimitsTestSet::Iterate(hexl::TestSpecIterator& it)
   auto channelType = new(ap) OneValueSequence<BrigImageChannelType>(BRIG_CHANNEL_TYPE_UNSIGNED_INT8);
   TestForEach<ImageSizeLimitTest>(ap, it, "limits/size", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), channelOrder, channelType);
 
-  TestForEach<ROImageHandlesNumber>(ap, it, "limits/ro_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes());
-  TestForEach<RWImageHandlesNumber>(ap, it, "limits/rw_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().NumberOfRwImageHandles());
+  TestForEach<ROImageHandlesNumber>(ap, it, "limits/ro_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageChannelOrders(), cc->Images().ImageChannelTypes());
+  TestForEach<RWImageHandlesNumber>(ap, it, "limits/rw_number", cc->Grids().TrivialGeometrySet(), cc->Images().ImageGeometryProps(), cc->Images().ImageChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().NumberOfRwImageHandles());
   
   TestForEach<SamplerHandlesNumber>(ap, it, "limits/sampler_number", cc->Grids().TrivialGeometrySet(), cc->Samplers().All());
 }

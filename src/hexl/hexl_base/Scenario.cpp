@@ -412,13 +412,14 @@ namespace scenario {
   private:
     std::string imageId;
     std::string imageParamsId;
+    bool optionalFormat;
 
   public:
-    ImageCreateCommand(const std::string& imageId_, const std::string& imageParamsId_)
-      : imageId(imageId_), imageParamsId(imageParamsId_) { }
+    ImageCreateCommand(const std::string& imageId_, const std::string& imageParamsId_, bool optionalFormat_)
+      : imageId(imageId_), imageParamsId(imageParamsId_), optionalFormat(optionalFormat_) { }
 
     virtual bool Execute(runtime::RuntimeState* rt) {
-      return rt->ImageCreate(imageId, imageParamsId);
+      return rt->ImageCreate(imageId, imageParamsId, optionalFormat);
     }
 
     void Print(std::ostream& out) const {
@@ -426,9 +427,9 @@ namespace scenario {
     }
   };
 
-  bool CommandsBuilder::ImageCreate(const std::string& imageId, const std::string& imageParamsId)
+  bool CommandsBuilder::ImageCreate(const std::string& imageId, const std::string& imageParamsId, bool optionalFormat)
   {
-    commands->Add(new ImageCreateCommand(imageId, imageParamsId));
+    commands->Add(new ImageCreateCommand(imageId, imageParamsId, optionalFormat));
     return true;
   }
 
@@ -717,7 +718,13 @@ void ScenarioTest::Run()
   Scenario *scenario = context->Get<Scenario>("scenario");
   RuntimeContext* runtime = context->Runtime();
   std::unique_ptr<RuntimeState> rt(runtime->NewState(context.get()));
-  if (!scenario->Execute(rt.get())) { SetFailed(); }
+  if (!scenario->Execute(rt.get())) {
+    if (!context->Has("NA")) {
+      SetFailed();
+    } else {
+      SetNA();
+    }
+  }
 }
 
 }

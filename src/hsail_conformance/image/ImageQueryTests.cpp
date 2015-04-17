@@ -133,8 +133,8 @@ public:
    imageSpec.Height(imageGeometry.ImageHeight());
    imageSpec.Depth(imageGeometry.ImageDepth());
    imageSpec.ArraySize(imageGeometry.ImageArray());
-   imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec);
-   imgobj->SetInitialData(Value(MV_UINT8, 0xFF));
+   imgobj = kernel->NewImage("%roimage", HOST_INPUT_IMAGE, &imageSpec, IsImageOptional(imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_ROIMG));
+   imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT8, 0xFF)));
   }
 
   void ModuleDirectives() override {
@@ -186,7 +186,7 @@ void ImageQueryTestSet::Iterate(hexl::TestSpecIterator& it)
   Arena* ap = cc->Ap();
 
   TestForEach<ImageQueryTest>(ap, it, "image_query/basic", CodeLocations(), cc->Grids().ImagesSet(),
-    cc->Images().ImageGeometryProps(), cc->Images().ImageSupportedChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes(), cc->Images().ImageArraySets());
+    cc->Images().ImageGeometryProps(), cc->Images().ImageChannelOrders(), cc->Images().ImageChannelTypes(), cc->Images().ImageQueryTypes(), cc->Images().ImageArraySets());
  
   TestForEach<ImageQuerySamplerTest>(ap, it, "image_query_sampler/basic", CodeLocations(), cc->Grids().ImagesSet(), cc->Samplers().All(), cc->Samplers().SamplerQueryTypes());
 }

@@ -412,7 +412,7 @@ public:
   Signal NewSignal(const std::string& id, uint64_t initialValue);
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
-  Image NewImage(const std::string& id, ImageType type, ImageSpec spec);
+  Image NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats = false);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
   Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };
@@ -657,6 +657,7 @@ private:
   std::unique_ptr<Value> initialData;
   EImageCalc calculator;
   uint32_t writeCount;
+  bool optionalFormats;
 
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitInitializer();
@@ -665,7 +666,7 @@ private:
   Location RealLocation() const;
 
 public:
-  EImage(TestEmitter* te_, const std::string& id_, ImageType imageType_, const EImageSpec* spec);
+  EImage(TestEmitter* te_, const std::string& id_, ImageType imageType_, const EImageSpec* spec, bool optionalFormats_);
   ~EImage() {}
 
   const char *Id() const { return id; }
@@ -930,7 +931,7 @@ public:
   Signal NewSignal(const std::string& id, uint64_t initialValue);
   Kernel NewKernel(const std::string& id);
   Function NewFunction(const std::string& id);
-  Image NewImage(const std::string& id, ImageType type, ImageSpec spec);
+  Image NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
   Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };

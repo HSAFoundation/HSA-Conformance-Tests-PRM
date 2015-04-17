@@ -285,9 +285,9 @@ Function EmittableContainer::NewFunction(const std::string& id)
   return function;
 }
 
-Image EmittableContainer::NewImage(const std::string& id, ImageType type, ImageSpec spec)
+Image EmittableContainer::NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats)
 {
-  Image image = te->NewImage(id, type, spec);
+  Image image = te->NewImage(id, type, spec, optionalFormats);
   Add(image);
   return image;
 }
@@ -1049,8 +1049,8 @@ bool EImageSpec::IsValid() const
   return EVariableSpec::IsValid() && IsValidSegment() && IsValidType();
 }
 
-EImage::EImage(TestEmitter* te_, const std::string& id_, ImageType imageType_, const EImageSpec* spec)
-  : EImageSpec(*spec), id(id_, te_->Ap()), imageType(imageType_), initialData(nullptr), writeCount(0)
+EImage::EImage(TestEmitter* te_, const std::string& id_, ImageType imageType_, const EImageSpec* spec, bool optionalFormats_)
+  : EImageSpec(*spec), id(id_, te_->Ap()), imageType(imageType_), initialData(nullptr), writeCount(0), optionalFormats(optionalFormats_)
 {
   te = te_;
 }
@@ -1335,7 +1335,7 @@ void EImage::ScenarioInit()
   switch (imageType) {
   case HOST_INPUT_IMAGE:
   case HOST_IMAGE:
-    te->TestScenario()->Commands()->ImageCreate(Id(), IdParams());
+    te->TestScenario()->Commands()->ImageCreate(Id(), IdParams(), optionalFormats);
     if (initialData.get()) {
       te->InitialContext()->Put(IdData(), *initialData);
       //te->InitialContext()->Move(IdData(), initialData.release());
@@ -1343,7 +1343,7 @@ void EImage::ScenarioInit()
     }
     break;
   case HOST_OUTPUT_IMAGE:
-    te->TestScenario()->Commands()->ImageCreate(Id(), IdParams());
+    te->TestScenario()->Commands()->ImageCreate(Id(), IdParams(), optionalFormats);
     break;
   default:
     break;
@@ -3534,9 +3534,9 @@ Function TestEmitter::NewFunction(const std::string& id)
   return new(Ap()) EFunction(this, id);
 }
 
-Image TestEmitter::NewImage(const std::string& id, ImageType type, ImageSpec spec)
+Image TestEmitter::NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats)
 {
-  return new(Ap()) EImage(this, id, type, spec);
+  return new(Ap()) EImage(this, id, type, spec, optionalFormats);
 }
 
 Sampler TestEmitter::NewSampler(const std::string& id, SamplerSpec spec) 
