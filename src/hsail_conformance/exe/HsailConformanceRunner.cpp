@@ -22,6 +22,7 @@
 #include "HexlResource.hpp"
 
 #include "PrmCoreTests.hpp"
+#include "SysArchMandatoryTests.hpp"
 #include "ImagesTests.hpp"
 #include "HexlLib.hpp"
 #ifdef ENABLE_HEXL_AGENT
@@ -45,20 +46,37 @@ PrmTests::PrmTests()
     Add(NewPrmImagesTests());
 }
 
+DECLARE_TESTSET_UNION(SysArchTests);
+
+SysArchTests::SysArchTests()
+  : TestSetUnion("sysarch")
+{
+    Add(NewSysArchMandatoryTests());
+}
+
+DECLARE_TESTSET_UNION(HSATests);
+
+HSATests::HSATests()
+  : TestSetUnion("")
+{
+    Add(new PrmTests());
+    Add(new SysArchTests());
+}
+
 class HCTestFactory : public DefaultTestFactory {
 private:
   Context* context;
-  hexl::TestSetUnion* prmTests;
+  hexl::TestSetUnion* hsaTests;
 
 public:
   HCTestFactory(Context* context_)
-    : context(context_), prmTests(new PrmTests())
+    : context(context_), hsaTests(new HSATests())
   {
   }
 
   ~HCTestFactory()
   {
-    delete prmTests;
+    delete hsaTests;
   }
 
   virtual Test* CreateTest(const std::string& type, const std::string& name, const Options& options = Options())
@@ -70,11 +88,11 @@ public:
   virtual TestSet* CreateTestSet(const std::string& type)
   {
     TestSet* ts;
-      ts = prmTests;
+      ts = hsaTests;
       ts->InitContext(context);
       if (type != "all") {
         TestNameFilter* filter = new TestNameFilter(type);
-        TestSet* fts = prmTests->Filter(filter);
+        TestSet* fts = hsaTests->Filter(filter);
         if (fts != ts) {
           fts->InitContext(context);
           ts = fts;

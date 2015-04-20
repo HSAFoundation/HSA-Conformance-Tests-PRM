@@ -125,7 +125,8 @@ public:
 
   void operator()(const std::string& path, TestSpec* test)
   {
-    it(base + "/" + path, test);
+//    it(base + "/" + path, test);
+    it((base.empty() ? "" : base + "/") + path, test);
   }
  
 private:

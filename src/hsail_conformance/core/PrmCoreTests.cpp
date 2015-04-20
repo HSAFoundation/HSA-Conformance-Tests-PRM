@@ -20,7 +20,6 @@
 #include "CrossLaneTests.hpp"
 #include "BarrierTests.hpp"
 #include "AtomicTests.hpp"
-#include "MModelTests.hpp"
 #include "AddressTests.hpp"
 #include "FunctionsTests.hpp"
 #include "UserModeQueueTests.hpp"
@@ -156,7 +155,6 @@ MemoryOperationsTests::MemoryOperationsTests()
   Add(new SignalTests());
   Add(new MemoryFenceTests());
   Add(new AtomicTests());
-  Add(new MModelTests());
 }
 
 DECLARE_TESTSET_UNION(ParallelOperationsTests);
