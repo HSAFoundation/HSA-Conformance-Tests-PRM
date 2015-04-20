@@ -35,7 +35,6 @@ private:
   BrigImageGeometry imageGeometryProp;
   BrigImageChannelOrder imageChannelOrder;
   BrigImageChannelType imageChannelType;
-  Value color[4];
   BrigType coordType;
 
 public:
@@ -67,18 +66,51 @@ public:
     imageSpec.ArraySize(imageGeometry.ImageArray());
     imgobj = kernel->NewImage("%rwimage", HOST_INPUT_IMAGE, &imageSpec, IsImageOptional(imageGeometryProp, imageChannelOrder, imageChannelType, BRIG_TYPE_RWIMG));
     imgobj->SetInitialData(imgobj->GenMemValue(Value(MV_UINT32, InitialValue())));
-
+   
     imgobj->InitImageCalculator(NULL);
 
-    Value coords[3];
-    coords[0] = Value(MV_UINT32, 0);
-    coords[1] = Value(MV_UINT32, 0);
-    coords[2] = Value(MV_UINT32, 0);
-    Value channels[4];
-    for (unsigned i = 0; i < 4; i++) { channels[i] = Value(MV_UINT32, StorePerRegValue()); }
-    Value Val_store = imgobj->StoreColor(NULL, channels);
-    imgobj->SetValueForCalculator(imgobj->GenMemValue(Val_store));
-    imgobj->LoadColor(coords, color);
+    switch (imageChannelType)
+    {
+    case BRIG_CHANNEL_TYPE_SNORM_INT8:
+    case BRIG_CHANNEL_TYPE_SNORM_INT16:
+      output->SetComparisonMethod("ulps=2,minf=-1.0,maxf=1.0"); //1.5ulp [-1.0; 1.0]
+      break;
+    case BRIG_CHANNEL_TYPE_UNORM_INT8:
+    case BRIG_CHANNEL_TYPE_UNORM_INT16:
+    case BRIG_CHANNEL_TYPE_UNORM_INT24:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_555:
+    case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
+    case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
+      switch (imageChannelOrder)
+      {
+      case BRIG_CHANNEL_ORDER_SRGB:
+      case BRIG_CHANNEL_ORDER_SRGBX:
+      case BRIG_CHANNEL_ORDER_SRGBA:
+      case BRIG_CHANNEL_ORDER_SBGRA:
+        output->SetComparisonMethod("ulps=3,minf=0.0,maxf=1.0"); // s-* channel orders are doing additional math (PRM 7.1.4.1.2)
+        break;
+      default:
+        output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]
+        break;
+      }
+      break;
+    case BRIG_CHANNEL_TYPE_SIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_SIGNED_INT32:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT8:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT16:
+    case BRIG_CHANNEL_TYPE_UNSIGNED_INT32:
+      //integer types are compared for equality
+      break;
+    case BRIG_CHANNEL_TYPE_HALF_FLOAT:
+      output->SetComparisonMethod("ulps=0"); //f16 denorms should not be flushed (as it will produce normalized f32)
+      break;
+    case BRIG_CHANNEL_TYPE_FLOAT:
+      output->SetComparisonMethod("ulps=0,flushDenorms"); //flushDenorms
+      break;
+    default:
+      break;
+    }
   }
 
   void ModuleDirectives() override {
@@ -89,14 +121,27 @@ public:
     return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
 
-  BrigType ResultType() const { return BRIG_TYPE_U32; }
+  BrigType ResultType() const { return ImageAccessType(imageChannelType); }
 
-  void ExpectedResults(Values* result) const {
-    for (unsigned i = 0; i < 4; i ++)
-    {
-      Value res = Value(MV_UINT32, color[i].U32());
-      result->push_back(res);
-    }
+  void ExpectedResults(Values* result) const
+  {
+    uint16_t channels = IsImageDepth(imageGeometryProp) ? 1 : 4;;
+    for(uint16_t z = 0; z < geometry->GridSize(2); z++)
+      for(uint16_t y = 0; y < geometry->GridSize(1); y++)
+        for(uint16_t x = 0; x < geometry->GridSize(0); x++){
+          Value coords[3];
+          Value texel[4];
+          coords[0] = Value(MV_UINT32, U32(x));
+          coords[1] = Value(MV_UINT32, U32(y));
+          coords[2] = Value(MV_UINT32, U32(z));
+          for (unsigned i = 0; i < 4; i++) 
+            texel[i] = Value(MV_UINT32, StorePerRegValue());
+          Value Val_store = imgobj->StoreColor(coords, texel);
+          imgobj->SetValueForCalculator(imgobj->GenMemValue(Val_store));
+          imgobj->LoadColor(coords, texel);
+          for (uint16_t i = 0; i < channels; i++)
+            result->push_back(texel[i]);
+        }
   }
   
   uint64_t ResultDim() const override {
@@ -142,14 +187,15 @@ public:
     auto imageaddr = be.AddTReg(imgobj->Variable().type());
     be.EmitLoad(imgobj->Segment(), imageaddr->Type(), imageaddr->Reg(), be.Address(imgobj->Variable())); 
 
-    auto regs_dest = be.AddTReg(BRIG_TYPE_U32, ResultDim());
-    TypedReg coords = GetCoords();    
-    TypedReg storeValues = be.AddTReg(BRIG_TYPE_U32, ResultDim());
-    for(int i = 0; i < ResultDim(); i++)
-      be.EmitMov(storeValues->Reg(i), be.Immed(ResultType(), StorePerRegValue()), 32);
+    TypedReg storeValues = be.AddTReg(BRIG_TYPE_U32, static_cast<unsigned>(ResultDim()));
+    for(uint64_t i = 0; i < ResultDim(); i++)
+      be.EmitMov(storeValues->Reg(i), be.Immed(BRIG_TYPE_U32, StorePerRegValue()), 32);
 
+    auto coords = GetCoords();
     imgobj->EmitImageSt(storeValues, imageaddr, coords);
     be.EmitImageFence();
+    
+    auto regs_dest = be.AddTReg(ResultType(), static_cast<unsigned>(ResultDim()));
     imgobj->EmitImageLd(regs_dest, imageaddr, coords);
    
     return regs_dest;
