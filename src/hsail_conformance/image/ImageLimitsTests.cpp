@@ -270,7 +270,8 @@ protected:
   virtual void InitImages() = 0;
 
 public:
-  ImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_)
+  ImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, 
+    BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_)
     : ImageLimitTest(gridGeometry_, imageGeometry_, channelOrder_, channelType_) {}
 
   void Init() override {
@@ -286,6 +287,8 @@ public:
 
 class ROImageHandlesNumber : public ImageHandlesNumber {
 private:
+  Value red;
+
   static const uint32_t LIMIT = 128;
 
 protected:
@@ -302,15 +305,29 @@ protected:
     imageSpec.ArraySize(1);
     Image image;
     for (uint32_t i = 0; i < LIMIT; ++i) {
-      image = kernel->NewImage("image" + std::to_string(i), HOST_IMAGE, &imageSpec, IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_ROIMG));
+      image = kernel->NewImage("image" + std::to_string(i), HOST_IMAGE, &imageSpec, 
+        IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_ROIMG));
       image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
   }
 
 public:
-  ROImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_)
+  ROImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, 
+    BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_)
     : ImageHandlesNumber(gridGeometry_, imageGeometry_, channelOrder_, channelType_) {}
+
+  void Init() override {
+    ImageHandlesNumber::Init();
+    images[0]->InitImageCalculator(nullptr);
+    Value loadColor[4];
+    Value loadCoords[3];
+    loadCoords[0] = Value(MV_UINT32, 0);
+    loadCoords[1] = Value(MV_UINT32, 0);
+    loadCoords[2] = Value(MV_UINT32, 0);
+    images[0]->LoadColor(loadCoords, loadColor);
+    red = loadColor[0];
+  }
 
   TypedReg Result() override {
     auto trueLabel = "@true";
@@ -320,7 +337,9 @@ public:
     auto imageAddr = be.AddTReg(images[0]->Type());
     auto indexReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
     auto coord = CreateCoordList(0, 0, 0, 0);
-    auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
+    auto imageElement = IsImageDepth(ImageGeometry()) ? 
+          be.AddTReg(Value2BrigType(red.Type())) : 
+          be.AddTReg(Value2BrigType(red.Type()), 4);
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
 
@@ -337,6 +356,8 @@ public:
 
       // load from each image
       image->EmitImageLd(imageElement, imageAddr, coord);
+      be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(0), be.Value2Immed(red), BRIG_COMPARE_NE);
+      be.EmitCbr(cmp->Reg(), falseLabel);
     }
 
     // true
@@ -355,6 +376,7 @@ public:
 class RWImageHandlesNumber : public ImageHandlesNumber {
 private:
   uint32_t numberRW;
+  Value red;
 
   static const uint32_t LIMIT = 64;
   static const uint32_t STORE_VALUE = 987654321;
@@ -374,7 +396,8 @@ protected:
     rwImageSpec.ArraySize(1);
     Image image;
     for (uint32_t i = 0; i < numberRW; ++i) {
-      image = kernel->NewImage("rw_image" + std::to_string(i), HOST_IMAGE, &rwImageSpec, IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_RWIMG));
+      image = kernel->NewImage("rw_image" + std::to_string(i), HOST_IMAGE, &rwImageSpec, 
+        IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_RWIMG));
       image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
@@ -389,15 +412,41 @@ protected:
     woImageSpec.Depth(1);
     woImageSpec.ArraySize(1);
     for (uint32_t i = 0; i < Limit() - numberRW; ++i) {
-      image = kernel->NewImage("wo_image" + std::to_string(i), HOST_IMAGE, &woImageSpec, IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_WOIMG));
+      image = kernel->NewImage("wo_image" + std::to_string(i), HOST_IMAGE, &woImageSpec, 
+        IsImageOptional(ImageGeometry(), ChannelOrder(), ChannelType(), BRIG_TYPE_WOIMG));
       image->SetInitialData(image->GenMemValue(Value(MV_UINT32, InitialValue())));
       images.push_back(image);
     }
   }
 
 public:
-  RWImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_, uint32_t numberRW_)
+  RWImageHandlesNumber(Grid gridGeometry_, BrigImageGeometry imageGeometry_, 
+    BrigImageChannelOrder channelOrder_, BrigImageChannelType channelType_, uint32_t numberRW_)
     : ImageHandlesNumber(gridGeometry_, imageGeometry_, channelOrder_, channelType_), numberRW(numberRW_) {}
+
+  void Init() override {
+    ImageHandlesNumber::Init();
+    if (numberRW > 0) {
+      images[0]->InitImageCalculator(nullptr);
+      Value loadColor[4];
+      Value loadCoords[3];
+      loadCoords[0] = Value(MV_UINT32, 0);
+      loadCoords[1] = Value(MV_UINT32, 0);
+      loadCoords[2] = Value(MV_UINT32, 0);
+      //images[0]->LoadColor(loadCoords, loadColor);
+      //red = loadColor[0];
+      Value stColor[4];
+      stColor[0] = Value(MV_UINT32, STORE_VALUE);
+      stColor[1] = Value(MV_UINT32, STORE_VALUE);
+      stColor[2] = Value(MV_UINT32, STORE_VALUE);
+      stColor[3] = Value(MV_UINT32, STORE_VALUE);
+      auto st = images[0]->StoreColor(nullptr, stColor);
+      //red = stColor[0];
+      images[0]->SetValueForCalculator(images[0]->GenMemValue(st));
+      images[0]->LoadColor(loadCoords, loadColor);
+      red = loadColor[0];
+    }
+  }
 
   bool IsValid() const override {
     return ImageHandlesNumber::IsValid() && numberRW <= LIMIT;
@@ -417,9 +466,16 @@ public:
     auto woImageAddr = be.AddTReg(BRIG_TYPE_WOIMG);
     auto indexReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
     auto coord = CreateCoordList(0, 0, 0, 0);
-    auto imageElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
     auto query = be.AddTReg(BRIG_TYPE_U32);
     auto cmp = be.AddCTReg();
+
+    auto loadElement = IsImageDepth(ImageGeometry()) ? 
+      be.AddTReg(Value2BrigType(red.Type())) : 
+      be.AddTReg(Value2BrigType(red.Type()), 4);
+    auto storeElement = IsImageDepth(ImageGeometry()) ? be.AddTReg(BRIG_TYPE_U32) : be.AddTReg(BRIG_TYPE_U32, 4);
+    for (uint32_t j = 0; j < storeElement->Count(); ++j) {
+      be.EmitMov(storeElement->Reg(j), be.Immed(storeElement->Type(), STORE_VALUE), storeElement->TypeSizeBits());
+    }
 
     for (uint32_t i = 0; i < images.size(); ++i) {
       auto image = images[i];
@@ -432,12 +488,11 @@ public:
         be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), 1), BRIG_COMPARE_NE);
         be.EmitCbr(cmp->Reg(), falseLabel);
         // store in image
-        for (uint32_t j = 0; j < imageElement->Count(); ++j) {
-          be.EmitMov(imageElement->Reg(j), be.Immed(imageElement->Type(), STORE_VALUE), imageElement->TypeSizeBits());
-        }
-        image->EmitImageSt(imageElement, rwImageAddr, coord);
+        image->EmitImageSt(storeElement, rwImageAddr, coord);
         be.EmitImageFence();
-        image->EmitImageLd(imageElement, rwImageAddr, coord);
+        image->EmitImageLd(loadElement, rwImageAddr, coord);
+        be.EmitCmp(cmp->Reg(), loadElement->Type(), loadElement->Reg(0), be.Value2Immed(red), BRIG_COMPARE_NE);
+        be.EmitCbr(cmp->Reg(), falseLabel);
       } else { // wo images
         imagesBuffer->EmitLoadData(woImageAddr, indexReg);
         // check image query
@@ -445,7 +500,7 @@ public:
         be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), 1), BRIG_COMPARE_NE);
         be.EmitCbr(cmp->Reg(), falseLabel);
         // store in image
-        image->EmitImageSt(imageElement, woImageAddr, coord);
+        image->EmitImageSt(storeElement, woImageAddr, coord);
       }
     }
 

@@ -261,16 +261,24 @@ hexl::Value BrigEmitter::GenerateTestValue(BrigType type, uint64_t id) const
   return Value(Brig2ValueType(type), U64(42));
 }
 
-Operand BrigEmitter::Immed(BrigType16_t type, uint64_t imm)
+Operand BrigEmitter::Immed(BrigType16_t type, int64_t imm)
 {
-  return brigantine.createImmed(imm, type);
+  if (getBrigTypeNumBits(type) != 128) {
+    return brigantine.createImmed(imm, type);
+  } else {
+    std::vector<char> vect(16, '\0');
+    memcpy(vect.data(), (const char*)&imm, 8);
+    return Immed(BRIG_TYPE_B128, static_cast<SRef>(vect));
+  }
 }
 
-Operand BrigEmitter::Immed(BrigType16_t type, SRef data) {
+Operand BrigEmitter::Immed(BrigType16_t type, SRef data) 
+{
   return brigantine.createImmed(data, type);
 }
 
-Operand BrigEmitter::Immed(float imm) {
+Operand BrigEmitter::Immed(float imm) 
+{
   return brigantine.createImmed(f32_t(&imm), BRIG_TYPE_F32);
 }
 
@@ -282,6 +290,41 @@ Operand BrigEmitter::ImmedString(const std::string& str)
 Operand BrigEmitter::Wavesize()
 {
   return brigantine.createWaveSz();
+}
+
+Operand BrigEmitter::Value2Immed(Value value) 
+{
+  switch (value.Type()) {
+  case MV_INT8:      case MV_UINT8:
+  case MV_INT16:     case MV_UINT16:
+  case MV_INT32:     case MV_UINT32:
+  case MV_INT64:     case MV_UINT64: 
+  case MV_UINT128:   case MV_INT8X4: 
+  case MV_INT8X8:    case MV_UINT8X4:
+  case MV_UINT8X8:   case MV_INT16X2:
+  case MV_INT16X4:   case MV_UINT16X2:
+  case MV_UINT16X4:  case MV_INT32X2:
+  case MV_UINT32X2:  case MV_FLOAT16X2:
+  case MV_FLOAT16X4: case MV_FLOATX2:
+    return Immed(Value2BrigType(value.Type()), value.S64());
+  case MV_FLOAT16: {
+    float f = value.H();
+    return brigantine.createImmed(f32_t(&f), BRIG_TYPE_F16);
+  }
+  case MV_FLOAT:
+    return Immed(value.F());
+  case MV_DOUBLE: {
+    auto f = value.D();
+    return brigantine.createImmed(f64_t(&f), BRIG_TYPE_F64);
+  }
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
+    return Immed(BRIG_TYPE_F16, value.U16());
+#endif
+  default:
+    assert(!"Invalid value type in ValueImmed");
+    return Immed(0.0F);
+  }
 }
 
 InstBasic BrigEmitter::EmitMov(Operand dst, Operand src, unsigned sizeBits)

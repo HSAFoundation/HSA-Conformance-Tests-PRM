@@ -118,11 +118,12 @@ public:
   hexl::Value GenerateTestValue(BrigType type, uint64_t id = 0) const;
 
   // Immediates
-  HSAIL_ASM::Operand Immed(BrigType16_t type, uint64_t imm);
+  HSAIL_ASM::Operand Immed(BrigType16_t type, int64_t imm);
   HSAIL_ASM::Operand Immed(BrigType16_t type, HSAIL_ASM::SRef data);
   HSAIL_ASM::Operand Immed(float imm);
   HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
+  HSAIL_ASM::Operand Value2Immed(Value value);
 
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
   void EmitMov(TypedReg dst, HSAIL_ASM::Operand src);

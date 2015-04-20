@@ -543,7 +543,7 @@ protected:
 
   virtual void StoreValues(const std::vector<TypedReg>& registers, uint32_t value) {
     for (auto reg: registers) {
-      be.EmitMov(reg, ImmedValue(value, reg->Type()));
+      be.EmitMov(reg, be.Immed(reg->Type(), value));
     }
   }
 
@@ -554,20 +554,10 @@ protected:
       if (getBrigTypeNumBits(reg->Type()) == 128) {
         continue;
       }          
-      be.EmitCmp(cmp->Reg(), reg, ImmedValue(value, reg->Type()), BRIG_COMPARE_NE);
+      be.EmitCmp(cmp->Reg(), reg, be.Immed(reg->Type(), value), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
     }
     be.EmitBr(trueLabel);
-  }
-
-  OperandConstantBytes ImmedValue(uint64_t value, BrigType16_t type) {
-    if (getBrigTypeNumBits(type) != 128) {
-      return be.Immed(type, value);
-    } else {
-      std::vector<char> vect(16, '\0');
-      memcpy(vect.data(), (const char*)&value, 8);
-      return be.Immed(BRIG_TYPE_B128, vect);
-    }
   }
 
   virtual TypedReg ResultReg(const std::vector<TypedReg>& registers) {
@@ -597,11 +587,11 @@ public:
 
     auto result = ResultReg(registers);
     be.EmitLabel(trueLabel);
-    be.EmitMov(result, ImmedValue(1, result->Type()));
+    be.EmitMov(result, be.Immed(result->Type(), 1));
     be.EmitBr(endLabel);
 
     be.EmitLabel(falseLabel);
-    be.EmitMov(result, ImmedValue(0, result->Type()));
+    be.EmitMov(result, be.Immed(result->Type(), 0));
 
     be.EmitLabel(endLabel);
     return result;
@@ -708,7 +698,7 @@ public:
     auto bufferSize32 = (buffer->Dim32() * getBrigTypeNumBytes(buffer->Type())) / 4;
     for (uint32_t i = 0; i < bufferSize32; ++i) {
       auto storeType = be.MemOpType(BRIG_TYPE_U32);
-      auto zero = ImmedValue(0, storeType);
+      auto zero = be.Immed(storeType, 0);
       auto offset = i * getBrigTypeNumBytes(storeType);
       be.EmitStore(BRIG_SEGMENT_GLOBAL, storeType, zero, be.Address(buffer->Variable(), offset));
     }
@@ -719,7 +709,7 @@ public:
     StoreRegisters(registers);
 
     auto result = ResultReg(registers);
-    be.EmitMov(result, ImmedValue(1, result->Type()));
+    be.EmitMov(result, be.Immed(result->Type(), 1));
     return result;
   }
 };
