@@ -1,11 +1,18 @@
-# HSA PRM Conformance Manual
-HSA PRM Specification revision: 1.0 Final (2015-03-06)
+# HSA Conformance Manual
+HSA PRM (Programmer's Reference Manual) Specification revision: 1.0 Final (2015-03-06)
 
-Test suite revision: 2015-03-27 (commit 0ecca4a05179f219c700069bbb18f7f78fc91730)
+HSA PSA (Platform System Architecture) Specification revision: 1.0 Final (2015-01-23)
+
+Test suite revision: 2015-04-21 (commit 1f6e94e58cdba170baac898228d3c1efaaa23543)
 
 ## Overview
 
-HSA PRM Conformance test suite is used to validate an implementation of Heterogeneous System Architecture Intermediate Language (HSAIL) virtual machine and language as described in "HSA Programmer's Reference Manual". The focus is on verification of ISA produced by HSAIL Finalizer and functionality of kernels on the agent. HSAIL Linking extension is used to finalize test programs while HSA Core Runtime is used to set up and invoke test kernels and to provide certain functionality for test code on the host (for some tests).
+HSA Conformance test suite is used to validate an implementation of Heterogeneous System Architecture  for compliance with the following specifications:
+
+- HSA PRM (Programmer's Reference Manual) Specification;
+- HSA PSA (Platform System Architecture) Specification.
+
+The focus is on verification of ISA produced by HSAIL Finalizer and functionality of kernels on the agent. HSAIL Linking extension is used to finalize test programs while HSA Core Runtime is used to set up and invoke test kernels and to provide certain functionality for test code on the host (for some tests).
 
 A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, agent(s) code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers (used to store test data and test results), one dispatch and validation of output buffer. An example of such test is a test for `add_u32` HSAIL instruction: one kernel, two input buffers and one output buffer.
 
@@ -13,7 +20,7 @@ Note that each test actually expands into several testcases, one for each valid 
 
 ## Building test suite
 
-HSA PRM Conformance test suite uses [CMake](http://www.cmake.org/). The following dependencies need to be made available before the build:
+HSA Conformance test suite uses [CMake](http://www.cmake.org/). The following tools and sources should be available before the build:
 
 - `HSAIL-Tools` can be obtained from HSA github repository. `HSAIL-Tools-PATH` needs to be set to point to it.
 - HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. `HSA-Runtime-Inc-PATH` needs to be set to point to directory with `hsa.h`. `HSA-Runtime-Ext-PATH` needs to be set to point to directory with `hsa_ext_finalize.h`.
@@ -29,7 +36,7 @@ To run the suite you should have a dynamic HSA RT libraries with corresponding b
 A simple scenario of running all the tests on Linux 64-bit may look like:
 
 	export LD_LIBRARY_PATH="$HSA_RT_LIB:$LD_LIBRARY_PATH"
-	bin/lnx64a/hc -tests prm/ 
+	bin/lnx64a/hc -tests / 
                   -exclude amdhsa.exclude 
                   -runner hrunner 
                   -verbose 
@@ -54,13 +61,13 @@ The following example demonstrates how to run these scripts on Linux. The result
 	Testrun
 	  Passed: 13729   Failed:    0   Error:    0   NA:    0   Total: 13729
 
-Using `-tests` it is possible to specify a smaller set of tests, while `-exclude` allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).
+Using `-tests` option it is possible to specify a smaller set of tests, while `-exclude` allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).
 
 ## Command line options
 
 The "hc" supports the following command line options:
 
-- `-tests TestSet`: prefix of test to run, e.g. `-tests prm/` to run all the tests;
+- `-tests TestSet`: prefix of test to run, e.g. `-tests /` to run all tests or `-tests prm/` to run only PRM tests;
 - `-exclude File`: file containing a list of tests to be excluded from testing;
 - `-verbose`: enables detailed test output in a log file;
 - `-testlog File`: name for a log file, the default name is test.log;
@@ -75,12 +82,12 @@ The "hc" supports the following command line options:
 
 ## Test names
 
-Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (`/`). An example of test name is `prm/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND`. The following scheme for the words is used (starting from the beginning of test name):
+Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (`/`). First word is either `prm` or `sysarch`; it is the name of HSA specification this test checks compliance with. An example of test name is `prm/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND`. The following scheme for the words is used (starting from the beginning of test name):
 
-- `prm`: Test suite
-- `special`: Chapter in PRM specification
-- `dispatchpacket`: Section in PRM specification
-- `dim`: Instruction or group of instructions in PRM specification
+- `prm`: Test suite (`prm` or `sysarch`)
+- `special`: Chapter in PRM or PSA specification
+- `dispatchpacket`: Section in PRM or PSA specification
+- `dim`: Instruction or group of instructions
 - `basic`: Name of test/scenario
 - `kernel_1_200x1x1_64x1x1_ND`: Name/identifier of testcase within test. For `dim/basic` test, it is the testcase for dim instruction in kernel body with dispatch dimension `1`, grid sizes `200x1x1`, workgroup sizes `64x1x1` and no control directives.
 
@@ -104,18 +111,20 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 	- `DimensionSet`: representative geometry for each dimension
 	- `OneGroupSet`: one group, one dimension geometry
 	- `DefaultPlusNGroupSet `: set of geometry with 1 WorkItem, OneGroupSet, and 1 dim & N groups
-	- `Boundary32Set`: samples of geometry with sizes `> 2^32`  
+	- `Boundary32Set`: samples of geometry with sizes `> 2^32`
 	- `Boundary24Set`: samples of geometry with sizes `> 2^24`
 	- `DegenerateSet`: samples of degenerated geometry when a dimension is used, but has size `1`
 	- `BarrierSet`: samples of one-dimensional geometries for barrier testing
 	- `FBarrierSet`: special samples of geometries for fbarrier testing
 	- `ImageSet`: special samples of geometries for testing operations with images and samples
 	- `ImageRdSet`: special samples of geometries for testing rdimage operation
+	- `AtomicSet`: special samples of geometries for testing atomic operations
+	- `MModelSet`: special samples of geometries for testing memory model
 
-### Control Directives: control directives in BRIG modules
+### Control Directives: control directives in BRIG modules [PRM, chapter 13.4]
 - Control directives may be controlled with the following settings:
-  - Location: location of control directives (function, kernel or module).
-  - List of enabled control directives.
+	- Location: location of control directives (function, kernel or module).
+	- List of enabled control directives.
 - A test shall use all possible combinations of enabled control directives. For example, if two directives are enabled - `requiredgridsize` and `requiredworkgroupsize`, the test shall use the following combinations:
 	- `[]` (no control directives)
 	- `[ requiredgridsize ]`
@@ -127,7 +136,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 	- `GridSizeSet`: enabled directives are `requireddim`, `requiredgridsize` (directives affecting grid size)
 	- `DegenerateSet`: enabled directives are `requiredgridsize`, `requiredworkgroupsize` (directives affecting computation of operations that can be simplified for degenerate set)
 
-### Segment: memory segment
+### Segment: memory segment [PRM, chapter 2.8]
 - Used sets:
 	- `Atomic`: flat, global, group
 	- `HasFlatAddress`: global, group, private (segments which may be accessed via flat address)
@@ -135,68 +144,69 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 	- `Variable`: global, readonly, kernarg, group, private, spill, arg
 	- `All`: all standard segments
 
-### Linkage: variable linkage
+### Linkage: variable linkage [PRM, chapter 4.12]
 - Used sets:
 	- `All`: program, module, linkage, arg
 
-### Operand Kind: kind of instruction operand
+### Operand Kind: kind of instruction operand [PRM, chapter 4.16]
 - Used sets:
-	- `All`: register, immediate, WAVESIZE
+	- `All`: all legal operands
 
-### Dst Type: type of destination operand
+### Dst Type: type of destination operand [PRM, chapter 4.13]
 - Used sets:
-	- `All`: all supported types
+	- `All`: all legal types
 
-### Src Type: type of source operands
+### Src Type: type of source operands [PRM, chapter 4.13]
 - Used sets:
-	- `All`: all supported types
+	- `All`: all legal types
 
-### Ftz: flush to zero modifier
+### Ftz: flush to zero modifier [PRM, chapter 4.19.3]
 - Used sets:
 	- `All`: all legal values
 
-### Rounding: rounding modifier
+### Rounding: rounding modifier [PRM, chapter 4.19.2]
 - Used sets:
-	- `All`: all supported values 
+	- `All`: all legal values 
 
-### Packed Controls: controls for processing packed operands
+### Packed Controls: controls for processing packed operands [PRM, chapter 4.14]
 - Used sets:
-	- `All`: all supported values 
+	- `All`: all legal values 
 
-### Compare Operation: operation used by cmp instruction
+### Compare Operation: operation used by cmp instruction [PRM, chapter 5.18]
 - Used sets:
 	- `All`: all operations
 
-### Atomic Operation: operation used by atomic instructions
+### Atomic Operation: operation used by atomic instructions [PRM, chapter 6.6]
 - Used sets:
-	- `All`: all operations
+	- `All`: all atomic operations
+	- `Atomic`: all atomic operations except for `ld`
 
-### Align: alignment
-- Used sets:
-	- `All`: all legal values
-
-### Const: constant memory access
+### Align: alignment [PRM, chapter 6.1.3]
 - Used sets:
 	- `All`: all legal values
 
-### Equiv: equivalence class
+### Const: constant memory access [PRM, chapter 6.3.2]
 - Used sets:
 	- `All`: all legal values
 
-### Memory Order
+### Equiv: equivalence class [PRM, chapter 6.1.4]
+- Used sets:
+	- `All`: all legal values
+
+### Memory Order [PRM, chapter 6.2.1]
 - Used sets:
 	- `All`: rlx, screl, scacq, scar
 	- `SignalAll`: rlx, screl, scacq, scar
 	- `SignalWait`: rlx, screl, scacq
 	- `MemFence`: screl, scacq, scar
 
-### Memory Scope
+### Memory Scope [PRM, chapter 6.2.2]
 - Used sets:
 	- `All`: wi, wv, wg, cmp, sys
 	- `Global`: wv, wg, cmp, sys
 	- `Group`: wv, wg
 
-### Width: width modifier
+### Width: width modifier [PRM, chapter 6.3.2]
 - Used sets:
 	- `UpToWavesizeAndAll`: 1, 2, 4, 8, 16, 32, WAVESIZE, All
 	- `All`: all legal values
@@ -213,19 +223,19 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
             - values which signal exceptions;
             - values which result in an undefined behavior.  
 
-### Exceptions Mask: a number that specifies a list of exceptions 
+### Exceptions Mask: a number that specifies a list of exceptions [PRM, chapter 11.2.2]
 - Used sets:
 	- `All`: all legal values
 
-### Image Geometry: geometries associated with images [chapter 7.1.3] 
+### Image Geometry: geometries associated with images [PRM, chapter 7.1.3]
 - Used sets:
 	- `All`: all legal values
 
-### Image Channel Order: channel orders associated with images [chapter 7.1.4.1] 
+### Image Channel Order: channel orders associated with images [PRM, chapter 7.1.4.1]
 - Used sets:
 	- `All`: all legal values
 
-### Image Channel Type: channel types associated with images [chapter 7.1.4.2] 
+### Image Channel Type: channel types associated with images [PRM, chapter 7.1.4.2]
 - Used sets:
 	- `All`: all legal values
 
@@ -233,35 +243,35 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Used sets:
 	- `All`: 1, 2, 10
 
-### Image Property: names of image properties [chapter 7.5.2]
+### Image Property: image properties [PRM, chapter 7.5.2]
 - Used sets:
 	- `All`: all legal values
 
-### Sampler Coord: sampler coordinate normalization mode [chapter 7.1.8] 
+### Sampler Coord: sampler coordinate normalization mode [PRM, chapter 7.1.8]
 - Used sets:
 	- `All`: all legal values
 
-### Sampler Filter: sampler filter mode [chapter 7.1.8] 
+### Sampler Filter: sampler filter mode [PRM, chapter 7.1.8] 
 - Used sets:
 	- `All`: all legal values
 
-### Sampler Addressing: sampler addressing mode [chapter 7.1.8] 
+### Sampler Addressing: sampler addressing mode [PRM, chapter 7.1.8] 
 - Used sets:
 	- `All`: all legal values
 
-### Sampler Property: names of sampler properties [chapter 7.5.2]
+### Sampler Property: sampler properties [PRM, chapter 7.5.2]
 - Used sets:
 	- `All`: all legal values
 
 ## Test details
 
-### initializer: Variable Initializers [chapter 4.10]
+### initializer: Variable Initializers [PRM, chapter 4.10]
 - Segment: Variable
 - Grid Geometry: OneGroupSet
 - Code Location: Kernel
 
-### arithmetic: Arithmetic operations [chapter 5]
-#### intfp: Integer/floating point arithmetic operations [chapters 5.2 and 5.11]
+### arithmetic: Arithmetic operations [PRM, chapter 5]
+#### intfp: Integer/floating point arithmetic operations [PRM, chapters 5.2 and 5.11]
 - Instructions: abs, add, borrow, carry, div, max, min, mul, mulhi, neg, rem, sub, ceil, floor, fma, fract, rint, sqrt, trunc
 - Operand Kind: All
 - Dst Type: All
@@ -272,15 +282,23 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### intopt: Integer optimization operations [chapter 5.3]
+*Note: some tests for operations with `f16` are not implemented yet.*
+
+*Note: some tests for rounding modes are not implemented yet.*
+
+*Note: tests for `fma` with `f64` type are not implemented yet.*
+
+#### intopt: Integer and floating-point optimization operations [PRM, chapter 5.3 and 5.12]
 - Instructions: mad
 - Operand Kind: All
 - Dst Type: All
+- Ftz: All
+- Rounding: All
 - Grid Geometry: OneGroupSet
 - Code Location: Kernel
 - Test Data: Standard
 
-#### 24int: 24-bit integer optimization operations [chapter 5.4]
+#### 24int: 24-bit integer optimization operations [PRM, chapter 5.4]
 - Instructions: mad24, mad24hi, mul24, mul24hi
 - Operand Kind: All
 - Dst Type: All
@@ -288,7 +306,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### intshift: Integer shift operations [chapter 5.5]
+#### intshift: Integer shift operations [PRM, chapter 5.5]
 - Instructions: shl, shr
 - Operand Kind: All
 - Dst Type: All
@@ -296,7 +314,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### indbit: Individual bit operations [chapter 5.6]
+#### indbit: Individual bit operations [PRM, chapter 5.6]
 - Instructions: and, or, xor, not, popcount
 - Operand Kind: All
 - Dst Type: All
@@ -305,7 +323,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### bitstr: Bit string operations [chapter 5.7]
+#### bitstr: Bit string operations [PRM, chapter 5.7]
 - Instructions: bitextract, bitinsert, bitmask, bitrev, bitselect, firstbit, lastbit
 - Operand Kind: All
 - Dst Type: All
@@ -314,7 +332,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### copymove: Copy and move operations [chapter 5.8]
+#### copymove: Copy and move operations [PRM, chapter 5.8]
 - Instructions: combine, expand, mov
 - Operand Kind: All
 - Dst Type: All
@@ -323,7 +341,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### packed: Packet data operations [chapter 5.9]
+#### packed: Packed data operations [PRM, chapter 5.9]
 - Instructions: shuffle, unpacklo, unpackhi, pack, unpack
 - Operand Kind: All
 - Dst Type: All
@@ -332,7 +350,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### bitcmov: Bit conditional move operation [chapter 5.10]
+#### bitcmov: Bit conditional move operation [PRM, chapter 5.10]
 - Instructions: cmov
 - Operand Kind: All
 - Dst Type: All
@@ -340,7 +358,9 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### fpbit: Floating-point bit operations [chapter 5.12]
+*Note: some tests for rounding modes are not implemented yet.*
+
+#### fpbit: Floating-point bit operations [PRM, chapter 5.13]
 - Instructions: class, copysign
 - Operand Kind: All
 - Dst Type: All
@@ -350,7 +370,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### nativefp: Native floating-point operations [chapter 5.13]
+#### nativefp: Native floating-point operations [PRM, chapter 5.14]
 - Instructions: nsin, ncos, nlog2, nexp2, nsqrt, nrsqrt, nrcp, nfma
 - Operand Kind: All
 - Dst Type: All
@@ -358,7 +378,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### multimedia: Multimedia operations [chapter 5.14]
+#### multimedia: Multimedia operations [PRM, chapter 5.15]
 - Instructions: bitalign, bytealign, lerp, packcvt, unpackcvt, sad, sadhi
 - Operand Kind: All
 - Dst Type: All
@@ -367,7 +387,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### compare: Compare operation [chapter 5.17]
+#### compare: Compare operation [PRM, chapter 5.18]
 - Instructions: cmp
 - Operand Kind: All
 - Dst Type: All
@@ -378,7 +398,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### conversion: Conversion operation [chapter 5.18]
+#### conversion: Conversion operation [PRM, chapter 5.19]
 - Instructions: cvt
 - Operand Kind: All
 - Dst Type: All
@@ -389,29 +409,41 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-#### address: Address operations [chapters 5 and 11]
-##### null: Verify result of address operation for null address obtained with nullptr [chapter 11.4]
+*Note: some tests for operations with f16 are not implemented yet.*
+
+*Note: some tests for rounding modes are not implemented yet.*
+
+#### address: Address operations [PRM, chapters 5 and 11]
+##### null: Verify result of address operation for null address obtained with nullptr [PRM, chapter 11.4]
 - Instructions: stof, ftos, segmentp
 - Segment: HasFlatAddress
+- Grid Geometry: OneGroupSet
+- Code Location: Kernel
 
-##### identity: Verify converted address accesses same location as address before conversion [chapter 5.16]
+##### identity: Verify that converted address accesses the same location as address before conversion [PRM, chapter 5.17]
 - Instructions: stof, ftos
 - Segment: HasFlatAddress
-- segmentStore: use segment store/flat load and not vice versa 
+- SegmentStore: use segment store/flat load and not vice versa 
 - nonull: use nonull in the instruction
+- Grid Geometry: OneGroupSet
+- Code Location: Kernel
 
-##### variable: Verify result of segmentp operation for flat address pointing into a variable [chapter 5.15]
+##### variable: Verify result of segmentp operation for flat address pointing to a variable [PRM, chapter 5.16]
 - Instructions: segmentp
 - Segment: HasFlatAddress
 - nonull: use nonull in the instruction
+- Grid Geometry: OneGroupSet
+- Code Location: Kernel
 
-##### lda/alignment: Verify result of lda operation is divisible by alignment [chapter 5.8]
+##### lda/alignment: Verify that result of lda operation is divisible by alignment [PRM, chapter 5.8]
 - Instructions: lda
 - Segment: HasFlatAddress
 - nonull: use nonull in the instruction
+- Grid Geometry: OneGroupSet
+- Code Location: Kernel
 
-### memory: Memory operations [chapter 6]
-#### memory/ordinary: Ordinary memory operations [chapters 6.3 and 6.4]
+### memory: Memory operations [PRM, chapter 6]
+#### memory/ordinary: Ordinary memory operations [PRM, chapters 6.3 and 6.4]
 - Instructions: ld, st
 - Operand Kind: All
 - Dst Type: All
@@ -424,39 +456,55 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Location: Kernel
 - Test Data: Standard
 
-####  memory/atomic: Atomic and atomicnoret memory operations [chapter 6.6 and 6.7]
+*Note: tests for operations with `b128` and opaque vectors are not implemented yet.*
+
+####  memory/atomic: Atomic and atomicnoret memory operations [PRM, chapter 6.6 and 6.7]
 - Instructions: atomic, atomicnoret
 - Operand Kind: All
 - Dst Type: All
-- Atomic operation: All (except for ld)
+- Atomic operation: All
 - Segment: Atomic
-- Memory Order: All (except for rlx)
-- Memory Scope: All (except for system)
+- Memory Order: All
+- Memory Scope: All
 - Equiv: 0
 - Grid Geometry: OneGroupSet
 - Code Location: Kernel
 - Test Data: Standard
 
-*More tests are to be implemented.*
+####  memory/atomicity: Test atomicity of Atomic and atomicnoret operations [PRM, chapter 6.5]
+- Instructions: atomic, atomicnoret
+- Operand Kind: All
+- Dst Type: All
+- Atomic operation: Atomic
+- Segment: Atomic
+- Memory Order: All
+- Memory Scope: All
+- Equiv: 0
+- Grid Geometry: AtomicSet
+- Code Location: Kernel
+- Test Data: Standard
 
-#### memory/signal: Notification operations [chapter 6.8]
+#### memory/signal: Notification operations [PRM, chapter 6.8]
 - Instructions: signal, signalnoret
 - Memory Order: SignalAll, SignalWait
+- Grid Geometry: OneGroupSet
+- Code Location: Kernel
 
-#### memfence: Memory fence operation [chapter 6.9]
+#### memfence: Memory fence operation [PRM, chapter 6.9]
 - Instructions: memfence
 - Grid Geometry: OneGroupSet
+- Code Location: Kernel
 - Segment: Memfence
 - Memory Order: Memfence
 - Memory Scope: Global, Group
 
-### Image operations [chapter 7]
+### Image operations [PRM, chapter 7]
 
-##### initializer/image: Image Creation and Image Handles [chapter 7.1.7]
+##### initializer/image: Image Creation and Image Handles [PRM, chapter 7.1.7]
 
 *Tests are to be implemented.*
 
-##### initializer/sampler: Sampler Creation and Sampler Handles [chapter 7.1.8]
+##### initializer/sampler: Sampler Creation and Sampler Handles [PRM, chapter 7.1.8]
 
 - Grid Geometry: OneGroupSet
 - Code Location: All
@@ -464,7 +512,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Sampler Filter: All
 - Sampler Addressing: All
 
-##### image_rd: Read Image Instruction [chapter 7.2]
+##### image_rd: Read Image Instruction [PRM, chapter 7.2]
 - Instructions: rdimage
 - Grid Geometry: ImageRdSet
 - Code Location: All
@@ -477,7 +525,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Sampler Addressing: All
 - Equiv: 0
 
-##### image_ld: Load Image Instruction [chapter 7.3]
+##### image_ld: Load Image Instruction [PRM, chapter 7.3]
 - Instructions: ldimage
 - Grid Geometry: ImageSet
 - Code Location: All
@@ -487,7 +535,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Image Array: All
 - Equiv: 0
 
-##### image_st: Store Image Instruction [chapter 7.4]
+##### image_st: Store Image Instruction [PRM, chapter 7.4]
 - Instructions: stimage
 - Grid Geometry: ImageSet
 - Code Location: All
@@ -497,7 +545,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Image Array: All
 - Equiv: 0
 
-##### image_query: Query Image Instruction [chapter 7.5]
+##### image_query: Query Image Instruction [PRM, chapter 7.5]
 - Instructions: queryimage
 - Grid Geometry: ImageSet
 - Code Location: All
@@ -507,7 +555,7 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Image Array: All
 - Image Property: All
 
-##### image_query_sampler: Query Sampler Instruction [chapter 7.5]
+##### image_query_sampler: Query Sampler Instruction [PRM, chapter 7.5]
 - Instructions: querysampler
 - Grid Geometry: ImageSet
 - Code Location: All
@@ -516,51 +564,57 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Sampler Addressing: All
 - Sampler Property: All
 
-##### imagefence: Image Fence Instruction [chapter 7.5]
+##### imagefence: Image Fence Instruction [PRM, chapter 7.5]
 
 *Tests are to be implemented.*
 
-### Branch operations [chapter 8]
-##### basic/br: Basic unconditional jump, verify expected result by setting value of HSAIL register [chapter 8]
+### Branch operations [PRM, chapter 8]
+##### basic/br: Basic unconditional jump, verify expected result by setting value of HSAIL register [PRM, chapter 8]
 - Instructions: br
 - Code Location: All
+- Grid Geometry: OneGroupSet
 
-##### basic: Basic conditional jump, switch conditional jump [chapter 8]
+##### basic: Basic conditional jump, switch conditional jump [PRM, chapter 8]
 - Instructions: cbr, sbr
 - Grid Geometry: DefaultPlusNGroupSet
+- Code Location: Kernel
 - Width: UpToWavesizeAndAll
 - Operand Kind: All
 
-##### nested: Nested control flow (if-then-else) [chapter 8]
+##### nested: Nested control flow (if-then-else) [PRM, chapter 8]
 - Instructions: cbr, br
 - Grid Geometry: DefaultPlusNGroupSet
+- Code Location: Kernel
 - Width: UpToWavesizeAndAll
 - Operand Kind: All
 
-##### sand, sor: Short-circuit control flow [chapter 8]
+##### sand, sor: Short-circuit control flow [PRM, chapter 8]
 - Instructions: cbr
 - Grid Geometry: DefaultPlusNGroupSet
+- Code Location: Kernel
 - Width: UpToWavesizeAndAll
 - Operand Kind: All
 
-### Parallel Synchronization and communication operations [chapter 9]
+### Parallel Synchronization and communication operations [PRM, chapter 9]
 
-#### barrier: Barrier operations [chapter 9.1]
+#### barrier: Barrier operations [PRM, chapter 9.1]
 
 - Instructions: barrier
 - Grid Geometry: BarrierSet
+- Code Location: Kernel
 - Segment: Atomic
 - Memory Scope: All
 - Memory Order: All
 
 *Tests for `wavebarrier` are to be implemented.*
 
-#### Fine-grain barrier operations [chapter 9.2]
+#### Fine-grain barrier operations [PRM, chapter 9.2]
 
 - Instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar, ldf
 - Grid Geometry: FBarrierSet
+- Code Location: Kernel
 
-#### crosslane: Cross-lane operations [chapter 9.4]
+#### crosslane: Cross-lane operations [PRM, chapter 9.4]
 
 - Instructions: activelanecount, activelaneid, activelanemask
 - Grid Geometry: OneGroupSet
@@ -568,17 +622,19 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 
 *Tests for `activelanepermute` are to be implemented.*
 
-### Function operations [chapter 10]
+### Function operations [PRM, chapter 10]
 
-### Direct call operation [chapter 10.6]
-##### arguments: Verify passing argument/returning result of given type [chapter 10.2]
+### Direct call operation [PRM, chapter 10.6]
+##### arguments: Verify passing argument/returning result of given type [PRM, chapter 10.2]
 - Types: all BRIG types
+- Grid Geometry: OneGroupSet
+- Code Location: All
 
 *More tests are to be implemented.*
 
-### special: Special operations [chapter 11]
+### special: Special operations [PRM, chapter 11]
 
-#### dispatchpacket: Dispatch packet operations [chapter 11.1]
+#### dispatchpacket: Dispatch packet operations [PRM, chapter 11.1]
 
 ##### basic: Verify result of dispatch packet operation
 - Instructions: currentworkgroupsize, dim, gridgroups, gridsize, workgroupid, workgroupsize, workitemabsid, workitemflatabsid, workitemflatid, workitemid
@@ -620,31 +676,36 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Grid Geometry: Boundary32Set
 - Control Directives: None
 
-#### Exception operations [chapter 11.2]
+#### Exception operations [PRM, chapter 11.2]
 
 - Grid Geometry: OneGroupSet
 - Code Location: All or Kernel
 - Exceptions mask: All (where applicable)
 
-#### usermodequeue: User mode queue operations [chapter 11.3]
+#### usermodequeue: User mode queue operations [PRM, chapter 11.3]
 
 ##### basic: Verify result of queueid, queueptr, ldk operation for a dispatch of a kernel
 - Instructions: queueid, queueptr, ldk
+- Grid Geometry: OneGroupSet
 - Code Location: All
 
 ##### basicindex: Verify result of queue index operation on a user mode queue
 - Instructions: ldqueuereadindex, ldqueuewriteindex, addqueuewriteindex, casqueuewriteindex, stqueuereadindex, stqueuewriteindex
 - Code Location: All
+- Grid Geometry: OneGroupSet
 - User mode queue type: separate, customized for each test
 
-#### misc: Miscellaneous operations [chapter 11.4]
+#### misc: Miscellaneous operations [PRM, chapter 11.4]
 ##### kernargbaseptr/identity: Verify accessing memory at kernargbaseptr address
+- Grid Geometry: OneGroupSet
 - Code Location: All
 
 ##### kernargbaseptr/alignment: Verify alignment of kernargbaseptr depending on alignment of kernel arguments
+- Grid Geometry: OneGroupSet
 - Code Location: All
 
 ##### nop: Verify kernel with nop instruction
+- Grid Geometry: OneGroupSet
 - Code Location: All
 
 ##### cuid/lessmax: Verify that result of cuid operation is always less than maxcuid
@@ -684,28 +745,28 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 - Code Locations: All
 - Grid Geometry: All
 
-### Exceptions: [chapter 12]
+### Exceptions: [PRM, chapter 12]
 
 *Feature not implemented/not testable.*
 
-### Directives: [chapter 13]
+### Directives: [PRM, chapter 13]
 
 - Grid Geometry: OneGroupSet
 - Code Location: All or Kernel
 - Exceptions mask: All (where applicable)
 
-### Version: [chapter 14]
+### Version: [PRM, chapter 14]
 
 *Tests to be implemented.*
 
-### Libraries: [chapter 15]
+### Libraries: [PRM, chapter 15]
 
 - Grid Geometry: OneGroupSet
 - Code Location: All
 - Segment: Variable
 - Linkage: All
 
-### Profiles: [chapter 16]
+### Profiles: [PRM, chapter 16]
 
 *Configuration/tests to be implemented.*
 
@@ -713,6 +774,19 @@ A prefix of test names identifies test category. For example, `prm/special/dispa
 
 - Grid Geometry: All
 - Code Location: Kernel
+
+### Memory Model: Memory Consistency Model [PSA, chapter 3]
+- Instructions: atomic, atomicnoret, ld, st
+- Operand Kind: All
+- Dst Type: All
+- Atomic operation: All
+- Segment: Atomic
+- Memory Order: All
+- Memory Scope: All
+- Equiv: 0
+- Grid Geometry: MModelSet
+- Code Location: Kernel
+
 
 ## Test suite internals
 
