@@ -1,15 +1,15 @@
 # HSA PRM Conformance Manual
-HSA PRM Specification revision: 1.0 Provisional (2014-06-05)
+HSA PRM Specification revision: 1.0 Final (2015-03-06)
 
-Test suite revision: 2014-12-12 (CL 1104888)
+Test suite revision: 2015-03-27 (commit 0ecca4a05179f219c700069bbb18f7f78fc91730)
 
 ## Overview
 
 HSA PRM Conformance test suite is used to validate an implementation of Heterogeneous System Architecture Intermediate Language (HSAIL) virtual machine and language as described in "HSA Programmer's Reference Manual". The focus is on verification of ISA produced by HSAIL Finalizer and functionality of kernels on the agent. HSAIL Linking extension is used to finalize test programs while HSA Core Runtime is used to set up and invoke test kernels and to provide certain functionality for test code on the host (for some tests).
 
-A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers, one dispatch and validation of output buffer. An example of such test is the test for `add_u32` HSAIL instruction with register operands: one kernel, two input buffers and one output buffer.
+A test consists of scenario which describes test data, HSAIL program(s) in BRIG format, agent(s) code, dispatches and validation. The test is deemed passed if all scenario steps (including validation) are successful. Many basic tests for HSAIL instruction contain just one program with one kernel, one or several input and output buffers (used to store test data and test results), one dispatch and validation of output buffer. An example of such test is a test for `add_u32` HSAIL instruction: one kernel, two input buffers and one output buffer.
 
-Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in [Test details] section. For example, the test for abs instruction consists of several tests for `f32` and `f64` types.
+Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in [Test details]. For example, a test for the abs instruction consists of several tests for `f32` and `f64` types.
 
 ## Building test suite
 
@@ -18,23 +18,22 @@ HSA PRM Conformance test suite uses [CMake](http://www.cmake.org/). The followin
 - `HSAIL-Tools` can be obtained from HSA github repository. `HSAIL-Tools-PATH` needs to be set to point to it.
 - HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. `HSA-Runtime-Inc-PATH` needs to be set to point to directory with `hsa.h`. `HSA-Runtime-Ext-PATH` needs to be set to point to directory with `hsa_ext_finalize.h`.
 
-The test suite is known to build on Windows and Linux. cmake_windows.sh and cmake_linux.sh scripts contain examples of command lines that can be used to run CMake on Windows and Linux.  
+`cmake_windows.sh` and `cmake_linux.sh` scripts contain examples of command lines that can be used to run CMake on Windows and Linux.  
 
 ## Running test suite
 
-The test suite can be invoked as "hcprm" program that runs on the host. 
+The test suite can be invoked as "hc" program that runs on the host. 
 
-To run the suite, make sure to have a dynamic HSA RT libraries with corresponding bitness in the search path (e.g. `PATH` variable for Windows, `LD_LIBRARY_PATH` - for Linux).
+To run the suite you should have a dynamic HSA RT libraries with corresponding bitness in the path (e.g. `PATH` variable for Windows, `LD_LIBRARY_PATH` for Linux).
 
 A simple scenario of running all the tests on Linux 64-bit may look like:
 
 	export LD_LIBRARY_PATH="$HSA_RT_LIB:$LD_LIBRARY_PATH"
-	bin/lnx64a/hcprm
-      -tests prm/ 
-      -exclude amdhsa.exclude 
-      -runner hrunner 
-      -verbose 
-      -testlog results_linux64.log
+	bin/lnx64a/hc -tests prm/ 
+                  -exclude amdhsa.exclude 
+                  -runner hrunner 
+                  -verbose 
+                  -testlog results_linux64.log
 where `$HSA_RT_LIB` points to the HSA RT libraries, e.g.  
 `/compiler/dist/Obsidian/dist/linux/debug.hsa_foundation/lib/x86_64`.
 
@@ -55,17 +54,17 @@ The following example demonstrates how to run these scripts on Linux. The result
 	Testrun
 	  Passed: 13729   Failed:    0   Error:    0   NA:    0   Total: 13729
 
-Using `-test` it is possible to specify a smaller set of tests, while `-exclude` allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).
+Using `-tests` it is possible to specify a smaller set of tests, while `-exclude` allows to exclude tests (e.g. failing due to issues with the current HSA RT implementation).
 
 ## Command line options
 
-"hcprm" program supports the following command line options:
+The "hc" supports the following command line options:
 
-- `-tests TestSet`: prefix of tests to run, e.g. `-tests prm/` to run all the tests;
-- `-exclude File`: file containing a list of test prefixes to be excluded from testing;
+- `-tests TestSet`: prefix of test to run, e.g. `-tests prm/` to run all the tests;
+- `-exclude File`: file containing a list of tests to be excluded from testing;
 - `-verbose`: enables detailed test output in a log file;
 - `-testlog File`: name for a log file, the default name is test.log;
-- `-runner hrunner`: a mode of test grouping. By default, tests are not grouped. See also option `-testloglevel` which also affects grouping. 
+- `-runner Runner`: a mode of test grouping. May be either `hrunner` (default) or `simple`. By default tests are grouped by category. `simple` runner may be specified to avoid tests grouping. See option `-testloglevel` which also affects grouping.
 - `-testloglevel`: test grouping depth, the default is 4. See also `-runner` option;
 - `-dump`: dump HSAIL and BRIG test sources for each test under corresponding folder (prm/...);
 - `-results`: path to folder which will contain dumped test sources (prm/...), the default is the current folder.
@@ -76,10 +75,9 @@ Using `-test` it is possible to specify a smaller set of tests, while `-exclude`
 
 ## Test names
 
-Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (`/`). An example of test name is `prm/core/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND`. The following scheme for the words is used (starting from the beginning of test name):
+Every test has a unique identifier: test name. A test name consists of several words in lower case separated by slash (`/`). An example of test name is `prm/special/dispatchpacket/dim/basic/kernel_1_200x1x1_64x1x1_ND`. The following scheme for the words is used (starting from the beginning of test name):
 
 - `prm`: Test suite
-- `core`: Core PRM specification
 - `special`: Chapter in PRM specification
 - `dispatchpacket`: Section in PRM specification
 - `dim`: Instruction or group of instructions in PRM specification
@@ -88,7 +86,7 @@ Every test has a unique identifier: test name. A test name consists of several w
 
 The naming scheme for testcases depends on test. For many tests, it contains text representation of parameters described in [Test details], separated by underscore (_). For some tests, simple counter is used. Refer to documentation below for the list of parameters.
 
-A prefix of test names identifies a collection of tests that have names starting with this prefix. For example, `prm/core/special/dispatchpacket/` are the tests for dispatch packet operations.
+A prefix of test names identifies test category. For example, `prm/special/dispatchpacket/` are tests for dispatch packet operations. These categories may be used to select which tests to run (see option `-tests`).
 
 ## Test parameters
 ### Code Location: location of validated code
@@ -102,20 +100,23 @@ A prefix of test names identifies a collection of tests that have names starting
 	- Grid sizes for `x`, `y`, `z`. Unused dimensions have value `1`.
 	- Workgroup sizes for `x`, `y`, `z`. Unused dimensions have value `1`.
 - Used sets:
-    - `Trivial`: one work-item/work-group (dimension 1)   
-	- `All`: various geometries, includes samples of partial workgroups/workitems, corner cases
+	- All: various geometries, includes samples of partial workgroups/workitems, corner cases
 	- `DimensionSet`: representative geometry for each dimension
 	- `OneGroupSet`: one group, one dimension geometry
 	- `DefaultPlusNGroupSet `: set of geometry with 1 WorkItem, OneGroupSet, and 1 dim & N groups
 	- `Boundary32Set`: samples of geometry with sizes `> 2^32`  
 	- `Boundary24Set`: samples of geometry with sizes `> 2^24`
 	- `DegenerateSet`: samples of degenerated geometry when a dimension is used, but has size `1`
+	- `BarrierSet`: samples of one-dimensional geometries for barrier testing
+	- `FBarrierSet`: special samples of geometries for fbarrier testing
+	- `ImageSet`: special samples of geometries for testing operations with images and samples
+	- `ImageRdSet`: special samples of geometries for testing rdimage operation
 
 ### Control Directives: control directives in BRIG modules
 - Control directives may be controlled with the following settings:
   - Location: location of control directives (function, kernel or module).
   - List of enabled control directives.
-- A test shall use all possible combinations of enabled control directives. For example, if two directives are eabled - `requiredgridsize` and `requiredworkgroupsize`, the test shall use the following combinations:
+- A test shall use all possible combinations of enabled control directives. For example, if two directives are enabled - `requiredgridsize` and `requiredworkgroupsize`, the test shall use the following combinations:
 	- `[]` (no control directives)
 	- `[ requiredgridsize ]`
 	- `[ requiredworkgroupsize ]`
@@ -133,6 +134,10 @@ A prefix of test names identifies a collection of tests that have names starting
 	- `MemFence`: global, group
 	- `Variable`: global, readonly, kernarg, group, private, spill, arg
 	- `All`: all standard segments
+
+### Linkage: variable linkage
+- Used sets:
+	- `All`: program, module, linkage, arg
 
 ### Operand Kind: kind of instruction operand
 - Used sets:
@@ -190,7 +195,6 @@ A prefix of test names identifies a collection of tests that have names starting
 	- `All`: wi, wv, wg, cmp, sys
 	- `Global`: wv, wg, cmp, sys
 	- `Group`: wv, wg
-	- `Image`: wi, wv, wg, cmp, sys
 
 ### Width: width modifier
 - Used sets:
@@ -209,7 +213,52 @@ A prefix of test names identifies a collection of tests that have names starting
             - values which signal exceptions;
             - values which result in an undefined behavior.  
 
+### Exceptions Mask: a number that specifies a list of exceptions 
+- Used sets:
+	- `All`: all legal values
+
+### Image Geometry: geometries associated with images [chapter 7.1.3] 
+- Used sets:
+	- `All`: all legal values
+
+### Image Channel Order: channel orders associated with images [chapter 7.1.4.1] 
+- Used sets:
+	- `All`: all legal values
+
+### Image Channel Type: channel types associated with images [chapter 7.1.4.2] 
+- Used sets:
+	- `All`: all legal values
+
+### Image Array: image array size 
+- Used sets:
+	- `All`: 1, 2, 10
+
+### Image Property: names of image properties [chapter 7.5.2]
+- Used sets:
+	- `All`: all legal values
+
+### Sampler Coord: sampler coordinate normalization mode [chapter 7.1.8] 
+- Used sets:
+	- `All`: all legal values
+
+### Sampler Filter: sampler filter mode [chapter 7.1.8] 
+- Used sets:
+	- `All`: all legal values
+
+### Sampler Addressing: sampler addressing mode [chapter 7.1.8] 
+- Used sets:
+	- `All`: all legal values
+
+### Sampler Property: names of sampler properties [chapter 7.5.2]
+- Used sets:
+	- `All`: all legal values
+
 ## Test details
+
+### initializer: Variable Initializers [chapter 4.10]
+- Segment: Variable
+- Grid Geometry: OneGroupSet
+- Code Location: Kernel
 
 ### arithmetic: Arithmetic operations [chapter 5]
 #### intfp: Integer/floating point arithmetic operations [chapters 5.2 and 5.11]
@@ -257,7 +306,7 @@ A prefix of test names identifies a collection of tests that have names starting
 - Test Data: Standard
 
 #### bitstr: Bit string operations [chapter 5.7]
-- Instructions: bitextract, bitinsert, bitask, bitrev, bitselect, firstbit, lastbit
+- Instructions: bitextract, bitinsert, bitmask, bitrev, bitselect, firstbit, lastbit
 - Operand Kind: All
 - Dst Type: All
 - Src Type: All
@@ -379,14 +428,16 @@ A prefix of test names identifies a collection of tests that have names starting
 - Instructions: atomic, atomicnoret
 - Operand Kind: All
 - Dst Type: All
-- Atomic operation: All
+- Atomic operation: All (except for ld)
 - Segment: Atomic
-- Memory Order: All
-- Memory Scope: All
-- Equiv: all
+- Memory Order: All (except for rlx)
+- Memory Scope: All (except for system)
+- Equiv: 0
 - Grid Geometry: OneGroupSet
 - Code Location: Kernel
 - Test Data: Standard
+
+*More tests are to be implemented.*
 
 #### memory/signal: Notification operations [chapter 6.8]
 - Instructions: signal, signalnoret
@@ -397,11 +448,77 @@ A prefix of test names identifies a collection of tests that have names starting
 - Grid Geometry: OneGroupSet
 - Segment: Memfence
 - Memory Order: Memfence
-- Memory Scope: Global, Group, Image
+- Memory Scope: Global, Group
 
 ### Image operations [chapter 7]
 
-*Tests to be implemented.*
+##### initializer/image: Image Creation and Image Handles [chapter 7.1.7]
+
+*Tests are to be implemented.*
+
+##### initializer/sampler: Sampler Creation and Sampler Handles [chapter 7.1.8]
+
+- Grid Geometry: OneGroupSet
+- Code Location: All
+- Sampler Coord: All
+- Sampler Filter: All
+- Sampler Addressing: All
+
+##### image_rd: Read Image Instruction [chapter 7.2]
+- Instructions: rdimage
+- Grid Geometry: ImageRdSet
+- Code Location: All
+- Image Geometry: All
+- Image Channel Order: All
+- Image Channel Type: All
+- Image Array: All
+- Sampler Coord: All
+- Sampler Filter: All
+- Sampler Addressing: All
+- Equiv: 0
+
+##### image_ld: Load Image Instruction [chapter 7.3]
+- Instructions: ldimage
+- Grid Geometry: ImageSet
+- Code Location: All
+- Image Geometry: All
+- Image Channel Order: All
+- Image Channel Type: All
+- Image Array: All
+- Equiv: 0
+
+##### image_st: Store Image Instruction [chapter 7.4]
+- Instructions: stimage
+- Grid Geometry: ImageSet
+- Code Location: All
+- Image Geometry: All
+- Image Channel Order: All
+- Image Channel Type: All
+- Image Array: All
+- Equiv: 0
+
+##### image_query: Query Image Instruction [chapter 7.5]
+- Instructions: queryimage
+- Grid Geometry: ImageSet
+- Code Location: All
+- Image Geometry: All
+- Image Channel Order: All
+- Image Channel Type: All
+- Image Array: All
+- Image Property: All
+
+##### image_query_sampler: Query Sampler Instruction [chapter 7.5]
+- Instructions: querysampler
+- Grid Geometry: ImageSet
+- Code Location: All
+- Sampler Coord: All
+- Sampler Filter: All
+- Sampler Addressing: All
+- Sampler Property: All
+
+##### imagefence: Image Fence Instruction [chapter 7.5]
+
+*Tests are to be implemented.*
 
 ### Branch operations [chapter 8]
 ##### basic/br: Basic unconditional jump, verify expected result by setting value of HSAIL register [chapter 8]
@@ -430,48 +547,26 @@ A prefix of test names identifies a collection of tests that have names starting
 
 #### barrier: Barrier operations [chapter 9.1]
 
-*More tests to be implemented.*
+- Instructions: barrier
+- Grid Geometry: BarrierSet
+- Segment: Atomic
+- Memory Scope: All
+- Memory Order: All
+
+*Tests for `wavebarrier` are to be implemented.*
 
 #### Fine-grain barrier operations [chapter 9.2]
 
-##### basic: Basic fbarrier in divergent control flow.
-- Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar
-- Grid Geometry: ??
+- Instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar, ldf
+- Grid Geometry: FBarrierSet
 
-##### example1: Use leavefbar to create an fbarrier that only contains divergent work-items (based on Example 1 from the specification)
-- Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar
-- Grid Geometry: ??
-
-##### example2: Use joinfbar to create an fbarrier that only contains divergent work-items (based on Example 2 from the specification)
-- Used instructions: initfbar, joinfbar, waitfbar, leavefbar, releasefbar
-- Grid Geometry: ??
-
-##### example3: Producer/consumer using two fbarriers that allow producer and consumer wavefront executions to overlap (based on Example 3 from the specification)
-- Used instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar
-- Grid Geometry: ??
-
-##### ldf: fbarrier operations on barrier address obtained with ldf
-- Used instructions: initfbar, joinfbar, waitfbar, arrivefbar, leavefbar, releasefbar
-- Grid Geometry: TrivialGeometrySet
-
-##### joinleave_wait: Concurrent joinfbar+leavefbar and waitfbar operations
-- Grid Geometry: ??
-
-##### wait_arrive: Concurrent waitfbar and arrivefbar operations
-- Grid Geometry: ??
-
-##### wait_leave: Concurrent waitfbar and leavefbar operations
-- Grid Geometry: ??
-
-##### arrive_leave: Concurrent arrivefbar and leavefbar operations
-- Grid Geometry: ??
-
-##### wait_race: waitfbar in a loop
-- Grid Geometry: ??
- 
 #### crosslane: Cross-lane operations [chapter 9.4]
 
-*More tests to be implemented.*
+- Instructions: activelanecount, activelaneid, activelanemask
+- Grid Geometry: OneGroupSet
+- Code Location: All
+
+*Tests for `activelanepermute` are to be implemented.*
 
 ### Function operations [chapter 10]
 
@@ -479,7 +574,7 @@ A prefix of test names identifies a collection of tests that have names starting
 ##### arguments: Verify passing argument/returning result of given type [chapter 10.2]
 - Types: all BRIG types
 
-*More tests to be implemented.*
+*More tests are to be implemented.*
 
 ### special: Special operations [chapter 11]
 
@@ -504,22 +599,32 @@ A prefix of test names identifies a collection of tests that have names starting
 - Code Location: All
 - Grid Geometry:  Boundary24Set
 - Control Directives: Boundary24Set
-- Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for others
+- Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for other instructions
 
 ##### degenerate: Verify result of dispatch packet operation for used dimension that dispatched with size 1
 - Instructions: currentworkgroupsize, gridgroups, gridsize, workgroupid, workgroupsize, workitemabsid, workitemflatid, workitemid
 - Code Location: All
 - Grid Geometry: DegenerateSet
 - Control Directives: DegenerateSet
-- Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for others
+- Type: u32/u64 for workitemflatabsid, workitemflatid, u32 for other instructions
 
 ##### packetid/basic: Compare result of packetid operation with value on the host
+- Instructions: packetid
+- Code Location: All
+- Grid Geometry: Boundary32Set
+- Control Directives: None
 
 ##### packetcompletionsig/basic: Compare result of packetcompletionsig operation with value on the host
+- Instructions: packetcompletionsig
+- Code Location: All
+- Grid Geometry: Boundary32Set
+- Control Directives: None
 
 #### Exception operations [chapter 11.2]
 
-*Tests to be implemented.*
+- Grid Geometry: OneGroupSet
+- Code Location: All or Kernel
+- Exceptions mask: All (where applicable)
 
 #### usermodequeue: User mode queue operations [chapter 11.3]
 
@@ -530,7 +635,7 @@ A prefix of test names identifies a collection of tests that have names starting
 ##### basicindex: Verify result of queue index operation on a user mode queue
 - Instructions: ldqueuereadindex, ldqueuewriteindex, addqueuewriteindex, casqueuewriteindex, stqueuereadindex, stqueuewriteindex
 - Code Location: All
-- User mode queue type: separate, user-created
+- User mode queue type: separate, customized for each test
 
 #### misc: Miscellaneous operations [chapter 11.4]
 ##### kernargbaseptr/identity: Verify accessing memory at kernargbaseptr address
@@ -556,6 +661,9 @@ A prefix of test names identifies a collection of tests that have names starting
 
 ##### clock/monotonic: Verify that result of clock operation increases monotonically
 
+- Grid Geometry: OneGroupSet
+- Code Location: All or Kernel
+
 ##### waveid/lessmax: Verify that result of waveid operation is always less than maxwaveid
 - Code Locations: All
 - Grid Geometry: All
@@ -578,37 +686,13 @@ A prefix of test names identifies a collection of tests that have names starting
 
 ### Exceptions: [chapter 12]
 
-*Tests to be implemented.*
+*Feature not implemented/not testable.*
 
 ### Directives: [chapter 13]
 
-#### extension: extension directive
-
-##### names: Simple usage of one directive
-
-##### pair: Pairs of extension directive.
-
-#### loc: loc directive
-
-##### location: different locations of the directive
-
-#### pragma: pragma directive
-
-##### location: different locations of the directive
-
-#### control: control directives
-
-##### exception/location: different locations of the directive
-- Locations: beginning of kernel, function
-
-##### exception/argument: different arguments of exception directives 
-
-##### maxdynamic/location: different locations of the directive
-
-##### geometry/location: different locations of the directives
-- Directives: maxflatgridsize, maxflatworkgroupsize, requireddim, requiredgridsize, requiredworkgroupsize, requirenopartialworkgroups
-
-Note: the effect of control directives is also tested in special operations tests   
+- Grid Geometry: OneGroupSet
+- Code Location: All or Kernel
+- Exceptions mask: All (where applicable)
 
 ### Version: [chapter 14]
 
@@ -616,7 +700,10 @@ Note: the effect of control directives is also tested in special operations test
 
 ### Libraries: [chapter 15]
 
-*Tests to be implemented.*
+- Grid Geometry: OneGroupSet
+- Code Location: All
+- Segment: Variable
+- Linkage: All
 
 ### Profiles: [chapter 16]
 
@@ -624,46 +711,9 @@ Note: the effect of control directives is also tested in special operations test
 
 ### Limits: [appendix A]
 
-#### registers: Register limits
-##### c, s, q, d: Use number of registers reaching limit for give register type  
-- Grid Geometry: TrivialGeometry 
+- Grid Geometry: All
+- Code Location: Kernel
 
-##### sdq: Use number of s, d, q registers reaching limit combined
-- Grid Geometry: TrivialGeometry 
-
-##### liveregisters: Live register limits
-##### c, s, q, d: Use number of live registers reaching limit for give register type  
-- Grid Geometry: TrivialGeometry 
-
-##### sdq: Use number of s, d, q live registers reaching limit combined
-- Grid Geometry: TrivialGeometry 
-
-#### equiv: Use number of equivalence classes reaching limit
-- Instructions: ld, st, atomic/atomicnoret operations
-- Grid Geometry: TrivialGeometry 
-
-#### identifiers:
-*Tests to be implemented.*
-
-#### wgsize: Use work-group size reaching minimal limit (256)
-
-#### wavesize: Check wavesize is within limits and is a power of 2
-
-#### wgnumber: Use number of work-groups reaching limit
-
-#### dims: Grid dimensions reaching limit
-
-#### fbarnumber: 
-*Tests to be implemented.*
-
-#### group_memory_size: Use group segment memory reaching limit
-
-#### private_memory_size: Use private segment memory reaching limit
-
-#### kernarg_memory_size: Use kernarg segment memory reaching limit
-
-#### arg_memory_size: Use arg segment variables reaching limit
- 
 ## Test suite internals
 
 *Information to be added when the suite is finalized.*

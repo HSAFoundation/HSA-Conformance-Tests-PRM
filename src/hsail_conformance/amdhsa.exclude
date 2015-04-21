@@ -108,3 +108,5 @@ prm/core/libraries/linkage/function/variable/private
 prm/core/libraries/linkage/function/variable/spill
 prm/core/libraries/linkage/function/variable/kernarg
 prm/core/libraries/linkage/function/variable/arg
+prm/core/libraries/linkage/function/fbarrier
+prm/core/memory/memfence/array/
