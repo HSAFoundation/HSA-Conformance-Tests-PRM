@@ -2,7 +2,7 @@ HSA Conformance Test Suite release notes
 
 Test suite revision
 
- * Date: 03/27/2015
+ * Date: 04/21/2015
 
 System Requirements
 
@@ -12,7 +12,7 @@ System Requirements
 
 Tested configuration
 
- * AMD HSAIL Runtime built from staging HSA_PRM CL 1134715 and RC2
+ * AMD HSAIL Runtime built from staging HSA CL 1142323 and RC2
  * KFD RC3
  * Thunk RC3 
  * Kaveri APU
