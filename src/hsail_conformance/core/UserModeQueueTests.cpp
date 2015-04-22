@@ -135,7 +135,7 @@ public:
 
   TypedReg Result() {
     TypedReg index = be.AddTReg(ResultType());
-    be.EmitMov(index, be.Immed(index->Type(), 1));
+    be.EmitMov(index, 1);
     switch (opcode) {
     case BRIG_OPCODE_STQUEUEREADINDEX: queue->EmitStQueueReadIndex(segment, memoryOrder, index); break;
     case BRIG_OPCODE_STQUEUEWRITEINDEX: queue->EmitStQueueWriteIndex(segment, memoryOrder, index); break;

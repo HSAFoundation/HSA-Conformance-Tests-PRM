@@ -573,33 +573,33 @@ public:
         case BRIG_ATOMIC_ADD:
         case BRIG_ATOMIC_SUB:
         case BRIG_ATOMIC_ST:
-            be.EmitMov(src0, be.Immed(type2bitType(type[idx]), 1));
+            be.EmitMov(src0, 1);
             break;
 
         case BRIG_ATOMIC_WRAPINC:
         case BRIG_ATOMIC_WRAPDEC:
-            be.EmitMov(src0, be.Immed(type2bitType(type[idx]), -1)); // operand is max value
+            be.EmitMov(src0, -1); // operand is max value
             break;
         
         case BRIG_ATOMIC_AND:
         case BRIG_ATOMIC_OR:
         case BRIG_ATOMIC_XOR:
-            be.EmitMov(src0, be.Immed(type2bitType(type[idx]), 1));
+            be.EmitMov(src0, 1);
             break;
         
         case BRIG_ATOMIC_MAX:
         case BRIG_ATOMIC_MIN:
-            be.EmitMov(src0, be.Immed(type2bitType(type[idx]), 1));
+            be.EmitMov(src0, 1);
             break;
 
         case BRIG_ATOMIC_EXCH:
-            be.EmitMov(src0, be.Immed(type2bitType(type[idx]), 1));
+            be.EmitMov(src0, 1);
             break;
 
         case BRIG_ATOMIC_CAS:
             src1 = be.AddTReg(type[idx]);
-            be.EmitMov(src0, be.Immed(type2bitType(type[idx]), InitialValue(idx))); // value which is being compared
-            be.EmitMov(src1, be.Immed(type2bitType(type[idx]), 1));                 // value to swap
+            be.EmitMov(src0, InitialValue(idx)); // value which is being compared
+            be.EmitMov(src1, 1);                 // value to swap
             break;
 
         default: 
@@ -722,7 +722,7 @@ public:
 
         Comment("Clear 'testComplete' flag");
         TypedReg testComplete = be.AddTReg(BRIG_TYPE_B1);       // testComplete flag is only used to record the result
-        be.EmitMov(testComplete, be.Immed(BRIG_TYPE_B1, 0));    // at first successful 'synchronized-with' attempt
+        be.EmitMov(testComplete, (uint64_t) 0);    // at first successful 'synchronized-with' attempt
 
         if (ArraySegment(0) == BRIG_SEGMENT_GROUP ||
             ArraySegment(1) == BRIG_SEGMENT_GROUP) 
@@ -924,7 +924,7 @@ public:
             Comment("Init loop index");
 
             loopIdx = be.AddTReg(BRIG_TYPE_U32);
-            be.EmitMov(loopIdx, be.Immed(BRIG_TYPE_U32, MAX_LOOP));
+            be.EmitMov(loopIdx, MAX_LOOP);
         }
     }
     

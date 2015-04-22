@@ -435,9 +435,9 @@ public:
     TypedReg clk = be.AddTReg(BRIG_TYPE_U64);
     TypedReg old_val = be.AddTReg(BRIG_TYPE_U64);
     //mov
-    be.EmitMov(cnt, be.Immed(cnt->Type(), 0));
-    be.EmitMov(clk, be.Immed(cnt->Type(), 0));
-    be.EmitMov(result, be.Immed(cnt->Type(), 0));
+    be.EmitMov(cnt, (uint64_t) 0);
+    be.EmitMov(clk, (uint64_t) 0);
+    be.EmitMov(result, (uint64_t) 0);
     TypedReg reg_c = be.AddTReg(BRIG_TYPE_B1);
     SRef s_label_do = "@do";
     SRef s_label_until = "@until";

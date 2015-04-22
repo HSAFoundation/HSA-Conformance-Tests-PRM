@@ -120,7 +120,7 @@ public:
   hexl::Value GenerateTestValue(BrigType type, uint64_t id = 0) const;
 
   // Immediates
-  HSAIL_ASM::Operand Immed(BrigType16_t type, int64_t imm);
+  HSAIL_ASM::Operand Immed(BrigType16_t type, int64_t imm, bool expand = true);
   HSAIL_ASM::Operand Immed(BrigType16_t type, HSAIL_ASM::SRef data);
   HSAIL_ASM::Operand Immed(float imm);
   HSAIL_ASM::Operand ImmedString(const std::string& str);
@@ -262,9 +262,6 @@ public:
   void EmitActiveLaneId(TypedReg dest);
   void EmitActiveLaneMask(TypedReg dest, HSAIL_ASM::Operand src);
   void EmitActiveLaneShuffle(TypedReg dest, TypedReg src, TypedReg laneId, TypedReg identity, TypedReg useIdentity);
-
-  // User mode queues.
-  void EmitAgentId(TypedReg dest);
 
   // Images operations
   BrigType ImageType(unsigned access) const;

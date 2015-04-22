@@ -56,7 +56,7 @@ namespace hsail_conformance {
     void NameParams(std::ostream& out) const { out << src; }
 
     void EmitInit(TypedReg dest) const {
-      te->Brig()->EmitMov(dest, te->Brig()->Immed(BRIG_TYPE_U32, UINT32_MAX));
+      te->Brig()->EmitMov(dest, UINT32_MAX);
     }
 
     Value InitValue() const {
@@ -186,7 +186,7 @@ namespace hsail_conformance {
     void NameParams(std::ostream& out) const { }
 
     void EmitInit(TypedReg dest) const {
-      te->Brig()->EmitMov(dest, te->Brig()->Immed(BRIG_TYPE_U32, UINT32_MAX));
+      te->Brig()->EmitMov(dest, UINT32_MAX);
     }
 
     Value InitValue() const {
@@ -302,7 +302,7 @@ namespace hsail_conformance {
     void NameParams(std::ostream& out) const { out << src; }
 
     void EmitInit(TypedReg dest) const {
-      te->Brig()->EmitMov(dest, te->Brig()->Immed(BRIG_TYPE_B64, initMask));
+      te->Brig()->EmitMov(dest, initMask);
     }
 
     Value InitValue() const {

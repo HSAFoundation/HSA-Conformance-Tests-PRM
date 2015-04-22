@@ -192,7 +192,7 @@ public:
     TypedReg dest = NULL, src0 = be.AddTReg(vtype), src1 = NULL, wiID = NULL, idInWF = NULL, cReg = NULL, addrReg = NULL;
     if (!noret) dest = be.AddTReg(vtype);
     if (BRIG_ATOMIC_MIN != atomicOp && BRIG_ATOMIC_MAX != atomicOp && BRIG_ATOMIC_EXCH != atomicOp)
-      be.EmitMov(src0->Reg(), be.Immed(type2bitType(vtype), immSrc0), src0->TypeSizeBits());
+      be.EmitMov(src0, immSrc0);
     switch (atomicOp) {
       case BRIG_ATOMIC_AND:
       case BRIG_ATOMIC_EXCH:
@@ -209,7 +209,7 @@ public:
         } else if (BRIG_ATOMIC_EXCH == atomicOp) {
           be.EmitCvt(src0->Reg(), be.AtomicValueIntType(), wiID->Reg(), wiID->Type());
         } else if (BRIG_ATOMIC_MIN == atomicOp) {
-          be.EmitMov(waveID->Reg(), be.Immed(waveID->Type(), sizeX), waveID->TypeSizeBits());
+          be.EmitMov(waveID, sizeX);
           be.EmitArith(BRIG_OPCODE_SUB, wiID, waveID, wiID->Reg());
           be.EmitCvt(src0, wiID);
         } else {
@@ -239,7 +239,7 @@ public:
       }
       case BRIG_SEGMENT_GROUP: {
         TypedReg initValueReg = be.AddTReg(be.PointerType());
-        be.EmitMov(initValueReg->Reg(), be.Immed(initValueReg->Type(), initialValue), initValueReg->TypeSizeBits());
+        be.EmitMov(initValueReg, initialValue);
         if (!wiID) wiID = be.EmitWorkitemId(0);
         // atomic store for global group_var should occur only for the first workitem
         cReg = be.AddTReg(BRIG_TYPE_B1);
@@ -264,7 +264,7 @@ public:
       be.EmitArith(BRIG_OPCODE_REM, idInWF, wiID->Reg(), be.Wavesize());
       TypedReg r0 = be.AddTReg(wiID->Type());
       // TODO: add EmitCmp with operands (for immed) besides registers in order not to emit additional move
-      be.EmitMov(r0->Reg(), be.Immed(wiID->Type(), 0), wiID->TypeSizeBits());
+      be.EmitMov(r0, (uint64_t) 0);
       if (!cReg) cReg = be.AddTReg(BRIG_TYPE_B1);
       // Only workitems with "id" in wavefront grater than 0 will perform atomic XOR,
       // i.e. first workitem in every wavefront will be skipped for XOR
@@ -279,7 +279,7 @@ public:
 ///      cReg = be.AddTReg(BRIG_TYPE_B1);
 ///      be.EmitCmp(cReg->Reg(), src0, dest, BRIG_COMPARE_GT);
 ///      be.EmitCbr(cReg, s_label_skip_first_wi_in_wf);
-///      be.EmitMov(src0, be.Immed(src0->Type(), 555));
+///      be.EmitMov(src0, 555);
 ///      be.EmitAtomic(src0, addr, dest, src1, atomicOp, memoryOrder, memoryScope, segment, isSigned, equivClass);
 ///    }
     be.EmitBarrier();
@@ -420,7 +420,7 @@ protected:
     // store data in neighbours wave output memory region
     auto outputAddr = be.AddAReg(globalOffset->Segment());
     auto typeSize = be.AddTReg(outputAddr->Type());
-    be.EmitMov(typeSize, be.Immed(outputAddr->Type(), getBrigTypeNumBytes(VALUE_TYPE)));
+    be.EmitMov(typeSize, getBrigTypeNumBytes(VALUE_TYPE));
     be.EmitArith(BRIG_OPCODE_MAD, outputAddr, typeSize, be.Wavesize(), globalOffset);
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), outputAddr);
   }
@@ -664,7 +664,7 @@ protected:
 
     // counter
     counter = be.AddTReg(VALUE_TYPE);
-    be.EmitMov(counter, be.Immed(counter->Type(), 0));
+    be.EmitMov(counter, (uint64_t) 0);
 
     // is work-item - producer
     be.EmitArith(BRIG_OPCODE_AND, arith, waveId, be.Immed(arith->Type(), 1));
@@ -803,7 +803,7 @@ protected:
   void EmitFirstBranch(TypedReg wiId, PointerReg globalOffset) override {
     EmitPreFirstLoop();
     auto counter = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(counter, be.Immed(counter->Type(), 0));
+    be.EmitMov(counter, (uint64_t) 0);
     // loop
     auto loopLabel = "@loop1";
     be.EmitLabel(loopLabel);
@@ -821,7 +821,7 @@ protected:
   void EmitSecondBranch(TypedReg wiId, PointerReg globalOffset) override {
     EmitPreSecondLoop();
     auto counter = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(counter, be.Immed(counter->Type(), 0));
+    be.EmitMov(counter, (uint64_t) 0);
     // loop
     auto loopLabel = "@loop2";
     be.EmitLabel(loopLabel);
@@ -848,7 +848,7 @@ protected:
     be.EmitBarrier();
     Fb1()->EmitReleasefbarInFirstWI();
     auto result = be.AddTReg(ResultType());
-    be.EmitMov(result, be.Immed(result->Type(), VALUE));
+    be.EmitMov(result, VALUE);
     output->EmitStoreData(result);
   }  
 
@@ -1006,7 +1006,7 @@ public:
     fb->EmitJoinfbar();
 
     auto counter = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(counter, be.Immed(counter->Type(), 0));
+    be.EmitMov(counter, (uint64_t) 0);
     // loop
     auto loopLabel = "@loop2";
     be.EmitLabel(loopLabel);

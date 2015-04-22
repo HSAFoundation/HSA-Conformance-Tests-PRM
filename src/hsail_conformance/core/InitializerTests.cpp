@@ -290,7 +290,7 @@ public:
 
     // for-each loop counter
     auto forEachCount = be.AddTReg(offsetBase->Type());
-    be.EmitMov(forEachCount, be.Immed(forEachCount->Type(), 0));
+    be.EmitMov(forEachCount, (uint64_t) 0);
 
     // for-each loop inside var
     be.EmitLabel(forEach);
@@ -305,7 +305,7 @@ public:
     
     // read each byte in loop
     auto byteCount = be.AddTReg(offset->Type());
-    be.EmitMov(byteCount, be.Immed(byteCount->Type(), 0));
+    be.EmitMov(byteCount, (uint64_t) 0);
     be.EmitLabel(forByte);
    
     // load one byte from element and store it in output register
@@ -506,7 +506,7 @@ public:
 
     // for-each loop counter
     auto forEachCount = be.AddTReg(offset->Type());
-    be.EmitMov(forEachCount, be.Immed(forEachCount->Type(), 0));
+    be.EmitMov(forEachCount, (uint64_t) 0);
 
     // for-each loop inside var
     be.EmitLabel(forEach);

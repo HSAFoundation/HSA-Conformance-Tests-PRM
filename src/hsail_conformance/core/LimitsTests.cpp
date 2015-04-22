@@ -73,11 +73,11 @@ public:
   TypedReg Result() override {
     // generate 256 instructions with 256 equivalence classes
     auto dst = be.AddTReg(ValueType());
-    be.EmitMov(dst, be.Immed(ValueType(), 0));
+    be.EmitMov(dst, (uint64_t) 0);
     auto src0 = be.AddTReg(ValueType());
-    be.EmitMov(src0, be.Immed(ValueType(), 0));
+    be.EmitMov(src0, (uint64_t) 0);
     auto src1 = be.AddTReg(ValueType());
-    be.EmitMov(src1, be.Immed(ValueType(), 0));
+    be.EmitMov(src1, (uint64_t) 0);
     for (uint32_t i = 0; i < LIMIT; ++i) {
       EmitEquivInstruction(i, dst, src0, src1);
     }
@@ -267,7 +267,7 @@ public:
     auto gridSize = be.AddTReg(BRIG_TYPE_U32);
     auto eq = be.AddCTReg();
     auto cand = be.AddCTReg();
-    be.EmitMov(cand, be.Immed(cand->Type(), 1));
+    be.EmitMov(cand, 1);
     for (uint16_t i = 0; i < 3; ++i) {
       gridSize = be.EmitGridSize(i);
       be.EmitCmp(eq->Reg(), gridSize, be.Immed(gridSize->Type(), geometry->GridSize(i)), BRIG_COMPARE_EQ);
@@ -331,11 +331,11 @@ public:
     be.EmitCbr(cmp->Reg(), falseLabel);
 
     auto result = be.AddTReg(ResultType());
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     be.EmitBr(endLabel);
 
     be.EmitLabel(falseLabel);
-    be.EmitMov(result, be.Immed(result->Type(), 0));
+    be.EmitMov(result, (uint64_t) 0);
 
     be.EmitLabel(endLabel);
     return result;
@@ -372,7 +372,7 @@ protected:
 
   TypedReg EmitValue() override {
     auto value = be.AddTReg(VALUE_TYPE);
-    be.EmitMov(value, be.Immed(VALUE_TYPE, VALUE));
+    be.EmitMov(value, VALUE);
     return value;
   }
 
@@ -449,7 +449,7 @@ protected:
 
   TypedReg EmitValue() override {
     auto value = be.AddTReg(VALUE_TYPE);
-    be.EmitMov(value, be.Immed(VALUE_TYPE, VALUE));
+    be.EmitMov(value, VALUE);
     return value;
   }
 
@@ -491,7 +491,7 @@ protected:
 
   TypedReg EmitValue() override {
     auto value = be.AddTReg(VALUE_TYPE);
-    be.EmitMov(value, be.Immed(VALUE_TYPE, VALUE));
+    be.EmitMov(value, VALUE);
     return value;
   }
 
@@ -543,7 +543,7 @@ protected:
 
   virtual void StoreValues(const std::vector<TypedReg>& registers, uint32_t value) {
     for (auto reg: registers) {
-      be.EmitMov(reg, be.Immed(reg->Type(), value));
+      be.EmitMov(reg, value);
     }
   }
 
@@ -587,11 +587,11 @@ public:
 
     auto result = ResultReg(registers);
     be.EmitLabel(trueLabel);
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     be.EmitBr(endLabel);
 
     be.EmitLabel(falseLabel);
-    be.EmitMov(result, be.Immed(result->Type(), 0));
+    be.EmitMov(result, (uint64_t) 0);
 
     be.EmitLabel(endLabel);
     return result;
@@ -709,7 +709,7 @@ public:
     StoreRegisters(registers);
 
     auto result = ResultReg(registers);
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     return result;
   }
 };

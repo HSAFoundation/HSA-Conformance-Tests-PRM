@@ -58,7 +58,7 @@ void BoundaryTest::KernelCode() {
 
 TypedReg SkipTest::Result() {
   auto result = be.AddTReg(RESULT_TYPE);
-  be.EmitMov(result, be.Immed(result->Type(), RESULT_VALUE));
+  be.EmitMov(result, RESULT_VALUE);
   return result;
 }
 

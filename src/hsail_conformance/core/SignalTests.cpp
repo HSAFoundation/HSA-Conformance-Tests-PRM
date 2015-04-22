@@ -143,10 +143,10 @@ public:
     expectedValue = GetExpectedSignalValue(immDest, initialValue, immSrc0, immSrc1);
     if (BRIG_ATOMIC_CAS == atomicOp) {
       src1 = be.AddTReg(vtype);
-      be.EmitMov(src1->Reg(), be.Immed(type2bitType(vtype), expectedValue), src1->TypeSizeBits());
+      be.EmitMov(src1, expectedValue);
     }
     // if register
-    be.EmitMov(src0->Reg(), be.Immed(type2bitType(vtype), immSrc0), src0->TypeSizeBits());
+    be.EmitMov(src0, immSrc0);
     std::string passLabel = be.AddLabel();
     std::string failLabel = be.AddLabel();
     // main signal operation to test
@@ -155,16 +155,16 @@ public:
     be.EmitSignalOp(src0, signal, NULL, NULL, BRIG_ATOMIC_LD, memoryOrder);
     be.EmitCmp(c->Reg(), src0, be.Immed(vtype, expectedValue), BRIG_COMPARE_EQ);
     be.EmitCbr(c, passLabel);
-    be.EmitMov(result->Reg(), be.Immed(BRIG_TYPE_U32, 0), 32);
+    be.EmitMov(result, (uint64_t) 0);
     be.EmitBr(failLabel);
     be.EmitLabel(passLabel);
-    be.EmitMov(result->Reg(), be.Immed(BRIG_TYPE_U32, 1), 32);
+    be.EmitMov(result, 1);
     if (!noret) {
       be.EmitCmp(c->Reg(), dest, origin, BRIG_COMPARE_EQ);
       // dest == origin: ok, code 1
       be.EmitCbr(c, failLabel);
       // dest != origin: fail, code 2
-      be.EmitMov(result->Reg(), be.Immed(BRIG_TYPE_U32, 2), 32);
+      be.EmitMov(result, 2);
     }
     be.EmitLabel(failLabel);
     return result;
@@ -203,17 +203,17 @@ public:
     default:
       immSrc0 = initialValue; break;
     }
-    be.EmitMov(src0->Reg(), be.Immed(type2bitType(vtype), immSrc0), src0->TypeSizeBits());
+    be.EmitMov(src0, immSrc0);
     // main signal operation to test, wrapped into loop
     be.EmitSignalWaitLoop(dest, signal, src0->Reg(), atomicOp, memoryOrder, timeout);
     be.EmitSignalOp(acquired, signal, NULL, NULL, BRIG_ATOMIC_LD, memoryOrder);
-    be.EmitMov(result->Reg(), be.Immed(BRIG_TYPE_U32, 1), 32);
+    be.EmitMov(result, 1);
     be.EmitCmp(c->Reg(), dest, acquired, BRIG_COMPARE_EQ);
     std::string failLabel = be.AddLabel();
     // dest == acquired: ok, code 1
     be.EmitCbr(c, failLabel);
     // dest != acquired: fail, code 2
-    be.EmitMov(result->Reg(), be.Immed(BRIG_TYPE_U32, 2), 32);
+    be.EmitMov(result, 2);
     be.EmitLabel(failLabel);
     return result;
   }

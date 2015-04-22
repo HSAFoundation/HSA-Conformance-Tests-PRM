@@ -29,37 +29,28 @@ using namespace hexl::emitter;
 class BrBasicTest : public Test {
 public:
   BrBasicTest(Location location, Grid geometry = 0)
-  : Test(location, geometry), baseName("br/basic"), s_then("@then"), s_endif("@endif") {
-    result = be.AddTReg(ResultType());
-    immSuccess = be.Immed(ResultType(), success);
-    immError = be.Immed(ResultType(), error);
- }
+  : Test(location, geometry) { }
 
-  void Name(std::ostream& out) const { out << baseName << "/" << CodeLocationString(); }
+  void Name(std::ostream& out) const { out << "br/basic/" << CodeLocationString(); }
 
 protected:
-  std::string baseName;
-  std::string s_then;
-  std::string s_endif;
   static const uint64_t success = 1; // expected value
   static const uint64_t error = 2; // error code
-  TypedReg result;
-  OperandConstantBytes immSuccess;
-  OperandConstantBytes immError;
 
   BrigType ResultType() const { return BRIG_TYPE_U32; }
 
   Value ExpectedResult() const { return Value(MV_UINT32, success); }
 
   TypedReg Result() {
+    TypedReg result = be.AddTReg(ResultType());
     // mov_b32 $s0, 1;
-    be.EmitMov(result->Reg(), immSuccess, result->TypeSizeBits());
+    be.EmitMov(result, success);
     // br @then;
-    be.EmitBr(s_then);
+    be.EmitBr("@then");
     // mov_b32 $s0, 2;
-    be.EmitMov(result->Reg(), immError, result->TypeSizeBits());
+    be.EmitMov(result, error);
     // @then:
-    be.EmitLabel(s_then);
+    be.EmitLabel("@then");
     return result;
   }
 };
@@ -93,9 +84,9 @@ public:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 2));
+    be.EmitMov(result, 2);
     cond->EmitIfThenStart();
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     cond->EmitIfThenEnd();
     return result;
   }
@@ -124,11 +115,11 @@ protected:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 3));
+    be.EmitMov(result, 3);
     cond->EmitIfThenElseStart();
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     cond->EmitIfThenElseOtherwise();
-    be.EmitMov(result, be.Immed(result->Type(), 2));
+    be.EmitMov(result, 2);
     cond->EmitIfThenElseEnd();
     return result;
   }
@@ -167,11 +158,11 @@ protected:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 3));
+    be.EmitMov(result, 3);
     cond->EmitIfThenStart();
-    be.EmitMov(result, be.Immed(result->Type(), 2));
+    be.EmitMov(result, 2);
     cond2->EmitIfThenStart();
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     cond2->EmitIfThenEnd();
     cond->EmitIfThenEnd();
     return result;
@@ -204,17 +195,17 @@ protected:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 4));
+    be.EmitMov(result, 4);
     cond->EmitIfThenElseStart();
 
       cond2->EmitIfThenElseStart();
-      be.EmitMov(result, be.Immed(result->Type(), 1));
+      be.EmitMov(result, 1);
       cond2->EmitIfThenElseOtherwise();
-      be.EmitMov(result, be.Immed(result->Type(), 2));
+      be.EmitMov(result, 2);
       cond2->EmitIfThenElseEnd();
 
     cond->EmitIfThenElseOtherwise();
-    be.EmitMov(result, be.Immed(result->Type(), 3));
+    be.EmitMov(result, 3);
     cond->EmitIfThenElseEnd();
     return result;
   }
@@ -247,15 +238,15 @@ protected:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 4));
+    be.EmitMov(result, 4);
     cond->EmitIfThenElseStart();
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     cond->EmitIfThenElseOtherwise();
 
       cond2->EmitIfThenElseStart();
-      be.EmitMov(result, be.Immed(result->Type(), 2));
+      be.EmitMov(result, 2);
       cond2->EmitIfThenElseOtherwise();
-      be.EmitMov(result, be.Immed(result->Type(), 3));
+      be.EmitMov(result, 3);
       cond2->EmitIfThenElseEnd();
 
     cond->EmitIfThenElseEnd();
@@ -300,21 +291,21 @@ protected:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 5));
+    be.EmitMov(result, 5);
     cond->EmitIfThenElseStart();
 
       cond2->EmitIfThenElseStart();
-      be.EmitMov(result, be.Immed(result->Type(), 1));
+      be.EmitMov(result, 1);
       cond2->EmitIfThenElseOtherwise();
-      be.EmitMov(result, be.Immed(result->Type(), 2));
+      be.EmitMov(result, 2);
       cond2->EmitIfThenElseEnd();
 
     cond->EmitIfThenElseOtherwise();
 
       cond3->EmitIfThenElseStart();
-      be.EmitMov(result, be.Immed(result->Type(), 3));
+      be.EmitMov(result, 3);
       cond3->EmitIfThenElseOtherwise();
-      be.EmitMov(result, be.Immed(result->Type(), 4));
+      be.EmitMov(result, 4);
       cond3->EmitIfThenElseEnd();
 
     cond->EmitIfThenElseEnd();
@@ -355,11 +346,11 @@ protected:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 3));
+    be.EmitMov(result, 3);
     cond->EmitIfThenStart();
-    be.EmitMov(result, be.Immed(result->Type(), 2));
+    be.EmitMov(result, 2);
     cond2->EmitIfThenStartSand(cond);
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     cond->EmitIfThenEnd();
     return result;
   }
@@ -394,11 +385,11 @@ protected:
 
   TypedReg Result() {
     TypedReg result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitMov(result, be.Immed(result->Type(), 3));
+    be.EmitMov(result, 3);
     cond->EmitIfThenStartSor();
-    be.EmitMov(result, be.Immed(result->Type(), 2));
+    be.EmitMov(result, 2);
     cond2->EmitIfThenStartSor(cond);
-    be.EmitMov(result, be.Immed(result->Type(), 1));
+    be.EmitMov(result, 1);
     cond2->EmitIfThenEnd();
     return result;
   }
@@ -424,12 +415,12 @@ protected:
     unsigned branchCount = cond->SwitchBranchCount();
     BrigType type = ResultType();
     TypedReg result = be.AddTReg(type);
-    be.EmitMov(result, be.Immed(type, branchCount + 1));
+    be.EmitMov(result, branchCount + 1);
     cond->EmitSwitchStart();
-    be.EmitMov(result, be.Immed(type, branchCount + 2));
+    be.EmitMov(result, branchCount + 2);
     for (unsigned i = 0; i < branchCount; ++i) {
       cond->EmitSwitchBranchStart(i);
-      be.EmitMov(result, be.Immed(type, i + 1));
+      be.EmitMov(result, i + 1);
     }
     cond->EmitSwitchEnd();
     return result;
@@ -474,19 +465,19 @@ protected:
     unsigned branchCount2 = cond2->SwitchBranchCount();
     BrigType type = ResultType();
     TypedReg result = be.AddTReg(type);
-    be.EmitMov(result, be.Immed(type, branchCount + 1));
+    be.EmitMov(result, branchCount + 1);
     cond->EmitSwitchStart();
-    be.EmitMov(result, be.Immed(type, branchCount + 2));
+    be.EmitMov(result, branchCount + 2);
     for (unsigned i = 0; i < branchCount; ++i) {
       cond->EmitSwitchBranchStart(i);
-      be.EmitMov(result, be.Immed(type, i + 1));
+      be.EmitMov(result, i + 1);
       if (COND_WAVESIZE == cond->Input() && i != branchCount-1) continue;
       // nested sbr
       cond2->EmitSwitchStart();
-      be.EmitMov(result, be.Immed(type, branchCount + 2));
+      be.EmitMov(result, branchCount + 2);
       for (unsigned j = 0; j < branchCount2; ++j) {
         cond2->EmitSwitchBranchStart(j);
-        be.EmitMov(result, be.Immed(type, j + 1));
+        be.EmitMov(result, j + 1);
       }
       cond2->EmitSwitchEnd();
     }

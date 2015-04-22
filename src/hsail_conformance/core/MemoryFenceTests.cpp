@@ -92,7 +92,7 @@ protected:
     globalVar = be.EmitVariableDefinition(globalVarName, segment, type);
     globalFlag = be.EmitVariableDefinition(globalFlagName, BRIG_SEGMENT_GLOBAL, be.PointerType());
     if (segment != BRIG_SEGMENT_GROUP) {
-      globalVar.init() = be.Immed(type, initialValue);
+      globalVar.init() = be.Immed(type, initialValue, false);
     }
   }
 
@@ -122,7 +122,7 @@ protected:
     be.EmitCbr(cReg, s_label_skip_store);
 
     EmitInstrToTest(BRIG_OPCODE_ST, segment, type, inputReg, globalVar);
-    be.EmitMov(flagReg->Reg(), be.Immed(flagReg->Type(), 1), flagReg->TypeSizeBits());
+    be.EmitMov(flagReg, 1);
     be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
 
     OperandAddress flagAddr = be.Address(globalFlag);
@@ -298,7 +298,7 @@ public:
     }
     globalVar2 = be.EmitVariableDefinition(globalVarName, segment2, type2);
     if (segment2 != BRIG_SEGMENT_GROUP)
-      globalVar2.init() = be.Immed(type2, initialValue);
+      globalVar2.init() = be.Immed(type2, initialValue, false);
   }
 
   TypedReg Result() {
@@ -318,7 +318,7 @@ public:
 
     EmitInstrToTest(BRIG_OPCODE_ST, segment, type, inputReg, globalVar);
     EmitInstrToTest(BRIG_OPCODE_ST, segment2, type2, inputReg2, globalVar2);
-    be.EmitMov(flagReg->Reg(), be.Immed(flagReg->Type(), 1), flagReg->TypeSizeBits());
+    be.EmitMov(flagReg, 1);
     be.EmitMemfence(memoryOrder1, memoryScope, memoryScope, BRIG_MEMORY_SCOPE_NONE);
     OperandAddress flagAddr = be.Address(globalFlag);
     be.EmitAtomic(NULL, flagAddr, flagReg, NULL, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_RELAXED, be.AtomicMemoryScope(BRIG_MEMORY_SCOPE_SYSTEM, segment), BRIG_SEGMENT_GLOBAL);

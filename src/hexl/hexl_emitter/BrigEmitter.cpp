@@ -278,10 +278,12 @@ hexl::Value BrigEmitter::GenerateTestValue(BrigType type, uint64_t id) const
   return Value(Brig2ValueType(type), U64(42));
 }
 
-Operand BrigEmitter::Immed(BrigType16_t type, int64_t imm)
+Operand BrigEmitter::Immed(BrigType16_t type, int64_t imm, bool expand)
 {
-  if (getBrigTypeNumBits(type) != 128) {
-    type = expandSubwordType(type);
+  if (type == BRIG_TYPE_B1) {
+    return brigantine.createImmed(imm, type);
+  } else if (getBrigTypeNumBits(type) != 128) {
+    if (expand) { type = expandSubwordType(type); }
     return brigantine.createImmed(imm, type);
   } else {
     std::vector<char> vect(16, '\0');
@@ -383,7 +385,7 @@ void BrigEmitter::EmitMov(TypedReg dst, Operand src)
 void BrigEmitter::EmitMov(TypedReg dst, uint64_t imm)
 {
   BrigType16_t itype = bitType2uType(type2bitType(dst->Type()));
-  EmitMov(dst, Immed(itype, imm));
+  EmitMov(dst, Immed(itype, imm, dst->Type() != BRIG_TYPE_B1));
 }
 
 TypedReg BrigEmitter::AddInitialTReg(BrigType16_t type, uint64_t initialValue, unsigned count) 
@@ -1678,15 +1680,6 @@ InstBasic BrigEmitter::EmitDebugTrap(TypedReg src) {
   InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_DEBUGTRAP, BRIG_TYPE_U32);
   inst.operands() = Operands(src->Reg());
   return inst;
-}
-
-void BrigEmitter::EmitAgentId(TypedReg dest)
-{
-  EmitMov(dest, Immed(BRIG_TYPE_U32, 0));
-  /*
-  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_AGENTID, BRIG_TYPE_U32);
-  inst.operands() = Operands(dest->Reg());
-  */
 }
 
 TypedReg BrigEmitter::EmitWorkitemFlatId() {
