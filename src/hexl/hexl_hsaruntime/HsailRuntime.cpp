@@ -666,6 +666,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       if (dynamicCallStack) {
         // Set to max minimum allowed by the spec for now (64k per work-group).
         // TODO: a strategy for choosing this size, for example, based on expected number of frames/extra allocation used by test.
+        context->Info() << "Enabling dynamic call stack: setting private_segment_size to 256/workitem" << std::endl;
         p->private_segment_size = (std::max)((uint32_t) 256, p->private_segment_size);
       }
 

@@ -158,13 +158,11 @@ public:
 };
 
 class ETypedReg : public EmitterObject {
-  static const unsigned MAX_REGS = 8;
+  static const unsigned MAX_REGS = 16;
 public:
-  ETypedReg(unsigned count = MAX_REGS)
-    : type(BRIG_TYPE_NONE), count(0) { }
-  ETypedReg(BrigType16_t type_)
+  explicit ETypedReg(BrigType16_t type_)
     : type(type_), count(0) { }
-  ETypedReg(HSAIL_ASM::OperandRegister reg, BrigType16_t type_)
+  explicit ETypedReg(HSAIL_ASM::OperandRegister reg, BrigType16_t type_)
     : type(type_), count(0) { Add(reg); }
 
   HSAIL_ASM::OperandRegister Reg() const { assert(Count() == 1); return regs[0]; }
@@ -406,6 +404,7 @@ public:
   Variable NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location = AUTO, BrigAlignment align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   Variable NewVariable(const std::string& id, VariableSpec varSpec);
   Variable NewVariable(const std::string& id, VariableSpec varSpec, bool output);
+  Variable NewFlexArray(const std::string& id, BrigType type, BrigAlignment align = BRIG_ALIGNMENT_NONE);
   FBarrier NewFBarrier(const std::string& id, Location location = Location::KERNEL, bool output = false);
   Buffer NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count);
   UserModeQueue NewQueue(const std::string& id, UserModeQueueType type);
@@ -441,7 +440,7 @@ private:
   HSAIL_ASM::DirectiveVariable EmitAddressDefinition(BrigSegment segment);
   void EmitBufferDefinition();
 
-  HSAIL_ASM::OperandAddress DataAddress(TypedReg index, bool flat = false, uint64_t count = 1);
+  HSAIL_ASM::OperandAddress DataAddress(TypedReg index, uint64_t offset = 0, bool flat = false, uint64_t factor = 1);
 
 public:
   EBuffer(TestEmitter* te, const std::string& id_, BufferType type_, ValueType vtype_, size_t count_)
@@ -458,6 +457,7 @@ public:
 
   HSAIL_ASM::DirectiveVariable Variable();
   PointerReg Address(bool flat = false);
+  PointerReg DataAddressReg(TypedReg index, uint64_t offset = 0, bool flat = false, uint64_t factor = 1);
 
   size_t Count() const { return count; }
   ValueType VType() const { return vtype; }
@@ -472,9 +472,15 @@ public:
 
   TypedReg AddDataReg();
   PointerReg AddAReg(bool flat = false);
-  void EmitLoadData(TypedReg dest, TypedReg index, bool flat = false);
+
+  void EmitLoadData(TypedReg dest, TypedReg index, uint64_t offset, bool flat = false, uint64_t factor = 1);
+  void EmitLoadData(TypedReg dest, TypedReg index, bool flat = false) { EmitLoadData(dest, index, 0, flat); }
+  void EmitLoadData(TypedReg dest, uint64_t offset, bool flat = false) { EmitLoadData(dest, 0, offset, flat); }
   void EmitLoadData(TypedReg dest, bool flat = false);
-  void EmitStoreData(TypedReg src, TypedReg index, bool flat = false);
+
+  void EmitStoreData(TypedReg src, TypedReg index, uint64_t offset, bool flat = false, uint64_t factor = 1);
+  void EmitStoreData(TypedReg src, TypedReg index, bool flat = false) { EmitStoreData(src, index, 0, flat); }
+  void EmitStoreData(TypedReg src, uint64_t offset, bool flat = false) { EmitStoreData(src, 0, offset, flat); }
   void EmitStoreData(TypedReg src, bool flat = false);
 };
 
@@ -925,6 +931,7 @@ public:
   Variable NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location = AUTO, BrigAlignment align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
   Variable NewVariable(const std::string& id, VariableSpec varSpec);
   Variable NewVariable(const std::string& id, VariableSpec varSpec, bool output);
+  Variable NewFlexArray(const std::string& id, BrigType type, BrigAlignment align = BRIG_ALIGNMENT_NONE);
   FBarrier NewFBarrier(const std::string& id, Location location = Location::KERNEL, bool output = false);
   Buffer NewBuffer(const std::string& id, BufferType type, ValueType vtype, size_t count);
   UserModeQueue NewQueue(const std::string& id, UserModeQueueType type);
@@ -1022,6 +1029,7 @@ public:
   virtual BrigType ResultType() const { assert(0); return BRIG_TYPE_NONE; }
   virtual uint64_t ResultDim() const { return 0; }
   uint32_t ResultCount() const { assert(ResultDim() < UINT32_MAX); return (std::max)((uint32_t) ResultDim(), (uint32_t) 1); }
+  uint64_t ResultSize() const { return ResultCount() * HSAIL_ASM::getBrigTypeNumBytes(ResultType()); }
   bool IsResultType(BrigType type) const { return ResultType() == type; }
   ValueType ResultValueType() const { return Brig2ValueType(ResultType()); }
   virtual emitter::TypedReg Result() { assert(0); return 0; }

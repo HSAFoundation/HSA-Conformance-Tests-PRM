@@ -150,6 +150,23 @@ TypedReg BrigEmitter::AddTReg(BrigType16_t type, unsigned count)
   return regs;
 }
 
+TypedReg BrigEmitter::AddTRegEmpty(BrigType16_t type)
+{
+  return new(ap) ETypedReg(type);
+}
+
+TypedReg BrigEmitter::AddTRegFrom(TypedRegList list, unsigned count)
+{
+  if (count == 0) { count = list->Count(); }
+  assert(list->Count() > 0);
+  assert(count > 0);
+  TypedReg treg = new(ap) ETypedReg(list->Get(0)->Type());
+  for (unsigned i = 0; i < count; ++i) {
+    treg->Add(list->Get(i)->Reg());
+  }
+  return treg;
+}
+
 TypedRegList BrigEmitter::AddTRegList()
 {
   return new(ap) ETypedRegList(ap);
@@ -264,6 +281,8 @@ hexl::Value BrigEmitter::GenerateTestValue(BrigType type, uint64_t id) const
 Operand BrigEmitter::Immed(BrigType16_t type, int64_t imm)
 {
   if (getBrigTypeNumBits(type) != 128) {
+    type = expandSubwordType(type);
+    if (isSignedType(type)) { type = getUnsignedType(getBrigTypeNumBits(type)); }
     return brigantine.createImmed(imm, type);
   } else {
     std::vector<char> vect(16, '\0');
@@ -348,7 +367,8 @@ void BrigEmitter::EmitMov(TypedReg dst, TypedReg src)
   }
 }
 
-InstBasic BrigEmitter::EmitTypedMov(BrigType16_t moveType, OperandRegister dst, Operand src) {
+InstBasic BrigEmitter::EmitTypedMov(BrigType16_t moveType, OperandRegister dst, Operand src)
+{
   InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_MOV, moveType);
   inst.operands() = Operands(dst, src);
   return inst;
@@ -359,6 +379,12 @@ void BrigEmitter::EmitMov(TypedReg dst, Operand src)
   for (unsigned i = 0; i < dst->Count(); ++i) {
     EmitMov(dst->Reg(i), src, dst->TypeSizeBits());
   }
+}
+
+void BrigEmitter::EmitMov(TypedReg dst, uint64_t imm)
+{
+  BrigType16_t itype = bitType2uType(type2bitType(dst->Type()));
+  EmitMov(dst, Immed(itype, imm));
 }
 
 TypedReg BrigEmitter::AddInitialTReg(BrigType16_t type, uint64_t initialValue, unsigned count) 
@@ -798,14 +824,15 @@ InstSeg BrigEmitter::EmitNullPtr(PointerReg dst)
   return inst;
 }
 
-DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t type, BrigAlignment8_t align, uint64_t dim, bool isConst, bool output)
+DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t atype, BrigAlignment8_t align, uint64_t dim, bool isConst, bool output)
 {
+  BrigType16_t type = atype;
   if (isArrayType(type)) {
     type = arrayType2elementType(type);
   }
   if (align == BRIG_ALIGNMENT_NONE) { align = getNaturalAlignment(type); }
   DirectiveVariable v;
-  if (dim == 0) {
+  if (!isArrayType(atype) && dim == 0) {
     v = brigantine.addVariable(GetVariableNameHere(name), segment, type);
   } else {
     v = brigantine.addArrayVariable(GetVariableNameHere(name), dim, segment, type);
@@ -904,15 +931,22 @@ void BrigEmitter::EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inReg
   ItemList ins;
   ItemList outs;
   StartArgScope();
+  uint64_t dim;
   DirectiveVariable fArg = f.next();
   for (unsigned j = 0; j < outRegs->Count(); ++j) {
     assert(fArg);
-    outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
+    dim = fArg.dim();
+    outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), dim));
     fArg = fArg.next();
   }
   for (unsigned i = 0; i < inRegs->Count(); ++i) {
     assert(fArg);
-    ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.elementType(), fArg.align(), fArg.dim()));
+    dim = fArg.dim();
+    if (fArg.isArray() && !dim) {
+      // Flex array
+      dim = inRegs->Get(i)->Count();
+    }
+    ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), dim));
     fArg = fArg.next();
    }
   EmitStores(inRegs, ins, useVectorInstructions);

@@ -243,6 +243,13 @@ Variable EmittableContainer::NewVariable(const std::string& id, VariableSpec var
   return var;
 }
 
+Variable EmittableContainer::NewFlexArray(const std::string& id, BrigType type, BrigAlignment align)
+{
+  Variable var = te->NewFlexArray(id, type, align);
+  Add(var);
+  return var;
+}
+
 FBarrier EmittableContainer::NewFBarrier(const std::string& id, Location location, bool output) 
 {
   FBarrier fb = te->NewFBarrier(id, location, output);
@@ -785,20 +792,37 @@ PointerReg EBuffer::AddAReg(bool flat)
   }
 }
 
-OperandAddress EBuffer::DataAddress(TypedReg index, bool flat, uint64_t count)
+PointerReg EBuffer::DataAddressReg(TypedReg index, uint64_t offset, bool flat, uint64_t factor)
 {
   PointerReg address = Address(flat);
+  if (!index && !offset) {
+    return address;
+  }
   PointerReg fullAddress = AddAReg(flat);
-//  te->Brig()->EmitArith(BRIG_OPCODE_MAD, fullAddress, te->Brig()->WorkitemFlatAbsId(address->IsLarge()), te->Brig()->Immed(address->Type(), TypeSize()), address);
-  te->Brig()->EmitArith(BRIG_OPCODE_MAD, fullAddress, index, te->Brig()->Immed(address->Type(), TypeSize() * count), address);
-  return te->Brig()->Address(fullAddress);
+  if (index && offset) {
+    te->Brig()->EmitArith(BRIG_OPCODE_MAD, fullAddress, index, te->Brig()->Immed(address->Type(), TypeSize() * factor), address);
+    te->Brig()->EmitArith(BRIG_OPCODE_ADD, fullAddress, fullAddress, te->Brig()->Immed(address->Type(), offset));
+  } else if (index) {
+    te->Brig()->EmitArith(BRIG_OPCODE_MAD, fullAddress, index, te->Brig()->Immed(address->Type(), TypeSize() * factor), address);
+  } else if (offset) {
+    te->Brig()->EmitArith(BRIG_OPCODE_ADD, fullAddress, address, te->Brig()->Immed(address->Type(), offset));
+  } else {
+    assert(false);
+  }
+  return fullAddress;
 }
 
-void EBuffer::EmitLoadData(TypedReg dest, TypedReg index, bool flat)
+OperandAddress EBuffer::DataAddress(TypedReg index, uint64_t offset, bool flat, uint64_t factor)
+{
+  return te->Brig()->Address(DataAddressReg(index, offset, flat, factor));
+}
+
+
+void EBuffer::EmitLoadData(TypedReg dest, TypedReg index, uint64_t offset, bool flat, uint64_t factor)
 {
   switch (type) {
   case HOST_INPUT_BUFFER:
-    te->Brig()->EmitLoad(flat ? BRIG_SEGMENT_FLAT : BRIG_SEGMENT_GLOBAL, dest, DataAddress(index, flat, dest->Count()));
+    te->Brig()->EmitLoad(flat ? BRIG_SEGMENT_FLAT : BRIG_SEGMENT_GLOBAL, dest, DataAddress(index, offset, flat, dest->Count() * factor));
     break;
   default:
     assert(0);
@@ -808,15 +832,15 @@ void EBuffer::EmitLoadData(TypedReg dest, TypedReg index, bool flat)
 
 void EBuffer::EmitLoadData(TypedReg dest, bool flat)
 {
-  TypedReg index = te->Brig()->EmitWorkitemFlatAbsId(Address(flat)->IsLarge());
-  EmitLoadData(dest, index, flat);
+  TypedReg index = te->Brig()->WorkitemFlatAbsId(Address(flat)->IsLarge());
+  EmitLoadData(dest, index, 0, flat);
 }
 
-void EBuffer::EmitStoreData(TypedReg src, TypedReg index, bool flat)
+void EBuffer::EmitStoreData(TypedReg src, TypedReg index, uint64_t offset, bool flat, uint64_t factor)
 {
   switch (type) {
   case HOST_RESULT_BUFFER:
-    te->Brig()->EmitStore(flat ? BRIG_SEGMENT_FLAT : BRIG_SEGMENT_GLOBAL, src, DataAddress(index, flat, src->Count()));
+    te->Brig()->EmitStore(flat ? BRIG_SEGMENT_FLAT : BRIG_SEGMENT_GLOBAL, src, DataAddress(index, offset, flat, src->Count() * factor));
     break;
   default:
     assert(0);
@@ -826,7 +850,7 @@ void EBuffer::EmitStoreData(TypedReg src, TypedReg index, bool flat)
 
 void EBuffer::EmitStoreData(TypedReg src, bool flat)
 {
-  TypedReg index = te->Brig()->EmitWorkitemFlatAbsId(Address(flat)->IsLarge());
+  TypedReg index = te->Brig()->WorkitemFlatAbsId(Address(flat)->IsLarge());
   EmitStoreData(src, index, flat);
 }
 
@@ -3504,6 +3528,12 @@ Variable TestEmitter::NewVariable(const std::string& id, VariableSpec varSpec, b
   return new(Ap()) EVariable(this, id, varSpec, output);
 }
 
+Variable TestEmitter::NewFlexArray(const std::string& id, BrigType type, BrigAlignment align)
+{
+  BrigType atype = (BrigType) (type | BRIG_TYPE_ARRAY);
+  return new(Ap()) EVariable(this, id, BRIG_SEGMENT_ARG, atype, FUNCTION, align, 0, false, false);
+}
+
 FBarrier TestEmitter::NewFBarrier(const std::string& id, Location location, bool output) 
 {
   return new(Ap()) EFBarrier(this, id, location, output);
@@ -3735,8 +3765,8 @@ void EmittedTest::KernelCode()
   emitter::TypedReg kernelResult = KernelResult();
   assert(kernelResult);
   if (output) {
-  output->EmitStoreData(kernelResult);
-}
+    output->EmitStoreData(kernelResult);
+  }
 }
 
 void EmittedTest::ActualCallArguments(emitter::TypedRegList inputs, emitter::TypedRegList outputs)

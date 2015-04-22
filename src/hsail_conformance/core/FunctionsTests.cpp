@@ -262,6 +262,116 @@ public:
   }
 };
 
+class VariadicSum : public Test {
+private:
+  BrigType type;
+  Variable fcount, farray;
+  Buffer input;
+  static const unsigned callCount = 1;
+
+public:
+  VariadicSum(Grid geometry, BrigType type_)
+    : Test(emitter::FUNCTION, geometry),
+      type(type_) { }
+
+  void Name(std::ostream& out) const {
+    out << type2str(type) << "_" << geometry;
+  }
+
+  void Init() {
+    Test::Init();
+    ValueType vtype = Brig2ValueType(type);
+    fcount = function->NewVariable("count", BRIG_SEGMENT_ARG, BRIG_TYPE_U32);
+    farray = function->NewFlexArray("array", type);
+    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, vtype, geometry->GridSize() + 16 * 4);
+    for (unsigned wi = 0; wi < input->Count(); ++wi) { input->AddData(Value(vtype, InputValue(wi))); }
+  }
+
+  uint64_t InputValue(uint64_t wi) const {
+    return wi % 11;
+  }
+
+  uint64_t Count(uint64_t pos) const {
+    switch (pos) {
+    case 0: return 6;
+    case 1: return 1;
+    case 2: return 16;
+    default: assert(false); return 0;
+    }
+  }
+
+  uint64_t Sum(uint64_t wi, uint64_t pos) const {
+    uint64_t sum = 0;
+    for (uint64_t i = 0; i < Count(pos); ++i) {
+      sum += InputValue(wi + i);
+    }
+    return sum;
+  }
+
+  BrigType ResultType() const override { return type; }
+
+  //uint64_t ResultDim() const { return callCount; }
+  size_t OutputBufferSize() const { return geometry->GridSize() * callCount; }
+
+  Value ExpectedResult(uint64_t wi, uint64_t pos) const {
+    return Value(Brig2ValueType(type), Sum(wi, pos));
+  }
+
+  void Call(unsigned index, uint64_t count, TypedRegList rdata, PointerReg base) {
+    emitter::TypedRegList inputs = be.AddTRegList(), outputs = be.AddTRegList();
+    TypedReg rcount = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitMov(rcount, count);
+    inputs->Add(rcount);
+    TypedReg arr = be.AddTRegFrom(rdata, count);
+    inputs->Add(arr);
+    TypedReg result = be.AddTReg(type);
+    outputs->Add(result);
+    be.EmitCallSeq(function, inputs, outputs);
+    be.EmitStore(result, base, index * result->TypeSizeBytes());
+  }
+
+  void KernelCode() {
+    TypedRegList rdata = be.AddTRegList();
+    uint64_t offset = 0;
+    PointerReg ibase = input->DataAddressReg(be.WorkitemFlatAbsId(input->Address()->IsLarge()), 0, false);
+    for (unsigned i = 0; i < 16; ++i) {
+      TypedReg r = be.AddTReg(type);
+      rdata->Add(r);
+      be.EmitLoad(r, ibase, offset);
+      //input->EmitLoadData(r, offset);
+      offset += r->TypeSizeBytes();
+    }
+    PointerReg base = output->DataAddressReg(be.WorkitemFlatAbsId(output->Address()->IsLarge()), 0, false, callCount);
+    for (uint64_t i = 0; i < callCount; ++i) {
+      Call(i, Count(i), rdata, base);
+    }
+  }
+
+  TypedReg Result() {
+    TypedReg rindex = fcount->AddDataReg(), roffset = fcount->AddDataReg();
+    TypedReg rsum = be.AddTReg(type);
+    fcount->EmitLoadTo(rindex);
+    be.EmitMov(rsum, (uint64_t) 0);
+    be.EmitMov(roffset, (uint64_t) 0);
+    std::string loop = be.AddLabel();
+    std::string loopEnd = be.AddLabel();
+    be.EmitLabel(loop);
+    OperandRegister c = be.AddCReg();
+    be.EmitCmp(c, rindex, be.Immed(rindex->Type(), 0), BRIG_COMPARE_EQ);
+    be.EmitCbr(c, loopEnd);
+    TypedReg rvalue = be.AddTReg(type);
+    be.EmitLoad(BRIG_SEGMENT_ARG, rvalue, be.Address(farray->Variable(), roffset->Reg(), 0));
+    be.EmitArith(BRIG_OPCODE_ADD, rsum, rsum, rvalue->Reg());
+    be.EmitArith(BRIG_OPCODE_SUB, rindex, rindex, be.Immed(rindex->Type(), 1));
+    be.EmitArith(BRIG_OPCODE_ADD, roffset, roffset, be.Immed(roffset->Type(), rsum->TypeSizeBytes()));
+    be.EmitBr(loop);
+    be.EmitLabel(loopEnd);
+    return rsum;
+  }
+
+};
+
+
 void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -269,6 +379,7 @@ void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
   TestForEach<FunctionArguments>(ap, it, "functions/arguments/1arg", cc->Variables().ByTypeDimensionAlign(BRIG_SEGMENT_ARG), Bools::All(), Bools::All());
   TestForEach<RecursiveFactorial>(ap, it, "functions/recursion/factorial", cc->Types().CompoundIntegral());
   TestForEach<RecursiveFibonacci>(ap, it, "functions/recursion/fibonacci", cc->Types().CompoundIntegral());
+  //TestForEach<VariadicSum>(ap, it, "functions/variadic/sum", cc->Grids().DefaultGeometrySet(), cc->Types().CompoundIntegral());
 }
 
 }

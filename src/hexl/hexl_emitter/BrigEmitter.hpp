@@ -88,6 +88,8 @@ public:
   PointerReg AddAReg(HSAIL_ASM::DirectiveVariable v) { return AddAReg(v.segment()); }
 
   TypedReg AddTReg(BrigType16_t type, unsigned count = 1);
+  TypedReg AddTRegEmpty(BrigType16_t type);
+  TypedReg AddTRegFrom(TypedRegList list, unsigned count = 0);
   TypedRegList AddTRegList();
 
   BrigType PointerType(BrigSegment8_t asegment = BRIG_SEGMENT_GLOBAL) const;
@@ -129,6 +131,7 @@ public:
   void EmitMov(TypedReg dst, HSAIL_ASM::Operand src);
   void EmitMov(TypedReg dst, TypedReg src);
   HSAIL_ASM::InstBasic EmitTypedMov(BrigType16_t moveType, HSAIL_ASM::OperandRegister dst, HSAIL_ASM::Operand src);
+  void EmitMov(TypedReg dst, uint64_t imm);
   TypedReg AddInitialTReg(BrigType16_t type, uint64_t initialValue, unsigned count = 1);
 
   // Memory operations
