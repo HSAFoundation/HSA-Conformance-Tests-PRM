@@ -162,10 +162,10 @@ public:
   void EmitLoadsFromBuffers(TypedRegList dsts, HSAIL_ASM::ItemList buffers, BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
   void EmitStoresToBuffers(TypedRegList srcs, HSAIL_ASM::ItemList buffers, BrigSegment8_t segment = BRIG_SEGMENT_GLOBAL, bool useVectorInstructions = true);
 
-  BrigType16_t ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const;
+  BrigType16_t LegalizeSourceType(BrigOpcode16_t opcode, BrigType16_t operandType) const;
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, BrigType16_t type, HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1 = HSAIL_ASM::Operand(), HSAIL_ASM::Operand src2 = HSAIL_ASM::Operand());
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand op);
-  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, HSAIL_ASM::Operand src2);
+  HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, const TypedReg& src1, HSAIL_ASM::Operand src2 = HSAIL_ASM::Operand());
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, const TypedReg& src2);
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2);
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand o);

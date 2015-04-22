@@ -282,7 +282,6 @@ Operand BrigEmitter::Immed(BrigType16_t type, int64_t imm)
 {
   if (getBrigTypeNumBits(type) != 128) {
     type = expandSubwordType(type);
-    if (isSignedType(type)) { type = getUnsignedType(getBrigTypeNumBits(type)); }
     return brigantine.createImmed(imm, type);
   } else {
     std::vector<char> vect(16, '\0');
@@ -650,7 +649,7 @@ void BrigEmitter::EmitStoresToBuffers(TypedRegList srcs, ItemList buffers, BrigS
   }
 }
 
-BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandType) const
+BrigType16_t BrigEmitter::LegalizeSourceType(BrigOpcode16_t opcode, BrigType16_t operandType) const
 {
   // todo: add isArithmInst to HSAILUtils
   switch (opcode) {
@@ -689,13 +688,19 @@ BrigType16_t BrigEmitter::ArithType(BrigOpcode16_t opcode, BrigType16_t operandT
         default: return operandType;
       }
     } 
+
+    case BRIG_OPCODE_CMP: {
+      operandType = expandSubwordType(operandType);
+      if (isBitType(operandType)) { operandType = getUnsignedType(getBrigTypeNumBits(operandType)); }
+      return operandType;
+    }
     default: return operandType;
   }
 }
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, BrigType16_t type, Operand dst, Operand src0, Operand src1, Operand src2)
 {
-  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, type));
+  InstBasic inst = brigantine.addInst<InstBasic>(opcode, LegalizeSourceType(opcode, type));
   inst.operands() = Operands(dst, src0, src1, src2);
   return inst;
 }
@@ -723,14 +728,14 @@ InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, con
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, Operand o)
 {
-  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, dst->Type()));
+  InstBasic inst = brigantine.addInst<InstBasic>(opcode, LegalizeSourceType(opcode, dst->Type()));
   inst.operands() = Operands(dst->Reg(), o);
   return inst;
 }
 
 InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, Operand src0, Operand op)
 {
-  InstBasic inst = brigantine.addInst<InstBasic>(opcode, ArithType(opcode, dst->Type()));
+  InstBasic inst = brigantine.addInst<InstBasic>(opcode, LegalizeSourceType(opcode, dst->Type()));
   inst.operands() = Operands(dst->Reg(), src0, op);
   return inst;
 }
@@ -738,12 +743,7 @@ InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, Ope
 InstCmp BrigEmitter::EmitCmp(OperandRegister b, BrigType16_t type, Operand src0, Operand src1, BrigCompareOperation8_t cmp) 
 {
   InstCmp inst = brigantine.addInst<InstCmp>(BRIG_OPCODE_CMP, BRIG_TYPE_B1);
-  switch (type) {
-    case BRIG_TYPE_B32: type = BRIG_TYPE_U32; break;
-    case BRIG_TYPE_B64: type = BRIG_TYPE_U64; break;
-    default: break;
-  }
-  inst.sourceType() = type;
+  inst.sourceType() = LegalizeSourceType(BRIG_OPCODE_CMP, type);
   inst.compare() = cmp;
   inst.operands() = Operands(b, src0, src1);
   return inst;

@@ -151,25 +151,24 @@ public:
     TypedReg in = functionArg->AddDataReg();
     TypedReg in1 = functionArg->AddDataReg();
     TypedReg out = functionResult->AddDataReg();
-    BrigType rtype = (BrigType) getUnsignedType(in->RegSizeBits());
     functionArg->EmitLoadTo(in);
 
     OperandRegister c = be.AddCReg();
-    be.EmitCmp(c, rtype, in->Reg(), be.Immed(rtype, (uint64_t) 0), BRIG_COMPARE_EQ);
+    be.EmitCmp(c, in, be.Immed(type, (uint64_t) 0), BRIG_COMPARE_EQ);
     std::string zero = be.AddLabel();
     std::string end = be.AddLabel();
     be.EmitCbr(c, zero);
-    be.EmitArith(BRIG_OPCODE_SUB, rtype, in1->Reg(), in->Reg(), be.Immed(rtype, 1));
+    be.EmitArith(BRIG_OPCODE_SUB, in1, in, be.Immed(type, 1));
 
     emitter::TypedRegList inputs = be.AddTRegList(), outputs = be.AddTRegList();
     inputs->Add(in1);
     outputs->Add(out);
     be.EmitCallSeq(function, inputs, outputs);
 
-    be.EmitArith(BRIG_OPCODE_MUL, rtype, out->Reg(), out->Reg(), in->Reg());
+    be.EmitArith(BRIG_OPCODE_MUL, out, out, in);
     be.EmitBr(end);
     be.EmitLabel(zero);
-    be.EmitMov(out, be.Immed(rtype, (uint64_t) 1));
+    be.EmitMov(out, 1);
     be.EmitLabel(end);
     return out;
   }
@@ -232,31 +231,30 @@ public:
     TypedReg in1 = functionArg->AddDataReg();
     TypedReg out = functionResult->AddDataReg();
     TypedReg out1 = functionResult->AddDataReg();
-    BrigType rtype = (BrigType) getUnsignedType(in->RegSizeBits());
     functionArg->EmitLoadTo(in);
 
     OperandRegister c = be.AddCReg();
-    be.EmitCmp(c, rtype, in->Reg(), be.Immed(rtype, (uint64_t) 1), BRIG_COMPARE_LE);
+    be.EmitCmp(c, in, be.Immed(type, (uint64_t) 1), BRIG_COMPARE_LE);
     std::string zero = be.AddLabel();
     std::string end = be.AddLabel();
     be.EmitCbr(c, zero);
-    be.EmitArith(BRIG_OPCODE_SUB, rtype, in1->Reg(), in->Reg(), be.Immed(rtype, 1));
+    be.EmitArith(BRIG_OPCODE_SUB, in1, in, be.Immed(type, 1));
 
     emitter::TypedRegList inputs = be.AddTRegList(), outputs = be.AddTRegList();
     inputs->Add(in1);
     outputs->Add(out);
     be.EmitCallSeq(function, inputs, outputs);
 
-    be.EmitArith(BRIG_OPCODE_SUB, rtype, in1->Reg(), in1->Reg(), be.Immed(rtype, 1));
+    be.EmitArith(BRIG_OPCODE_SUB, in1, in1, be.Immed(type, 1));
     emitter::TypedRegList inputs1 = be.AddTRegList(), outputs1 = be.AddTRegList();
     inputs1->Add(in1);
     outputs1->Add(out1);
     be.EmitCallSeq(function, inputs1, outputs1);
 
-    be.EmitArith(BRIG_OPCODE_ADD, rtype, out->Reg(), out->Reg(), out1->Reg());
+    be.EmitArith(BRIG_OPCODE_ADD, out, out, out1);
     be.EmitBr(end);
     be.EmitLabel(zero);
-    be.EmitMov(out, be.Immed(rtype, (uint64_t) 1));
+    be.EmitMov(out, 1);
     be.EmitLabel(end);
     return out;
   }
@@ -361,7 +359,7 @@ public:
     be.EmitCbr(c, loopEnd);
     TypedReg rvalue = be.AddTReg(type);
     be.EmitLoad(BRIG_SEGMENT_ARG, rvalue, be.Address(farray->Variable(), roffset->Reg(), 0));
-    be.EmitArith(BRIG_OPCODE_ADD, rsum, rsum, rvalue->Reg());
+    be.EmitArith(BRIG_OPCODE_ADD, rsum, rsum, rvalue);
     be.EmitArith(BRIG_OPCODE_SUB, rindex, rindex, be.Immed(rindex->Type(), 1));
     be.EmitArith(BRIG_OPCODE_ADD, roffset, roffset, be.Immed(roffset->Type(), rsum->TypeSizeBytes()));
     be.EmitBr(loop);
