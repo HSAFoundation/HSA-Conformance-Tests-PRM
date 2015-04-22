@@ -271,40 +271,23 @@
 //=====================================================================================
 
 #include "AtomicTests.hpp"
-#include "TestHelper.hpp"
+#include "AtomicTestHelper.hpp"
 
 namespace hsail_conformance {
 
 //=====================================================================================
+//=====================================================================================
+//=====================================================================================
 // Class AtomicTestProp declares an interface with classes that define properties of 
 // atomic operations.
 
-class AtomicTest;
-
-class AtomicTestProp
+class AtomicTestProp : public TestProp
 {
 protected:
-    static const uint64_t ZERO = 0;
-
-protected:
-    BrigType type;
     uint64_t testSize;
 
-private:
-    AtomicTest* test;
-
 public:
-    virtual ~AtomicTestProp() {}
-
-public:
-    void setup(AtomicTest* test_, BrigType type_, uint64_t testSize_)
-    {
-        assert(test_);
-
-        test = test_;
-        type = type_;
-        testSize = testSize_;
-    }
+    void SetTestSize(uint64_t size) { testSize = size; }
 
 public:
     virtual bool     Encryptable()                  const { return false; }
@@ -341,24 +324,10 @@ public:
     virtual TypedReg ExchCond(TypedReg dst, 
                               bool isAgent)         const { return isAgent? ExchCondAgent(dst) : ExchCond(dst); }
 
-protected:
-    TypedReg Mov(uint64_t val) const;
-    TypedReg Min(TypedReg val, uint64_t max) const;
-    TypedReg Cond(unsigned cond, TypedReg val1, uint64_t val2) const;
-    TypedReg Cond(unsigned cond, TypedReg val1, TypedReg val2) const;
-    TypedReg And(TypedReg x, TypedReg y) const;
-    TypedReg Or(TypedReg x, TypedReg y) const;
-    TypedReg Sub(TypedReg x, uint64_t y) const;
-    TypedReg Shl(uint64_t x, TypedReg y) const;
-    TypedReg Not(TypedReg x) const;
-    TypedReg PopCount(TypedReg x) const;
-    TypedReg WgId() const;                          // workgroup id (32 bit)
-    uint64_t MaxWgId() const;                       // max workgroup id
-    TypedReg Id() const;                            // local test id (32/64 bit depending on type)
-    TypedReg Id32() const;                          // local test id (32 bit)
-    TypedReg Idx() const;                           // global test id (32/64 bit depending address size)
 };
 
+//=====================================================================================
+//=====================================================================================
 //=====================================================================================
 
 class AtomicTestPropAdd : public AtomicTestProp // ******* BRIG_ATOMIC_ADD *******
@@ -561,22 +530,44 @@ class AtomicTestPropLd : public AtomicTestProp // ******* BRIG_ATOMIC_LD *******
 };
 
 //=====================================================================================
-
-class AtomicTestPropFactory
-{
-private:
-    static const unsigned ATOMIC_OPS = BRIG_ATOMIC_XOR + 1; //F
-    static AtomicTestProp* prop[ATOMIC_OPS];
-
-public:
-    static void Create();
-    static void Destroy();
-    static AtomicTestProp* Get(AtomicTest* test, BrigAtomicOperation op, BrigType type, uint64_t testSize);
-};
-
+//=====================================================================================
 //=====================================================================================
 
-class AtomicTest : public TestHelper
+class AtomicTestPropFactory : public TestPropFactory<AtomicTestProp>
+{
+public:
+    virtual AtomicTestProp* CreateProp(BrigAtomicOperation op)
+    {
+        switch (op)
+        {
+        case BRIG_ATOMIC_ADD:      return new AtomicTestPropAdd();    
+        case BRIG_ATOMIC_AND:      return new AtomicTestPropAnd();    
+        case BRIG_ATOMIC_CAS:      return new AtomicTestPropCas();    
+        case BRIG_ATOMIC_EXCH:     return new AtomicTestPropExch();   
+        case BRIG_ATOMIC_MAX:      return new AtomicTestPropMax();    
+        case BRIG_ATOMIC_MIN:      return new AtomicTestPropMin();    
+        case BRIG_ATOMIC_OR:       return new AtomicTestPropOr();     
+        case BRIG_ATOMIC_ST:       return new AtomicTestPropSt();     
+        case BRIG_ATOMIC_SUB:      return new AtomicTestPropSub();    
+        case BRIG_ATOMIC_WRAPDEC:  return new AtomicTestPropWrapdec();
+        case BRIG_ATOMIC_WRAPINC:  return new AtomicTestPropWrapinc();
+        case BRIG_ATOMIC_XOR:      return new AtomicTestPropXor();    
+        case BRIG_ATOMIC_LD:       return new AtomicTestPropLd();     
+
+        default:
+            assert(false);
+            return 0;
+        }
+    }
+};
+
+TestPropFactory<AtomicTestProp>* TestPropFactory<AtomicTestProp>::factory = 0;
+
+//=====================================================================================
+//=====================================================================================
+//=====================================================================================
+
+class AtomicTest : public AtomicTestHelper
 {
 protected: // Flags indicating passed/failed conditions
     static const unsigned FLAG_NONE    = 0;     // check failed
@@ -616,7 +607,7 @@ public:
                 BrigType type_,
                 bool mapFlat2Group_,
                 bool noret)
-    : TestHelper(KERNEL, geometry_),
+    : AtomicTestHelper(KERNEL, geometry_),
         atomicOp(atomicOp_),
         segment(segment_),
         memoryOrder(memoryOrder_),
@@ -632,7 +623,9 @@ public:
         atomicMem(0)
     {
         SetTestKind();
-        prop = AtomicTestPropFactory::Get(this, atomicOp_, type_, geometry->GridSize());
+        
+        prop = AtomicTestPropFactory::Get()->GetProp(this, atomicOp, type);
+        prop->SetTestSize(geometry->GridSize());
     }
 
     // ========================================================================
@@ -1065,6 +1058,7 @@ public:
         // Tests for the following features should be implemented separately
         if (atomicOp == BRIG_ATOMIC_LD) return false;
 
+        //F
         //if (memoryScope == BRIG_MEMORY_SCOPE_SYSTEM) return false;
         //if (atomicOp == BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_RELEASE) return false;
         //if (atomicOp != BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE) return false;
@@ -1105,70 +1099,12 @@ public:
 
 }; // class AtomicTest
 
-unsigned TestHelper::wavesize;
-
 //=====================================================================================
-
-TypedReg AtomicTestProp::Mov(uint64_t val)                                 const { return test->Mov(type, val); }
-TypedReg AtomicTestProp::Min(TypedReg val, uint64_t max)                   const { return test->Min(val, max); }
-TypedReg AtomicTestProp::Cond(unsigned cond, TypedReg val1, uint64_t val2) const { return test->Cond(cond, val1, val2); }
-TypedReg AtomicTestProp::Cond(unsigned cond, TypedReg val1, TypedReg val2) const { return test->Cond(cond, val1, val2->Reg()); }
-TypedReg AtomicTestProp::And(TypedReg x, TypedReg y)                       const { return test->And(x, y); }
-TypedReg AtomicTestProp::Or(TypedReg x, TypedReg y)                        const { return test->Or(x, y); }
-TypedReg AtomicTestProp::Sub(TypedReg x, uint64_t y)                       const { return test->Sub(x, y); }
-TypedReg AtomicTestProp::Shl(uint64_t x, TypedReg y)                       const { return test->Shl(type, x, y); }
-TypedReg AtomicTestProp::Not(TypedReg x)                                   const { return test->Not(x); }
-TypedReg AtomicTestProp::PopCount(TypedReg x)                              const { return test->Popcount(x); }
-TypedReg AtomicTestProp::WgId()                                            const { return test->TestWgId(false); }
-uint64_t AtomicTestProp::MaxWgId()                                         const { return test->Groups() - 1; }
-TypedReg AtomicTestProp::Id()                                              const { return test->TestAbsId(getBrigTypeNumBits(type) == 64); }
-TypedReg AtomicTestProp::Id32()                                            const { return test->TestAbsId(false); }
-TypedReg AtomicTestProp::Idx()                                             const { return test->Index(); }
-
-//=====================================================================================
-
-AtomicTestProp* AtomicTestPropFactory::prop[ATOMIC_OPS];
-
-void AtomicTestPropFactory::Create()  { for (unsigned i = 0; i < ATOMIC_OPS; ++i) prop[i] = 0; }
-void AtomicTestPropFactory::Destroy() { for (unsigned i = 0; i < ATOMIC_OPS; ++i) delete prop[i]; }
-
-AtomicTestProp* AtomicTestPropFactory::Get(AtomicTest* test, BrigAtomicOperation op, BrigType type, uint64_t testSize)
-{
-    assert(0 <= op && op < ATOMIC_OPS);
-
-    if (prop[op] == 0)
-    {
-       switch (op)
-       {
-       case BRIG_ATOMIC_ADD:      prop[op] = new AtomicTestPropAdd();     break;
-       case BRIG_ATOMIC_AND:      prop[op] = new AtomicTestPropAnd();     break;
-       case BRIG_ATOMIC_CAS:      prop[op] = new AtomicTestPropCas();     break;
-       case BRIG_ATOMIC_EXCH:     prop[op] = new AtomicTestPropExch();    break;
-       case BRIG_ATOMIC_MAX:      prop[op] = new AtomicTestPropMax();     break;
-       case BRIG_ATOMIC_MIN:      prop[op] = new AtomicTestPropMin();     break;
-       case BRIG_ATOMIC_OR:       prop[op] = new AtomicTestPropOr();      break;
-       case BRIG_ATOMIC_ST:       prop[op] = new AtomicTestPropSt();      break;
-       case BRIG_ATOMIC_SUB:      prop[op] = new AtomicTestPropSub();     break;
-       case BRIG_ATOMIC_WRAPDEC:  prop[op] = new AtomicTestPropWrapdec(); break;
-       case BRIG_ATOMIC_WRAPINC:  prop[op] = new AtomicTestPropWrapinc(); break;
-       case BRIG_ATOMIC_XOR:      prop[op] = new AtomicTestPropXor();     break;
-       case BRIG_ATOMIC_LD:       prop[op] = new AtomicTestPropLd();      break;
-
-       default:
-           assert(false);
-           break;
-       }
-    }
-
-    prop[op]->setup(test, type, testSize);
-    return prop[op];
-}
-
 //=====================================================================================
 
 void AtomicTests::Iterate(hexl::TestSpecIterator& it)
 {
-    AtomicTestPropFactory::Create();
+    AtomicTestPropFactory singleton;
     CoreConfig* cc = CoreConfig::Get(context);
     AtomicTest::wavesize = cc->Wavesize(); //F: how to get the value from inside of AtomicTest?
     Arena* ap = cc->Ap();
@@ -1181,7 +1117,6 @@ void AtomicTests::Iterate(hexl::TestSpecIterator& it)
                             cc->Types().Atomic(),             // type
                             Bools::All(),                     // mapFlat2Group
                             Bools::All());                    // isNoRet
-    AtomicTestPropFactory::Destroy();
 }
 
 //=====================================================================================

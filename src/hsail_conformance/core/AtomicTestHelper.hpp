@@ -14,8 +14,8 @@
    limitations under the License.
 */
 
-#ifndef HC_TEST_HELPER_HPP
-#define HC_TEST_HELPER_HPP
+#ifndef HC_ATOMIC_TEST_HELPER_HPP
+#define HC_ATOMIC_TEST_HELPER_HPP
 
 #include "HexlTest.hpp"
 #include "HsailRuntime.hpp"
@@ -43,7 +43,7 @@ namespace hsail_conformance {
 
 //=====================================================================================
 
-class TestHelper : public Test
+class AtomicTestHelper : public Test
 {
 public:
     static unsigned wavesize;
@@ -64,11 +64,13 @@ protected:
     PointerReg          wgCompleteAddr;
 
 public:
-    TestHelper(Location codeLocation, Grid geometry) : 
+    AtomicTestHelper(Location codeLocation, Grid geometry) : 
         Test(codeLocation, geometry),
         wgCompleteAddr(0)
     {
     }
+
+    virtual ~AtomicTestHelper() {}
 
     // ========================================================================
 public:
@@ -312,6 +314,18 @@ public:
         return dest;
     }
 
+    virtual TypedReg Index(unsigned writeIdx, unsigned access)
+    { 
+        assert(false); 
+        return 0;
+    }
+
+    virtual TypedReg Index() 
+    { 
+        assert(false); 
+        return 0;
+    }
+
     // ========================================================================
 
     TypedReg Cond(unsigned cond, TypedReg val1, uint64_t val2)
@@ -403,6 +417,16 @@ public:
         return res;
     }
     
+    TypedReg Or(TypedReg x, uint64_t y)
+    {
+        assert(x);
+
+        TypedReg res = be.AddTReg(x->Type());
+        BrigType type = (BrigType)be.LegalizeSourceType(BRIG_OPCODE_OR, x->Type());
+        be.EmitArith(BRIG_OPCODE_OR, res, x->Reg(), be.Immed(type, y));
+        return res;
+    }
+    
     TypedReg And(TypedReg x, TypedReg y)
     {
         assert(x);
@@ -411,6 +435,16 @@ public:
 
         TypedReg res = be.AddTReg(x->Type());
         be.EmitArith(BRIG_OPCODE_AND, res, x->Reg(), y->Reg());
+        return res;
+    }
+    
+    TypedReg And(TypedReg x, uint64_t y)
+    {
+        assert(x);
+
+        TypedReg res = be.AddTReg(x->Type());
+        BrigType type = (BrigType)be.LegalizeSourceType(BRIG_OPCODE_AND, x->Type());
+        be.EmitArith(BRIG_OPCODE_AND, res, x->Reg(), be.Immed(type, y));
         return res;
     }
     
@@ -510,6 +544,17 @@ public:
         TypedReg reg = be.AddTReg(type); 
         be.EmitMov(reg, be.Immed(type2bitType(type), val)); 
         return reg; 
+    }
+
+    TypedReg Cvt(const TypedReg& src)
+    {
+        assert(isUnsignedType(src->Type()));
+        assert(src->TypeSizeBits() == 32 || src->TypeSizeBits() == 64);
+        
+        BrigType type = (src->TypeSizeBits() == 32)? BRIG_TYPE_U64 : BRIG_TYPE_U32;
+        TypedReg dst = be.AddTReg(type);
+        EmitCvt(dst, src);
+        return dst;
     }
 
     string IfCond(unsigned cond, TypedReg val1, uint64_t val2)
@@ -734,7 +779,103 @@ public:
 };
 
 //=====================================================================================
+//=====================================================================================
+//=====================================================================================
+
+class TestProp
+{
+protected:
+    static const uint64_t ZERO = 0;
+
+private:
+    BrigType type;
+    AtomicTestHelper* test;
+
+public:
+    virtual ~TestProp() {}
+
+public:
+    void setup(AtomicTestHelper* test_, BrigType type_)
+    {
+        assert(test_);
+
+        test = test_;
+        type = type_;
+    }
+
+protected:
+    TypedReg Mov(uint64_t val) const;
+    TypedReg Min(TypedReg val, uint64_t max) const;
+    TypedReg Cond(unsigned cond, TypedReg val1, uint64_t val2) const;
+    TypedReg Cond(unsigned cond, TypedReg val1, TypedReg val2) const;
+    TypedReg And(TypedReg x, TypedReg y) const;
+    TypedReg And(TypedReg x, uint64_t y) const;
+    TypedReg Or(TypedReg x, TypedReg y) const;
+    TypedReg Or(TypedReg x, uint64_t y) const;
+    TypedReg Add(TypedReg x, uint64_t y) const;
+    TypedReg Sub(TypedReg x, uint64_t y) const;
+    TypedReg Mul(TypedReg x, uint64_t y) const;
+    TypedReg Shl(uint64_t x, TypedReg y) const;
+    TypedReg Not(TypedReg x) const;
+    TypedReg PopCount(TypedReg x) const;
+    TypedReg WgId() const;                                  // workgroup id (32 bit)
+    uint64_t MaxWgId() const;                               // max workgroup id
+    TypedReg Id() const;                                    // local test id (32/64 bit depending on type)
+    TypedReg Id32() const;                                  // local test id (32 bit)
+
+protected:
+    virtual TypedReg Idx() const;                           // global test index (32/64 bit depending address size)
+    virtual TypedReg Idx(unsigned idx, unsigned acc) const; // global test index (32/64 bit depending address size)
+};
+
+//=====================================================================================
+//=====================================================================================
+//=====================================================================================
+
+template<class Prop> class TestPropFactory
+{
+private: 
+    static TestPropFactory<Prop>* factory; // singleton
+
+private:
+    static const unsigned ATOMIC_OPS = BRIG_ATOMIC_XOR + 1; //F
+    Prop* prop[ATOMIC_OPS];
+
+public:
+    TestPropFactory()
+    { 
+        for (unsigned i = 0; i < ATOMIC_OPS; ++i) prop[i] = 0;
+
+        assert(factory == 0);
+        factory = this;
+    }
+
+    virtual ~TestPropFactory() 
+    { 
+        for (unsigned i = 0; i < ATOMIC_OPS; ++i) delete prop[i]; 
+
+        assert(factory == this);
+        factory = 0;
+    }
+
+public:
+    Prop* GetProp(AtomicTestHelper* test, BrigAtomicOperation op, BrigType type)
+    {
+        assert(0 <= op && op < ATOMIC_OPS);
+
+        if (prop[op] == 0) prop[op] = CreateProp(op);
+        prop[op]->setup(test, type);
+        return prop[op];
+    }
+
+    virtual Prop* CreateProp(BrigAtomicOperation op) { assert(false); return 0; }
+
+public:
+    static TestPropFactory<Prop>* Get() { assert(factory); return factory; }
+};
+
+//=====================================================================================
 
 }
 
-#endif // HC_TEST_HELPER_HPP
+#endif // HC_ATOMIC_TEST_HELPER_HPP

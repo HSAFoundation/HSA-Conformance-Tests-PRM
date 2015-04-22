@@ -19,7 +19,7 @@
 //=====================================================================================
 // OVERVIEW
 //
-// This is a set of tests for compliance with memory model requirements
+// This is a set of tests that check compliance with memory model requirements
 //
 // The purpose of this code is to test the result of execution of 
 // a pair of write instructions A and B which should not be reordered.
@@ -186,7 +186,7 @@
 //=====================================================================================
 
 #include "MModelTests.hpp"
-#include "TestHelper.hpp"
+#include "AtomicTestHelper.hpp"
 
 namespace hsail_conformance {
 
@@ -194,14 +194,219 @@ namespace hsail_conformance {
 
 //=====================================================================================
 
-class MModelTest : public TestHelper
+class MModelTestProp : public TestProp
 {
+private:
+    unsigned writeIdx;
+    unsigned access;
+
 protected:
+    TypedReg Idx() const { return TestProp::Idx(writeIdx, access); }
+
+private:
+    void SetContext(unsigned idx, unsigned acc) { writeIdx = idx; access = acc; }
+
+public:
+    virtual TypedReg InitialValue(unsigned idx,   unsigned acc) { SetContext(idx, acc); return InitialValue();   }
+    virtual TypedReg ExpectedValue(unsigned idx,  unsigned acc) { SetContext(idx, acc); return ExpectedValue();  }
+    virtual TypedReg AtomicOperand(unsigned idx,  unsigned acc) { SetContext(idx, acc); return AtomicOperand();  }
+    virtual TypedReg AtomicOperand1(unsigned idx, unsigned acc) { SetContext(idx, acc); return AtomicOperand1(); }
+
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { assert(false); return 0; }
+    virtual TypedReg InitialValue()                 const { assert(false); return 0; }
+
+    virtual TypedReg AtomicOperand()                const { assert(false); return 0; }
+    virtual TypedReg AtomicOperand1()               const {                return 0; }
+
+    virtual TypedReg ExpectedValue()                const { assert(false); return 0; }
+};
+
+//=====================================================================================
+
+class MModelTestPropAdd : public MModelTestProp // ******* BRIG_ATOMIC_ADD *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialValue()                 const { return Idx(); }
+
+    virtual TypedReg AtomicOperand()                const { return Idx(); }
+
+    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+};
+
+class MModelTestPropSub : public MModelTestProp // ******* BRIG_ATOMIC_SUB *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx * 2; }
+    virtual TypedReg InitialValue()                 const { return Mul(Idx(), 2); }
+
+    virtual TypedReg AtomicOperand()                const { return Idx(); }
+
+    virtual TypedReg ExpectedValue()                const { return Idx(); }
+};
+
+class MModelTestPropOr : public MModelTestProp // ******* BRIG_ATOMIC_OR *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx * 2; }
+    virtual TypedReg InitialValue()                 const { return Mul(Idx(), 2); }
+
+    virtual TypedReg AtomicOperand()                const { return Mov(1); }
+
+    virtual TypedReg ExpectedValue()                const { return Add(Mul(Idx(), 2), 1); }
+};
+
+class MModelTestPropXor : public MModelTestProp // ******* BRIG_ATOMIC_XOR *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx * 2; }
+    virtual TypedReg InitialValue()                 const { return Mul(Idx(), 2); }
+
+    virtual TypedReg AtomicOperand()                const { return Mov(1); }
+
+    virtual TypedReg ExpectedValue()                const { return Add(Mul(Idx(), 2), 1); }
+};
+
+class MModelTestPropAnd : public MModelTestProp // ******* BRIG_ATOMIC_AND *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx + 0xFF000000; }
+    virtual TypedReg InitialValue()                 const { return Add(Idx(), 0xFF000000); }
+
+    virtual TypedReg AtomicOperand()                const { return Idx(); }
+
+    virtual TypedReg ExpectedValue()                const { return Idx(); }
+};
+
+class MModelTestPropWrapinc : public MModelTestProp // ******* BRIG_ATOMIC_WRAPINC *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialValue()                 const { return Idx(); }
+
+    virtual TypedReg AtomicOperand()                const { return Mov(-1); }     // max value
+
+    virtual TypedReg ExpectedValue()                const { return Add(Idx(), 1); }
+};
+
+class MModelTestPropWrapdec : public MModelTestProp // ******* BRIG_ATOMIC_WRAPDEC *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx + 1; }
+    virtual TypedReg InitialValue()                 const { return Add(Idx(), 1); }
+
+    virtual TypedReg AtomicOperand()                const { return Mov(-1); }     // max value
+
+    virtual TypedReg ExpectedValue()                const { return Idx(); }
+};
+
+class MModelTestPropMax : public MModelTestProp // ******* BRIG_ATOMIC_MAX *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialValue()                 const { return Idx(); }
+
+    virtual TypedReg AtomicOperand()                const { return Add(Idx(), 1); }
+
+    virtual TypedReg ExpectedValue()                const { return Add(Idx(), 1); }
+};
+
+class MModelTestPropMin : public MModelTestProp // ******* BRIG_ATOMIC_MIN *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx + 1; }
+    virtual TypedReg InitialValue()                 const { return Add(Idx(), 1); }
+
+    virtual TypedReg AtomicOperand()                const { return Idx(); }
+
+    virtual TypedReg ExpectedValue()                const { return Idx(); }
+};
+
+class MModelTestPropExch : public MModelTestProp // ******* BRIG_ATOMIC_EXCH *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialValue()                 const { return Idx(); }
+
+    virtual TypedReg AtomicOperand()                const { return Mul(Idx(), 2); }
+
+    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+};
+
+class MModelTestPropCas : public MModelTestProp // ******* BRIG_ATOMIC_CAS *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialValue()                 const { return Idx(); }
+
+    virtual TypedReg AtomicOperand()                const { return InitialValue(); } // value which is being compared
+    virtual TypedReg AtomicOperand1()               const { return Mul(Idx(), 2); }  // value to swap
+
+    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+};
+
+class MModelTestPropSt : public MModelTestProp // ******* BRIG_ATOMIC_ST *******
+{
+public:
+    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialValue()                 const { return Idx(); }
+
+    virtual TypedReg AtomicOperand()                const { return Mul(Idx(), 2); }
+
+    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+};
+
+class MModelTestPropLd : public MModelTestProp // ******* BRIG_ATOMIC_LD *******
+{
+};
+
+//=====================================================================================
+
+class MModelTestPropFactory : public TestPropFactory<MModelTestProp>
+{
+public:
+    virtual MModelTestProp* CreateProp(BrigAtomicOperation op)
+    {
+        switch (op)
+        {
+        case BRIG_ATOMIC_ADD:      return new MModelTestPropAdd();    
+        case BRIG_ATOMIC_AND:      return new MModelTestPropAnd();    
+        case BRIG_ATOMIC_CAS:      return new MModelTestPropCas();    
+        case BRIG_ATOMIC_EXCH:     return new MModelTestPropExch();   
+        case BRIG_ATOMIC_MAX:      return new MModelTestPropMax();    
+        case BRIG_ATOMIC_MIN:      return new MModelTestPropMin();    
+        case BRIG_ATOMIC_OR:       return new MModelTestPropOr();     
+        case BRIG_ATOMIC_ST:       return new MModelTestPropSt();     
+        case BRIG_ATOMIC_SUB:      return new MModelTestPropSub();    
+        case BRIG_ATOMIC_WRAPDEC:  return new MModelTestPropWrapdec();
+        case BRIG_ATOMIC_WRAPINC:  return new MModelTestPropWrapinc();
+        case BRIG_ATOMIC_XOR:      return new MModelTestPropXor();    
+        case BRIG_ATOMIC_LD:       return new MModelTestPropLd();     
+
+        default:
+            assert(false);
+            return 0;
+        }
+    }
+};
+
+TestPropFactory<MModelTestProp>* TestPropFactory<MModelTestProp>::factory = 0;
+
+//=====================================================================================
+
+class MModelTest : public AtomicTestHelper
+{
+private:
     static const BrigType RES_TYPE       = BRIG_TYPE_U32; // Type of elements in output array
     static const unsigned RES_VAL_FAILED = 0;
     static const unsigned RES_VAL_PASSED = 1;
 
-protected:
+private:
+    static const unsigned WRITE_ACCESS = 0;
+    static const unsigned READ_ACCESS  = 1;
+
+private:
     static const unsigned MAX_LOOP = 1000;
 
 protected:                                                  // attributes of write operations which are being tested
@@ -213,6 +418,9 @@ protected:                                                  // attributes of wri
     uint8_t             equivClass[2];
     bool                atomicNoRet[2];                     // atomic or atomicNoRet
     bool                isPlainOp[2];                       // atomic or plain ld/st
+
+private:
+    MModelTestProp*     prop[2];                            // properties of (atomic) operation
 
 private:
     DirectiveVariable   testArray[2];
@@ -244,7 +452,7 @@ public:
                 BrigType type_1,
                 bool isPlainOp_0
                 )
-    : TestHelper(KERNEL, geometry_),
+    : AtomicTestHelper(KERNEL, geometry_),
         resArrayAddr(0),
         indexInResArray(0),
         loopIdx(0)
@@ -252,9 +460,24 @@ public:
         SetTestKind();
 
         BrigType type_0 = type_1;                       // This is to minimize total number of tests
-        BrigAtomicOperation atomicOp_1 = atomicOp_0;    // This is to minimize total number of tests
         mapFlat2Group = isBitType(type_1);              // This is to minimize total number of tests
         bool isPlainOp_1 = false;                       // Second write must be an atomic to make synchromization possible
+
+        BrigAtomicOperation atomicOp_1;
+        switch (atomicOp_0)
+        {
+        case BRIG_ATOMIC_ADD:         atomicOp_1 = BRIG_ATOMIC_SUB;     break;
+        case BRIG_ATOMIC_AND:         atomicOp_1 = BRIG_ATOMIC_XOR;     break;
+        case BRIG_ATOMIC_CAS:         atomicOp_1 = BRIG_ATOMIC_OR;      break;
+        case BRIG_ATOMIC_EXCH:        atomicOp_1 = BRIG_ATOMIC_CAS;     break;
+        case BRIG_ATOMIC_MAX:         atomicOp_1 = BRIG_ATOMIC_MIN;     break;
+        case BRIG_ATOMIC_ST:          atomicOp_1 = BRIG_ATOMIC_ST;      break;
+        case BRIG_ATOMIC_WRAPINC:     atomicOp_1 = BRIG_ATOMIC_WRAPDEC; break;
+        default:
+            assert(false);
+            atomicOp_1 = atomicOp_0;
+            break;
+        }
 
         for (unsigned i = 0; i < 2; ++i)
         {
@@ -272,18 +495,25 @@ public:
             testArrayAddr[i] = 0;
         }
 
+        unsigned typeSz_0 = getBrigTypeNumBits(type[0]);
+
         // As quick test does not enumerate all possible combinations for first write, 
         // the following code ensures that attributes of this operation are valid
         if (isPlainOp[0])
         {
-            type[0]         = BRIG_TYPE_S32;
+            type[0]         = (typeSz_0 == 32)? BRIG_TYPE_S32 : BRIG_TYPE_S64;
             atomicOp[0]     = BRIG_ATOMIC_ST;
             atomicNoRet[0]  = true;
         }
         else
         {
             if (!IsValidAtomicOp(atomicOp[0], atomicNoRet[0])) atomicOp[0] = BRIG_ATOMIC_ST;
-            if (!IsValidAtomicType(atomicOp[0], type[0]))      type[0]     = BRIG_TYPE_B32;
+            if (!IsValidAtomicType(atomicOp[0], type[0]))      type[0]     = (typeSz_0 == 32)? BRIG_TYPE_B32 : BRIG_TYPE_B64;
+        }
+
+        for (unsigned i = 0; i < 2; ++i)
+        {
+            prop[i] = MModelTestPropFactory::Get()->GetProp(this, atomicOp[i], type[i]);
         }
     }
 
@@ -302,7 +532,7 @@ public:
                 BrigType type_1,
                 bool isPlainOp_0
                 )
-    : TestHelper(KERNEL, geometry_),
+    : AtomicTestHelper(KERNEL, geometry_),
         resArrayAddr(0),
         indexInResArray(0),
         loopIdx(0)
@@ -344,6 +574,11 @@ public:
         if (!IsValidAtomicOp(atomicOp[1], atomicNoRet[1]))
         {
             atomicNoRet[1] = !atomicNoRet[1];
+        }
+
+        for (unsigned i = 0; i < 2; ++i)
+        {
+            prop[i] = MModelTestPropFactory::Get()->GetProp(this, atomicOp[i], type[i]);
         }
     }
 
@@ -444,9 +679,12 @@ public:
         assert(isIntType(type[idx]));
 
         ArbitraryData values;
-        uint64_t value = InitialValue(idx);
         unsigned typeSize = getBrigTypeNumBytes(type[idx]);
-        for (unsigned pos = 0; pos < geometry->GridSize(); ++pos) values.write(&value, typeSize, pos * typeSize);
+        for (unsigned pos = 0; pos < geometry->GridSize(); ++pos)
+        {
+            uint64_t value = InitialValue(idx, pos);
+            values.write(&value, typeSize, pos * typeSize);
+        }
         return be.Brigantine().createOperandConstantBytes(values.toSRef(), ArrayElemType(idx), true);
     }
 
@@ -510,52 +748,36 @@ public:
     // ========================================================================
     // Initialization of test arrays
 
-    uint64_t InitialValue(unsigned idx)
+    virtual TypedReg Index(unsigned idx, unsigned access)
     {
-        assert(idx <= 1);
-        switch (atomicOp[idx])
-        {
-        case BRIG_ATOMIC_ADD:       return 0;
-        case BRIG_ATOMIC_SUB:       return 2; //TestSize() + 1;
+        assert(access == WRITE_ACCESS || access == READ_ACCESS);
 
-        case BRIG_ATOMIC_WRAPINC:   return 0;
-        case BRIG_ATOMIC_WRAPDEC:   return 2; //TestSize() + 1;
-
-        case BRIG_ATOMIC_OR:
-        case BRIG_ATOMIC_XOR:       return 0;
-        case BRIG_ATOMIC_AND:       return -1;
-
-        case BRIG_ATOMIC_MAX:       return 0;
-        case BRIG_ATOMIC_MIN:       return 2; //TestSize() + 1;
-
-        case BRIG_ATOMIC_EXCH:      return 0;
-
-        case BRIG_ATOMIC_CAS:       return 0;
-
-        case BRIG_ATOMIC_ST:        return 0;
-
-        case BRIG_ATOMIC_LD:
-        default:
-            assert(false);
-            return 0;
-        }
+        TypedReg index = ArrayIndex(idx, access);
+        if (index->RegSizeBits() != getBrigTypeNumBits(type[idx])) index = Cvt(index);
+        return index;
     }
 
-    uint64_t ExpectedValue(unsigned idx)
-    {
-        assert(idx <= 1);
-        uint64_t expected = 1;
-        assert(InitialValue(idx) != expected);
-        return expected;
-    }
-
-    Operand Initializer(unsigned idx)
+    TypedReg Initializer(unsigned idx)
     {
         assert(idx <= 1);
         assert(isIntType(type[idx]));
 
-        uint64_t init = InitialValue(idx);
-        return be.Immed(getUnsignedType(getBrigTypeNumBits(type[idx])), init);
+        return prop[idx]->InitialValue(idx, WRITE_ACCESS);
+    }
+
+    uint64_t InitialValue(unsigned idx, unsigned pos)
+    {
+        assert(idx <= 1);
+
+        return prop[idx]->InitialValue(pos);
+    }
+
+    TypedReg ExpectedValue(unsigned idx, unsigned access)
+    {
+        assert(idx <= 1);
+        assert(access == WRITE_ACCESS || access == READ_ACCESS);
+
+        return prop[idx]->ExpectedValue(idx, access);
     }
 
     // ========================================================================
@@ -565,47 +787,10 @@ public:
     {
         assert(idx <= 1);
 
-        TypedReg src0 = be.AddTReg(type[idx]);
-        TypedReg src1 = 0;
+        TypedReg src0 = prop[idx]->AtomicOperand(idx,  WRITE_ACCESS);
+        TypedReg src1 = prop[idx]->AtomicOperand1(idx, WRITE_ACCESS);
 
-        switch (atomicOp[idx])
-        {
-        case BRIG_ATOMIC_ADD:
-        case BRIG_ATOMIC_SUB:
-        case BRIG_ATOMIC_ST:
-            be.EmitMov(src0, 1);
-            break;
-
-        case BRIG_ATOMIC_WRAPINC:
-        case BRIG_ATOMIC_WRAPDEC:
-            be.EmitMov(src0, -1); // operand is max value
-            break;
-        
-        case BRIG_ATOMIC_AND:
-        case BRIG_ATOMIC_OR:
-        case BRIG_ATOMIC_XOR:
-            be.EmitMov(src0, 1);
-            break;
-        
-        case BRIG_ATOMIC_MAX:
-        case BRIG_ATOMIC_MIN:
-            be.EmitMov(src0, 1);
-            break;
-
-        case BRIG_ATOMIC_EXCH:
-            be.EmitMov(src0, 1);
-            break;
-
-        case BRIG_ATOMIC_CAS:
-            src1 = be.AddTReg(type[idx]);
-            be.EmitMov(src0, InitialValue(idx)); // value which is being compared
-            be.EmitMov(src1, 1);                 // value to swap
-            break;
-
-        default: 
-            assert(false);
-            break;
-        }
+        assert(src0);
 
         ItemList operands;
 
@@ -614,8 +799,10 @@ public:
             TypedReg atomicDst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(type[idx])));
             operands.push_back(atomicDst->Reg());
         }
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, 0), type[idx]);
+
+        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, WRITE_ACCESS), type[idx]);
         operands.push_back(target);
+
         if (src0) operands.push_back(src0->Reg());
         if (src1) operands.push_back(src1->Reg());
 
@@ -637,7 +824,7 @@ public:
 
         ItemList operands;
         TypedReg atomicDst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(type[idx])));
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, 1), type[idx]);
+        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, READ_ACCESS), type[idx]);
 
         operands.push_back(atomicDst->Reg());
         operands.push_back(target);
@@ -660,9 +847,9 @@ public:
         assert(idx <= 1);
 
         ItemList operands;
-        uint64_t val = ExpectedValue(idx);
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, 0), type[idx]);
-        operands.push_back(be.Immed(type2bitType(type[idx]), val));
+        TypedReg val = ExpectedValue(idx, WRITE_ACCESS);
+        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, WRITE_ACCESS), type[idx]);
+        operands.push_back(val->Reg());
         operands.push_back(target);
 
         InstMem inst = be.Brigantine().addInst<InstMem>(BRIG_OPCODE_ST, getUnsignedType(getBrigTypeNumBits(type[idx])));
@@ -680,7 +867,7 @@ public:
 
         ItemList operands;
         TypedReg dst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(type[idx])));
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, 1), type[idx]);
+        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, READ_ACCESS), type[idx]);
 
         operands.push_back(dst->Reg());
         operands.push_back(target);
@@ -708,10 +895,10 @@ public:
         LoadResAddr();
         LoadWgCompleteAddr();
 
-        ArrayIndex(0, 0);
-        ArrayIndex(0, 1);
-        ArrayIndex(1, 0);
-        ArrayIndex(1, 1);
+        ArrayIndex(0, WRITE_ACCESS);
+        ArrayIndex(0, READ_ACCESS);
+        ArrayIndex(1, WRITE_ACCESS);
+        ArrayIndex(1, READ_ACCESS);
         ResIndex();
 
         InitArray(0);
@@ -721,8 +908,8 @@ public:
         InitLoop();
 
         Comment("Clear 'testComplete' flag");
-        TypedReg testComplete = be.AddTReg(BRIG_TYPE_B1);       // testComplete flag is only used to record the result
-        be.EmitMov(testComplete, (uint64_t) 0);    // at first successful 'synchronized-with' attempt
+        TypedReg testComplete = be.AddTReg(BRIG_TYPE_B1);   // testComplete flag is used to record the result
+        be.EmitMov(testComplete, (uint64_t)0);              // at first successful 'synchronized-with' attempt
 
         if (ArraySegment(0) == BRIG_SEGMENT_GROUP ||
             ArraySegment(1) == BRIG_SEGMENT_GROUP) 
@@ -771,11 +958,11 @@ public:
     {
         Comment("Load test values");
         TypedReg sync = AtomicLd(1);
-        TypedReg res  = isPlainOp[0]? PlainLd(0) : AtomicLd(0); //F
+        TypedReg res  = isPlainOp[0]? PlainLd(0) : AtomicLd(0);
 
         Comment("Compare test values with expected values");
-        TypedReg synchronizedWith = COND(sync, EQ, ExpectedValue(1));
-        TypedReg isResSet         = COND(res,  EQ, ExpectedValue(0));
+        TypedReg synchronizedWith = COND(sync, EQ, ExpectedValue(1, READ_ACCESS)->Reg());
+        TypedReg isResSet         = COND(res,  EQ, ExpectedValue(0, READ_ACCESS)->Reg());
 
         Comment("Set test result flag");
         TypedReg ok = And(Not(testComplete), And(synchronizedWith, isResSet));
@@ -832,9 +1019,10 @@ public:
         {
             Comment("Init array element");
         
-            OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, 0), type[idx]);
+            TypedReg val = Initializer(idx);
+            OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, WRITE_ACCESS), type[idx]);
             InstAtomic inst = Atomic(type[idx], BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope[idx], segment[idx], equivClass[idx], false);
-            inst.operands() = be.Operands(target, Initializer(idx));
+            inst.operands() = be.Operands(target, val->Reg());
         }
     }
 
@@ -874,16 +1062,16 @@ public:
     TypedReg ArrayIndex(unsigned idx, unsigned access)
     {
         assert(idx <= 1);
-        assert(access <= 1);
+        assert(access == WRITE_ACCESS || access == READ_ACCESS);
 
         if (!indexInTestArray[idx][access])
         {
-            if (access == 0)
+            if (access == WRITE_ACCESS)
             {
                 if (idx == 0) Comment("Init first write array index"); else Comment("Init second write array index");
                 indexInTestArray[idx][access] = TestIndex(idx);
             }
-            else
+            else // READ_ACCESS
             {
                 if (idx == 0) Comment("Init first read array index"); else Comment("Init second read array index");
 
@@ -1077,7 +1265,7 @@ public:
         if (!IsValidGrid(idx)) return false;
 
         if (atomicOp[idx] == BRIG_ATOMIC_LD) return false;
-        //if (memoryScope[idx] == BRIG_MEMORY_SCOPE_SYSTEM) return false;
+        //if (memoryScope[idx] == BRIG_MEMORY_SCOPE_SYSTEM) return false; //F
 
         return true;
     }
@@ -1106,6 +1294,7 @@ public:
 
 void MModelTests::Iterate(hexl::TestSpecIterator& it)
 {
+    MModelTestPropFactory singleton;
     CoreConfig* cc = CoreConfig::Get(context);
     MModelTest::wavesize = cc->Wavesize(); //F: how to get the value from inside of AtomicTest?
     Arena* ap = cc->Ap();
@@ -1124,6 +1313,7 @@ void MModelTests::Iterate(hexl::TestSpecIterator& it)
 
 void MModelTests::Iterate(hexl::TestSpecIterator& it)
 {
+    MModelTestPropFactory singleton;
     CoreConfig* cc = CoreConfig::Get(context);
     MModelTest::wavesize = cc->Wavesize(); //F: how to get the value from inside of AtomicTest?
     Arena* ap = cc->Ap();
