@@ -391,7 +391,7 @@ public:
     }
 };
 
-TestPropFactory<MModelTestProp>* TestPropFactory<MModelTestProp>::factory = 0;
+template<> TestPropFactory<MModelTestProp>* TestPropFactory<MModelTestProp>::factory = 0;
 
 //=====================================================================================
 
