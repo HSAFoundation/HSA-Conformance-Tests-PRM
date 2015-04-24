@@ -928,33 +928,75 @@ void BrigEmitter::EmitCallSeq(Function f, TypedRegList inRegs, TypedRegList outR
   EmitCallSeq(f->Directive(), inRegs, outRegs, useVectorInstructions);
 }
 
-void BrigEmitter::EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+ItemList BrigEmitter::RegList2Args(DirectiveFunction f, TypedRegList regs, bool out)
 {
-  ItemList ins;
-  ItemList outs;
-  StartArgScope();
   uint64_t dim;
   DirectiveVariable fArg = f.next();
-  for (unsigned j = 0; j < outRegs->Count(); ++j) {
+  // shift for input args
+  if (!out) {
+    for (unsigned i = 0; i < f.outArgCount(); ++i) {
+      assert(fArg);
+      fArg = fArg.next();
+    }
+  }
+  ItemList args;
+  for (unsigned i = 0; i < regs->Count(); ++i) {
     assert(fArg);
     dim = fArg.dim();
-    outs.push_back(EmitVariableDefinition(OName(j), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), dim));
+    if (!out && fArg.isArray() && !dim) {
+      // Flex array
+      dim = regs->Get(i)->Count();
+    }
+    args.push_back(EmitVariableDefinition(out ? OName(i) : IName(i), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), dim));
     fArg = fArg.next();
   }
-  for (unsigned i = 0; i < inRegs->Count(); ++i) {
-    assert(fArg);
-    dim = fArg.dim();
-    if (fArg.isArray() && !dim) {
-      // Flex array
-      dim = inRegs->Get(i)->Count();
-    }
-    ins.push_back(EmitVariableDefinition(IName(i), BRIG_SEGMENT_ARG, fArg.type(), fArg.align(), dim));
-    fArg = fArg.next();
-   }
+  return args;
+}
+
+void BrigEmitter::EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+{
+  StartArgScope();
+  ItemList ins = RegList2Args(f, inRegs, false);
+  ItemList outs = RegList2Args(f, outRegs, true);
   EmitStores(inRegs, ins, useVectorInstructions);
   EmitCall(f, ins, outs);
   EmitLoads(outRegs, outs, useVectorInstructions);
   EndArgScope();
+}
+
+InstBr BrigEmitter::EmitScall(BrigType16_t srcType, Operand src, ItemList funcs, ItemList ins, ItemList outs)
+{
+  assert(srcType == BRIG_TYPE_U32 || srcType == BRIG_TYPE_U64);
+  InstBr inst = brigantine.addInst<InstBr>(BRIG_OPCODE_SCALL, srcType);
+  inst.width() = BRIG_WIDTH_1;
+  inst.operands() = Operands(
+    brigantine.createCodeList(outs),
+    src,
+    brigantine.createCodeList(ins),
+    brigantine.createCodeList(funcs));
+  return inst;
+}
+
+void BrigEmitter::EmitScallSeq(TypedReg src, std::vector<Function> funcs, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+{
+  EmitScallSeq(src->Type(), src->Reg(), funcs, inRegs, outRegs, useVectorInstructions);
+}
+
+void BrigEmitter::EmitScallSeq(BrigType16_t srcType, Operand src, std::vector<Function> funcs, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions)
+{
+  assert(funcs.size() > 0);
+  StartArgScope();
+  ItemList ins = RegList2Args(funcs[0]->Directive(), inRegs, false);
+  ItemList outs = RegList2Args(funcs[0]->Directive(), outRegs, true);
+  ItemList funcsList;
+  for (auto function: funcs) {
+    funcsList.push_back(function->Directive());
+  }
+  EmitStores(inRegs, ins, useVectorInstructions);
+  EmitScall(srcType, src, funcsList, ins, outs);
+  EmitLoads(outRegs, outs, useVectorInstructions);
+  EndArgScope();
+
 }
 
 std::string BrigEmitter::EmitLabel(const std::string& l)

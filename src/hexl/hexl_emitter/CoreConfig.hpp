@@ -339,6 +339,20 @@ namespace hexl {
         hexl::Sequence<Condition>* NestedSwitchConditions() { return nestedSwitchConditions; }
       };
 
+      class FunctionsConfig : public ConfigBase {
+      private:
+        hexl::VectorSequence<unsigned>* scallFunctionsNumber;
+        hexl::VectorSequence<unsigned>* scallIndexValue;
+        hexl::VectorSequence<BrigType>* scallIndexType;
+
+      public:
+        FunctionsConfig(CoreConfig* cc);
+
+        hexl::Sequence<unsigned>* ScallFunctionsNumber() { return scallFunctionsNumber; }
+        hexl::Sequence<unsigned>* ScallIndexValue() { return scallIndexValue; }
+        hexl::Sequence<BrigType>* ScallIndexType() { return scallIndexType; }
+      };
+
       class ImageConfig : public ConfigBase {
       private:
         hexl::VectorSequence<ImageGeometry*>* defaultImageGeometry;
@@ -390,6 +404,7 @@ namespace hexl {
       MemoryConfig& Memory() { return memory; }
       ControlDirectivesConfig& Directives() { return directives; }
       ControlFlowConfig& ControlFlow() { return controlFlow; }
+      FunctionsConfig& Functions() { return functions; }
       ImageConfig& Images() { return images; }
       SamplerConfig& Samplers() { return samplers; }
 
@@ -402,6 +417,7 @@ namespace hexl {
       MemoryConfig memory;
       ControlDirectivesConfig directives;
       ControlFlowConfig controlFlow;
+      FunctionsConfig functions;
       ImageConfig images;
       SamplerConfig samplers;
     };

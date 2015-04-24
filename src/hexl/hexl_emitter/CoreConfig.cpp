@@ -43,6 +43,7 @@ CoreConfig::CoreConfig(
     memory(this),
     directives(this),
     controlFlow(this),
+    functions(this),
     images(this),
     samplers(this)
 {
@@ -899,5 +900,30 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
   cornerWidths->Add(BRIG_WIDTH_WAVESIZE);
   cornerWidths->Add(BRIG_WIDTH_ALL);
 }
+
+static const unsigned scallFunctionsNumberArray[] = {
+  1,
+  3,
+  16
+};
+
+CoreConfig::FunctionsConfig::FunctionsConfig(CoreConfig* cc)
+  : ConfigBase(cc),
+    scallFunctionsNumber(NEWA VectorSequence<unsigned>(ap)),
+    scallIndexValue(NEWA VectorSequence<unsigned>(ap)),
+    scallIndexType(NEWA VectorSequence<BrigType>(ap))
+{
+  scallFunctionsNumber->Add(1);
+  scallFunctionsNumber->Add(3);
+  scallFunctionsNumber->Add(16);
+  scallIndexValue->Add(0);
+  scallIndexValue->Add(1);
+  scallIndexValue->Add(3);
+  scallIndexValue->Add(8);
+  scallIndexValue->Add(16);
+  scallIndexType->Add(BRIG_TYPE_U32);
+  scallIndexType->Add(BRIG_TYPE_U64);
+}
+
 }
 }

@@ -369,6 +369,103 @@ public:
 
 };
 
+class ScallBasicTest : public Test {
+protected:
+  unsigned functionsNumber;
+  std::vector<EFunction*> functions;
+  std::vector<Variable> outArgs;
+
+  virtual Value FunctionResult(uint64_t number) const {   // result of function with specified number
+    return Value(Brig2ValueType(ResultType()), number);
+  } 
+
+public:
+  ScallBasicTest(Location codeLocation_, Grid geometry_, unsigned functionsNumber_) : 
+    Test(codeLocation_, geometry_), functionsNumber(functionsNumber_) {}
+
+  bool IsValid() const override {
+    return Test::IsValid() && functionsNumber > 0;
+  }
+
+  void Name(std::ostream& out) const override {
+    out << "/" << functionsNumber << "/" << geometry << "_" << CodeLocationString();
+  }
+
+  void Init() override {
+    Test::Init();
+    EFunction* func;
+    Variable outArg;
+    for (unsigned i = 0; i < functionsNumber; ++i) {
+      func = te->NewFunction("func" + std::to_string(i));
+      outArgs.push_back(func->NewVariable("out", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, 
+        BRIG_ALIGNMENT_NONE, 0, false, true));
+      functions.push_back(func);
+    }
+  }
+
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+
+  Value ExpectedResult(uint64_t id) const override {
+    return FunctionResult(id % functionsNumber);
+  }
+
+  void Executables() override {
+    for (unsigned i = 0; i < functionsNumber; ++i) {
+      functions[i]->Declaration();
+      functions[i]->StartFunctionBody();
+      be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Value2Immed(FunctionResult(i)), 
+        be.Address(outArgs[i]->Variable()));
+      functions[i]->EndFunction();
+    }
+    Test::Executables();
+  }
+
+  TypedReg Result() override {
+    auto wiId = be.WorkitemFlatAbsId(false);
+    be.EmitArith(BRIG_OPCODE_REM, wiId, wiId, be.Immed(wiId->Type(), functionsNumber));
+    auto funcResult = be.AddTReg(ResultType());
+    be.EmitMov(funcResult, 0xFFFFFFFF);
+    auto ins = be.AddTRegList();
+    auto outs = be.AddTRegList();
+    outs->Add(funcResult);
+    be.EmitScallSeq(wiId, functions, ins, outs);
+    return funcResult;
+  }
+};
+
+class ScallImmedTest : public ScallBasicTest {
+private:
+  unsigned indexValue;
+  BrigType indexType;
+
+public:
+  ScallImmedTest(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, unsigned indexValue_, BrigType indexType_)
+    : ScallBasicTest(codeLocation_, geometry_, functionsNumber_), indexValue(indexValue_), indexType(indexType_) {}
+
+  bool IsValid() const override {
+    return ScallBasicTest::IsValid() 
+      && indexValue < functionsNumber 
+      && (indexType == BRIG_TYPE_U32 || indexType == BRIG_TYPE_U64);
+  }
+
+  void Name(std::ostream& out) const override {
+    out << "/" << functionsNumber << "_" << indexValue << "/" << geometry << "_" << CodeLocationString();
+  }
+
+  Value ExpectedResult() const override {
+    return FunctionResult(indexValue);
+  }
+
+  TypedReg Result() override {
+    auto funcResult = be.AddTReg(ResultType());
+    be.EmitMov(funcResult, 0xFFFFFFFF);
+    auto ins = be.AddTRegList();
+    auto outs = be.AddTRegList();
+    outs->Add(funcResult);
+    be.EmitScallSeq(indexType, be.Immed(indexType, indexValue), functions, ins, outs);
+    return funcResult;
+  }
+};
 
 void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
 {
@@ -378,6 +475,9 @@ void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
   TestForEach<RecursiveFactorial>(ap, it, "functions/recursion/factorial", cc->Types().CompoundIntegral());
   TestForEach<RecursiveFibonacci>(ap, it, "functions/recursion/fibonacci", cc->Types().CompoundIntegral());
   //TestForEach<VariadicSum>(ap, it, "functions/variadic/sum", cc->Grids().DefaultGeometrySet(), cc->Types().CompoundIntegral());
+
+  TestForEach<ScallBasicTest>(ap, it, "functions/scall/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber());
+  //TestForEach<ScallImmedTest>(ap, it, "functions/scall/immed", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexValue(), cc->Functions().ScallIndexType());
 }
 
 }

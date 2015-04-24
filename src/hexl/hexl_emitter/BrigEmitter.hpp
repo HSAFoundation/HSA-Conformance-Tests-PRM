@@ -58,6 +58,8 @@ private:
 
   HSAIL_ASM::OperandAddress IncrementAddress(HSAIL_ASM::OperandAddress addr, int64_t offset);
 
+  HSAIL_ASM::ItemList RegList2Args(HSAIL_ASM::DirectiveFunction f, TypedRegList regs, bool out = true);
+
   void ResetRegs();
 
 public:
@@ -195,6 +197,9 @@ public:
   HSAIL_ASM::InstBr EmitCall(HSAIL_ASM::DirectiveFunction f, HSAIL_ASM::ItemList ins, HSAIL_ASM::ItemList outs);
   void EmitCallSeq(HSAIL_ASM::DirectiveFunction f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
   void EmitCallSeq(Function f, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
+  HSAIL_ASM::InstBr EmitScall(BrigType16_t srcType, HSAIL_ASM::Operand src, HSAIL_ASM::ItemList funcs, HSAIL_ASM::ItemList ins, HSAIL_ASM::ItemList outs);
+  void EmitScallSeq(TypedReg src, std::vector<Function> funcs, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
+  void EmitScallSeq(BrigType16_t srcType, HSAIL_ASM::Operand src, std::vector<Function> funcs, TypedRegList inRegs, TypedRegList outRegs, bool useVectorInstructions = true);
   void EmitControlDirectiveGeometry(BrigControlDirective d, hexl::Grid grid);
   void EmitDynamicMemoryDirective(size_t size);
   HSAIL_ASM::DirectiveLoc EmitLocDirective(uint32_t line, uint32_t column = 1, const std::string& fileName = "");
