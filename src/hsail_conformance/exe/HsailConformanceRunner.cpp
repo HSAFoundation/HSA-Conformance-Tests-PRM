@@ -176,7 +176,7 @@ TestSet* HCRunner::CreateTestSet()
 void HCRunner::Run()
 {
   std::cout <<
-    "HSA PRM Conformance" <<
+    "HSA Conformance" <<
     " (" <<
     "HSAIL " << BRIG_VERSION_HSAIL_MAJOR << "." << BRIG_VERSION_HSAIL_MINOR <<
     ", BRIG " << BRIG_VERSION_BRIG_MAJOR << "." << BRIG_VERSION_BRIG_MINOR <<
