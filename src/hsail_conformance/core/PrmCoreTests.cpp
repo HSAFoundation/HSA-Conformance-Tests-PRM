@@ -1,5 +1,5 @@
 /*
-   Copyright 2014 Heterogeneous System Architecture (HSA) Foundation
+   Copyright 2014-2015 Heterogeneous System Architecture (HSA) Foundation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@
 #include "BranchTests.hpp"
 #include "CrossLaneTests.hpp"
 #include "BarrierTests.hpp"
-#include "AtomicTests.hpp"
 #include "AddressTests.hpp"
 #include "FunctionsTests.hpp"
 #include "UserModeQueueTests.hpp"
@@ -154,7 +153,6 @@ MemoryOperationsTests::MemoryOperationsTests()
 #endif // ENABLE_HEXL_HSAILTESTGEN
   Add(new SignalTests());
   Add(new MemoryFenceTests());
-  Add(new AtomicTests());
 }
 
 DECLARE_TESTSET_UNION(ParallelOperationsTests);

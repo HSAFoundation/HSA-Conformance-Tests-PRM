@@ -1,5 +1,5 @@
 /*
-   Copyright 2014 Heterogeneous System Architecture (HSA) Foundation
+   Copyright 2014-2015 Heterogeneous System Architecture (HSA) Foundation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -265,7 +265,7 @@ protected:
       // initialization loop
       auto count = be.AddInitialTReg(BRIG_TYPE_U32, 0);
       be.EmitLabel(initializationLoop);
-      be.EmitStore(BRIG_SEGMENT_GROUP, staticVar->Type(), be.Immed(staticVar->Type(), INITIAL_VALUE), 
+      be.EmitStore(BRIG_SEGMENT_GROUP, staticVar->Type(), be.Immed(staticVar->Type(), INITIAL_VALUE, false), 
                    be.Address(staticVar->Variable(), count->Reg(), 0));
       be.EmitArith(BRIG_OPCODE_ADD, count, count, be.Immed(count->Type(), 1));
       be.EmitCmp(cmp->Reg(), count, be.Immed(count->Type(), initializationSize), BRIG_COMPARE_LT);

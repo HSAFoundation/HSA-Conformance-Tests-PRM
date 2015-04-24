@@ -1,5 +1,5 @@
 /*
-   Copyright 2014 Heterogeneous System Architecture (HSA) Foundation
+   Copyright 2014-2015 Heterogeneous System Architecture (HSA) Foundation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -176,7 +176,7 @@ TestSet* HCRunner::CreateTestSet()
 void HCRunner::Run()
 {
   std::cout <<
-    "HSA PRM Conformance" <<
+    "HSA Conformance" <<
     " (" <<
     "HSAIL " << BRIG_VERSION_HSAIL_MAJOR << "." << BRIG_VERSION_HSAIL_MINOR <<
     ", BRIG " << BRIG_VERSION_BRIG_MAJOR << "." << BRIG_VERSION_BRIG_MINOR <<

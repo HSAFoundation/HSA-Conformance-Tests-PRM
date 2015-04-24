@@ -1,5 +1,5 @@
 /*
-   Copyright 2014 Heterogeneous System Architecture (HSA) Foundation
+   Copyright 2014-2015 Heterogeneous System Architecture (HSA) Foundation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -561,7 +561,7 @@ public:
     }
 };
 
-TestPropFactory<AtomicTestProp>* TestPropFactory<AtomicTestProp>::factory = 0;
+template<> TestPropFactory<AtomicTestProp>* TestPropFactory<AtomicTestProp>::factory = 0;
 
 //=====================================================================================
 //=====================================================================================
