@@ -16,6 +16,7 @@
 
 #include "SysArchMandatoryTests.hpp"
 #include "MModelTests.hpp"
+#include "AtomicTests.hpp"
 
 using namespace hexl;
 
@@ -26,6 +27,7 @@ DECLARE_TESTSET_UNION(MemoryConsistencyModelTests);
 MemoryConsistencyModelTests::MemoryConsistencyModelTests()
   : TestSetUnion("consistency")
 {
+  Add(new AtomicTests());
   Add(new MModelTests());
 }
 
