@@ -343,6 +343,7 @@ namespace hexl {
       private:
         hexl::VectorSequence<unsigned>* scallFunctionsNumber;
         hexl::VectorSequence<unsigned>* scallIndexValue;
+        hexl::VectorSequence<unsigned>* scallNumberRepeating;
         hexl::VectorSequence<BrigType>* scallIndexType;
 
       public:
@@ -350,6 +351,7 @@ namespace hexl {
 
         hexl::Sequence<unsigned>* ScallFunctionsNumber() { return scallFunctionsNumber; }
         hexl::Sequence<unsigned>* ScallIndexValue() { return scallIndexValue; }
+        hexl::Sequence<unsigned>* ScallNumberRepeating() { return scallNumberRepeating; }
         hexl::Sequence<BrigType>* ScallIndexType() { return scallIndexType; }
       };
 

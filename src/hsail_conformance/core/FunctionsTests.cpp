@@ -371,36 +371,44 @@ public:
 
 class ScallBasicTest : public Test {
 protected:
-  unsigned functionsNumber;
+  unsigned functionsNumber; // functionsNumber is not always equal to the size of functions vector
+                            // in case of repeating functions functionsNumber will be greater
+  BrigType indexType;
   std::vector<EFunction*> functions;
   std::vector<Variable> outArgs;
 
   virtual Value FunctionResult(uint64_t number) const {   // result of function with specified number
+    assert(number < functionsNumber);
     return Value(Brig2ValueType(ResultType()), number);
   } 
 
-public:
-  ScallBasicTest(Location codeLocation_, Grid geometry_, unsigned functionsNumber_) : 
-    Test(codeLocation_, geometry_), functionsNumber(functionsNumber_) {}
-
-  bool IsValid() const override {
-    return Test::IsValid() && functionsNumber > 0;
-  }
-
-  void Name(std::ostream& out) const override {
-    out << "/" << functionsNumber << "/" << geometry << "_" << CodeLocationString();
-  }
-
-  void Init() override {
-    Test::Init();
+  virtual void InitFunctions() {
     EFunction* func;
-    Variable outArg;
     for (unsigned i = 0; i < functionsNumber; ++i) {
       func = te->NewFunction("func" + std::to_string(i));
       outArgs.push_back(func->NewVariable("out", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, 
         BRIG_ALIGNMENT_NONE, 0, false, true));
       functions.push_back(func);
     }
+  }
+
+public:
+  ScallBasicTest(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, BrigType indexType_) : 
+    Test(codeLocation_, geometry_), functionsNumber(functionsNumber_), indexType(indexType_) {}
+
+  bool IsValid() const override {
+    return Test::IsValid() 
+      && functionsNumber > 0
+      && (indexType == BRIG_TYPE_U32 || indexType == BRIG_TYPE_U64);
+  }
+
+  void Name(std::ostream& out) const override {
+    out << functionsNumber << "_" << type2str(indexType) << "/" << geometry << "_" << CodeLocationString();
+  }
+
+  void Init() override {
+    Test::Init();
+    InitFunctions();
   }
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
@@ -410,7 +418,7 @@ public:
   }
 
   void Executables() override {
-    for (unsigned i = 0; i < functionsNumber; ++i) {
+    for (unsigned i = 0; i < functions.size(); ++i) {
       functions[i]->Declaration();
       functions[i]->StartFunctionBody();
       be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Value2Immed(FunctionResult(i)), 
@@ -421,7 +429,7 @@ public:
   }
 
   TypedReg Result() override {
-    auto wiId = be.WorkitemFlatAbsId(false);
+    auto wiId = be.EmitWorkitemFlatAbsId(indexType == BRIG_TYPE_U64);
     be.EmitArith(BRIG_OPCODE_REM, wiId, wiId, be.Immed(wiId->Type(), functionsNumber));
     auto funcResult = be.AddTReg(ResultType());
     be.EmitMov(funcResult, 0xFFFFFFFF);
@@ -436,20 +444,18 @@ public:
 class ScallImmedTest : public ScallBasicTest {
 private:
   unsigned indexValue;
-  BrigType indexType;
 
 public:
   ScallImmedTest(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, unsigned indexValue_, BrigType indexType_)
-    : ScallBasicTest(codeLocation_, geometry_, functionsNumber_), indexValue(indexValue_), indexType(indexType_) {}
+    : ScallBasicTest(codeLocation_, geometry_, functionsNumber_, indexType_), indexValue(indexValue_) {}
 
   bool IsValid() const override {
     return ScallBasicTest::IsValid() 
-      && indexValue < functionsNumber 
-      && (indexType == BRIG_TYPE_U32 || indexType == BRIG_TYPE_U64);
+      && indexValue < functionsNumber;
   }
 
   void Name(std::ostream& out) const override {
-    out << "/" << functionsNumber << "_" << indexValue << "/" << geometry << "_" << CodeLocationString();
+    out << functionsNumber << "_" << indexValue << type2str(indexType) << "/" << geometry << "_" << CodeLocationString();
   }
 
   Value ExpectedResult() const override {
@@ -467,6 +473,61 @@ public:
   }
 };
 
+class ScallRepeatingFunctions : public ScallBasicTest {
+private:
+  unsigned numberRepeating;
+  std::vector<EFunction*> callFunctions;
+
+protected:
+  virtual Value FunctionResult(uint64_t number) const {
+    assert(number < functionsNumber);
+    if (number < (functionsNumber - numberRepeating)) {
+      return Value(Brig2ValueType(ResultType()), number);
+    } else {
+      return Value(Brig2ValueType(ResultType()), 0);
+    }
+  } 
+
+  virtual void InitFunctions() {
+    EFunction* func;
+    for (unsigned i = 0; i < functionsNumber - numberRepeating; ++i) {
+      func = te->NewFunction("func" + std::to_string(i));
+      outArgs.push_back(func->NewVariable("out", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, 
+        BRIG_ALIGNMENT_NONE, 0, false, true));
+      functions.push_back(func);
+    }
+    callFunctions = functions;
+    for (unsigned i = 0; i < numberRepeating; ++i) {
+      callFunctions.push_back(functions[0]);
+    }
+  }
+
+public:
+  ScallRepeatingFunctions(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, unsigned numberRepeating_, BrigType indexType_)
+    : ScallBasicTest(codeLocation_, geometry_, functionsNumber_, indexType_),  numberRepeating(numberRepeating_) {}
+
+  void Name(std::ostream& out) const override {
+    out << functionsNumber << "_" << numberRepeating << "_" << type2str(indexType) << "/" << geometry << "_" << CodeLocationString();
+  }
+
+  bool IsValid() const override {
+    return ScallBasicTest::IsValid()
+      && functionsNumber > numberRepeating;
+  }
+
+  TypedReg Result() override {
+    auto wiId = be.EmitWorkitemFlatAbsId(indexType == BRIG_TYPE_U64);
+    be.EmitArith(BRIG_OPCODE_REM, wiId, wiId, be.Immed(wiId->Type(), functionsNumber));
+    auto funcResult = be.AddTReg(ResultType());
+    be.EmitMov(funcResult, 0xFFFFFFFF);
+    auto ins = be.AddTRegList();
+    auto outs = be.AddTRegList();
+    outs->Add(funcResult);
+    be.EmitScallSeq(wiId, callFunctions, ins, outs);
+    return funcResult;
+  }
+};
+
 void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -476,8 +537,9 @@ void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
   TestForEach<RecursiveFibonacci>(ap, it, "functions/recursion/fibonacci", cc->Types().CompoundIntegral());
   //TestForEach<VariadicSum>(ap, it, "functions/variadic/sum", cc->Grids().DefaultGeometrySet(), cc->Types().CompoundIntegral());
 
-  TestForEach<ScallBasicTest>(ap, it, "functions/scall/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber());
+  TestForEach<ScallBasicTest>(ap, it, "functions/scall/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexType());
   //TestForEach<ScallImmedTest>(ap, it, "functions/scall/immed", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexValue(), cc->Functions().ScallIndexType());
+  TestForEach<ScallRepeatingFunctions>(ap, it, "functions/scall/repeating", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallNumberRepeating(), cc->Functions().ScallIndexType());
 }
 
 }

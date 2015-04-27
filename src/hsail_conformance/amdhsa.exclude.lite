@@ -30,6 +30,7 @@ prm/core/arithmetic/conversion/cvt/cvt_szeroi_s64_f16_00364
 prm/core/arithmetic/conversion/cvt/cvt_supi_s64_f16_00365
 prm/core/arithmetic/conversion/cvt/cvt_sdowni_s64_f16_00366
 prm/core/arithmetic/conversion/cvt/cvt_neari_s64_f16_00367
+prm/core/functions/scall
 prm/image/image_ld/basic/kernel_1_100x1x1_100x1x1/100x1x1x[a1]_1db
 prm/image/image_st/basic/kernel_1_100x1x1_100x1x1/100x1x1x[a1]_1db
 prm/image/image_ld/basic/kernel_1_1x1x1_1x1x1/1x1x1x[a1]_1db

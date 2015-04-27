@@ -911,6 +911,7 @@ CoreConfig::FunctionsConfig::FunctionsConfig(CoreConfig* cc)
   : ConfigBase(cc),
     scallFunctionsNumber(NEWA VectorSequence<unsigned>(ap)),
     scallIndexValue(NEWA VectorSequence<unsigned>(ap)),
+    scallNumberRepeating(NEWA VectorSequence<unsigned>(ap)),
     scallIndexType(NEWA VectorSequence<BrigType>(ap))
 {
   scallFunctionsNumber->Add(1);
@@ -921,6 +922,9 @@ CoreConfig::FunctionsConfig::FunctionsConfig(CoreConfig* cc)
   scallIndexValue->Add(3);
   scallIndexValue->Add(8);
   scallIndexValue->Add(16);
+  scallNumberRepeating->Add(1);
+  scallNumberRepeating->Add(4);
+  scallNumberRepeating->Add(15);
   scallIndexType->Add(BRIG_TYPE_U32);
   scallIndexType->Add(BRIG_TYPE_U64);
 }
