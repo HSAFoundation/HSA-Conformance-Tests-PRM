@@ -374,6 +374,7 @@ protected:
   unsigned functionsNumber; // functionsNumber is not always equal to the size of functions vector
                             // in case of repeating functions functionsNumber will be greater
   BrigType indexType;
+  BrigType resultType;
   std::vector<EFunction*> functions;
   std::vector<Variable> outArgs;
 
@@ -393,8 +394,9 @@ protected:
   }
 
 public:
-  ScallBasicTest(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, BrigType indexType_) : 
-    Test(codeLocation_, geometry_), functionsNumber(functionsNumber_), indexType(indexType_) {}
+  ScallBasicTest(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, 
+                 BrigType indexType_ = BRIG_TYPE_U32, BrigType resultType_ = BRIG_TYPE_U32) : 
+    Test(codeLocation_, geometry_), functionsNumber(functionsNumber_), indexType(indexType_), resultType(resultType_) {}
 
   bool IsValid() const override {
     return Test::IsValid() 
@@ -403,7 +405,7 @@ public:
   }
 
   void Name(std::ostream& out) const override {
-    out << functionsNumber << "_" << type2str(indexType) << "/" << geometry << "_" << CodeLocationString();
+    out << functionsNumber << "_" << type2str(indexType) << "_" << type2str(resultType) << "/" << geometry << "_" << CodeLocationString();
   }
 
   void Init() override {
@@ -411,7 +413,7 @@ public:
     InitFunctions();
   }
 
-  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  BrigType ResultType() const override { return resultType; }
 
   Value ExpectedResult(uint64_t id) const override {
     return FunctionResult(id % functionsNumber);
@@ -421,7 +423,7 @@ public:
     for (unsigned i = 0; i < functions.size(); ++i) {
       functions[i]->Declaration();
       functions[i]->StartFunctionBody();
-      be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Value2Immed(FunctionResult(i)), 
+      be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Value2Immed(FunctionResult(i), false), 
         be.Address(outArgs[i]->Variable()));
       functions[i]->EndFunction();
     }
@@ -503,11 +505,11 @@ protected:
   }
 
 public:
-  ScallRepeatingFunctions(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, unsigned numberRepeating_, BrigType indexType_)
-    : ScallBasicTest(codeLocation_, geometry_, functionsNumber_, indexType_),  numberRepeating(numberRepeating_) {}
+  ScallRepeatingFunctions(Location codeLocation_, Grid geometry_, unsigned functionsNumber_, unsigned numberRepeating_)
+    : ScallBasicTest(codeLocation_, geometry_, functionsNumber_),  numberRepeating(numberRepeating_) {}
 
   void Name(std::ostream& out) const override {
-    out << functionsNumber << "_" << numberRepeating << "_" << type2str(indexType) << "/" << geometry << "_" << CodeLocationString();
+    out << functionsNumber << "_" << numberRepeating << "/" << geometry << "_" << CodeLocationString();
   }
 
   bool IsValid() const override {
@@ -519,12 +521,150 @@ public:
     auto wiId = be.EmitWorkitemFlatAbsId(indexType == BRIG_TYPE_U64);
     be.EmitArith(BRIG_OPCODE_REM, wiId, wiId, be.Immed(wiId->Type(), functionsNumber));
     auto funcResult = be.AddTReg(ResultType());
-    be.EmitMov(funcResult, 0xFFFFFFFF);
+    be.EmitMov(funcResult, be.Immed(ResultType(), 0xFFFFFFFF));
     auto ins = be.AddTRegList();
     auto outs = be.AddTRegList();
     outs->Add(funcResult);
     be.EmitScallSeq(wiId, callFunctions, ins, outs);
     return funcResult;
+  }
+};
+
+class ScallRecursiveTest : public Test {
+private:
+  EFunction* base;
+  EFunction* baseDecl;
+  EFunction* identity;
+  EFunction* increment;
+  Variable baseCurrent;
+  Variable baseResult;
+  Variable identityCurrent;
+  Variable identityResult;
+  Variable incrementCurrent;
+  Variable incrementResult;
+
+  static const unsigned initialValue = 5;
+  static const unsigned limitValue = 10;
+
+  void EmitBaseFunction() {
+    base->Declaration();
+    base->StartFunctionBody();
+
+    // base function checks if current value is more or equal to limit
+    // if so calls identity function
+    // else calls increment function (recursive call)
+    // and returns the result of this call
+    auto current = be.AddTReg(ResultType());
+    baseCurrent->EmitLoadTo(current);
+    auto cmp = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitCmp(cmp, current, be.Immed(current->Type(), limitValue), BRIG_COMPARE_GE);
+    be.EmitArith(BRIG_OPCODE_AND, cmp, cmp, be.Immed(cmp->Type(), 1)); // apply mask to convert 0xFFFFFFFF to 0x00000001
+  
+    auto ins = be.AddTRegList();
+    ins->Add(current);
+    auto outs = be.AddTRegList();
+    outs->Add(current);
+    std::vector<EFunction*> functions;
+    functions.push_back(identity);
+    functions.push_back(increment);
+    be.EmitScallSeq(cmp, functions, ins, outs);
+
+    baseResult->EmitStoreFrom(current);
+
+    base->EndFunction();
+  }
+
+  void EmitIdentityFunction() {
+    identity->Declaration();
+    identity->StartFunctionBody();
+
+    // identity simply returns value that was passed to it
+    auto tmp = be.AddTReg(ResultType());
+    identityCurrent->EmitLoadTo(tmp);
+    identityResult->EmitStoreFrom(tmp);
+
+    identity->EndFunction();
+  }
+  
+  void EmitIncrementFunction() {
+    increment->Declaration();
+    increment->StartFunctionBody();
+
+    // increment functions takes input variable
+    // and then call base function with new current value (recursive call)
+    auto current = be.AddTReg(ResultType());
+    identityCurrent->EmitLoadTo(current);
+    be.EmitArith(BRIG_OPCODE_ADD, current, current, be.Immed(current->Type(), 1));
+    
+    auto ins = be.AddTRegList();
+    ins->Add(current);
+    auto outs = be.AddTRegList();
+    outs->Add(current);
+    be.EmitCallSeq(baseDecl->Directive(), ins, outs);
+    //be.EmitCallSeq(base->Directive(), ins, outs);
+
+    identityResult->EmitStoreFrom(current);
+
+    increment->EndFunction();
+  }
+
+public:
+  ScallRecursiveTest(Location codeLocation_) : Test(codeLocation_) {}
+
+  void Name(std::ostream& out) const override {
+    out << CodeLocationString();
+  }
+
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  
+  Value ExpectedResult() const override {
+    if (initialValue >= limitValue) {
+      return Value(Brig2ValueType(ResultType()), initialValue);
+    } else {
+      return Value(Brig2ValueType(ResultType()), limitValue);
+    }
+  }
+
+  void Init() override {
+    Test::Init();
+    base = te->NewFunction("base");
+    baseDecl = te->NewFunction("base");
+    identity = te->NewFunction("identity");
+    increment = te->NewFunction("increment");
+    baseCurrent = base->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
+    baseResult = base->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+    baseDecl->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
+    baseDecl->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+    identityCurrent = identity->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
+    identityResult = identity->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+    incrementCurrent = increment->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
+    incrementResult = increment->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+  }
+
+  void Executables() override {
+    baseDecl->Declaration();
+    be.StartModuleScope();
+
+    EmitIdentityFunction();
+    EmitIncrementFunction();
+    EmitBaseFunction();
+    Test::Executables();
+  }
+
+  TypedReg Result() override {
+    // main function calls base function with current value and returns its result
+    auto value = be.AddInitialTReg(ResultType(), initialValue);
+    auto ins = be.AddTRegList();
+    ins->Add(value);
+    auto outs = be.AddTRegList();
+    outs->Add(value);
+    be.EmitCallSeq(base->Directive(), ins, outs);
+    return value;
+  }
+
+  void EndProgram() override {
+    baseDecl->Directive().name() = base->Directive().name();
+    Test::EndProgram();
   }
 };
 
@@ -537,9 +677,10 @@ void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
   TestForEach<RecursiveFibonacci>(ap, it, "functions/recursion/fibonacci", cc->Types().CompoundIntegral());
   //TestForEach<VariadicSum>(ap, it, "functions/variadic/sum", cc->Grids().DefaultGeometrySet(), cc->Types().CompoundIntegral());
 
-  TestForEach<ScallBasicTest>(ap, it, "functions/scall/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexType());
+  TestForEach<ScallBasicTest>(ap, it, "functions/scall/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexType(), cc->Types().Compound());
   //TestForEach<ScallImmedTest>(ap, it, "functions/scall/immed", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexValue(), cc->Functions().ScallIndexType());
-  TestForEach<ScallRepeatingFunctions>(ap, it, "functions/scall/repeating", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallNumberRepeating(), cc->Functions().ScallIndexType());
+  TestForEach<ScallRepeatingFunctions>(ap, it, "functions/scall/repeating", CodeLocations(), cc->Grids().DefaultGeometrySet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallNumberRepeating());
+  TestForEach<ScallRecursiveTest>(ap, it, "functions/scall/recursion", CodeLocations());
 }
 
 }
