@@ -624,7 +624,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       hsa_executable_symbol_t kernel;
       if (!kernelName.empty()) {
         std::string kname = "&" + kernelName;
-        status = Runtime()->Hsa()->hsa_executable_get_symbol(executable->Executable(), "m", kname.c_str(), Runtime()->Agent(), 0, &kernel);
+        status = Runtime()->Hsa()->hsa_executable_get_symbol(executable->Executable(), NULL, kname.c_str(), Runtime()->Agent(), 0, &kernel);
         if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_get_symbol failed", status); return false; }
       } else {
         IterateData<hsa_executable_symbol_t, int> idata(Runtime(), &kernel);
