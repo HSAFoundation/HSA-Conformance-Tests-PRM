@@ -338,7 +338,7 @@ private:
 protected:
   Variable Var() const override { return var; }
   void InitVar() override { 
-    var = kernel->NewVariable("var", VarSegment(), VarType(), Location::MODULE, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+    var = module->NewVariable("var", VarSegment(), VarType(), Location::MODULE, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
   }
 
 public:
@@ -352,11 +352,6 @@ public:
 
   void KernelCode() override {
     InitializerCode(output->Address());
-  }
-
-  void ModuleVariables() override {
-    Test::ModuleVariables();
-    Var()->ModuleVariables();
   }
 };
 
@@ -541,7 +536,7 @@ private:
 protected:
   Variable Var() const override { return var; }
   void InitVar() override { 
-    var = kernel->NewVariable("var", VarSegment(), VarType(), Location::MODULE, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
+    var = module->NewVariable("var", VarSegment(), VarType(), Location::MODULE, BRIG_ALIGNMENT_NONE, VarDim(), VarIsConst()); 
   }
 
 public:
@@ -555,11 +550,6 @@ public:
 
   void KernelCode() override {
     InitializerCode(output->Address());
-  }
-
-  void ModuleVariables() override {
-    Test::ModuleVariables();
-    Var()->ModuleVariables();
   }
 };
 

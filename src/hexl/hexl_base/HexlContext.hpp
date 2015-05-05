@@ -131,6 +131,8 @@ namespace hexl {
     const Values& GetValues(const std::string& key) const { return GetObject<ContextValue<Values>>(key)->Get(); }
 
     void Put(const std::string& key, const std::string& s) { PutObject(key, new ContextValue<std::string>(s)); }
+    void Put(const std::string& path, const std::string& key, const std::string& s) { Put(path + "." + key, s); }
+    const std::string& GetString(const std::string& path, const std::string& key) const { return GetString(path + "." + key); }
     const std::string& GetString(const std::string& key) const { return GetObject<ContextValue<std::string>>(key)->Get(); }
 
     template <typename T>

@@ -103,12 +103,13 @@ public:
 
   void Start();
   void End();
+  HSAIL_ASM::DirectiveModule StartModule(const std::string& name = "&module");
   HSAIL_ASM::DirectiveKernel StartKernel(const std::string& name = "&test_kernel");
   void EndKernel();
   HSAIL_ASM::DirectiveExecutable CurrentExecutable() { return currentExecutable; }
   HSAIL_ASM::DirectiveKernel CurrentKernel() { return currentExecutable; }
   HSAIL_ASM::DirectiveFunction CurrentFunction() { return currentExecutable; }
-  HSAIL_ASM::DirectiveFunction StartFunction(const std::string& id = "&test_function");
+  HSAIL_ASM::DirectiveFunction StartFunction(const std::string& id = "&test_function", bool declaration = false);
   void EndFunction();
   void StartBody();
   void EndBody();
@@ -127,7 +128,7 @@ public:
   HSAIL_ASM::Operand Immed(float imm);
   HSAIL_ASM::Operand ImmedString(const std::string& str);
   HSAIL_ASM::Operand Wavesize();
-  HSAIL_ASM::Operand Value2Immed(Value value);
+  HSAIL_ASM::Operand Value2Immed(Value value, bool expand = true);
 
   HSAIL_ASM::InstBasic EmitMov(HSAIL_ASM::Operand dst, HSAIL_ASM::Operand src, unsigned sizeBits);
   void EmitMov(TypedReg dst, HSAIL_ASM::Operand src);
@@ -175,6 +176,7 @@ public:
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, BrigType16_t type, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, const TypedReg& src1, BrigCompareOperation8_t cmp);
+  HSAIL_ASM::InstCmp EmitCmp(TypedReg dst, TypedReg src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   void EmitCmpTo(TypedReg result, TypedReg src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCvt EmitCvt(HSAIL_ASM::Operand dst, BrigType16_t dstType, HSAIL_ASM::Operand src, BrigType16_t srcType);
   HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src);
@@ -313,6 +315,7 @@ public:
   EmitterScope Scope() const { return currentScope; }
 
   void StartFunctioinArgScope() { currentScope = ES_FUNCARG; }
+  void StartModuleScope() { currentScope = ES_MODULE; }
 };
 
 }

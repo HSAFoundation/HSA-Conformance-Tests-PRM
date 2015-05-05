@@ -103,8 +103,8 @@ public:
 
   void Init() override {
     SkipTest::Init();
-    var1 = kernel->NewVariable("var1", BRIG_SEGMENT_GLOBAL, BRIG_TYPE_U32); 
-    var2 = kernel->NewVariable("var2", BRIG_SEGMENT_GLOBAL, BRIG_TYPE_U32);
+    var1 = te->NewVariable("var1", BRIG_SEGMENT_GLOBAL, BRIG_TYPE_U32); 
+    var2 = te->NewVariable("var2", BRIG_SEGMENT_GLOBAL, BRIG_TYPE_U32);
     empty_function = te->NewFunction("empty_function");
   }
 

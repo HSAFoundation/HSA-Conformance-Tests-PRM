@@ -200,13 +200,18 @@ void BrigEmitter::Start()
 {
   assert(coreConfig);
   brigantine.startProgram();
-  brigantine.module("&sample", coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), BRIG_ROUND_FLOAT_NEAR_EVEN);
 }
 
 void BrigEmitter::End()
 {
   //Brig()->optimizeOperands();
   brigantine.endProgram();
+}
+
+DirectiveModule BrigEmitter::StartModule(const std::string& name)
+{
+  std::string moduleName = AddName(name);
+  return brigantine.module(moduleName, coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), BRIG_ROUND_FLOAT_NEAR_EVEN);
 }
 
 DirectiveKernel BrigEmitter::StartKernel(const std::string& name)
@@ -224,9 +229,14 @@ void BrigEmitter::EndKernel()
   currentScope = ES_MODULE;
 }
 
-DirectiveFunction BrigEmitter::StartFunction(const std::string& id)
+DirectiveFunction BrigEmitter::StartFunction(const std::string& id, bool declaration)
 {
-  std::string funcName = AddName(id);
+  std::string funcName;
+  if (declaration == true) {
+    funcName = id;
+  } else {
+    funcName = AddName(id);
+  }
   currentExecutable = brigantine.declFunc(funcName);
   currentExecutable.linkage() = BRIG_LINKAGE_PROGRAM;
   currentScope = ES_FUNCARG;
@@ -312,7 +322,7 @@ Operand BrigEmitter::Wavesize()
   return brigantine.createWaveSz();
 }
 
-Operand BrigEmitter::Value2Immed(Value value) 
+Operand BrigEmitter::Value2Immed(Value value, bool expand) 
 {
   switch (value.Type()) {
   case MV_INT8:      case MV_UINT8:
@@ -326,10 +336,11 @@ Operand BrigEmitter::Value2Immed(Value value)
   case MV_UINT16X4:  case MV_INT32X2:
   case MV_UINT32X2:  case MV_FLOAT16X2:
   case MV_FLOAT16X4: case MV_FLOATX2:
-    return Immed(Value2BrigType(value.Type()), value.S64());
+    return Immed(Value2BrigType(value.Type()), value.S64(), expand);
   case MV_FLOAT16: {
     float f = value.H();
-    return brigantine.createImmed(f32_t(&f), BRIG_TYPE_F16);
+    BrigType16_t type = expandSubwordType(BRIG_TYPE_F16);
+    return brigantine.createImmed(f32_t(&f), type);
   }
   case MV_FLOAT:
     return Immed(value.F());
@@ -338,8 +349,10 @@ Operand BrigEmitter::Value2Immed(Value value)
     return brigantine.createImmed(f64_t(&f), BRIG_TYPE_F64);
   }
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
-  case MV_PLAIN_FLOAT16:
-    return Immed(BRIG_TYPE_F16, value.U16());
+  case MV_PLAIN_FLOAT16: {
+    BrigType16_t type = expandSubwordType(BRIG_TYPE_F16);
+    return Immed(type, value.U16());
+  }
 #endif
   default:
     assert(!"Invalid value type in ValueImmed");
@@ -760,6 +773,15 @@ InstCmp BrigEmitter::EmitCmp(OperandRegister b, const TypedReg& src0, const Type
 {
   assert(src0->Type() == src1->Type());
   return EmitCmp(b, src0, src1->Reg(), cmp);
+}
+
+InstCmp BrigEmitter::EmitCmp(TypedReg dst, TypedReg src0, Operand src1, BrigCompareOperation8_t cmp)
+{
+  InstCmp inst = brigantine.addInst<InstCmp>(BRIG_OPCODE_CMP, dst->Type());
+  inst.sourceType() = LegalizeSourceType(BRIG_OPCODE_CMP, src0->Type());
+  inst.compare() = cmp;
+  inst.operands() = Operands(dst->Reg(), src0->Reg(), src1);
+  return inst;
 }
 
 void BrigEmitter::EmitCmpTo(TypedReg result, TypedReg src0, Operand src1, BrigCompareOperation8_t cmp)

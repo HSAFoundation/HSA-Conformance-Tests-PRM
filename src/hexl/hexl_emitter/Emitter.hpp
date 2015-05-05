@@ -413,6 +413,7 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats = false);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
+  Module NewModule(const std::string& id = "sample");
   Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };
 
@@ -797,12 +798,31 @@ public:
     : EmittableContainerWithId(te, id_) { }
 
   std::string FunctionName() const { return std::string("&") + Id(); }
+
   HSAIL_ASM::DirectiveFunction Directive() { assert(function != 0); return function; }
   HSAIL_ASM::Offset BrigOffset() { return Directive().brigOffset(); }
   void StartFunction();
   void StartFunctionBody();
   void EndFunction();
   void Declaration();
+  void Definition();
+};
+
+class EModule : public EmittableContainerWithId {
+private:
+  HSAIL_ASM::DirectiveModule module;
+
+public:
+  EModule(TestEmitter* te, const std::string& id_)
+    : EmittableContainerWithId(te, id_) { }
+
+  std::string ModuleName() const { return std::string("&") + Id(); }
+  HSAIL_ASM::DirectiveModule Directive() { assert(module != 0); return module; }
+  HSAIL_ASM::Offset BrigOffset() { return Directive().brigOffset(); }
+
+  void StartModule() override;
+  
+  void SetupDispatch(const std::string& dispatchId) override;
 };
 
 class EDispatch : public EmittableContainerWithId {
@@ -940,6 +960,7 @@ public:
   Function NewFunction(const std::string& id);
   Image NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
+  Module NewModule(const std::string& id = "sample");
   Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
 };
 
@@ -973,6 +994,7 @@ protected:
   emitter::Function function;
   emitter::Variable functionResult;
   emitter::TypedReg functionResultReg;
+  emitter::Module module;
   emitter::Dispatch dispatch;
     
 public:

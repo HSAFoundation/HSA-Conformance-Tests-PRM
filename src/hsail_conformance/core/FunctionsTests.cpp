@@ -421,7 +421,9 @@ public:
 
   void Executables() override {
     for (unsigned i = 0; i < functions.size(); ++i) {
-      functions[i]->Declaration();
+      functions[i]->StartFunction();
+      functions[i]->FunctionFormalOutputArguments();
+      functions[i]->FunctionFormalInputArguments();
       functions[i]->StartFunctionBody();
       be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Value2Immed(FunctionResult(i), false), 
         be.Address(outArgs[i]->Variable()));
@@ -533,7 +535,6 @@ public:
 class ScallRecursiveTest : public Test {
 private:
   EFunction* base;
-  EFunction* baseDecl;
   EFunction* identity;
   EFunction* increment;
   Variable baseCurrent;
@@ -547,7 +548,9 @@ private:
   static const unsigned limitValue = 10;
 
   void EmitBaseFunction() {
-    base->Declaration();
+    base->StartFunction();
+    base->FunctionFormalOutputArguments();
+    base->FunctionFormalInputArguments();
     base->StartFunctionBody();
 
     // base function checks if current value is more or equal to limit
@@ -575,7 +578,9 @@ private:
   }
 
   void EmitIdentityFunction() {
-    identity->Declaration();
+    identity->StartFunction();
+    identity->FunctionFormalOutputArguments();
+    identity->FunctionFormalInputArguments();
     identity->StartFunctionBody();
 
     // identity simply returns value that was passed to it
@@ -587,8 +592,11 @@ private:
   }
   
   void EmitIncrementFunction() {
-    increment->Declaration();
+    increment->StartFunction();
+    increment->FunctionFormalOutputArguments();
+    increment->FunctionFormalInputArguments();
     increment->StartFunctionBody();
+
 
     // increment functions takes input variable
     // and then call base function with new current value (recursive call)
@@ -600,8 +608,7 @@ private:
     ins->Add(current);
     auto outs = be.AddTRegList();
     outs->Add(current);
-    be.EmitCallSeq(baseDecl->Directive(), ins, outs);
-    //be.EmitCallSeq(base->Directive(), ins, outs);
+    be.EmitCallSeq(base->Directive(), ins, outs);
 
     identityResult->EmitStoreFrom(current);
 
@@ -628,13 +635,10 @@ public:
   void Init() override {
     Test::Init();
     base = te->NewFunction("base");
-    baseDecl = te->NewFunction("base");
     identity = te->NewFunction("identity");
     increment = te->NewFunction("increment");
     baseCurrent = base->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
     baseResult = base->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
-    baseDecl->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
-    baseDecl->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
     identityCurrent = identity->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
     identityResult = identity->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
     incrementCurrent = increment->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
@@ -642,8 +646,7 @@ public:
   }
 
   void Executables() override {
-    baseDecl->Declaration();
-    be.StartModuleScope();
+    base->Declaration();
 
     EmitIdentityFunction();
     EmitIncrementFunction();
@@ -661,11 +664,6 @@ public:
     be.EmitCallSeq(base->Directive(), ins, outs);
     return value;
   }
-
-  void EndProgram() override {
-    baseDecl->Directive().name() = base->Directive().name();
-    Test::EndProgram();
-  }
 };
 
 void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
@@ -680,7 +678,7 @@ void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
   TestForEach<ScallBasicTest>(ap, it, "functions/scall/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexType(), cc->Types().Compound());
   //TestForEach<ScallImmedTest>(ap, it, "functions/scall/immed", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexValue(), cc->Functions().ScallIndexType());
   TestForEach<ScallRepeatingFunctions>(ap, it, "functions/scall/repeating", CodeLocations(), cc->Grids().DefaultGeometrySet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallNumberRepeating());
-  TestForEach<ScallRecursiveTest>(ap, it, "functions/scall/recursion", CodeLocations());
+  //TestForEach<ScallRecursiveTest>(ap, it, "functions/scall/recursion", CodeLocations());
 }
 
 }

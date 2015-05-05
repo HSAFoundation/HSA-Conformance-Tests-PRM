@@ -53,13 +53,14 @@ public:
 
   void Init() override {
     Test::Init();
-    decl = te->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
-    def = te->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
+    decl = module->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
+    def = module->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
     if (segment == BRIG_SEGMENT_READONLY) {
       def->AddData(ExpectedResult());
     }
   }
-BrigType ResultType() const override { return VALUE_TYPE; }
+
+  BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 
   TypedReg Result() override {
@@ -72,11 +73,6 @@ BrigType ResultType() const override { return VALUE_TYPE; }
     auto result = be.AddTReg(VALUE_TYPE);
     be.EmitLoad(def->Segment(), result, be.Address(def->Variable()));
     return result;
-  }
-
-  void ModuleVariables() override {
-    decl->ModuleVariables();
-    def->ModuleVariables();
   }
 
   void EndProgram() override {
@@ -118,7 +114,9 @@ public:
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 
   void Executables() override {
-    def->Declaration();
+    def->StartFunction();
+    def->FunctionFormalOutputArguments();
+    def->FunctionFormalInputArguments();
     def->StartFunctionBody();
     be.EmitStore(BRIG_SEGMENT_ARG, VALUE_TYPE, be.Immed(VALUE_TYPE, VALUE), be.Address(defArg->Variable()));
     def->EndFunction();
@@ -173,6 +171,7 @@ public:
 
   void Executables() override {
     decl->Declaration();
+    be.StartModuleScope();
     Test::Executables();
   }
 
@@ -187,6 +186,13 @@ public:
     decl->Directive().linkage() = linkage;
     kernel->Directive().linkage() = linkage;
     Test::EndProgram();
+  }
+
+  void SetupDispatch(const std::string& dispatchId) override {
+    Test::SetupDispatch(dispatchId);
+    if (linkage == BRIG_LINKAGE_MODULE) {
+      te->InitialContext()->Put(dispatchId, "main_module_name", module->Id());
+    }
   }
 };
 
@@ -209,18 +215,12 @@ public:
 
   void Init() override {
     Test::Init();
-    def = te->NewFBarrier("fbar", Location::MODULE);
-    decl = te->NewFBarrier("fbar", Location::MODULE);
+    def = module->NewFBarrier("fbar", Location::MODULE);
+    decl = module->NewFBarrier("fbar", Location::MODULE);
   }
 
   BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
-
-  void ModuleVariables() override {
-    decl->ModuleVariables();
-    def->ModuleVariables();
-    Test::ModuleVariables();
-  }
 
   TypedReg Result() override {
     def->EmitInitfbarInFirstWI();
@@ -671,6 +671,7 @@ public:
     (void)signature; /// \todo -warn
     be.StartFunctioinArgScope();
     secondArg->EmitDefinition();
+    be.StartModuleScope();
     Test::Executables();
   }
 

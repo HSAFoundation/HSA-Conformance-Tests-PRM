@@ -678,12 +678,7 @@ public:
 
   void Init() override {
     RegistersLimitTest::Init();
-    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GLOBAL, RegisterType(), Location::MODULE, BRIG_ALIGNMENT_NONE, Limit());
-  }
-
-  void ModuleVariables() override {
-    RegistersLimitTest::ModuleVariables();
-    buffer->EmitDefinition();
+    buffer = module->NewVariable("buffer", BRIG_SEGMENT_GLOBAL, RegisterType(), Location::MODULE, BRIG_ALIGNMENT_NONE, Limit());
   }
 
   TypedReg Result() override {

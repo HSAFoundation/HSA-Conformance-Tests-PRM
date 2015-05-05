@@ -194,12 +194,7 @@ public:
 
   void Init() {
     GroupBasePtrIdentityTest::Init();
-    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, ResultType(), Location::MODULE);
-  }
-
-  void ModuleVariables() {
-    GroupBasePtrIdentityTest::ModuleVariables();
-    buffer->ModuleVariables();
+    buffer = module->NewVariable("buffer", BRIG_SEGMENT_GROUP, ResultType(), Location::MODULE);
   }
 };
 
@@ -587,7 +582,7 @@ public:
 
   void Init() {
     Test::Init();
-    buffer = kernel->NewVariable("buffer", bufferSegment, compareType, MODULE, BRIG_ALIGNMENT_NONE, size);
+    buffer = module->NewVariable("buffer", bufferSegment, compareType, Location::MODULE, BRIG_ALIGNMENT_NONE, size);
   }
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
@@ -648,12 +643,6 @@ public:
 
     return result;
   }
-
-  void ModuleVariables() {
-    Test::ModuleVariables();
-    buffer->ModuleVariables();
-  }
-
 };
 
 

@@ -105,6 +105,7 @@ namespace hexl {
     class ESignal;
     class EKernel;
     class EFunction;
+    class EModule;
     class EDispatch;
     class ECondition;
     class EImageSpec;
@@ -127,6 +128,7 @@ namespace hexl {
     typedef ESignal* Signal;
     typedef EKernel* Kernel;
     typedef EFunction* Function;
+    typedef EModule* Module;
     typedef EDispatch* Dispatch;
     typedef ECondition* Condition;
     typedef EImageSpec* ImageSpec;
