@@ -51,12 +51,6 @@ prm/image/image_query_sampler/basic/kernel_3_10x10x10_10x1x1_unnormalized_neares
 prm/image/image_query_sampler/basic/kernel_3_10x10x10_10x1x1_unnormalized_linear_undefined_query_addressing
 prm/image/image_query_sampler/basic/kernel_3_10x10x10_10x1x1_normalized_nearest_undefined_query_addressing
 prm/image/image_query_sampler/basic/kernel_3_10x10x10_10x1x1_normalized_linear_undefined_query_addressing
-prm/core/libraries/linkage/module/variable/readonly
-prm/core/libraries/linkage/program/variable/readonly
-prm/core/libraries/linkage/module/kernel
-prm/core/libraries/linkage/function/variable/global
-prm/core/libraries/linkage/function/variable/readonly
-prm/core/libraries/linkage/function/variable/arg
 prm/image/limits/rw_number/1db
 prm/image/limits/rw_number/2dadepth
 prm/image/limits/ro_number/1db

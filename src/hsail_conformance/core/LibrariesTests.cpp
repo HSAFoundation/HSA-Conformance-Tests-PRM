@@ -29,8 +29,7 @@ class ModuleScopeVariableLinkageTest : public Test {
 private:
   BrigLinkage linkage;
   BrigSegment segment;
-  Variable def;   // variable definition
-  Variable decl;  // variable declaration
+  Variable var;
 
   static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE = 123456789;
@@ -53,42 +52,44 @@ public:
 
   void Init() override {
     Test::Init();
-    decl = module->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
-    def = module->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
+    var = te->NewVariable("var", segment, VALUE_TYPE, Location::MODULE);
     if (segment == BRIG_SEGMENT_READONLY) {
-      def->AddData(ExpectedResult());
+      var->AddData(ExpectedResult());
     }
   }
 
   BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 
+  void ModuleVariables() override {
+    var->EmitDeclaration();
+    var->Variable().linkage() = linkage;
+    Test::ModuleVariables();
+  }
+
   TypedReg Result() override {
     // store VALUE in def
     if (segment != BRIG_SEGMENT_READONLY) {
-      be.EmitStore(def->Segment(), VALUE_TYPE, be.Immed(VALUE_TYPE, VALUE), be.Address(def->Variable()));
+      be.EmitStore(var->Segment(), VALUE_TYPE, be.Immed(VALUE_TYPE, VALUE), be.Address(var->Variable()));
     }
 
     // load from def
     auto result = be.AddTReg(VALUE_TYPE);
-    be.EmitLoad(def->Segment(), result, be.Address(def->Variable()));
+    be.EmitLoad(var->Segment(), result, be.Address(var->Variable()));
     return result;
   }
 
-  void EndProgram() override {
-    decl->Variable().linkage() = linkage;
-    decl->Variable().modifier().isDefinition() = false;
-    def->Variable().linkage() = linkage;
-    Test::EndProgram();
+  void EndModule() override {
+    var->EmitDefinition();
+    var->Variable().linkage() = linkage;
+    Test::EndModule();
   }
 };
 
 class ModuleScopeFunctionLinkageTest : public Test {
 private:
-  EFunction* def;
-  EFunction* decl;
-  Variable defArg;
-  Variable declArg;
+  EFunction* func;
+  Variable arg;
 
   BrigLinkage linkage;
 
@@ -104,23 +105,16 @@ public:
 
   void Init() override {
     Test::Init();
-    decl = te->NewFunction("func");
-    declArg = decl->NewVariable("arg", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
-    def = te->NewFunction("func");
-    defArg = def->NewVariable("arg", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+    func = te->NewFunction("func");
+    arg = func->NewVariable("arg", BRIG_SEGMENT_ARG, VALUE_TYPE, Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
   }
 
   BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 
   void Executables() override {
-    def->StartFunction();
-    def->FunctionFormalOutputArguments();
-    def->FunctionFormalInputArguments();
-    def->StartFunctionBody();
-    be.EmitStore(BRIG_SEGMENT_ARG, VALUE_TYPE, be.Immed(VALUE_TYPE, VALUE), be.Address(defArg->Variable()));
-    def->EndFunction();
-    decl->Declaration();
+    func->Declaration();
+    func->Directive().linkage() = linkage;
     Test::Executables();
   }
 
@@ -130,24 +124,22 @@ public:
     auto inArgs = be.AddTRegList();
     auto outArgs = be.AddTRegList();
     outArgs->Add(result);
-    be.EmitCallSeq(def, inArgs, outArgs);
+    be.EmitCallSeq(func, inArgs, outArgs);
     return result;
   }
-   
-  void EndProgram() override {
-    decl->Directive().name() = "&func";
-    decl->Directive().linkage() = linkage;
-    def->Directive().name() = "&func";
-    def->Directive().linkage() = linkage;
-    Test::EndProgram();
+
+  void EndModule() override {
+    func->Definition();
+    func->Directive().linkage() = linkage;
+    func->StartFunctionBody();
+    be.EmitStore(BRIG_SEGMENT_ARG, VALUE_TYPE, be.Immed(VALUE_TYPE, VALUE), be.Address(arg->Variable()));
+    func->EndFunction();
+    Test::EndModule();
   }
 };
 
 class ModuleScopeKernelLinkageTest : public Test {
 private:
-  EKernel* decl;
-  Variable declArg;
-
   BrigLinkage linkage;
 
   static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
@@ -160,17 +152,12 @@ public:
     out << linkage2str(linkage) << "/kernel";
   }
 
-  void Init() override {
-    Test::Init();
-    decl = te->NewKernel(kernel->KernelName());
-    declArg = decl->NewVariable(output->BufferName(), BRIG_SEGMENT_KERNARG, be.PointerType(), Location::KERNEL, BRIG_ALIGNMENT_NONE, 0, false, true);
-  }
-
   BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 
   void Executables() override {
-    decl->Declaration();
+    kernel->Declaration();
+    kernel->Directive().linkage() = linkage;
     be.StartModuleScope();
     Test::Executables();
   }
@@ -181,9 +168,6 @@ public:
   }
    
   void EndProgram() override {
-    decl->Directive().modifier().isDefinition() = false;
-    decl->Directive().name() = kernel->KernelName();
-    decl->Directive().linkage() = linkage;
     kernel->Directive().linkage() = linkage;
     Test::EndProgram();
   }
@@ -198,8 +182,7 @@ public:
 
 class ModuleScopeFBarrierLinkageTest : public Test {
 private:
-  FBarrier decl;
-  FBarrier def;
+  FBarrier fbar;
 
   BrigLinkage linkage;
 
@@ -215,31 +198,35 @@ public:
 
   void Init() override {
     Test::Init();
-    def = module->NewFBarrier("fbar", Location::MODULE);
-    decl = module->NewFBarrier("fbar", Location::MODULE);
+    fbar = te->NewFBarrier("fbar", Location::MODULE);
   }
 
   BrigType ResultType() const override { return VALUE_TYPE; }
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 
+  void ModuleVariables() override {
+    Test::ModuleVariables();
+    fbar->EmitDeclaration();
+    fbar->FBarrier().linkage() = linkage;
+  }
+
   TypedReg Result() override {
-    def->EmitInitfbarInFirstWI();
-    def->EmitJoinfbar();
+    fbar->EmitInitfbarInFirstWI();
+    fbar->EmitJoinfbar();
     be.EmitBarrier();
-    def->EmitWaitfbar();
+    fbar->EmitWaitfbar();
     be.EmitBarrier();
-    def->EmitLeavefbar();
+    fbar->EmitLeavefbar();
     be.EmitBarrier();
-    def->EmitReleasefbarInFirstWI();
+    fbar->EmitReleasefbarInFirstWI();
     // return VALUE from kernel definition
     return be.AddInitialTReg(VALUE_TYPE, VALUE);
   }
-   
-  void EndProgram() override {
-    decl->FBarrier().modifier().isDefinition() = false;
-    decl->FBarrier().linkage() = linkage;
-    def->FBarrier().linkage() = linkage;
-    Test::EndProgram();
+
+  void EndModule() override {
+    fbar->EmitDefinition();
+    fbar->FBarrier().linkage() = linkage;
+    Test::EndModule();
   }
 };
 
@@ -280,26 +267,21 @@ public:
 
   void Executables() override {
     // emit first function
-    function->StartFunction();
-    function->FunctionFormalOutputArguments();
-    function->FunctionFormalInputArguments();
+    function->Definition();
     function->StartFunctionBody();
     function->FunctionVariables();
     FirstFunctionBody();
     function->EndFunction();
 
     // emit second function
-    secondFunction->StartFunction();
-    secondFunction->FunctionFormalOutputArguments();
-    secondFunction->FunctionFormalInputArguments();
+    secondFunction->Definition();
     secondFunction->StartFunctionBody();
     secondFunction->FunctionVariables();
     SecondFunctionBody();
     secondFunction->EndFunction();
 
     // emit second kernel
-    secondKernel->StartKernel();
-    secondKernel->KernelArguments();
+    secondKernel->Definition();
     secondKernel->StartKernelBody();
     secondKernel->KernelVariables();
     SecondKernelBody();
@@ -448,12 +430,12 @@ private:
 protected:
   void FirstFunctionBody() override {
     // return VALUE from first function
-    be.EmitStore(ResultType(), BRIG_SEGMENT_ARG, be.Immed(ResultType(), ResultValue()), be.Address(firstFunctionOutArg->Variable()));
+    be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Immed(ResultType(), ResultValue()), be.Address(firstFunctionOutArg->Variable()));
   }
 
   void SecondFunctionBody() override {
     // return SECOND_VALUE from first function
-    be.EmitStore(ResultType(), BRIG_SEGMENT_ARG, be.Immed(ResultType(), SECOND_VALUE), be.Address(secondFunctionOutArg->Variable()));
+    be.EmitStore(BRIG_SEGMENT_ARG, ResultType(), be.Immed(ResultType(), SECOND_VALUE), be.Address(secondFunctionOutArg->Variable()));
   }
 
 public:
@@ -595,9 +577,7 @@ public:
 
   void Executables() override {
     //emit function
-    function->StartFunction();
-    function->FunctionFormalOutputArguments();
-    function->FunctionFormalInputArguments();
+    function->Definition();
     function->StartFunctionBody();
     function->FunctionVariables();
     function->EndFunction();

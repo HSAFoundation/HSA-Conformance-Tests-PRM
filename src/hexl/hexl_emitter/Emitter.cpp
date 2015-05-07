@@ -471,8 +471,13 @@ TypedReg EVariable::AddDataReg()
 
 void EVariable::EmitDefinition()
 {
-  var = te->Brig()->EmitVariableDefinition(VariableName(), segment, type, align, dim, isConst, output);
+  var = te->Brig()->EmitVariableDefinition(VariableName(), segment, type, align, dim, isConst, output, true);
   EmitInitializer();
+}
+
+void EVariable::EmitDeclaration()
+{
+  var = te->Brig()->EmitVariableDefinition(VariableName(), segment, type, align, dim, isConst, output, false);
 }
 
 void EVariable::EmitInitializer()
@@ -580,8 +585,11 @@ void EFBarrier::Name(std::ostream& out) const {
 }
 
 void EFBarrier::EmitDefinition() {
-  assert(!fb);
-  fb = te->Brig()->EmitFbarrierDefinition(Id());
+  fb = te->Brig()->EmitFbarrierDefinition(Id(), true);
+}
+
+void EFBarrier::EmitDeclaration() {
+  fb = te->Brig()->EmitFbarrierDefinition(Id(), false);
 }
 
 void EFBarrier::ModuleVariables() {
@@ -3095,8 +3103,13 @@ void EKernel::StartKernelBody()
 
 void EKernel::Declaration()
 {
-  kernel = te->Brig()->StartKernel(KernelName());
-  kernel.modifier().isDefinition() = false;
+  kernel = te->Brig()->StartKernel(KernelName(), false);
+  KernelArguments();
+}
+
+void EKernel::Definition()
+{
+  kernel = te->Brig()->StartKernel(KernelName(), true);
   KernelArguments();
 }
 
@@ -3112,10 +3125,17 @@ void EFunction::EndFunction()
 
 void EFunction::Declaration()
 {
-  function = te->Brig()->StartFunction(FunctionName(), true);
+  function = te->Brig()->StartFunction(FunctionName(), false);
   FunctionFormalOutputArguments();
   FunctionFormalInputArguments();
   te->Brig()->StartModuleScope();
+}
+
+void EFunction::Definition()
+{
+  function = te->Brig()->StartFunction(FunctionName(), true);
+  FunctionFormalOutputArguments();
+  FunctionFormalInputArguments();
 }
 
 void EFunction::StartFunctionBody()

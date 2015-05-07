@@ -104,12 +104,12 @@ public:
   void Start();
   void End();
   HSAIL_ASM::DirectiveModule StartModule(const std::string& name = "&module");
-  HSAIL_ASM::DirectiveKernel StartKernel(const std::string& name = "&test_kernel");
+  HSAIL_ASM::DirectiveKernel StartKernel(const std::string& name = "&test_kernel", bool definition = true);
   void EndKernel();
   HSAIL_ASM::DirectiveExecutable CurrentExecutable() { return currentExecutable; }
   HSAIL_ASM::DirectiveKernel CurrentKernel() { return currentExecutable; }
   HSAIL_ASM::DirectiveFunction CurrentFunction() { return currentExecutable; }
-  HSAIL_ASM::DirectiveFunction StartFunction(const std::string& id = "&test_function", bool declaration = false);
+  HSAIL_ASM::DirectiveFunction StartFunction(const std::string& id = "&test_function", bool definition = true);
   void EndFunction();
   void StartBody();
   void EndBody();
@@ -192,7 +192,7 @@ public:
 
   HSAIL_ASM::InstSeg EmitNullPtr(PointerReg dst);
 
-  HSAIL_ASM::DirectiveVariable EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t type, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false);
+  HSAIL_ASM::DirectiveVariable EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t type, BrigAlignment8_t align = BRIG_ALIGNMENT_NONE, uint64_t dim = 0, bool isConst = false, bool output = false, bool definition = true);
   HSAIL_ASM::DirectiveVariable EmitPointerDefinition(const std::string& name, BrigSegment8_t segment, BrigSegment8_t asegment = BRIG_SEGMENT_GLOBAL);
   void EmitVariableInitializer(HSAIL_ASM::DirectiveVariable var, HSAIL_ASM::SRef data);
 
@@ -222,7 +222,7 @@ public:
 
   // Barriers
   void EmitBarrier(BrigWidth width = BRIG_WIDTH_ALL);
-  HSAIL_ASM::DirectiveFbarrier EmitFbarrierDefinition(const std::string& name);
+  HSAIL_ASM::DirectiveFbarrier EmitFbarrierDefinition(const std::string& name, bool definition = true);
   void EmitInitfbar(HSAIL_ASM::DirectiveFbarrier fb);
   void EmitInitfbarInFirstWI(HSAIL_ASM::DirectiveFbarrier fb);
   void EmitJoinfbar(HSAIL_ASM::DirectiveFbarrier fb);

@@ -264,6 +264,7 @@ public:
 
   TypedReg AddDataReg();
   void EmitDefinition();
+  void EmitDeclaration();
   void EmitInitializer();
   void EmitLoadTo(TypedReg dst, bool useVectorInstructions = true);
   void EmitStoreFrom(TypedReg src, bool useVectorInstructions = true);
@@ -300,6 +301,7 @@ public:
   HSAIL_ASM::DirectiveFbarrier FBarrier() const { assert(fb); return fb; }
 
   void EmitDefinition();
+  void EmitDeclaration();
   void EmitInitfbar();
   void EmitInitfbarInFirstWI();
   void EmitJoinfbar();
@@ -787,6 +789,7 @@ public:
   void StartKernelBody();
   void EndKernel();
   void Declaration();
+  void Definition();
 };
 
 class EFunction : public EmittableContainerWithId {

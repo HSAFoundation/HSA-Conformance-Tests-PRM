@@ -214,11 +214,17 @@ DirectiveModule BrigEmitter::StartModule(const std::string& name)
   return brigantine.module(moduleName, coreConfig->MajorVersion(), coreConfig->MinorVersion(), coreConfig->Model(), coreConfig->Profile(), BRIG_ROUND_FLOAT_NEAR_EVEN);
 }
 
-DirectiveKernel BrigEmitter::StartKernel(const std::string& name)
+DirectiveKernel BrigEmitter::StartKernel(const std::string& name, bool definition)
 {
-  std::string kernelName = AddName(name);
+  std::string kernelName;
+  if (definition == false) {
+    kernelName = name;
+  } else {
+    kernelName = AddName(name);
+  }
   currentExecutable = brigantine.declKernel(kernelName);
   currentExecutable.linkage() = BRIG_LINKAGE_PROGRAM;
+  currentExecutable.modifier().isDefinition() = definition;
   currentScope = ES_FUNCARG;
   return currentExecutable;
 }
@@ -229,10 +235,10 @@ void BrigEmitter::EndKernel()
   currentScope = ES_MODULE;
 }
 
-DirectiveFunction BrigEmitter::StartFunction(const std::string& id, bool declaration)
+DirectiveFunction BrigEmitter::StartFunction(const std::string& id, bool definition)
 {
   std::string funcName;
-  if (declaration == true) {
+  if (definition == false) {
     funcName = id;
   } else {
     funcName = AddName(id);
@@ -848,7 +854,7 @@ InstSeg BrigEmitter::EmitNullPtr(PointerReg dst)
   return inst;
 }
 
-DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t atype, BrigAlignment8_t align, uint64_t dim, bool isConst, bool output)
+DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, BrigSegment8_t segment, BrigType16_t atype, BrigAlignment8_t align, uint64_t dim, bool isConst, bool output, bool definition)
 {
   BrigType16_t type = atype;
   if (isArrayType(type)) {
@@ -881,7 +887,7 @@ DirectiveVariable BrigEmitter::EmitVariableDefinition(const std::string& name, B
     v.allocation() = BRIG_ALLOCATION_NONE;
     break;
   }
-  v.modifier().isDefinition() = 1;
+  v.modifier().isDefinition() = definition;
   v.modifier().isConst() = isConst;
   v.align() = align;
   if (currentScope == ES_FUNCARG && (segment == BRIG_SEGMENT_ARG || segment == BRIG_SEGMENT_KERNARG)) {
@@ -1067,10 +1073,10 @@ void BrigEmitter::EmitBarrier(BrigWidth width)
   inst.operands() = ItemList();
 }
 
-DirectiveFbarrier BrigEmitter::EmitFbarrierDefinition(const std::string& name) 
+DirectiveFbarrier BrigEmitter::EmitFbarrierDefinition(const std::string& name, bool definition) 
 {
   DirectiveFbarrier fb = brigantine.addFbarrier(GetVariableNameHere(name));
-  fb.modifier().isDefinition() = true;
+  fb.modifier().isDefinition() = definition;
   fb.linkage() = GetVariableLinkageHere();
   return fb;
 }
