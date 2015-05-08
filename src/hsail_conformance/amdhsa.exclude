@@ -27,7 +27,6 @@ prm/core/arithmetic/conversion/cvt/cvt_szeroi_s64_f16_00364
 prm/core/arithmetic/conversion/cvt/cvt_supi_s64_f16_00365
 prm/core/arithmetic/conversion/cvt/cvt_sdowni_s64_f16_00366
 prm/core/arithmetic/conversion/cvt/cvt_neari_s64_f16_00367
-prm/core/functions/scall
 prm/image/image_ld/basic/kernel_1_100x1x1_100x1x1/100x1x1x[a1]_1db
 prm/image/image_st/basic/kernel_1_100x1x1_100x1x1/100x1x1x[a1]_1db
 prm/image/image_ld/basic/kernel_1_1x1x1_1x1x1/1x1x1x[a1]_1db
@@ -756,3 +755,6 @@ prm/image/image_ld/basic/kernel_2_100x10x1_100x1x1/100x10x1x[a1]_2dadepth_depth_
 prm/image/image_ld/basic/kernel_2_100x10x1_100x1x1/100x10x1x[a2]_2dadepth_depth_float
 prm/image/image_ld/basic/kernel_2_100x10x1_100x1x1/100x10x1x[a10]_2dadepth_depth_float
 prm/image/image_ld/basic/kernel_3_10x10x10_10x1x1/10x10x10x[a1]_3d_srgba_unorm_int8
+prm/core/functions/scall
+prm/image/image_query/basic/kernel_1_1x1x1_1x1x1\1x1x1x[a1]_1db_srgba
+prm/image/image_query/basic/kernel_1_100x1x1_100x1x1\100x1x1x[a1]_1db_srgba
