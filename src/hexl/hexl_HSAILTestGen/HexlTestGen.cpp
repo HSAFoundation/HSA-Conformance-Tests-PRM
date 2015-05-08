@@ -48,6 +48,7 @@ private:
   TestSpecIterator& it;
   unsigned index;
   std::unique_ptr<TestEmitter> te;
+  Module module;
   Dispatch dispatch;
 
 public:
@@ -115,6 +116,7 @@ private:
     TestDataMap* map = testDesc.getMap();
     te.reset(new TestEmitter());
     unsigned id = 0;
+    module = te->NewModule("sample");
     dispatch = te->NewDispatch("dispatch", "executable", "");
     for (unsigned i = map->getFirstSrcArgIdx(); i <= map->getLastSrcArgIdx(); ++i) {
       defSrcArray(testGroup, id, i);
@@ -147,6 +149,7 @@ private:
     te->InitialContext()->Put(dispatchId, "gridSize[2]", Value(MV_UINT32, 1));
 
     dispatch->ScenarioInit();
+    module->SetupDispatch("dispatch");
     dispatch->SetupDispatch("dispatch");
     dispatch->ScenarioDispatch();
     dispatch->ScenarioValidation();
