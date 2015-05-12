@@ -1070,6 +1070,7 @@ void Comparison::Reset(ValueType type)
     default: maxError = Value(type, U64((uint64_t) 0)); break;
     }
     break;
+  case CM_IMAGE:
   case CM_ULPS:
     switch (type) {
     case MV_FLOAT: maxError = Value(MV_UINT32, U32(0)); break;
@@ -1095,6 +1096,20 @@ void Comparison::SetDefaultPrecision(ValueType type)
   if (precision.U64() != 0) return; // keep value if modified already
   switch (method) {
   case CM_DECIMAL:
+    switch (type) {
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+    case MV_PLAIN_FLOAT16:
+#endif
+    case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
+      precision = Value(MV_DOUBLE, D(pow((double) 10, -F16_DEFAULT_DECIMAL_PRECISION))); break;
+    case MV_FLOAT: case MV_FLOATX2:
+      precision = Value(MV_DOUBLE, D(pow((double) 10, -F32_DEFAULT_DECIMAL_PRECISION))); break;
+    case MV_DOUBLE:
+      precision = Value(MV_DOUBLE, D(pow((double) 10, -F64_DEFAULT_DECIMAL_PRECISION))); break;
+    default: break;
+    }
+    break;
+  case CM_IMAGE:
     switch (type) {
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
     case MV_PLAIN_FLOAT16:
@@ -1163,6 +1178,7 @@ bool Comparison::CompareHalf(const Value& v1 /*expected*/, const Value& v2 /*act
       return res;
     case CM_DECIMAL:
     case CM_RELATIVE:
+    case CM_IMAGE:
       error = Value(MV_DOUBLE, D(res ? 0.0 : 1.0));
       return res;
     default:
@@ -1216,6 +1232,26 @@ bool Comparison::CompareHalf(const Value& v1 /*expected*/, const Value& v2 /*act
   }
 }
 
+float Comparison::ConvertToStandard(float f) const
+{
+  if(f != f) return 0.0f; //check for NaN
+  if(f < 0.0f) return 0.0f;
+  if(f > 1.0f) return 1.0f;
+
+  //all magic numbers are from PRM section 7.1.4.1.2
+  double df = f;
+  if(df < 0.0031308)
+  {
+    df *= 12.92;
+    return static_cast<float>(df);
+  }
+
+  df = 1.055 * pow(df, 1.0f/2.4);
+  df -= 0.055;
+
+  return static_cast<float>(df);
+}
+
 bool Comparison::CompareFloat(const Value& v1 /*expected*/, const Value& v2 /*actual*/) {
   bool res;
   bool compared = false;
@@ -1240,6 +1276,7 @@ bool Comparison::CompareFloat(const Value& v1 /*expected*/, const Value& v2 /*ac
       return res;
     case CM_DECIMAL:
     case CM_RELATIVE:
+    case CM_IMAGE:
       error = Value(MV_DOUBLE, D(res ? 0.0f : 1.0f));
       return res;
     default:
@@ -1254,6 +1291,10 @@ bool Comparison::CompareFloat(const Value& v1 /*expected*/, const Value& v2 /*ac
       if (error_ftz < error.D())
         error = Value(MV_DOUBLE, D(error_ftz));
     }
+    return error.D() < precision.D();
+  }
+  case CM_IMAGE: {
+    error = Value(MV_DOUBLE, D(std::fabs((double) ConvertToStandard(v1.F()) - (double) ConvertToStandard(v2.F()))));
     return error.D() < precision.D();
   }
   case CM_ULPS: {
@@ -1614,6 +1655,7 @@ unsigned str2u(const std::string& s)
 ///
 //  Comparision method (see enum ComparisionMethod):
 //    ulps=X  - set CM_ULPS comparision method with X precision (X is integer)
+//    image=X - set CM_IMAGE comparsion method with X percision (X is double)
 //    absf=X - set CM_DECIMAL comparision method with X precision (X is double)
 //    relf=X - set CM_RELATIVE comparision method with X precision (X is double)
 //    legacy_default - reset method and precision to MObject's defaults.
@@ -1633,6 +1675,7 @@ Comparison* NewComparison(const std::string& c, ValueType type)
   std::string options(c);
   const std::string flushOption="flushDenorms";
   const std::string ulpOption="ulps=";
+  const std::string imgOption="image=";
   const std::string minOption="minf=";
   const std::string maxOption="maxf=";
   const std::string relOption="relf=";
@@ -1680,6 +1723,13 @@ Comparison* NewComparison(const std::string& c, ValueType type)
   if(idx != std::string::npos) {
     double maxError = std::stod(options.substr(idx + relOption.length()));
     fMethod = CM_RELATIVE;
+    fPrecision = Value(MV_DOUBLE, D(maxError));
+  }
+
+  idx = options.find(imgOption);
+  if(idx != std::string::npos) {
+    double maxError = std::stod(options.substr(idx + imgOption.length()));
+    fMethod = CM_IMAGE;
     fPrecision = Value(MV_DOUBLE, D(maxError));
   }
 

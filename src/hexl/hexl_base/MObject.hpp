@@ -809,6 +809,7 @@ std::ostream& operator<<(std::ostream& out, const Value& value);
 enum ComparisonMethod {
   CM_DECIMAL,  // precision = decimal points, default
   CM_ULPS,     // precision = max ULPS
+  CM_IMAGE,    // precision = max ulps with convet by PRM
   CM_RELATIVE  // (simulated_value - expected_value) / expected_value <= precision
 };
 //NOTE
@@ -878,6 +879,7 @@ private:
   bool CompareHalf(const Value& v1, const Value& v2);
   bool CompareFloat(const Value& v1, const Value& v2);
   bool CompareDouble(const Value& v1, const Value& v2);
+  float ConvertToStandard(float f) const;
 };
 
 std::ostream& operator<<(std::ostream& out, const Comparison& comparison);

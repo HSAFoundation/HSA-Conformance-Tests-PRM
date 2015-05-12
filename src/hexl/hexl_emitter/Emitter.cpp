@@ -2043,7 +2043,7 @@ float EImageCalc::SRGBtoLinearRGB(float f) const
   df = (df + 0.055) / 1.055;
   df = pow(df, 2.4);
 
-  if(df > 1.0)
+  if(df > 1.0f)
     return 1.0f;
 
   return static_cast<float>(df);
@@ -2052,8 +2052,8 @@ float EImageCalc::SRGBtoLinearRGB(float f) const
 float EImageCalc::LinearRGBtoSRGB(float f) const
 {
   if(f != f) return 0.0f; //check for NaN
-  if(f <= 0.0f) return 0.0f;
-  if(f >= 1.0f) return 1.0f;
+  if(f < 0.0f) return 0.0f;
+  if(f > 1.0f) return 1.0f;
 
   //all magic numbers are from PRM section 7.1.4.1.2
   double df = f;
@@ -2063,7 +2063,7 @@ float EImageCalc::LinearRGBtoSRGB(float f) const
     return static_cast<float>(df);
   }
 
-  df = 1.055 * pow(df, 1/2.4);
+  df = 1.055 * pow(df, 1.0f/2.4);
   df -= 0.055;
 
   return static_cast<float>(df);
