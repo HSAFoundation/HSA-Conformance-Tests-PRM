@@ -100,7 +100,18 @@ public:
     case BRIG_CHANNEL_TYPE_UNORM_SHORT_565:
     case BRIG_CHANNEL_TYPE_UNORM_INT_101010:
       if(samplerParams.Filter() == BRIG_FILTER_LINEAR) {
-        output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=0.0,maxf=1.0");
+        switch (imageChannelOrder)
+        {
+        case BRIG_CHANNEL_ORDER_SRGB:
+        case BRIG_CHANNEL_ORDER_SRGBX:
+        case BRIG_CHANNEL_ORDER_SRGBA:
+        case BRIG_CHANNEL_ORDER_SBGRA:
+          output->SetComparisonMethod("image=0.5,minf=0.0,maxf=1.0"); 
+          break;
+        default:
+          output->SetComparisonMethod(MAX_ALLOWED_ERROR_FOR_LINEAR_FILTERING ",minf=0.0,maxf=1.0");
+          break;
+        }
       }else{
         switch (imageChannelOrder)
         {
@@ -108,7 +119,7 @@ public:
         case BRIG_CHANNEL_ORDER_SRGBX:
         case BRIG_CHANNEL_ORDER_SRGBA:
         case BRIG_CHANNEL_ORDER_SBGRA:
-          output->SetComparisonMethod("ulps=3,minf=0.0,maxf=1.0"); // s-* channel orders are doing additional math (PRM 7.1.4.1.2)
+          output->SetComparisonMethod("image=0.5,minf=0.0,maxf=1.0"); // s-* channel orders are doing additional math (PRM 7.1.4.1.2)
           break;
         default:
           output->SetComparisonMethod("ulps=2,minf=0.0,maxf=1.0"); //1.5ulp [0.0; 1.0]

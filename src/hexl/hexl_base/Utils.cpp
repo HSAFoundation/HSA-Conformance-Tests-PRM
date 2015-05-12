@@ -480,10 +480,10 @@ bool IsImageOptional(BrigImageGeometry geometry, BrigImageChannelOrder channelOr
         return false;
       return true;
     
-    case BRIG_CHANNEL_ORDER_SRGBA:
+   /* case BRIG_CHANNEL_ORDER_SRGBA:
       if(bRO && (channelType == BRIG_CHANNEL_TYPE_UNORM_INT8))
         return false;
-      return true;
+      return true;*/
     
     default:
       return true;
