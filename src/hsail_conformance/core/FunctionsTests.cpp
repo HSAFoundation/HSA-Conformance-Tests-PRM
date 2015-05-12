@@ -369,6 +369,294 @@ public:
 
 };
 
+class DoubleRecursiveTest : public Test {
+protected:
+  EFunction* base;
+  EFunction* first;
+  EFunction* second;
+  Variable baseInput;
+  Variable baseResult;
+  Variable firstInput;
+  Variable firstResult;
+  Variable secondInput;
+  Variable secondResult;
+  Buffer input;
+
+  virtual void InitFunctions() {
+    base = te->NewFunction("base");
+    first = te->NewFunction("first");
+    second = te->NewFunction("second");
+    baseInput = base->NewVariable("input", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
+    baseResult = base->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+    firstInput = first->NewVariable("input", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
+    firstResult = first->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+    secondInput = second->NewVariable("input", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
+    secondResult = second->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
+  }
+
+  virtual void InitInputData(Buffer input) {
+    for (size_t i = 0; i < geometry->GridSize(); ++i) {
+      input->AddData(Value(Brig2ValueType(ResultType()), i));
+    }
+  }
+
+  virtual void EmitBaseFunction() = 0;
+  virtual void EmitFirstFunction() = 0;
+  virtual void EmitSecondFunction() = 0;
+
+public:
+  DoubleRecursiveTest(Grid geometry_) : Test(Location::KERNEL, geometry_) {}
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  
+  void Init() override {
+    Test::Init();
+    InitFunctions();
+    
+    input = kernel->NewBuffer("input", BufferType::HOST_INPUT_BUFFER, Brig2ValueType(ResultType()), geometry->GridSize());
+    InitInputData(input);
+  }
+
+  void Executables() override {
+    base->Declaration();
+
+    first->StartFunction();
+    first->FunctionFormalOutputArguments();
+    first->FunctionFormalInputArguments();
+    first->StartFunctionBody();
+    EmitFirstFunction();
+    first->EndFunction();
+
+    second->StartFunction();
+    second->FunctionFormalOutputArguments();
+    second->FunctionFormalInputArguments();
+    second->StartFunctionBody();
+    EmitSecondFunction();
+    second->EndFunction();
+
+    base->StartFunction();
+    base->FunctionFormalOutputArguments();
+    base->FunctionFormalInputArguments();
+    base->StartFunctionBody();
+    EmitBaseFunction();
+    base->EndFunction();
+
+    Test::Executables();
+  }
+
+  TypedReg Result() override {
+    // kernel calls base function with input value and returns its result
+    auto value = be.AddTReg(ResultType());
+    input->EmitLoadData(value);
+    auto ins = be.AddTRegList();
+    ins->Add(value);
+    auto outs = be.AddTRegList();
+    outs->Add(value);
+    be.EmitCallSeq(base->Directive(), ins, outs);
+    return value;
+  }
+};
+
+class CollatzRecursiveTest : public DoubleRecursiveTest {
+protected:
+  virtual void EmitSwitchCall(TypedReg index, EFunction* first, EFunction* second, TypedRegList inArgs, TypedRegList outArgs) = 0;
+
+  void InitInputData(Buffer input) override {
+    for (size_t i = 1; i <= geometry->GridSize(); ++i) { // input must be greater than 0
+      input->AddData(Value(Brig2ValueType(ResultType()), i));
+    }
+  }
+
+  void EmitBaseFunction() override {
+    // base function checks if input is odd or even and transfers control to corresponding function
+    std::string oneLabel = "@one";
+    auto n = be.AddTReg(baseInput->Type());
+    baseInput->EmitLoadTo(n);
+
+    // if n == 0 then return 0
+    auto cmp = be.AddCTReg();
+    be.EmitCmp(cmp, n, be.Immed(n->Type(), 1), BRIG_COMPARE_EQ);
+    be.EmitCbr(cmp, oneLabel);
+
+    // calculate reminder of n / 2
+    auto rem = be.AddTReg(n->Type());
+    be.EmitArith(BRIG_OPCODE_REM, rem, n, be.Immed(n->Type(), 2));
+
+    // call recursive functions
+    auto ins = be.AddTRegList();
+    ins->Add(n);
+    auto outs = be.AddTRegList();
+    outs->Add(n);
+    EmitSwitchCall(rem, first, second, ins, outs);
+    baseResult->EmitStoreFrom(n);
+    be.EmitRet();
+
+    // if one return 0
+    be.EmitLabel(oneLabel);
+    be.EmitStore(baseResult->Segment(), baseResult->Type(), be.Immed(baseResult->Type(), 0), be.Address(baseResult->Variable()));
+  }
+
+  void EmitFirstFunction() override {
+    // even - divide input by 2 and call base function
+    // then increment number of steps by 1
+    auto n = be.AddTReg(firstInput->Type());
+    firstInput->EmitLoadTo(n);
+    be.EmitArith(BRIG_OPCODE_DIV, n, n, be.Immed(n->Type(), 2));
+    
+    auto ins = be.AddTRegList();
+    ins->Add(n);
+    auto outs = be.AddTRegList();
+    outs->Add(n);
+    be.EmitCallSeq(base->Directive(), ins, outs);
+
+    be.EmitArith(BRIG_OPCODE_ADD, n, n, be.Immed(n->Type(), 1));
+    firstResult->EmitStoreFrom(n);
+  }
+
+  void EmitSecondFunction() override {
+    // odd - calculate 3x + 1
+    // the next function always must be even so call it directly without calling base function
+    // then increment number of steps by 1
+    auto n = be.AddTReg(firstInput->Type());
+    firstInput->EmitLoadTo(n);
+    be.EmitArith(BRIG_OPCODE_MAD, n, n, be.Immed(n->Type(), 3), be.Immed(n->Type(), 1));
+    
+    auto ins = be.AddTRegList();
+    ins->Add(n);
+    auto outs = be.AddTRegList();
+    outs->Add(n);
+    be.EmitCallSeq(first->Directive(), ins, outs);
+
+    be.EmitArith(BRIG_OPCODE_ADD, n, n, be.Immed(n->Type(), 1));
+    firstResult->EmitStoreFrom(n);
+  }
+
+public:
+  CollatzRecursiveTest(Grid geometry_) : DoubleRecursiveTest(geometry_) {}
+
+  Value ExpectedResult(uint64_t id) const override {
+    // calculate number of Collatz conjecture steps
+    ++id; // increment id to correspond with input values
+    unsigned steps = 0;
+    while (id != 1) {
+      if ((id % 2) == 1) {  // id is odd
+        id = 3 * id + 1;
+      } else {  // id is even
+        id /= 2;
+      }
+      ++steps;
+    }
+    return Value(Brig2ValueType(ResultType()), steps);
+  }
+};
+
+class CallCollatzRecursiveTest : public CollatzRecursiveTest {
+protected:
+  void EmitSwitchCall(TypedReg index, EFunction* first, EFunction* second, TypedRegList inArgs, TypedRegList outArgs) override {
+    // emulate scall with help of sbr and two calls
+    Condition cond = new(te->Ap()) ECondition(COND_SWITCH, index, BRIG_WIDTH_ALL, 2);
+    cond->Reset(te.get());
+    
+    cond->EmitSwitchStart();
+    cond->EmitSwitchBranchStart(0);
+    be.EmitCallSeq(first->Directive(), inArgs, outArgs);
+    cond->EmitSwitchBranchStart(1);
+    be.EmitCallSeq(second->Directive(), inArgs, outArgs);
+    cond->EmitSwitchEnd();
+  }
+
+public:
+  CallCollatzRecursiveTest(Grid geometry_) : CollatzRecursiveTest(geometry_) {}
+};
+
+class IncrementRecursiveTest : public DoubleRecursiveTest {
+private:
+  static const unsigned limitValue = 100;
+
+protected:
+  unsigned LimitValue() const { return limitValue; }
+
+  virtual void EmitSwitchCall(TypedReg index, EFunction* first, EFunction* second, TypedRegList inArgs, TypedRegList outArgs) = 0;
+
+  void EmitBaseFunction() override {
+    // base function checks if current value is more or equal to limit
+    // if so calls identity function
+    // else calls increment function (recursive call)
+    // and returns the result of this call
+    auto current = be.AddTReg(baseInput->Type());
+    baseInput->EmitLoadTo(current);
+    auto cmp = be.AddTReg(BRIG_TYPE_U32);
+    be.EmitCmp(cmp, current, be.Immed(current->Type(), limitValue), BRIG_COMPARE_GE);
+    be.EmitArith(BRIG_OPCODE_AND, cmp, cmp, be.Immed(cmp->Type(), 1)); // apply mask to convert 0xFFFFFFFF to 0x00000001
+  
+    auto ins = be.AddTRegList();
+    ins->Add(current);
+    auto outs = be.AddTRegList();
+    outs->Add(current);
+    EmitSwitchCall(cmp, first, second, ins, outs);
+
+    baseResult->EmitStoreFrom(current);
+  }
+    
+  void EmitFirstFunction() override {
+    // increment functions input variable
+    // and then call base function with new current value (recursive call)
+    auto current = be.AddTReg(firstInput->Type());
+    firstInput->EmitLoadTo(current);
+    be.EmitArith(BRIG_OPCODE_ADD, current, current, be.Immed(current->Type(), 1));
+    
+    auto ins = be.AddTRegList();
+    ins->Add(current);
+    auto outs = be.AddTRegList();
+    outs->Add(current);
+    be.EmitCallSeq(base->Directive(), ins, outs);
+
+    firstResult->EmitStoreFrom(current);
+  }
+
+  void EmitSecondFunction() override {
+    // identity - simply returns value that was passed to it
+    auto tmp = be.AddTReg(secondInput->Type());
+    secondInput->EmitLoadTo(tmp);
+    secondResult->EmitStoreFrom(tmp);
+  }
+
+public:
+  IncrementRecursiveTest(Grid geometry_) : DoubleRecursiveTest(geometry_) {}
+
+  Value ExpectedResult(uint64_t id) const override {
+    if (id >= limitValue) {
+      return Value(Brig2ValueType(ResultType()), id);
+    } else {
+      return Value(Brig2ValueType(ResultType()), limitValue);
+    }
+  }
+};
+
+class CallIncrementRecursiveTest : public IncrementRecursiveTest {
+protected:
+  void EmitSwitchCall(TypedReg index, EFunction* first, EFunction* second, TypedRegList inArgs, TypedRegList outArgs) override {
+    // emulate scall with help of sbr and two calls
+    Condition cond = new(te->Ap()) ECondition(COND_SWITCH, index, BRIG_WIDTH_ALL, 2);
+    cond->Reset(te.get());
+    
+    cond->EmitSwitchStart();
+    cond->EmitSwitchBranchStart(0);
+    be.EmitCallSeq(first->Directive(), inArgs, outArgs);
+    cond->EmitSwitchBranchStart(1);
+    be.EmitCallSeq(second->Directive(), inArgs, outArgs);
+    cond->EmitSwitchEnd();
+  }
+
+public:
+  CallIncrementRecursiveTest(Grid geometry_) : IncrementRecursiveTest(geometry_) {}
+};
+
+
 class ScallBasicTest : public Test {
 protected:
   unsigned functionsNumber; // functionsNumber is not always equal to the size of functions vector
@@ -532,138 +820,30 @@ public:
   }
 };
 
-class ScallRecursiveTest : public Test {
-private:
-  EFunction* base;
-  EFunction* identity;
-  EFunction* increment;
-  Variable baseCurrent;
-  Variable baseResult;
-  Variable identityCurrent;
-  Variable identityResult;
-  Variable incrementCurrent;
-  Variable incrementResult;
-
-  static const unsigned initialValue = 5;
-  static const unsigned limitValue = 10;
-
-  void EmitBaseFunction() {
-    base->StartFunction();
-    base->FunctionFormalOutputArguments();
-    base->FunctionFormalInputArguments();
-    base->StartFunctionBody();
-
-    // base function checks if current value is more or equal to limit
-    // if so calls identity function
-    // else calls increment function (recursive call)
-    // and returns the result of this call
-    auto current = be.AddTReg(ResultType());
-    baseCurrent->EmitLoadTo(current);
-    auto cmp = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitCmp(cmp, current, be.Immed(current->Type(), limitValue), BRIG_COMPARE_GE);
-    be.EmitArith(BRIG_OPCODE_AND, cmp, cmp, be.Immed(cmp->Type(), 1)); // apply mask to convert 0xFFFFFFFF to 0x00000001
-  
-    auto ins = be.AddTRegList();
-    ins->Add(current);
-    auto outs = be.AddTRegList();
-    outs->Add(current);
+class ScallCollatzecursiveTest : public CollatzRecursiveTest {
+protected:
+  void EmitSwitchCall(TypedReg index, EFunction* first, EFunction* second, TypedRegList inArgs, TypedRegList outArgs) override {
     std::vector<EFunction*> functions;
-    functions.push_back(identity);
-    functions.push_back(increment);
-    be.EmitScallSeq(cmp, functions, ins, outs);
-
-    baseResult->EmitStoreFrom(current);
-
-    base->EndFunction();
-  }
-
-  void EmitIdentityFunction() {
-    identity->StartFunction();
-    identity->FunctionFormalOutputArguments();
-    identity->FunctionFormalInputArguments();
-    identity->StartFunctionBody();
-
-    // identity simply returns value that was passed to it
-    auto tmp = be.AddTReg(ResultType());
-    identityCurrent->EmitLoadTo(tmp);
-    identityResult->EmitStoreFrom(tmp);
-
-    identity->EndFunction();
-  }
-  
-  void EmitIncrementFunction() {
-    increment->StartFunction();
-    increment->FunctionFormalOutputArguments();
-    increment->FunctionFormalInputArguments();
-    increment->StartFunctionBody();
-
-
-    // increment functions takes input variable
-    // and then call base function with new current value (recursive call)
-    auto current = be.AddTReg(ResultType());
-    identityCurrent->EmitLoadTo(current);
-    be.EmitArith(BRIG_OPCODE_ADD, current, current, be.Immed(current->Type(), 1));
-    
-    auto ins = be.AddTRegList();
-    ins->Add(current);
-    auto outs = be.AddTRegList();
-    outs->Add(current);
-    be.EmitCallSeq(base->Directive(), ins, outs);
-
-    identityResult->EmitStoreFrom(current);
-
-    increment->EndFunction();
+    functions.push_back(first);
+    functions.push_back(second);
+    be.EmitScallSeq(index, functions, inArgs, outArgs);
   }
 
 public:
-  ScallRecursiveTest(Location codeLocation_) : Test(codeLocation_) {}
+  ScallCollatzecursiveTest(Grid geometry_) : CollatzRecursiveTest(geometry_) {}
+};
 
-  void Name(std::ostream& out) const override {
-    out << CodeLocationString();
+class ScallIncrementRecursiveTest : public IncrementRecursiveTest {
+protected:
+  void EmitSwitchCall(TypedReg index, EFunction* first, EFunction* second, TypedRegList inArgs, TypedRegList outArgs) override {
+    std::vector<EFunction*> functions;
+    functions.push_back(first);
+    functions.push_back(second);
+    be.EmitScallSeq(index, functions, inArgs, outArgs);
   }
 
-  BrigType ResultType() const override { return BRIG_TYPE_U32; }
-  
-  Value ExpectedResult() const override {
-    if (initialValue >= limitValue) {
-      return Value(Brig2ValueType(ResultType()), initialValue);
-    } else {
-      return Value(Brig2ValueType(ResultType()), limitValue);
-    }
-  }
-
-  void Init() override {
-    Test::Init();
-    base = te->NewFunction("base");
-    identity = te->NewFunction("identity");
-    increment = te->NewFunction("increment");
-    baseCurrent = base->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
-    baseResult = base->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
-    identityCurrent = identity->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
-    identityResult = identity->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
-    incrementCurrent = increment->NewVariable("current", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, false);
-    incrementResult = increment->NewVariable("result", BRIG_SEGMENT_ARG, ResultType(), Location::AUTO, BRIG_ALIGNMENT_NONE, 0, false, true);
-  }
-
-  void Executables() override {
-    base->Declaration();
-
-    EmitIdentityFunction();
-    EmitIncrementFunction();
-    EmitBaseFunction();
-    Test::Executables();
-  }
-
-  TypedReg Result() override {
-    // main function calls base function with current value and returns its result
-    auto value = be.AddInitialTReg(ResultType(), initialValue);
-    auto ins = be.AddTRegList();
-    ins->Add(value);
-    auto outs = be.AddTRegList();
-    outs->Add(value);
-    be.EmitCallSeq(base->Directive(), ins, outs);
-    return value;
-  }
+public:
+  ScallIncrementRecursiveTest(Grid geometry_) : IncrementRecursiveTest(geometry_) {}
 };
 
 void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
@@ -673,12 +853,15 @@ void FunctionsTests::Iterate(hexl::TestSpecIterator& it)
   TestForEach<FunctionArguments>(ap, it, "functions/arguments/1arg", cc->Variables().ByTypeDimensionAlign(BRIG_SEGMENT_ARG), Bools::All(), Bools::All());
   TestForEach<RecursiveFactorial>(ap, it, "functions/recursion/factorial", cc->Types().CompoundIntegral());
   TestForEach<RecursiveFibonacci>(ap, it, "functions/recursion/fibonacci", cc->Types().CompoundIntegral());
+  TestForEach<CallCollatzRecursiveTest>(ap, it, "functions/recursion/collatz", cc->Grids().DefaultGeometrySet());
+  TestForEach<CallIncrementRecursiveTest>(ap, it, "functions/recursion/increment", cc->Grids().DefaultGeometrySet());
   //TestForEach<VariadicSum>(ap, it, "functions/variadic/sum", cc->Grids().DefaultGeometrySet(), cc->Types().CompoundIntegral());
 
   TestForEach<ScallBasicTest>(ap, it, "functions/scall/basic", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexType(), cc->Types().Compound());
   //TestForEach<ScallImmedTest>(ap, it, "functions/scall/immed", CodeLocations(), cc->Grids().SimpleSet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallIndexValue(), cc->Functions().ScallIndexType());
   TestForEach<ScallRepeatingFunctions>(ap, it, "functions/scall/repeating", CodeLocations(), cc->Grids().DefaultGeometrySet(), cc->Functions().ScallFunctionsNumber(), cc->Functions().ScallNumberRepeating());
-  //TestForEach<ScallRecursiveTest>(ap, it, "functions/scall/recursion", CodeLocations());
+  //TestForEach<ScallCollatzRecursiveTest>(ap, it, "functions/scall/recursion/collatz", cc->Grids().DefaultGeometrySet());
+  //TestForEach<ScallIncrementRecursiveTest>(ap, it, "functions/scall/recursion/increment", cc->Grids().SimpleSet());
 }
 
 }

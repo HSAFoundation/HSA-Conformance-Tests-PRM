@@ -1024,7 +1024,13 @@ void BrigEmitter::EmitScallSeq(BrigType16_t srcType, Operand src, std::vector<Fu
   EmitScall(srcType, src, funcsList, ins, outs);
   EmitLoads(outRegs, outs, useVectorInstructions);
   EndArgScope();
+}
 
+InstBasic BrigEmitter::EmitRet()
+{
+  InstBasic inst = brigantine.addInst<InstBasic>(BRIG_OPCODE_RET, BRIG_TYPE_NONE);
+  inst.operands() = ItemList();
+  return inst;
 }
 
 std::string BrigEmitter::EmitLabel(const std::string& l)

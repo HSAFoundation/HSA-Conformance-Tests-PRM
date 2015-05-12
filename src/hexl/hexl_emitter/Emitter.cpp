@@ -3207,6 +3207,8 @@ const char* ConditionInput2Str(ConditionInput input)
     return "imm1";
   case COND_WAVESIZE:
     return "wsz";
+  case COND_REG:
+    return "reg";
   default:
     assert(0); return "<invalid condition input>";
   }
@@ -3365,13 +3367,21 @@ Operand ECondition::CondOperand()
     return te->Brig()->Immed(BRIG_TYPE_B1, 1);
   case COND_WAVESIZE:
     return te->Brig()->Wavesize();
+  case COND_REG:
+    return reg->Reg();
   default: assert(0); return Operand();
   }
 }
 
 Operand ECondition::EmitIfCond()
 {
-  return CondOperand();
+  Operand cond = CondOperand();
+  if (input != ConditionInput::COND_REG || reg->Type() == BRIG_TYPE_B1) {
+    return cond;
+  } else {
+    TypedReg cmp = te->Brig()->AddCTReg();
+    te->Brig()->EmitCmp(cmp->Reg(), reg, te->Brig()->Immed(reg->Type(), 1), BRIG_COMPARE_EQ); 
+  }
 }
 
 void ECondition::ActualCallArguments(TypedRegList inputs, TypedRegList outputs)
@@ -3454,6 +3464,15 @@ Operand ECondition::EmitSwitchCond()
     return te->Brig()->Immed(itype, 1);
   case COND_WAVESIZE:
     return te->Brig()->Wavesize();
+  case COND_REG: {
+    if (reg->Type() == BRIG_TYPE_U32 || reg->Type() == BRIG_TYPE_U64) {
+      return reg->Reg();
+    } else {
+      BrigType16_t cvtType = te->Brig()->LegalizeSourceType(BRIG_OPCODE_SBR, reg->Type());
+      TypedReg cvt = te->Brig()->AddTReg(cvtType);
+      return te->Brig()->EmitCvt(cvt, reg);
+    }
+  }
   default:
     assert(0); return Operand();
   }
@@ -3488,6 +3507,7 @@ unsigned ECondition::SwitchBranchCount()
   case COND_IMM_PATH0: return 2;
   case COND_IMM_PATH1: return 3;
   case COND_WAVESIZE: return te->CoreCfg()->Wavesize() + 1;
+  case COND_REG: return branchCount;
   default: assert(0); return 0;
   }
 }

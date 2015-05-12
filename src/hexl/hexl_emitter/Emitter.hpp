@@ -852,7 +852,9 @@ private:
   ConditionInput input;
   BrigType itype;
   BrigWidth width;
+  TypedReg reg;
 
+  unsigned branchCount;
   HSAIL_ASM::DirectiveVariable kernarg, funcarg;
   TypedReg kerninp, funcinp;
   Buffer condBuffer;
@@ -867,19 +869,25 @@ private:
 public:
   ECondition(ConditionType type_, ConditionInput input_, BrigWidth width_)
     : type(type_), input(input_), itype(BRIG_TYPE_U32), width(width_),
-      kerninp(0), funcinp(0), condBuffer(0)
+      reg(0), kerninp(0), funcinp(0), condBuffer(0)
       { }
   ECondition(ConditionType type_, ConditionInput input_, BrigType itype_, BrigWidth width_)
     : type(type_), input(input_), itype(itype_), width(width_),
-      kerninp(0), funcinp(0), condBuffer(0)
+      reg(0), kerninp(0), funcinp(0), condBuffer(0)
+      { }
+  ECondition(ConditionType type_, TypedReg reg_, BrigWidth width_, unsigned branchCount_ = 2)
+    : type(type_), input(ConditionInput::COND_REG), itype(static_cast<BrigType>(reg_->Type())), 
+      width(width_), reg(reg_), branchCount(branchCount_), kerninp(0), funcinp(0), condBuffer(0)
       { }
     
   ConditionType Type() { return type; }
   BrigType IType() { return itype; }
   ConditionInput Input() { return input; }
   BrigWidth Width() { return width; }
+  TypedReg Reg() { return reg; }
   std::string EndLabel() { return lEnd; }
   std::string ThenLabel() { return lThen; }
+  unsigned BranchCount() const { return branchCount; }
 
   void Name(std::ostream& out) const;
   void Reset(TestEmitter* te);

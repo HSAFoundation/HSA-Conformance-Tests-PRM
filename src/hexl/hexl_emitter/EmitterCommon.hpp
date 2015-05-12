@@ -85,6 +85,7 @@ namespace hexl {
       COND_IMM_PATH0,
       COND_IMM_PATH1,
       COND_WAVESIZE,
+      COND_REG,
       COND_INPUT_END,
     };
 
