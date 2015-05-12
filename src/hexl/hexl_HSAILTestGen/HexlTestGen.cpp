@@ -160,7 +160,7 @@ private:
     std::string testName = ss.str();
 
     Context* initialContext = te->ReleaseContext();
-    initialContext->Move("brig", brig);
+    initialContext->Move("sample.brig", brig);
     initialContext->Move("scenario", te->TestScenario()->ReleaseScenario());
     Test* test = new ScenarioTest(testName, initialContext);
     return new TestHolder(test);

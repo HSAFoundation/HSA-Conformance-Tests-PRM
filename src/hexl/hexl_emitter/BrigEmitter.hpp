@@ -45,7 +45,7 @@ private:
   hexl::Arena* ap;
   brig_container_t brig;
   CoreConfig* coreConfig;
-  HSAIL_ASM::Brigantine brigantine;
+  std::unique_ptr<HSAIL_ASM::Brigantine> brigantine;
 
   std::map<std::string, unsigned> nameIndexes;
 
@@ -69,7 +69,8 @@ public:
   void SetCoreConfig(CoreConfig* coreConfig) { assert(coreConfig && !this->coreConfig); this->coreConfig = coreConfig; }
   HSAIL_ASM::BrigContainer* BrigC();
   brig_container_t Brig();
-  HSAIL_ASM::Brigantine& Brigantine() { return brigantine; }
+  HSAIL_ASM::Brigantine& Brigantine() { return *brigantine; }
+  void DestroyBrigContainer(brig_container_t container);
 
   std::string AddName(const std::string& name, bool addZero = false);
 
@@ -101,7 +102,7 @@ public:
   std::string OName(unsigned n = 0) { return AddName("out"); }
   std::string GenVariableName(BrigSegment segment, bool output = false);
 
-  void Start();
+  brig_container_t Start();
   void End();
   HSAIL_ASM::DirectiveModule StartModule(const std::string& name = "&module");
   HSAIL_ASM::DirectiveKernel StartKernel(const std::string& name = "&test_kernel", bool definition = true);
@@ -115,8 +116,8 @@ public:
   void EndBody();
   void StartArgScope();
   void EndArgScope();
-  void AddOutputParameter(HSAIL_ASM::DirectiveVariable sym) { brigantine.addOutputParameter(sym); }
-  void AddInputParameter(HSAIL_ASM::DirectiveVariable sym) { brigantine.addInputParameter(sym); }
+  void AddOutputParameter(HSAIL_ASM::DirectiveVariable sym) { brigantine->addOutputParameter(sym); }
+  void AddInputParameter(HSAIL_ASM::DirectiveVariable sym) { brigantine->addInputParameter(sym); }
 
   HSAIL_ASM::ItemList Operands(HSAIL_ASM::Operand o1, HSAIL_ASM::Operand o2 = nullOperand, HSAIL_ASM::Operand o3 = nullOperand, HSAIL_ASM::Operand o4 = nullOperand, HSAIL_ASM::Operand o5 = nullOperand);
 

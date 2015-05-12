@@ -814,17 +814,21 @@ public:
 class EModule : public EmittableContainerWithId {
 private:
   HSAIL_ASM::DirectiveModule module;
+  brig_container_t brigContainer;
 
 public:
   EModule(TestEmitter* te, const std::string& id_)
-    : EmittableContainerWithId(te, id_) { }
+    : EmittableContainerWithId(te, id_), brigContainer(nullptr) { }
 
   std::string ModuleName() const { return std::string("&") + Id(); }
   HSAIL_ASM::DirectiveModule Directive() { assert(module != 0); return module; }
   HSAIL_ASM::Offset BrigOffset() { return Directive().brigOffset(); }
 
   void StartModule() override;
+  void EndModule() override;
   
+  void Finish() override;
+
   void SetupDispatch(const std::string& dispatchId) override;
 };
 

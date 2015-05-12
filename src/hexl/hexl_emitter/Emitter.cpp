@@ -3146,12 +3146,23 @@ void EFunction::StartFunctionBody()
 
 void EModule::StartModule()
 {
+  brigContainer = te->Brig()->Start();
   module = te->Brig()->StartModule(ModuleName());
+}
+
+void EModule::EndModule()
+{
+  te->InitialContext()->Move(id.str() + ".brig", te->Brig()->Brig());
+  te->Brig()->End();
+}
+
+void EModule::Finish() {
+  te->Brig()->DestroyBrigContainer(brigContainer);
 }
 
 void EModule::SetupDispatch(const std::string& dispatchId)
 {
-  te->TestScenario()->Commands()->ModuleCreateFromBrig(Id());
+  te->TestScenario()->Commands()->ModuleCreateFromBrig(Id(), id.str() + ".brig");
   te->TestScenario()->Commands()->ProgramAddModule("program", Id());
   EmittableContainer::SetupDispatch(dispatchId);
 }
@@ -3568,7 +3579,7 @@ TestEmitter::TestEmitter(Context* context_)
 void TestEmitter::SetCoreConfig(CoreConfig* cc)
 {
   this->coreConfig = cc;
-  be->SetCoreConfig(cc);
+  be->SetCoreConfig(coreConfig);
 }
 
 Variable TestEmitter::NewVariable(const std::string& id, BrigSegment segment, BrigType type, Location location, BrigAlignment align, uint64_t dim, bool isConst, bool output)
@@ -3717,13 +3728,10 @@ void EmittedTest::Program()
 
 void EmittedTest::StartProgram()
 {
-  te->Brig()->Start();
 }
 
 void EmittedTest::EndProgram()
 {
-  te->Brig()->End();
-  te->InitialContext()->Move("brig", te->Brig()->Brig());
 }
 
 void EmittedTest::Modules()
@@ -4001,6 +4009,7 @@ void EmittedTest::ScenarioEnd()
 
 void EmittedTest::Finish() {
   te->InitialContext()->Move("scenario", te->TestScenario()->ReleaseScenario());
+  module->Finish();
 }
 
 

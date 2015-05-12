@@ -661,6 +661,48 @@ public:
 };
 
 
+class DoubleModuleProgramLinkageVariableTest : public Test {
+private:
+  EModule* second;
+
+public:
+  DoubleModuleProgramLinkageVariableTest(bool) : Test(Location::KERNEL) {}
+
+  void Init() override {
+    Test::Init();
+    second = te->NewModule("second");
+  }
+
+  void Name(std::ostream& out) const override {
+    out << "double";
+  }
+
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), 1); }
+
+  TypedReg Result() override {
+    return be.AddInitialTReg(ResultType(), 1);
+  }
+
+  void Modules() override {
+    Test::Modules();
+    second->StartModule();
+    be.EmitVariableDefinition("var", BRIG_SEGMENT_GLOBAL, BRIG_TYPE_U32);
+    second->EndModule();
+  }
+
+  void SetupDispatch(const std::string& dispatchId) override {
+    second->SetupDispatch(dispatchId);
+    Test::SetupDispatch(dispatchId);
+  }
+
+  void Finish() override {
+    Test::Finish();
+    second->Finish();
+  }
+};
+
+
 void LibrariesTests::Iterate(TestSpecIterator& it)
 {
   CoreConfig* cc = CoreConfig::Get(context);
@@ -680,6 +722,8 @@ void LibrariesTests::Iterate(TestSpecIterator& it)
   TestForEach<ArgLinkageTest>(ap, it, "linkage", Bools::Value(true));
 
   TestForEach<NoneLinkageTest>(ap, it, "linkage", Bools::Value(true));
+
+  TestForEach<DoubleModuleProgramLinkageVariableTest>(ap, it, "linkage", Bools::Value(true));
 }
 
 }
