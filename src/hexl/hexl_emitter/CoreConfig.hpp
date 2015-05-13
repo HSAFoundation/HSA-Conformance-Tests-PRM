@@ -319,7 +319,7 @@ namespace hexl {
         hexl::Sequence<BrigWidth> *allWidths;
         hexl::VectorSequence<BrigWidth> *workgroupWidths;
         hexl::VectorSequence<BrigWidth> *cornerWidths;
-        hexl::Sequence<ConditionInput>* conditionInputs;
+        hexl::VectorSequence<ConditionInput>* conditionInputs;
         hexl::Sequence<Condition>* binaryConditions;
         hexl::Sequence<Condition>* nestedConditions;
         hexl::Sequence<BrigType>* sbrTypes;

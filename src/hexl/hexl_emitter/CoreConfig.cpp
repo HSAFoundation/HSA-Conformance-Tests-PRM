@@ -884,7 +884,7 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
     allWidths(NEWA EnumSequence<BrigWidth>(ap, BRIG_WIDTH_NONE, BRIG_WIDTH_LAST)),
     workgroupWidths(NEWA VectorSequence<BrigWidth>(ap)),
     cornerWidths(NEWA VectorSequence<BrigWidth>(ap)),
-    conditionInputs(NEWA EnumSequence<ConditionInput>(ap, COND_INPUT_START, COND_INPUT_END)),
+    conditionInputs(NEWA VectorSequence<ConditionInput>(ap)),
     binaryConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), WorkgroupWidths()))),
     nestedConditions(SequenceMap<ECondition>(ap, SequenceProduct(ap, NEWA OneValueSequence<ConditionType>(COND_BINARY), ConditionInputs(), CornerWidths()))),
     sbrTypes(NEWA EnumSequence<BrigType>(ap, BRIG_TYPE_U32, BRIG_TYPE_S8)),
@@ -899,6 +899,10 @@ CoreConfig::ControlFlowConfig::ControlFlowConfig(CoreConfig* cc)
   cornerWidths->Add(BRIG_WIDTH_1);
   cornerWidths->Add(BRIG_WIDTH_WAVESIZE);
   cornerWidths->Add(BRIG_WIDTH_ALL);
+  conditionInputs->Add(COND_HOST_INPUT);
+  conditionInputs->Add(COND_IMM_PATH0);
+  conditionInputs->Add(COND_IMM_PATH1);
+  conditionInputs->Add(COND_WAVESIZE);
 }
 
 static const unsigned scallFunctionsNumberArray[] = {
