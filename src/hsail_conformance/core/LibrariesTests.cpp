@@ -661,33 +661,57 @@ public:
 };
 
 
-class DoubleModuleProgramLinkageVariableTest : public Test {
+class DoubleModuleVariableTest : public Test {
 private:
   EModule* second;
+  Variable var;
+  BrigSegment segment;
+
+  static const uint64_t VALUE = 123456789;
 
 public:
-  DoubleModuleProgramLinkageVariableTest(bool) : Test(Location::KERNEL) {}
+  DoubleModuleVariableTest(BrigSegment segment_) : Test(Location::KERNEL), segment(segment_) {}
 
   void Init() override {
     Test::Init();
     second = te->NewModule("second");
+    var = second->NewVariable("var", segment, ResultType(), Location::MODULE);
+    if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) {
+      var->AddData(ExpectedResult());
+    }
   }
 
   void Name(std::ostream& out) const override {
-    out << "double";
+    out << "variable" << "/" << segment2str(segment);
+  }
+
+  bool IsValid() const override {
+    return (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_GROUP 
+            || segment == BRIG_SEGMENT_PRIVATE || segment == BRIG_SEGMENT_READONLY);
   }
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), 1); }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), VALUE); }
+
+  void ModuleVariables() override {
+    var->EmitDeclaration();
+    var->Variable().linkage() = BRIG_LINKAGE_PROGRAM;
+  }
 
   TypedReg Result() override {
-    return be.AddInitialTReg(ResultType(), 1);
+    if (segment != BRIG_SEGMENT_GLOBAL && segment != BRIG_SEGMENT_READONLY) {
+      be.EmitStore(var->Segment(), var->Type(), be.Immed(var->Type(), VALUE), be.Address(var->Variable()));
+    }
+    auto result = be.AddTReg(ResultType());
+    var->EmitLoadTo(result);
+    return result;
   }
 
   void Modules() override {
     Test::Modules();
     second->StartModule();
-    be.EmitVariableDefinition("var", BRIG_SEGMENT_GLOBAL, BRIG_TYPE_U32);
+    var->EmitDefinition();
+    var->Variable().linkage() = BRIG_LINKAGE_PROGRAM;
     second->EndModule();
   }
 
@@ -701,7 +725,6 @@ public:
     second->Finish();
   }
 };
-
 
 void LibrariesTests::Iterate(TestSpecIterator& it)
 {
@@ -723,7 +746,7 @@ void LibrariesTests::Iterate(TestSpecIterator& it)
 
   TestForEach<NoneLinkageTest>(ap, it, "linkage", Bools::Value(true));
 
-  TestForEach<DoubleModuleProgramLinkageVariableTest>(ap, it, "linkage", Bools::Value(true));
+  TestForEach<DoubleModuleVariableTest>(ap, it, "linkage/double", cc->Segments().ModuleScopeVariableSegments());
 }
 
 }
