@@ -117,7 +117,12 @@ private:
     te.reset(new TestEmitter());
     unsigned id = 0;
     module = te->NewModule("sample");
-    dispatch = te->NewDispatch("dispatch", "executable", "");
+
+    Grid geometry = new(te->Ap()) GridGeometry(
+      1, 
+      testGroup->getGroupsNum(), 1, 1, 
+      (std::min)(testGroup->getGroupsNum(), (unsigned) 64), 1, 1);
+    dispatch = te->NewDispatch("dispatch", "executable", "", geometry);
     for (unsigned i = map->getFirstSrcArgIdx(); i <= map->getLastSrcArgIdx(); ++i) {
       defSrcArray(testGroup, id, i);
       id++;
@@ -139,16 +144,13 @@ private:
       id++;
     }
 
-    std::string dispatchId = dispatch->Id();
-    te->InitialContext()->Put(dispatchId, "dimensions", Value(MV_UINT16, 1));
-    te->InitialContext()->Put(dispatchId, "workgroupSize[0]", Value(MV_UINT16, (std::min)(testGroup->getGroupsNum(), (unsigned) 64)));
-    te->InitialContext()->Put(dispatchId, "workgroupSize[1]", Value(MV_UINT16, 1));
-    te->InitialContext()->Put(dispatchId, "workgroupSize[2]", Value(MV_UINT16, 1));
-    te->InitialContext()->Put(dispatchId, "gridSize[0]", Value(MV_UINT32, testGroup->getGroupsNum()));
-    te->InitialContext()->Put(dispatchId, "gridSize[1]", Value(MV_UINT32, 1));
-    te->InitialContext()->Put(dispatchId, "gridSize[2]", Value(MV_UINT32, 1));
-
     dispatch->ScenarioInit();
+    te->TestScenario()->Commands()->ProgramCreate();
+    module->ScenarioProgram();
+    te->TestScenario()->Commands()->ProgramFinalize();
+    te->TestScenario()->Commands()->ExecutableCreate(dispatch->ExecutableId());
+    te->TestScenario()->Commands()->ExecutableLoadCode();
+    te->TestScenario()->Commands()->ExecutableFreeze();
     module->SetupDispatch("dispatch");
     dispatch->SetupDispatch("dispatch");
     dispatch->ScenarioDispatch();

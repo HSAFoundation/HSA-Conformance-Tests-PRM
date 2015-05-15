@@ -192,7 +192,7 @@ public:
     commands0.Finalize("code_child", Defaults::PROGRAM_ID, childKernel.brigOffset());
   }
 
-  void ScenarioCodes() {
+  void ScenarioProgram() {
     te->TestScenario()->Commands().Finalize("code_child", Defaults::PROGRAM_ID, childKernel.brigOffset());
   }
 

@@ -63,9 +63,9 @@ public:
     be.EmitEnableExceptionDirective(false, exceptions);
   }
 
-  void SetupDispatch(const std::string & dispatchId) override {
+  void ScenarioInit() override {
     te->TestScenario()->Commands()->IsDetectSupported();
-    Test::SetupDispatch(dispatchId);
+    Test::ScenarioInit();
   }
 };
 
@@ -102,9 +102,9 @@ public:
     be.EmitEnableExceptionDirective(false, exceptions);
   }
 
-  void SetupDispatch(const std::string & dispatchId) override {
+  void ScenarioInit() override {
     te->TestScenario()->Commands()->IsDetectSupported();
-    Test::SetupDispatch(dispatchId);
+    Test::ScenarioInit();
   }
 };
 
@@ -137,9 +137,9 @@ public:
     be.EmitEnableExceptionDirective(false, ENABLED_EXCEPTIONS);
   }
 
-  void SetupDispatch(const std::string & dispatchId) override {
+  void ScenarioInit() override {
     te->TestScenario()->Commands()->IsDetectSupported();
-    Test::SetupDispatch(dispatchId);
+    Test::ScenarioInit();
   }
 };
 

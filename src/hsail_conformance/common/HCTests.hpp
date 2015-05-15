@@ -41,6 +41,7 @@ public:
   void StartProgram() { hexl::EmittedTest::StartProgram(); specList.StartProgram(); }
   void EndProgram() { hexl::EmittedTest::EndProgram(); specList.EndProgram(); }
 
+  void CreateModule() { hexl::EmittedTest::CreateModule(); specList.CreateModule(); }
   void StartModule() { hexl::EmittedTest::StartModule(); specList.StartModule(); }
   void ModuleDirectives() { hexl::EmittedTest::ModuleDirectives(); specList.ModuleDirectives(); }
   void ModuleVariables() { hexl::EmittedTest::ModuleVariables(); specList.ModuleVariables(); }
@@ -68,7 +69,7 @@ public:
   void SetupDispatch(const std::string& dispatchId) { hexl::EmittedTest::SetupDispatch(dispatchId); specList.SetupDispatch(dispatchId); }
 
   void ScenarioInit() { hexl::EmittedTest::ScenarioInit(); specList.ScenarioInit(); }
-  void ScenarioCodes() { hexl::EmittedTest::ScenarioCodes(); specList.ScenarioCodes(); }
+  void ScenarioProgram() { hexl::EmittedTest::ScenarioProgram(); specList.ScenarioProgram(); }
   void ScenarioDispatch() { hexl::EmittedTest::ScenarioDispatch(); specList.ScenarioDispatch();  }
   void ScenarioValidation() { hexl::EmittedTest::ScenarioValidation(); specList.ScenarioValidation();  }
   void ScenarioEnd() { hexl::EmittedTest::ScenarioEnd(); specList.ScenarioEnd();  }

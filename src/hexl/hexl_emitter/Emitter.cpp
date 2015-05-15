@@ -313,9 +313,9 @@ Module EmittableContainer::NewModule(const std::string& id)
   return module;
 }
 
-Dispatch EmittableContainer::NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName)
+Dispatch EmittableContainer::NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName, Grid geometry)
 {
-  Dispatch dispatch = te->NewDispatch(id, executableId, kernelName);
+  Dispatch dispatch = te->NewDispatch(id, executableId, kernelName, geometry);
   Add(dispatch);
   return dispatch;
 }
@@ -3144,9 +3144,13 @@ void EFunction::StartFunctionBody()
 }
 
 
-void EModule::StartModule()
+void EModule::CreateModule()
 {
   brigContainer = te->Brig()->Start();
+}
+
+void EModule::StartModule()
+{
   module = te->Brig()->StartModule(ModuleName());
 }
 
@@ -3156,43 +3160,43 @@ void EModule::EndModule()
   te->Brig()->End();
 }
 
-void EModule::Finish() {
+EModule::~EModule() {
   te->Brig()->DestroyBrigContainer(brigContainer);
 }
 
-void EModule::SetupDispatch(const std::string& dispatchId)
+void EModule::ScenarioProgram()
 {
+  EmittableContainer::ScenarioProgram();
   te->TestScenario()->Commands()->ModuleCreateFromBrig(Id(), id.str() + ".brig");
   te->TestScenario()->Commands()->ProgramAddModule("program", Id());
-  EmittableContainer::SetupDispatch(dispatchId);
 }
 
-EDispatch::EDispatch(TestEmitter* te, const std::string& id_,
-  const std::string& executableId_, const std::string& kernelName_)
+EDispatch::EDispatch(TestEmitter* te, const std::string& id_, const std::string& executableId_, 
+  const std::string& kernelName_, Grid geometry_)
   : EmittableContainerWithId(te, id_),
-  executableId(executableId_.c_str(), te->Ap()), kernelName(kernelName_.c_str(), te->Ap())
+  executableId(executableId_.c_str(), te->Ap()), 
+  kernelName(kernelName_.c_str(), te->Ap()),
+  geometry(geometry_)
 {
-}
-
-void EDispatch::ScenarioInit()
-{
-  EmittableContainer::ScenarioInit();
-  te->TestScenario()->Commands()->ProgramCreate();
 }
 
 void EDispatch::ScenarioDispatch()
 {
+  EmittableContainer::ScenarioDispatch();
   te->TestScenario()->Commands()->DispatchExecute(Id());
 }
 
 void EDispatch::SetupDispatch(const std::string& dispatchId)
 {
-  te->TestScenario()->Commands()->ProgramFinalize();
-  te->TestScenario()->Commands()->ExecutableCreate(executableId.c_str());
-  te->TestScenario()->Commands()->ExecutableLoadCode();
-  te->TestScenario()->Commands()->ExecutableFreeze();
+  te->InitialContext()->Put(Id(), "dimensions", Value(MV_UINT16, geometry->Dimensions()));
+  te->InitialContext()->Put(Id(), "workgroupSize[0]", Value(MV_UINT16, geometry->WorkgroupSize(0)));
+  te->InitialContext()->Put(Id(), "workgroupSize[1]", Value(MV_UINT16, geometry->WorkgroupSize(1)));
+  te->InitialContext()->Put(Id(), "workgroupSize[2]", Value(MV_UINT16, geometry->WorkgroupSize(2)));
+  te->InitialContext()->Put(Id(), "gridSize[0]", Value(MV_UINT32, geometry->GridSize(0)));
+  te->InitialContext()->Put(Id(), "gridSize[1]", Value(MV_UINT32, geometry->GridSize(1)));
+  te->InitialContext()->Put(Id(), "gridSize[2]", Value(MV_UINT32, geometry->GridSize(2)));
   te->TestScenario()->Commands()->DispatchCreate(Id(), executableId.c_str(), kernelName.c_str());
-  EmittableContainer::SetupDispatch(dispatchId);
+  EmittableContainer::SetupDispatch(Id());
 }
 
 const char* ConditionType2Str(ConditionType type)
@@ -3392,6 +3396,7 @@ Operand ECondition::EmitIfCond()
   } else {
     TypedReg cmp = te->Brig()->AddCTReg();
     te->Brig()->EmitCmp(cmp->Reg(), reg, te->Brig()->Immed(reg->Type(), 1), BRIG_COMPARE_EQ); 
+    return cmp->Reg();
   }
 }
 
@@ -3648,9 +3653,9 @@ Module TestEmitter::NewModule(const std::string& id)
   return new(Ap()) EModule(this, id);
 }
 
-Dispatch TestEmitter::NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName)
+Dispatch TestEmitter::NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName, Grid geometry)
 {
-  return new(Ap()) EDispatch(this, id, executableId, kernelName);
+  return new(Ap()) EDispatch(this, id, executableId, kernelName, geometry);
 }
 
 }
@@ -3665,7 +3670,7 @@ Test* EmittedTestBase::Create()
 EmittedTest::EmittedTest(emitter::Location codeLocation_, Grid geometry_)
  : cc(0),
    codeLocation(codeLocation_), geometry(geometry_),
-   output(0), kernel(0),
+   executableId("executable", te->Ap()), output(0), kernel(0),
    function(0), functionResult(0), functionResultReg(0),
    dispatch(0)
 {
@@ -3696,7 +3701,7 @@ void EmittedTest::Init()
     FunctionArgumentsInit();
   }
   module = te->NewModule();
-  dispatch = te->NewDispatch("dispatch", "executable", kernel->Id());
+  dispatch = te->NewDispatch("dispatch", executableId.str(), kernel->Id(), geometry);
 }
 
 void EmittedTest::KernelArgumentsInit()
@@ -3741,11 +3746,17 @@ void EmittedTest::Modules()
 
 void EmittedTest::Module()
 {
+  CreateModule();
   StartModule();
   ModuleDirectives();
   ModuleVariables();
   Executables();
   EndModule();
+}
+
+void EmittedTest::CreateModule()
+{
+  module->CreateModule();
 }
 
 void EmittedTest::StartModule()
@@ -3946,7 +3957,7 @@ void EmittedTest::ExpectedResults(Values* result) const
 
 void EmittedTest::Scenario() {
   ScenarioInit();
-  ScenarioCodes();
+  ScenarioProgram();
   ScenarioDispatches();
   ScenarioValidation();
   ScenarioEnd();
@@ -3958,11 +3969,16 @@ void EmittedTest::ScenarioInit()
     output->SetData(ExpectedResults());
   }
   kernel->ScenarioInit();
-  dispatch->ScenarioInit();
+  te->TestScenario()->Commands()->ProgramCreate();
 }
 
-void EmittedTest::ScenarioCodes()
+void EmittedTest::ScenarioProgram()
 {
+  module->ScenarioProgram();
+  te->TestScenario()->Commands()->ProgramFinalize();
+  te->TestScenario()->Commands()->ExecutableCreate(executableId.c_str());
+  te->TestScenario()->Commands()->ExecutableLoadCode();
+  te->TestScenario()->Commands()->ExecutableFreeze();
   /*
   CommandSequence& commands0 = te->TestScenario()->Commands();
   commands0.CreateProgram();
@@ -3974,26 +3990,19 @@ void EmittedTest::ScenarioCodes()
 
 void EmittedTest::ScenarioDispatches()
 {
+  SetupDispatch(dispatch->Id());
   ScenarioDispatch();
 }
 
 void EmittedTest::SetupDispatch(const std::string& dispatchId)
 {
-  te->InitialContext()->Put(dispatchId, "dimensions", Value(MV_UINT16, geometry->Dimensions()));
-  te->InitialContext()->Put(dispatchId, "workgroupSize[0]", Value(MV_UINT16, geometry->WorkgroupSize(0)));
-  te->InitialContext()->Put(dispatchId, "workgroupSize[1]", Value(MV_UINT16, geometry->WorkgroupSize(1)));
-  te->InitialContext()->Put(dispatchId, "workgroupSize[2]", Value(MV_UINT16, geometry->WorkgroupSize(2)));
-  te->InitialContext()->Put(dispatchId, "gridSize[0]", Value(MV_UINT32, geometry->GridSize(0)));
-  te->InitialContext()->Put(dispatchId, "gridSize[1]", Value(MV_UINT32, geometry->GridSize(1)));
-  te->InitialContext()->Put(dispatchId, "gridSize[2]", Value(MV_UINT32, geometry->GridSize(2)));
-  module->SetupDispatch(dispatchId);
   dispatch->SetupDispatch(dispatchId);
+  module->SetupDispatch(dispatchId);
   kernel->SetupDispatch(dispatchId);
 }
 
 void EmittedTest::ScenarioDispatch()
 {
-  SetupDispatch(dispatch->Id());
   dispatch->ScenarioDispatch();
 }
 
@@ -4009,7 +4018,6 @@ void EmittedTest::ScenarioEnd()
 
 void EmittedTest::Finish() {
   te->InitialContext()->Move("scenario", te->TestScenario()->ReleaseScenario());
-  module->Finish();
 }
 
 

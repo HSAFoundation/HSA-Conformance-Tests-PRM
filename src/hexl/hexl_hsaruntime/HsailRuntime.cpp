@@ -689,7 +689,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       status = Runtime()->Hsa()->hsa_signal_create(1, 0, 0, &p->completion_signal);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_signal_create(completion_signal) failed", status); return false; }
-      context->Put("packetcompletionsig", Value(MV_UINT64, p->completion_signal.handle));
+      context->Put(dispatchId, "packetcompletionsig", Value(MV_UINT64, p->completion_signal.handle));
 
       p->header |=
         (1 << HSA_PACKET_HEADER_BARRIER) |

@@ -327,7 +327,9 @@ public:
   BrigType ResultType() const { return BRIG_TYPE_U64; }
   
   Value ExpectedResult() const {
-    return Value(MV_EXPR, S("packetcompletionsig"));
+    std::string *name = new std::string(dispatch->StrId());
+    *name += ".packetcompletionsig";
+    return Value(MV_EXPR, S(name->c_str()));
   }
 
   TypedReg Result() {

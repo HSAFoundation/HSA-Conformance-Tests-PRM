@@ -325,9 +325,6 @@ public:
     var1 = kernel->NewVariable(generator.GenerateIdentified(), BRIG_SEGMENT_GROUP, BRIG_TYPE_U64);
     var2 = kernel->NewVariable(generator.GenerateIdentified(), BRIG_SEGMENT_GROUP, BRIG_TYPE_U64);
     var3 = kernel->NewVariable(generator.GenerateIdentified(), BRIG_SEGMENT_GROUP, BRIG_TYPE_U64);
-    op1 = InitializeOperand(type1);
-    op2 = InitializeOperand(type2);
-    op3 = InitializeOperand(type3);
   }
 
   void Name(std::ostream& out) const override {
@@ -337,6 +334,9 @@ public:
   }
 
   TypedReg Result() override{
+    op1 = InitializeOperand(type1);
+    op2 = InitializeOperand(type2);
+    op3 = InitializeOperand(type3);
     if (type1 == BRIG_KIND_OPERAND_CODE_REF) {
       op1 = be.Brigantine().createCodeRef(var1->Variable());
     }

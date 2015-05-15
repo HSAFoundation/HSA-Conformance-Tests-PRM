@@ -709,20 +709,91 @@ public:
 
   void Modules() override {
     Test::Modules();
+    second->CreateModule();
     second->StartModule();
-    var->EmitDefinition();
-    var->Variable().linkage() = BRIG_LINKAGE_PROGRAM;
+    second->ModuleVariables();
     second->EndModule();
+    var->Variable().linkage() = BRIG_LINKAGE_PROGRAM;
+  }
+
+  void ScenarioProgram() override {
+    second->ScenarioProgram();
+    Test::ScenarioProgram();
   }
 
   void SetupDispatch(const std::string& dispatchId) override {
     second->SetupDispatch(dispatchId);
     Test::SetupDispatch(dispatchId);
   }
+};
 
-  void Finish() override {
-    Test::Finish();
-    second->Finish();
+class DoubleKernelTest : public Test {
+private:
+  EKernel* firstKernel;
+  EModule* secondModule;
+  Variable var;
+  Dispatch firstDispatch;
+
+  static const uint64_t VALUE = 123456789;
+
+public:
+  DoubleKernelTest(bool) : Test(Location::KERNEL) {}
+
+  void Init() override {
+    Test::Init();
+    secondModule = te->NewModule("second_module");
+    firstKernel = secondModule->NewKernel("first_kernel");
+    var = secondModule->NewVariable("var", BRIG_SEGMENT_GLOBAL, ResultType(), Location::MODULE);
+    firstDispatch = te->NewDispatch("first_dispatch", dispatch->ExecutableId(), firstKernel->Id(), geometry);
+  }
+
+  void Name(std::ostream& out) const override {}
+
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), VALUE); }
+
+  TypedReg Result() override {
+    auto result = be.AddTReg(ResultType());
+    var->EmitLoadTo(result);
+    return result;
+  }
+
+  void ModuleVariables() override {
+    var->EmitDeclaration();
+    var->Variable().linkage() = BRIG_LINKAGE_PROGRAM;
+  }
+
+  void Modules() override {
+    Test::Modules();
+    // emit second module
+    secondModule->CreateModule();
+    secondModule->StartModule();
+    secondModule->ModuleVariables();
+
+    // emit first_kernel in second module
+    firstKernel->Definition();
+    firstKernel->StartKernelBody();
+    be.EmitStore(BRIG_SEGMENT_GLOBAL, var->Type(), be.Immed(var->Type(), VALUE), be.Address(var->Variable()));
+    firstKernel->EndKernel();
+
+    secondModule->EndModule();
+    var->Variable().linkage() = BRIG_LINKAGE_PROGRAM;
+  }
+
+  void ScenarioProgram() override {
+    secondModule->ScenarioProgram();
+    Test::ScenarioProgram();
+  }
+
+  void SetupDispatch(const std::string& dispatchId) override {
+    secondModule->SetupDispatch(dispatchId);
+    firstDispatch->SetupDispatch(firstDispatch->Id());
+    firstDispatch->ScenarioDispatch();
+    Test::SetupDispatch(dispatchId);
+  }
+
+  void ScenarioDispatch() override {
+    Test::ScenarioDispatch();
   }
 };
 
@@ -747,6 +818,8 @@ void LibrariesTests::Iterate(TestSpecIterator& it)
   TestForEach<NoneLinkageTest>(ap, it, "linkage", Bools::Value(true));
 
   TestForEach<DoubleModuleVariableTest>(ap, it, "linkage/double", cc->Segments().ModuleScopeVariableSegments());
+
+  TestForEach<DoubleKernelTest>(ap, it, "linkage/double/kernel", Bools::Value(true));
 }
 
 }

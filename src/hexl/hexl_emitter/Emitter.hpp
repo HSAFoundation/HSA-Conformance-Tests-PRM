@@ -125,6 +125,7 @@ public:
   virtual void StartProgram() { }
   virtual void EndProgram() { }
 
+  virtual void CreateModule() { }
   virtual void StartModule() { }
   virtual void ModuleDirectives() { }
   virtual void ModuleVariables() { }
@@ -150,7 +151,7 @@ public:
   virtual void EndKernel() { }
 
   virtual void ScenarioInit() { }
-  virtual void ScenarioCodes() { }
+  virtual void ScenarioProgram() { }
   virtual void ScenarioDispatch() { }
   virtual void SetupDispatch(const std::string& dispatchId) { } 
   virtual void ScenarioValidation() { }
@@ -379,6 +380,7 @@ public:
   void Reset(TestEmitter* te) { Emittable::Reset(te); for (Emittable* e : list) { e->Reset(te); } }
 
   void Init() { for (Emittable* e : list) { e->Init(); } }
+  void CreateModule() { for (Emittable* e : list) { e->CreateModule(); } }
   void StartModule() { for (Emittable* e : list) { e->StartModule(); } }
   void ModuleVariables() { for (Emittable* e : list) { e->ModuleVariables(); } }
   void EndModule() { for (Emittable* e : list) { e->EndModule(); } }
@@ -397,7 +399,7 @@ public:
   void StartKernelBody() { for (Emittable* e : list) { e->StartKernelBody(); } }
 
   void ScenarioInit() { for (Emittable* e : list) { e->ScenarioInit(); } }
-  void ScenarioCodes() { for (Emittable* e : list) { e->ScenarioCodes(); } }
+  void ScenarioProgram() { for (Emittable* e : list) { e->ScenarioProgram(); } }
   void ScenarioDispatch() { for (Emittable* e : list) { e->ScenarioDispatch(); } }
   void SetupDispatch(const std::string& dispatchId) override { for (Emittable* e : list) { e->SetupDispatch(dispatchId); } }
   void ScenarioValidation() { for (Emittable* e : list) { e->ScenarioValidation(); } }
@@ -416,7 +418,7 @@ public:
   Image NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats = false);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
   Module NewModule(const std::string& id = "sample");
-  Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
+  Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName, Grid geometry);
 };
 
 class EmittableContainerWithId : public EmittableContainer {
@@ -426,6 +428,7 @@ public:
   EmittableContainerWithId(TestEmitter* te, const std::string& id);
 
   const char *Id() const { return id.c_str(); }
+  std::string StrId() const { return id.str(); }
 };
 
 
@@ -820,28 +823,31 @@ public:
   EModule(TestEmitter* te, const std::string& id_)
     : EmittableContainerWithId(te, id_), brigContainer(nullptr) { }
 
+  ~EModule();
+
   std::string ModuleName() const { return std::string("&") + Id(); }
   HSAIL_ASM::DirectiveModule Directive() { assert(module != 0); return module; }
   HSAIL_ASM::Offset BrigOffset() { return Directive().brigOffset(); }
 
+  void CreateModule() override;
   void StartModule() override;
   void EndModule() override;
   
-  void Finish() override;
-
-  void SetupDispatch(const std::string& dispatchId) override;
+  void ScenarioProgram() override;
 };
 
 class EDispatch : public EmittableContainerWithId {
 private:
   EString executableId;
   EString kernelName;
+  Grid geometry;
 
 public:
   EDispatch(TestEmitter* te, const std::string& id_,
-    const std::string& executableId_, const std::string& kernelName_);
+    const std::string& executableId_, const std::string& kernelName_, Grid geometry_);
 
-  void ScenarioInit() override;
+  std::string ExecutableId() const { return executableId.str(); }
+
   void ScenarioDispatch() override;
   void SetupDispatch(const std::string& dispatchId) override;
 };
@@ -976,7 +982,7 @@ public:
   Image NewImage(const std::string& id, ImageType type, ImageSpec spec, bool optionalFormats);
   Sampler NewSampler(const std::string& id, SamplerSpec spec);
   Module NewModule(const std::string& id = "sample");
-  Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName);
+  Dispatch NewDispatch(const std::string& id, const std::string& executableId, const std::string& kernelName, Grid geometry);
 };
 
 }
@@ -1004,6 +1010,7 @@ protected:
   hexl::emitter::CoreConfig* cc;
   emitter::Location codeLocation;
   Grid geometry;
+  emitter::EString executableId;
   emitter::Buffer output;
   emitter::Kernel kernel;
   emitter::Function function;
@@ -1030,6 +1037,7 @@ public:
 
   virtual void Modules();
   virtual void Module();
+  virtual void CreateModule();
   virtual void StartModule();
   virtual void EndModule();
   virtual void ModuleDirectives();
@@ -1079,7 +1087,7 @@ public:
 
   virtual void Scenario();
   virtual void ScenarioInit();
-  virtual void ScenarioCodes();
+  virtual void ScenarioProgram();
   virtual void ScenarioDispatches();
   virtual void ScenarioDispatch();
   virtual void ScenarioValidation();
