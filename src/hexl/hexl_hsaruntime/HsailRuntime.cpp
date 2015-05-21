@@ -952,11 +952,15 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
   };
 
-#define HSARUNTIMECORENAME (sizeof(void*) == 4) ? "hsa-runtime" : "hsa-runtime64"
+#ifdef _WIN32
+#define HSARUNTIMEDEFAULTNAME (sizeof(void*) == 4) ? "hsa-runtime.dll" : "hsa-runtime64.dll"
+#else
+#define HSARUNTIMEDEFAULTNAME (sizeof(void*) == 4) ? "libhsa-runtime.so.1" : "libhsa-runtime64.so.1"
+#endif
 
 HsailRuntimeContext::HsailRuntimeContext(Context* context)
   : RuntimeContext(context),
-    hsaApi(context, context->Opts(), HSARUNTIMECORENAME),
+    hsaApi(context, context->Opts(), (context->Opts()->GetString("rtlib", HSARUNTIMEDEFAULTNAME)).c_str()),
     queue(0), queueSize(0), queueError(false)
 {
 }

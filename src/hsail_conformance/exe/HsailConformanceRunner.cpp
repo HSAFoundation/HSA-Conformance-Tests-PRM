@@ -190,6 +190,7 @@ void HCRunner::Run()
   optReg.RegisterOption("tests");
   optReg.RegisterOption("testloglevel");
   optReg.RegisterOption("testlog");
+  optReg.RegisterOption("rtlib");
   optReg.RegisterOption("exclude");
   optReg.RegisterBooleanOption("dummy");
   optReg.RegisterBooleanOption("verbose");

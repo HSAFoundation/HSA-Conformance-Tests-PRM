@@ -19,7 +19,6 @@
 
 #ifdef _WIN32
 #include <Windows.h>
-#define snprintf _snprintf
 #else
 #include "dlfcn.h"
 #endif
@@ -46,22 +45,18 @@ protected:
   const Options* options;
 
   bool InitDll() {
-    char buf[0x100];
 #ifdef _WIN32
-    _snprintf_s(buf, sizeof(buf), "%s.dll", libName);
-    dllHandle = LoadLibrary(buf);
+    dllHandle = LoadLibrary(libName);
     if (!dllHandle) {
-      context->Error() << "LoadLibrary(" << buf << ") failed: GetLastError=" << GetLastError() << std::endl;
-      context->Error() << "LoadLibrary(" << buf << ") failed: ";
+      context->Error() << "LoadLibrary(" << libName << ") failed: ";
       context->Win32Error();
       context->Error() << std::endl;
       return false;
     }
 #else
-    snprintf(buf, sizeof(buf), "lib%s.so", libName);
-    dllHandle = dlopen(buf, RTLD_NOW|RTLD_LOCAL);
+    dllHandle = dlopen(libName, RTLD_NOW|RTLD_LOCAL);
     if (!dllHandle) {
-      context->Error() << "dlopen(" << buf << ") failed: " << dlerror() << std::endl;
+      context->Error() << "dlopen(" << libName << ") failed: " << dlerror() << std::endl;
       return false;
     }
 #endif
@@ -73,7 +68,6 @@ protected:
 #ifdef _WIN32
     F f = (F) GetProcAddress(dllHandle, functionName);
     if (!f) {
-      context->Error() << "GetProcAddress(" << functionName << ") failed: GetLastError=" << GetLastError() << std::endl;
       context->Error() << "GetProcAddress(" << functionName << ") failed: ";
       context->Win32Error();
       context->Error() << std::endl;

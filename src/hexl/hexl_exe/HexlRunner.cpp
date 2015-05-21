@@ -89,6 +89,7 @@ int HexlRunner::ParseOptions()
   optReg.RegisterBooleanOption("dump");
   optReg.RegisterOption("match");
   optReg.RegisterOption("testlog");
+  optReg.RegisterOption("rtlib");
   int n;
   if ((n = hexl::ParseOptions(argc, argv, optReg, options)) != 0) {
     std::cout << "Invalid option: " << argv[n] << std::endl;
