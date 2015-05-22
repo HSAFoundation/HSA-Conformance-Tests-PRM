@@ -140,7 +140,7 @@ struct HsaApiTable {
 
 class HsaApi : public DllApi<HsaApiTable> {
 public:
-  HsaApi(Context* context, const Options* options, const char *libName)
+  HsaApi(Context* context, const Options* options, std::string libName)
     : DllApi<HsaApiTable>(context, options, libName) { }
 
   const HsaApiTable* InitApiTable();

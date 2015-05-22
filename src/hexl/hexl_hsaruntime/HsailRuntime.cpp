@@ -960,7 +960,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
 HsailRuntimeContext::HsailRuntimeContext(Context* context)
   : RuntimeContext(context),
-    hsaApi(context, context->Opts(), (context->Opts()->GetString("rtlib", HSARUNTIMEDEFAULTNAME)).c_str()),
+    hsaApi(context, context->Opts(), context->Opts()->GetString("rtlib", HSARUNTIMEDEFAULTNAME)),
     queue(0), queueSize(0), queueError(false)
 {
 }

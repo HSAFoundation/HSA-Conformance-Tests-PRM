@@ -38,7 +38,7 @@ private:
 #endif
   DllHandle dllHandle;
   const ApiTable* apiTable;
-  const char* libName;
+  std::string libName;
 
 protected:
   Context* context;
@@ -46,7 +46,7 @@ protected:
 
   bool InitDll() {
 #ifdef _WIN32
-    dllHandle = LoadLibrary(libName);
+    dllHandle = LoadLibrary(libName.c_str());
     if (!dllHandle) {
       context->Error() << "LoadLibrary(" << libName << ") failed: ";
       context->Win32Error();
@@ -54,7 +54,7 @@ protected:
       return false;
     }
 #else
-    dllHandle = dlopen(libName, RTLD_NOW|RTLD_LOCAL);
+    dllHandle = dlopen(libName.c_str(), RTLD_NOW|RTLD_LOCAL);
     if (!dllHandle) {
       context->Error() << "dlopen(" << libName << ") failed: " << dlerror() << std::endl;
       return false;
@@ -84,7 +84,7 @@ protected:
   }
 
 public:
-  DllApi(Context* context_, const Options* options_, const char* libName_)
+  DllApi(Context* context_, const Options* options_, std::string libName_)
     : dllHandle(0), apiTable(0),
       libName(libName_), context(context_), options(options_) { }
 
