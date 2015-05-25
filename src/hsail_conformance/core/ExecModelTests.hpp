@@ -14,36 +14,16 @@
    limitations under the License.
 */
 
-#include "SysArchMandatoryTests.hpp"
-#include "MModelTests.hpp"
-#include "ExecModelTests.hpp"
-#include "AtomicTests.hpp"
+#ifndef HC_EMODEL_TESTS_HPP
+#define HC_EMODEL_TESTS_HPP
 
-using namespace hexl;
+#include "HexlTest.hpp"
+#include "HsailRuntime.hpp"
 
 namespace hsail_conformance {
 
-DECLARE_TESTSET_UNION(MemoryConsistencyModelTests);
-
-MemoryConsistencyModelTests::MemoryConsistencyModelTests()
-  : TestSetUnion("consistency")
-{
-  Add(new AtomicTests());
-  Add(new MModelTests());
-  Add(new ExecModelTests());
-}
-
-DECLARE_TESTSET_UNION(SysArchMandatoryTests);
-
-SysArchMandatoryTests::SysArchMandatoryTests()
-  : TestSetUnion("mandatory")
-{
-  Add(new MemoryConsistencyModelTests());
-}
-
-hexl::TestSet* NewSysArchMandatoryTests()
-{
-  return new SysArchMandatoryTests();
-}
+DECLARE_TESTSET(ExecModelTests, "execmodel");
 
 }
+
+#endif // HC_EMODEL_TESTS_HPP

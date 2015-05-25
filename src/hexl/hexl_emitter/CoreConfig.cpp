@@ -77,6 +77,7 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
     singleGroup(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     atomic(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     mmodel(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
+    emodel(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     barrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     fbarrier(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
     images(NEWA hexl::VectorSequence<hexl::Grid>(ap)),
@@ -144,8 +145,20 @@ CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)
   mmodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 8,   1,   1,  cc->Wavesize(),      1,   1));
   mmodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 32,  1,   1,  cc->Wavesize() * 4,  1,   1));
   mmodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 64,  1,   1,  cc->Wavesize() * 8,  1,   1));
-  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*8,  1,   1,  cc->Wavesize()*2,  1,   1));
-  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 8,   1,   1,  cc->Wavesize(),      1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 64,  1,   1,  cc->Wavesize(),      1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 256, 1,   1,  cc->Wavesize(),      1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 8,   1,   1,  cc->Wavesize() * 4,  1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 64,  1,   1,  cc->Wavesize() * 4,  1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 256, 1,   1,  cc->Wavesize() * 4,  1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 8,   1,   1,  cc->Wavesize() * 8,  1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 64,  1,   1,  cc->Wavesize() * 8,  1,   1));
+  emodel->Add(NEWA GridGeometry(1,  cc->Wavesize() * 256, 1,   1,  cc->Wavesize() * 8,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize() * 4,  1,   1,  cc->Wavesize() * 4,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize() * 8,  1,   1,  cc->Wavesize() * 8,  1,   1));
+  barrier->Add(NEWA GridGeometry(1,  cc->Wavesize() * 16, 1,   1,  cc->Wavesize() * 16,  1,   1));
+  //barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*8,  1,   1,  cc->Wavesize()*2,  1,   1));
+  //barrier->Add(NEWA GridGeometry(1,  cc->Wavesize()*16,  1,   1,  cc->Wavesize()*4,  1,   1));
   fbarrier->Add(NEWA GridGeometry(1, cc->Wavesize(), 1, 1, cc->Wavesize(), 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 1024, 1, 1, cc->Wavesize()*4, 1, 1));
   fbarrier->Add(NEWA GridGeometry(1, 256, 1, 1, 256, 1, 1));

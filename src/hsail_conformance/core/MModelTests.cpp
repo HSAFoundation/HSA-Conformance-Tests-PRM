@@ -935,10 +935,10 @@ public:
 
         StartLoop();
 
-            TypedReg synchronizedWith = CheckResult(testComplete);  // instructions C and D
+//FF            TypedReg synchronizedWith = CheckResult(testComplete);  // instructions C and D
 
-            Comment("Update 'testComplete' flag");
-            Or(testComplete, testComplete, synchronizedWith);
+//FF            Comment("Update 'testComplete' flag");
+//FF            Or(testComplete, testComplete, synchronizedWith);
 
         EndLoop();
 
@@ -949,9 +949,9 @@ public:
             if (!isValidTestOrder(memoryOrder[1], BRIG_MEMORY_ORDER_RELAXED)) MemFence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP);
             Barrier(testKind == TEST_KIND_WAVE);
             MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP);
-
-            CheckResult(testComplete);
         }
+
+        CheckResult(testComplete);
     }
 
     TypedReg CheckResult(TypedReg testComplete)
@@ -1129,12 +1129,12 @@ public:
         }
         else
         {
-            Comment("Decrement loop index and continue if not zero");
-
-            Sub(loopIdx, loopIdx, 1);
-            TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-            be.EmitCmp(cReg->Reg(), loopIdx, be.Immed(loopIdx->Type(), 0), BRIG_COMPARE_NE);
-            be.EmitCbr(cReg, LAB_NAME, BRIG_WIDTH_ALL);
+//FF            Comment("Decrement loop index and continue if not zero");
+//FF
+//FF            Sub(loopIdx, loopIdx, 1);
+//FF            TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
+//FF            be.EmitCmp(cReg->Reg(), loopIdx, be.Immed(loopIdx->Type(), 0), BRIG_COMPARE_NE);
+//FF            be.EmitCbr(cReg, LAB_NAME, BRIG_WIDTH_ALL);
         }
     }
 

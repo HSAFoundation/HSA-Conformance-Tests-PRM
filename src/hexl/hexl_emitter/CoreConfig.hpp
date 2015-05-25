@@ -93,7 +93,7 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *mmodel, *barrier, *fbarrier, 
+          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *mmodel, *emodel, *barrier, *fbarrier, 
           *images, *memfence, *partial;
 
       public:
@@ -120,6 +120,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* SingleGroupSet() { return singleGroup; }
         hexl::Sequence<hexl::Grid>* AtomicSet() { return atomic; }
         hexl::Sequence<hexl::Grid>* MModelSet() { return mmodel; }
+        hexl::Sequence<hexl::Grid>* EModelSet() { return emodel; }
         hexl::Sequence<hexl::Grid>* ImagesSet() { return images; }
         hexl::Sequence<hexl::Grid>* MemfenceSet() { return memfence; }
         hexl::Sequence<hexl::Grid>* PartialSet() { return partial; }
