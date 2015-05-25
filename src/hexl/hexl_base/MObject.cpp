@@ -1573,6 +1573,8 @@ std::string Comparison::GetMethodDescription() const
     return "relative";
   case CM_ULPS:
     return "ulps";
+  case CM_IMAGE:
+    return "image";
   case CM_DECIMAL:
     return "absolute";
   default:
