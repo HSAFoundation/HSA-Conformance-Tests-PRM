@@ -18,16 +18,17 @@ A test consists of scenario which describes test data, HSAIL program(s) in BRIG 
 
 Note that each test actually expands into several testcases, one for each valid combination of parameters. These parameters are described in [Test details]. For example, a test for the abs instruction consists of several tests for `f32` and `f64` types.
 
-## Building test suite
+## Building the test suite
 
-HSA Conformance test suite uses [CMake](http://www.cmake.org/). The following tools and sources should be available before the build:
+HSA Conformance test suite uses [CMake](http://www.cmake.org/). The suite also requires the following components:
 
-- `HSAIL-Tools` can be obtained from HSA github repository. `HSAIL-Tools-PATH` needs to be set to point to it.
-- HSA Runtime and Finalizer extension includes. These can be obtained from HSA github repository as well. `HSA-Runtime-Inc-PATH` needs to be set to point to directory with `hsa.h`. `HSA-Runtime-Ext-PATH` needs to be set to point to directory with `hsa_ext_finalize.h`.
+- [HSAIL-Tools](https://github.com/HSAFoundation/HSAIL-Tools) repository, pointed to by `HSAIL-Tools-PATH` variable
+- [hsa.h](https://github.com/HSAFoundation/HSA-Runtime-Reference-Source/tree/master/inc/hsa.h) header file, pointed to by `HSA-Runtime-Inc-PATH`
+- [hsa_ext_finalize.h](https://github.com/HSAFoundation/HSA-Runtime-Reference-Source/tree/master/inc/hsa_ext_finalize.h) header file, pointed to by `HSA-Runtime-Ext-PATH`
 
 `cmake_windows.sh` and `cmake_linux.sh` scripts contain examples of command lines that can be used to run CMake on Windows and Linux.  
 
-## Running test suite
+## Running the test suite
 
 The test suite can be invoked as "hc" program that runs on the host. 
 

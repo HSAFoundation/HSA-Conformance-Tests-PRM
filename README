@@ -1,11 +1,14 @@
 HSA PRM Conformance test suite
 ==============================
 
-HSA PRM Conformance test suite is used to vaidate an implementation of
-Heterogeneous System Architecture Intermediate Language (HSAIL) as 
-described in "HSA Programmer's Reference Manual".
+HSA PRM Conformance test suite is used to verify if an HSA implementation conforms to the HSA specifications: HSA PRM 
+(Heterogeneous System Architecture Intermediate Language)
+and SysArch (HSA Platform System Architecture).
+
+Detailed documentation: docs/HsaPrmConformance.* 
 
 HSA Conformance Test Suite release notes
+----------------------------------------
 
 Test suite revision
 
@@ -13,13 +16,13 @@ Test suite revision
 
 System Requirements
 
- * Hardware architecture: HSA
- * OS: Linux Ubuntu 14.04 64 bit
- * Software stack: HSAIL Runtime (KFD, HSA Runtime and Finalizer)
+ * HSA hardware architecture 
+ * Linux Ubuntu 14.04 64 bit
+ * HSAIL Runtime software stack (KFD, HSA Runtime, Finalizer)
 
 Tested configuration
 
- * AMD HSAIL Runtime built from staging HSA CL 1142323 and RC2
+ * AMD HSAIL Runtime SW built from staging HSA CL 1142323 and RC2
  * KFD RC3
  * Thunk RC3 
  * Kaveri APU
@@ -31,5 +34,5 @@ Specifications coverage
 
  * Version: 1.0 Final
  * HSA PRM: fully covered
- * HSA SysArch: covered functional parts (except not supported by the existing hardware or software: 2.2, 2.7, 2.11)
+ * HSA SysArch: functional part (except chapters not supported by the existing hardware or software: 2.2, 2.7, 2.11)
 
