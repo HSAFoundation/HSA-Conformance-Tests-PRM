@@ -3,7 +3,7 @@ HSA PRM (Programmer's Reference Manual) Specification revision: 1.0 Final (2015-
 
 HSA PSA (Platform System Architecture) Specification revision: 1.0 Final (2015-01-23)
 
-Test suite revision: 2015-04-21 (commit 1f6e94e58cdba170baac898228d3c1efaaa23543)
+Test suite revision: 2015-05-25 (commit 281a954e86c63dd00c064d7c033e7ae46c524fe0)
 
 ## Overview
 
