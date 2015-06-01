@@ -55,9 +55,9 @@ namespace TESTGEN {
 // Instructions created in standard context must not have null operands.
 //
 // Playground context is used by TestGen engine internally and is never saved as BRIG.
-// Test instructions created in this context have exactly 5 operands; unused operands are null.
-// This convention simplifies TestGen algorithms (because there are instructions
-// with variable number of operands).
+// Test instructions created in this context have exactly MAX_OPERANDS_NUM operands; 
+// unused operands are null. This convention simplifies TestGen algorithms 
+// (because there are instructions with variable number of operands).
 //
 class Context : public BrigContext
 {
@@ -102,7 +102,8 @@ public:
             assert(gcnInstEnabled());
             emitExtension("amd:gcn");
         }
-        else if (HSAIL_ASM::hasImageExtProps(s.getInst()))
+        
+        if (HSAIL_ASM::hasImageExtProps(s.getInst()))
         {
             // positive tests must not include image-specific props unless "-image" option is specified
             // negative tests may include image-specific types even if "-image" option is not specified
@@ -184,7 +185,7 @@ public:
         if (isPlayground())
         {
             ItemList list;
-            for (int i = 0; i < 5; ++i) list.push_back(Operand());
+            for (int i = 0; i < MAX_OPERANDS_NUM; ++i) list.push_back(Operand());
             inst.operands() = list;
         }
 
