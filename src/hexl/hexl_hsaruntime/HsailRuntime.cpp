@@ -25,6 +25,11 @@
 #include <sstream>
 #include <time.h>
 #include <set>
+      
+#if defined(_WIN32) || defined(_WIN64)  // Windows
+  #include <intrin.h>
+  #pragma intrinsic (_InterlockedExchange16)
+#endif
 
 using namespace hexl;
 using namespace hexl::runtime;
@@ -599,6 +604,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       hsa_kernel_dispatch_packet_t* packet;
       uint64_t timeout;
       size_t kernargOffset;
+      void* kernargAddr;
+      hsa_signal_t completionSignal;
 
       HsailDispatch(HsailRuntimeContextState* rt_)
         : rt(rt_) { }
@@ -612,8 +619,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
     void DispatchDestroy(HsailDispatch* dispatch)
     {
-      Runtime()->Hsa()->hsa_memory_free(dispatch->packet->kernarg_address);
-      Runtime()->Hsa()->hsa_signal_destroy(dispatch->packet->completion_signal);
+      Runtime()->Hsa()->hsa_memory_free(dispatch->kernargAddr);
+      Runtime()->Hsa()->hsa_signal_destroy(dispatch->completionSignal);
     }
 
     virtual bool DispatchCreate(const std::string& dispatchId, const std::string& executableId, const std::string& kernelName) override
@@ -691,12 +698,6 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_signal_create(completion_signal) failed", status); return false; }
       context->Put(dispatchId, "packetcompletionsig", Value(MV_UINT64, p->completion_signal.handle));
 
-      p->header |=
-        (1 << HSA_PACKET_HEADER_BARRIER) |
-        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_ACQUIRE_FENCE_SCOPE) |
-        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_RELEASE_FENCE_SCOPE);
-
-      p->setup = context->GetValue(dispatchId, "dimensions").U16() << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
       p->workgroup_size_x = context->GetValue(dispatchId, "workgroupSize[0]").U16();
       p->workgroup_size_y = context->GetValue(dispatchId, "workgroupSize[1]").U16();
       p->workgroup_size_z = context->GetValue(dispatchId, "workgroupSize[2]").U16();
@@ -711,6 +712,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       d->packet = p;
       d->timeout = TIMEOUT * CLOCKS_PER_SEC;
       d->kernargOffset = 0;
+      d->kernargAddr = p->kernarg_address;
+      d->completionSignal = p->completion_signal;
       Put(dispatchId, d);
       return true;
     }
@@ -760,7 +763,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     bool DispatchArg(const std::string& dispatchId, DispatchArgType argType, const std::string& argKey) override
     {
       HsailDispatch* d = context->Get<HsailDispatch>(dispatchId);
-      char *kernarg = (char *) d->packet->kernarg_address;
+      char *kernarg = (char *) d->kernargAddr;
       switch (argType) {
       case DARG_VALUES:
       {
@@ -784,6 +787,15 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       return true;
     }
 
+    void SetPacketHeader(uint32_t* packet, uint16_t header, uint16_t setup) {
+      uint32_t header32 = header | (setup << 16);
+      #if defined(_WIN32) || defined(_WIN64)  // Windows
+        _InterlockedExchange(packet, header32);
+      #else // Linux
+        __atomic_store_n(packet, header32, __ATOMIC_RELEASE);
+      #endif
+    }
+
     virtual bool DispatchExecute(const std::string& dispatchId) override
     {
       HsailDispatch* d = context->Get<HsailDispatch>(dispatchId);
@@ -792,14 +804,19 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       hsa_queue_t* queue = Runtime()->Queue();
 
       // Notify.
-      d->packet->header |= (HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE);
+      uint16_t header = (1 << HSA_PACKET_HEADER_BARRIER) |
+        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_ACQUIRE_FENCE_SCOPE) |
+        (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_RELEASE_FENCE_SCOPE) |
+        (HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE);
+      uint16_t setup = context->GetValue(dispatchId, "dimensions").U16() << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
+      SetPacketHeader(reinterpret_cast<uint32_t*>(d->packet), header, setup);      
       Runtime()->Hsa()->hsa_signal_store_release(queue->doorbell_signal, d->packetId);
 
       // Wait for kernel completion.
       hsa_signal_value_t result;
       clock_t beg = clock();
       do {
-        result = Runtime()->Hsa()->hsa_signal_wait_acquire(d->packet->completion_signal, HSA_SIGNAL_CONDITION_EQ, 0, d->timeout, HSA_WAIT_STATE_ACTIVE);
+        result = Runtime()->Hsa()->hsa_signal_wait_acquire(d->completionSignal, HSA_SIGNAL_CONDITION_EQ, 0, d->timeout, HSA_WAIT_STATE_ACTIVE);
         clock_t clocks = clock() - beg;
         if (clocks > (clock_t) d->timeout && result != 0) {
           context->Error() << "Kernel execution timed out, elapsed time: " << (long) clocks << " clocks (clocks per second " << (long) CLOCKS_PER_SEC << ")" << std::endl;
