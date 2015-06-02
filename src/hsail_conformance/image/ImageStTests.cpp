@@ -117,7 +117,7 @@ public:
     be.EmitExtensionDirective("IMAGE");
   }
 
-   bool IsValid() const  {
+  bool IsValid() const  {
     return IsImageLegal(imageGeometryProp, imageChannelOrder, imageChannelType) && IsImageGeometrySupported(imageGeometryProp, imageGeometry) && (codeLocation != FUNCTION);
   }
 
