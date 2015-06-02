@@ -58,10 +58,10 @@ public:
 
   bool IsValid() const
   {
-    //if ( samplerAddressing == BRIG_ADDRESSING_UNDEFINED )  //TODO: Would we need skeep this ? 
-    //{
-    //  return false;
-    //}
+    if ( samplerQuery == BRIG_ADDRESSING_UNDEFINED )
+    {
+      return false;
+    }
 
     return samplerParams.IsValid() && (codeLocation != FUNCTION);
   }
