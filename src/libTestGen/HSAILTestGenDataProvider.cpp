@@ -393,7 +393,7 @@ TestDataProvider::TestDataProvider(unsigned opType) : type(opType), firstSrcOper
 
 TestDataProvider* TestDataProvider::defIterators(unsigned n, unsigned first /*=1*/)
 {
-    assert(n > 0 && first + n <= 5);
+    assert(n > 0 && first + n <= MAX_OPERANDS_NUM);
 
     firstSrcOperand = first;
 
@@ -418,7 +418,7 @@ TestDataProvider* TestDataProvider::def(unsigned first, OperandTestData &d1, Ope
 TestDataProvider* TestDataProvider::def(unsigned first, OperandTestData* d1, OperandTestData* d2, OperandTestData* d3, OperandTestData* d4)
 {
     assert(d1);
-    assert(first < 5);
+    assert(first < MAX_OPERANDS_NUM);
 
     firstSrcOperand = first;
 
@@ -434,7 +434,7 @@ void TestDataProvider::initTestData(unsigned idx, OperandTestData* d1)
 {
     if (d1)
     {
-        assert(idx < 5);
+        assert(idx < MAX_OPERANDS_NUM);
         assert(idx == firstSrcOperand || testData[idx - 1].hasData()); // no gaps
 
         testData[idx].setData(d1);
@@ -486,7 +486,7 @@ void TestDataProvider::reset()
 
 Val TestDataProvider::getSrcValue(unsigned argIdx)
 {
-    assert(0 <= argIdx && argIdx <= 4);
+    assert(argIdx < MAX_OPERANDS_NUM);
 
     return testData[argIdx].hasData()? testData[argIdx].get() : Val();
 }

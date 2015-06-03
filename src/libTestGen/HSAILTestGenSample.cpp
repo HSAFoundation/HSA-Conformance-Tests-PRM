@@ -35,7 +35,7 @@ unsigned Sample::get(unsigned propId) const
     if (isOperandProp(propId))
     {
         int idx = getOperandIdx(propId);
-        assert(0 <= idx && idx <= 4);
+        assert(0 <= idx && idx < MAX_OPERANDS_NUM);
         assert(idx < inst.operands().size());
         return getContext()->operand2id(inst.operand(idx));
     }
@@ -54,7 +54,7 @@ void Sample::set(unsigned propId, unsigned val)
     if (isOperandProp(propId))
     {
         int idx = getOperandIdx(propId);
-        assert(0 <= idx && idx <= 4);
+        assert(0 <= idx && idx < MAX_OPERANDS_NUM);
         assert(idx < inst.operands().size());
 
         assign(inst, idx, getContext()->id2operand(val));
@@ -78,7 +78,7 @@ void Sample::copyFrom(const Sample s)
     for (int i = 0; i < s.inst.operands().size(); ++i)
     {
         // When creating final test instructions, get rid of unused operands
-        // Playground test instructions must have exactly 5 operands
+        // Playground test instructions must have exactly MAX_OPERANDS_NUM operands
         if (!s.inst.operand(i) && !isPlayground()) break;
         list.push_back(Operand());
     }

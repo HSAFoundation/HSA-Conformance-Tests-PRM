@@ -30,6 +30,10 @@ namespace TESTGEN {
 // - value placed into destination register
 // - value placed into memory
 
+// Initial value used for initialization of dst before
+// packed instructions which only modify part of dst
+extern uint64_t initialPackedVal;
+
 // Check generic limitations on instruction being tested
 bool testableInst(Inst inst);
 

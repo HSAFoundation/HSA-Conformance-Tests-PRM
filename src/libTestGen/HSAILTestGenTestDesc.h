@@ -104,7 +104,6 @@ class TestDataMap
 {
     //==========================================================================
 private:
-    static const unsigned MAX_SRC_OPRND_NUM = 5;
     static const unsigned MAX_DST_OPRND_NUM = 1;
     static const unsigned MAX_MEM_OPRND_NUM = 1;
 
@@ -120,8 +119,8 @@ private:
 public:
     void setupTestArgs(unsigned first, unsigned src, unsigned dst, unsigned mem, double prc)
     {
-        assert(first <  MAX_SRC_OPRND_NUM);
-        assert(src   <= MAX_SRC_OPRND_NUM);
+        assert(first <  MAX_OPERANDS_NUM);
+        assert(src   <= MAX_OPERANDS_NUM);
         assert(dst   <= MAX_DST_OPRND_NUM);
         assert(mem   <= MAX_MEM_OPRND_NUM);
     
@@ -151,11 +150,7 @@ class TestData
 {
     //==========================================================================
 public:
-    static const unsigned MAX_SRC_OPRND_NUM = 5;        // Max number of source operands
-
-    //==========================================================================
-public:
-    Val src[MAX_SRC_OPRND_NUM];                      // Values of source operands
+    Val src[MAX_OPERANDS_NUM];                       // Values of source operands
     Val dst;                                         // Expected dst value (empty value if none)
     Val mem;                                         // Expected value in memory (empty value if none)
 
@@ -163,7 +158,7 @@ public:
 public:
     void clear()
     {
-        for (unsigned i = 0; i < MAX_SRC_OPRND_NUM; ++i) src[i] = Val();
+        for (unsigned i = 0; i < MAX_OPERANDS_NUM; ++i) src[i] = Val();
         dst = Val();
         mem = Val();
     }
@@ -172,7 +167,7 @@ public:
     { 
         if (!src[1].empty()) return false; // optimization
 
-        for (unsigned i = 0; i < MAX_SRC_OPRND_NUM; ++i) 
+        for (unsigned i = 0; i < MAX_OPERANDS_NUM; ++i) 
         {
             if (!src[i].empty()) return false;
         }

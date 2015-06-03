@@ -215,13 +215,13 @@ private:
 
     //==========================================================================
 private:
-    unsigned type;                          // Type of data provided (by default, it is used for all src operands)
+    unsigned type;                              // Type of data provided (by default, it is used for all src operands)
 
-    unsigned firstSrcOperand;               // Index of first source operand
-    unsigned lastSrcOperand;                // Index of last source operand
+    unsigned firstSrcOperand;                   // Index of first source operand
+    unsigned lastSrcOperand;                    // Index of last source operand
 
-    TestDataWrapper testData[5];            // Wrappers that provide access to test data for each operand
-                                            // NB: Index in this array corresponds to operand index
+    TestDataWrapper testData[MAX_OPERANDS_NUM]; // Wrappers that provide access to test data for each operand
+                                                // NB: Index in this array corresponds to operand index
 
     // Generators which create all possible combinations of test data
     // for src operands. Several generators are required to enable grouping.

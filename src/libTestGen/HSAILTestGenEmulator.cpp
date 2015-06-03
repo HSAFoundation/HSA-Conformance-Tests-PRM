@@ -143,6 +143,14 @@ namespace TESTGEN {
 //=============================================================================
 //=============================================================================
 
+// Initial value used for initialization of dst before
+// packed instructions which only modify part of dst
+uint64_t initialPackedVal = 0x08090A0B0C0D0E0FULL;
+
+//=============================================================================
+//=============================================================================
+//=============================================================================
+
 #define FX_RND_UNR(impl) template<typename T> Val fx(T val,                  unsigned rounding) { return Val(emulate_##impl(val,              rounding)); }
 #define FX_RND_BIN(impl) template<typename T> Val fx(T val1, T val2,         unsigned rounding) { return Val(emulate_##impl(val1, val2,       rounding)); }
 #define FX_RND_TRN(impl) template<typename T> Val fx(T val1, T val2, T val3, unsigned rounding) { return Val(emulate_##impl(val1, val2, val3, rounding)); }
@@ -1818,10 +1826,10 @@ static Val emulateDstValPackedRegular(Inst inst, Val arg0, Val arg1, Val arg2, V
     unsigned baseSrcType = packedType2baseType(stype);
     unsigned typeDim     = getPackedDstDim(stype, packing);
 
-    // NB: operations with 's' packing control must preserve all elements
-    // except for the lowest one, but this cannot be emulated.
-    // So we just erase everything before emulation.
-    Val dst(type, b128(0, 0));
+    // NB: operations with 's' and 'ss' packing controls must preserve all 
+    // elements except for the lowest one. To verify that high elements are
+    // not modified, init dst with some value before emulation.
+    Val dst(type, b128(initialPackedVal, initialPackedVal));
 
     for (unsigned idx = 0; idx < typeDim; ++idx)
     {

@@ -383,7 +383,10 @@ private:
 
         // Below is a list of conditions when there are no more tests.
         // An interesting case is a GCN trig_preop instruction which cannot be supported with base profile.
-        assert(!start || isBasicVariant() || positiveSample.getOpcode() == BRIG_OPCODE_GCNTRIG_PREOP);
+        assert(!start || 
+               isBasicVariant() || 
+               positiveSample.getOpcode() == BRIG_OPCODE_GCNTRIG_PREOP ||
+               positiveSample.getOpcode() == BRIG_OPCODE_AMDQUERYIMAGE);
 
         return false;
     }

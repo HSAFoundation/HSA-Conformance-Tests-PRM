@@ -35,7 +35,7 @@ namespace TESTGEN {
 
 void assign(Inst inst, int idx, Operand opr)
 {
-    assert(0 <= idx && idx <= 4);
+    assert(0 <= idx && idx < MAX_OPERANDS_NUM);
     assert(idx < inst.operands().size());
     inst.operands().writeAccess(idx) = opr;
 }

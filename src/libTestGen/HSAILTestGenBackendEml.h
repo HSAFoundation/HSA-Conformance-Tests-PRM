@@ -458,11 +458,11 @@ private:
         if (getPacking(testSample) != BRIG_PACK_NONE &&
             getPackedDstDim(getType(testSample), getPacking(testSample)) == 1)
         {
-            // Some packing controls such as 'ss' and 'ss_sat' result in partial dst modification.
-            // To simplify testing in these cases, we clear dst register before test instruction.
+            // There are packing controls (such as 'ss' and 'ss_sat') which result in partial dst modification.
+            // To validate dst bits which should not be modified, init dst with some value before emulation.
 
-            emitCommentHeader("Clear dst register because test instruction modifies only part of dst value");
-            clearDstVal(getOperandReg(provider->getDstOperandIdx()));
+            emitCommentHeader("Initialize dst register because test instruction modifies only part of dst value");
+            initPackedDstVal(getOperandReg(provider->getDstOperandIdx()));
         }
     }
 
@@ -559,7 +559,7 @@ private:
         for(;;)
         {
             bool valid = true;
-            for (unsigned i = 0; i < 5 && valid; ++i)                                 // Read current set of test data
+            for (unsigned i = 0; i < MAX_OPERANDS_NUM && valid; ++i)                  // Read current set of test data
             {
                 td.src[i] = provider->getSrcValue(i);
                 valid = validateSrcData(i, td.src[i]);
@@ -616,7 +616,7 @@ private:
 
     OperandRegister getOperandReg(unsigned idx) // Create register for i-th operand of test instruction.
     {
-        assert(0 <= idx && idx <= 4);
+        assert(idx < MAX_OPERANDS_NUM);
         assert(idx < getOperandsNum(testSample));
 
         OperandRegister reg = testSample.operand(idx); // NB: this register is read-only!
@@ -632,7 +632,7 @@ private:
 
     OperandOperandList getOperandVector(unsigned tstIdx, unsigned idx)  // Create register vector for i-th operand of test instruction.
     {
-        assert(0 <= idx && idx <= 4);
+        assert(idx < MAX_OPERANDS_NUM);
         assert(idx < getOperandsNum(testSample));
         assert(OperandOperandList(testSample.operand(idx)));
 
@@ -852,12 +852,12 @@ private:
         }
     }
 
-    void clearDstVal(OperandRegister reg)
+    void initPackedDstVal(OperandRegister reg)
     {
         assert(reg);
 
         unsigned type = getBitType(getRegSize(reg));
-        context->emitMov(type, reg, context->emitImm(type, 0, 0));
+        context->emitMov(type, reg, context->emitImm(type, initialPackedVal, initialPackedVal));
     }
 
     void saveDstVal(OperandRegister reg, unsigned arrayIdx)
