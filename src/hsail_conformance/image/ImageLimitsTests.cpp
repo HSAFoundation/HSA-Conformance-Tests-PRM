@@ -417,7 +417,6 @@ public:
   }
 
   TypedReg Result() override {
-    auto trueLabel = "@true";
     auto falseLabel = "@false";
     auto endLabel = "@end";
 
@@ -447,7 +446,7 @@ public:
     be.EmitBr(endLabel);
     // false
     be.EmitLabel(falseLabel);
-    for (int i = 0; i < ResultDim(); i++)
+    for (unsigned i = 0; i < ResultDim(); i++)
     {
       be.EmitMov(regs_dest->Reg(i), be.Immed(BRIG_TYPE_U32, 0), 32);
     }
@@ -521,12 +520,10 @@ public:
   }
 
   TypedReg Result() override {
-    auto trueLabel = "@true";
     auto falseLabel = "@false";
     auto endLabel = "@end";
 
     auto rwImageAddr = be.AddTReg(BRIG_TYPE_RWIMG);
-    auto woImageAddr = be.AddTReg(BRIG_TYPE_WOIMG);
     auto indexReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
     auto coord = GetCoords();
     auto query = be.AddTReg(BRIG_TYPE_U32);
@@ -558,7 +555,7 @@ public:
     be.EmitBr(endLabel);
     // false
     be.EmitLabel(falseLabel);
-    for (int i = 0; i < ResultDim(); i++)
+    for (unsigned i = 0; i < ResultDim(); i++)
     {
       be.EmitMov(regs_dest->Reg(i), be.Immed(BRIG_TYPE_U32, 0), 32);
     }
@@ -607,7 +604,6 @@ public:
   
   void ExpectedResults(Values* result) const
   {
-    uint16_t channels = IsImageDepth(ImageGeometryProp()) ? 1 : 4;
     for(uint16_t z = 0; z < geometry->GridSize(2); z++)
       for(uint16_t y = 0; y < geometry->GridSize(1); y++)
         for(uint16_t x = 0; x < geometry->GridSize(0); x++){
@@ -621,11 +617,9 @@ public:
   }
 
   TypedReg Result() override {
-    auto trueLabel = "@true";
     auto falseLabel = "@false";
     auto endLabel = "@end";
 
-    auto rwImageAddr = be.AddTReg(BRIG_TYPE_RWIMG);
     auto woImageAddr = be.AddTReg(BRIG_TYPE_WOIMG);
     auto indexReg = be.AddAReg(BRIG_SEGMENT_GLOBAL);
     auto coord = GetCoords();
@@ -654,7 +648,7 @@ public:
     }
 
     // true
-    for (int i = 0; i < storeElement->Count(); i++)
+    for (size_t i = 0; i < storeElement->Count(); i++)
     {
       be.EmitMov(regs_dest->Reg(i), be.Immed(storeElement->Type(), STORE_VALUE), 32);
     }
@@ -662,7 +656,7 @@ public:
 
     // false
     be.EmitLabel(falseLabel);
-    for (int i = 0; i < ResultDim(); i++)
+    for (unsigned i = 0; i < ResultDim(); i++)
     {
       be.EmitMov(regs_dest->Reg(i), be.Immed(BRIG_TYPE_U32, 0), 32);
     }

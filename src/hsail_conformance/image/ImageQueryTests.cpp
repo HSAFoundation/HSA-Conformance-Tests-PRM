@@ -58,7 +58,7 @@ public:
 
   bool IsValid() const
   {
-    if ( samplerQuery == BRIG_ADDRESSING_UNDEFINED )
+    if ( samplerParams.Addressing() == BRIG_ADDRESSING_UNDEFINED )
     {
       return false;
     }
