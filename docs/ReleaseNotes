@@ -2,7 +2,7 @@ HSA Conformance Test Suite release notes
 
 Test suite revision
 
- * Date: 04/21/2015
+ * Date: 05/25/2015
 
 System Requirements
 
@@ -12,13 +12,13 @@ System Requirements
 
 Tested configuration
 
- * AMD HSAIL Runtime built from staging HSA CL 1142323 and RC2
- * KFD RC3
- * Thunk RC3 
- * Kaveri APU
- * Ubuntu 14.04 64 bit
+ * AMD HSAIL Runtime built from staging HSA CL 1153739 and 1.0f.2.RC4
+ * KFD 1.0f.2.RC3
+ * Thunk 1.0f.2.RC3
+ * Kaveri and Carrizo APUs
+ * Ubuntu 14.04 and Fedora 21 64 bit
  * exclude list for staging HSA_PRM: Stg "-exclude amdhsa.exclude"
- * exclude list for RC2: "-exclude amdhsa.exclude.rc2"
+ * exclude list for 1.0f.2.RC4: "-exclude amdhsa.exclude.1.0f.2.rc4"
 
 Specifications coverage
 
@@ -32,11 +32,5 @@ Known issues
  * Tests will fail randomly with AMD HSA Runtime on Windows 32 and 64 bit bacause it uses deprecated non-AQL path
  * Exception and debugtrap instructions are not described clearly in the specification and are not implemented in AMD HSAIL Runtime
  * Some tests will fail or hang due to AMD HSA implemenation bugs. Exclude list "amdhsa.exclude" is provided
- * Test harness has a bug which results in Segmentation Fault after test run. This bug does not affect test execution or test results, 
-   and will be fixed in the production version
-
-Installation
-
- * Unpack binary package to a directory
 
 For more information about running test suite and details for the tests please refer to the "HSA PRM Conformance Manual" document
