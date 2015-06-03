@@ -87,6 +87,9 @@ public:
         << imageChannelType2str(channelType);
   }
 
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+
   bool IsValid() const  {
     return IsImageLegal(imageGeometryProp, channelOrder, channelType);
   }
@@ -357,7 +360,7 @@ public:
     return result;
   }
 
-  BrigType ResultType() const { return ImageAccessType(ChannelType()); }
+  BrigType ResultType() const override { return ImageAccessType(ChannelType()); }
 
   uint64_t ResultDim() const override {
     return IsImageDepth(ImageGeometryProp()) ? 1 : 4;
@@ -732,8 +735,8 @@ public:
     red = readColor[0];
   }
 
-  BrigType ResultType() const { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const { return Value(MV_UINT32, 1); }
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
 
   void ModuleDirectives() override {
     be.EmitExtensionDirective("IMAGE");
