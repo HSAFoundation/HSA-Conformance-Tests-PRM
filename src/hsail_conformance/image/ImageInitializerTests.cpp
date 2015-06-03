@@ -96,8 +96,8 @@ public:
     sampler->FunctionVariables();
   }
 
-  BrigType ResultType() const override { return BRIG_TYPE_U32; }
-  Value ExpectedResult() const override { return Value(MV_UINT32, 1); }
+  BrigType ResultType() const { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const { return Value(MV_UINT32, 1); }
 
   TypedReg Result() {
     auto trueLabel = "@true";
