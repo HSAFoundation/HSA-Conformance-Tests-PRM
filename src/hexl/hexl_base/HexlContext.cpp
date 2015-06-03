@@ -5,7 +5,8 @@
 #include "RuntimeCommon.hpp"
 #include "Stats.hpp"
 #include "Options.hpp"
-#include "hsail_c.h"
+#include "HSAILTool.h"
+#include "HSAILBrigContainer.h"
 #ifdef _WIN32
 #include <windows.h>
 #include <strsafe.h>
@@ -89,22 +90,21 @@ namespace hexl {
     }
   }
 
-  void Context::DumpBrigIfEnabled(const std::string& name, void* _brig)
+  void Context::DumpBrigIfEnabled(const std::string& name, HSAIL_ASM::BrigContainer* brig)
   {
-    brig_container_t brig = reinterpret_cast<brig_container_t>(_brig);
-
+    HSAIL_ASM::Tool tool(brig);
     if (IsDumpEnabled("brig")) {
       std::string testName = GetOutputName(name, "brig");
       std::string brigFileName = RM()->GetOutputFileName(testName);
-      if (0 != brig_container_save_to_file(brig, brigFileName.c_str())) {
-        Info() << "Warning: failed to dump brig to " << brigFileName << ": " << brig_container_get_error_text(brig) << std::endl;
+      if (0 != tool.saveToFile(brigFileName)) {
+        Info() << "Warning: failed to dump brig to " << brigFileName << ": " << tool.output() << std::endl;
       }
     }
     if (IsDumpEnabled("hsail")) {
       std::string testName = GetOutputName(name, "hsail");
       std::string hsailFileName = RM()->GetOutputFileName(testName);
-      if (0 != brig_container_disassemble_to_file(brig, hsailFileName.c_str())) {
-        Info() << "Warning: failed to dump hsail to " << hsailFileName << ": " << brig_container_get_error_text(brig) << std::endl;
+      if (0 != tool.disassembleToFile(hsailFileName)) {
+        Info() << "Warning: failed to dump hsail to " << hsailFileName << ": " << tool.output() << std::endl;
       }
     }
   }

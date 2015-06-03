@@ -182,9 +182,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
     virtual bool ModuleCreateFromBrig(const std::string& moduleId = "module", const std::string& brigId = "brig") override
     {
-      brig_container_t brig = context->Get<brig_container_struct>(brigId);
-      brig_container_get_brig_module(brig);
-      context->Put(moduleId, brig);
+      HSAIL_ASM::BrigContainer* brig = context->Get<HSAIL_ASM::BrigContainer>(brigId);
+      BrigModule_t module = brig->getBrigModule();
+      context->Put(moduleId, module);
       return true;
     }
 
@@ -228,8 +228,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     virtual bool ProgramAddModule(const std::string& programId = "program", const std::string& moduleId = "module") override
     {
       HsailProgram* program = context->Get<HsailProgram>(programId);
-      brig_container_t brig = context->Get<brig_container_struct>(moduleId);
-      hsa_ext_module_t module = (hsa_ext_module_t) brig_container_get_brig_module(brig);
+      BrigModule_t module = context->Get<BrigModuleHeader>(moduleId);      
       hsa_status_t status = Runtime()->Hsa()->hsa_ext_program_add_module(program->Program(), module);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_add_module failed", status); return false; }
       return true;

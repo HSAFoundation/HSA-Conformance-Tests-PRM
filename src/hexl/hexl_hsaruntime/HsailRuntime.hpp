@@ -23,7 +23,8 @@
 #include "hsa.h"
 #include "hsa_ext_finalize.h"
 #include "hsa_ext_image.h"
-#include "hsail_c.h"
+#include "HSAILTool.h"
+#include "HSAILBrigContainer.h"
 #include <functional>
 
 namespace hexl {
@@ -193,8 +194,9 @@ public:
     context->Error() << msg << std::endl;
   }
 
-  void hsailcError(const char *msg, brig_container_t brig, int status) {
-    context->Error() << msg << ": error " << status << ": " << brig_container_get_error_text(brig) << std::endl;
+  void hsailcError(const char *msg, HSAIL_ASM::BrigContainer* brig, int status) {
+    HSAIL_ASM::Tool tool(brig);
+    context->Error() << msg << ": error " << status << ": " << tool.output() << std::endl;
   }
 
   hsa_agent_t Agent() { return agent; }

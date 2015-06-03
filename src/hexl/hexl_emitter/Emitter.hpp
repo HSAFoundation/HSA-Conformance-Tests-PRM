@@ -817,7 +817,7 @@ public:
 class EModule : public EmittableContainerWithId {
 private:
   HSAIL_ASM::DirectiveModule module;
-  brig_container_t brigContainer;
+  std::shared_ptr<HSAIL_ASM::BrigContainer> brigContainer;
 
 public:
   EModule(TestEmitter* te, const std::string& id_)

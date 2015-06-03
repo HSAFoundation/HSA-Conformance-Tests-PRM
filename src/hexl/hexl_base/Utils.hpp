@@ -18,7 +18,7 @@
 #define HEXL_UTILS_HPP
 
 #include "Brig.h"
-#include "hsail_c.h"
+#include "HSAILBrigContainer.h"
 #include <string>
 #include "MObject.hpp"
 #include "Image.hpp"
@@ -32,11 +32,10 @@ enum EndiannessConfig {
   ENDIANNESS_BIG
 };
 
-BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig);
-BrigCodeOffset32_t GetBrigUniqueKernelOffset(brig_container_t brig);
-std::string GetBrigKernelName(brig_container_t brig, BrigCodeOffset32_t kernelOffset);
-unsigned GetBrigKernelInArgCount(brig_container_t brig, BrigCodeOffset32_t kernelOffset);
-brig_container_t CreateBrigFromContainer(HSAIL_ASM::BrigContainer* container);
+BrigMachineModel8_t GetBrigMachineModel(HSAIL_ASM::BrigContainer* brig);
+BrigCodeOffset32_t GetBrigUniqueKernelOffset(HSAIL_ASM::BrigContainer* brig);
+std::string GetBrigKernelName(HSAIL_ASM::BrigContainer* brig, BrigCodeOffset32_t kernelOffset);
+unsigned GetBrigKernelInArgCount(HSAIL_ASM::BrigContainer* brig, BrigCodeOffset32_t kernelOffset);
 std::string ExtractTestPath(const std::string& name, unsigned level);
 hexl::ValueType Brig2ValueType(BrigType type);
 BrigType Value2BrigType(hexl::ValueType type);
@@ -56,8 +55,8 @@ EndiannessConfig PlatformEndianness(void);
 void SwapEndian(void* ptr, size_t typeSize);
 
 template <>
-struct Serializer<brig_container_t> {
-  static void Write(std::ostream& out, const brig_container_t& brig) {
+struct Serializer<HSAIL_ASM::BrigContainer*> {
+  static void Write(std::ostream& out, const HSAIL_ASM::BrigContainer& brig) {
     /*
     unsigned sectionCount = brig_container_get_section_count(brig);
     size_t totalSize = 0;
@@ -74,7 +73,7 @@ struct Serializer<brig_container_t> {
     */
     assert(false);
   }
-  static void Read(std::istream& in, brig_container_t& brig) {
+  static void Read(std::istream& in, HSAIL_ASM::BrigContainer& brig) {
     /*
     unsigned sectionCount;
     size_t totalSize;
