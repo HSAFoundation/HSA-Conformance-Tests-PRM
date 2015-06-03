@@ -161,7 +161,9 @@ private:
     std::string testName = ss.str();
 
     Context* initialContext = te->ReleaseContext();
-    initialContext->Move("sample.brig", testDesc.getContainer());
+    // FIXME: workaroud for double deletion of brig container
+    BrigContainer* copy = new BrigContainer(testDesc.getContainer()->getBrigModule());
+    initialContext->Move("sample.brig", copy);
     initialContext->Move("scenario", te->TestScenario()->ReleaseScenario());
     Test* test = new ScenarioTest(testName, initialContext);
     return new TestHolder(test);
