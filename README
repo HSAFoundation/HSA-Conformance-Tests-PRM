@@ -1,10 +1,8 @@
-HSA PRM Conformance test suite
-==============================
-
 HSA PRM Conformance test suite is used to verify whether an HSA implementation
-conforms to the HSA specifications: HSA PRM (HSA Programmer's Reference Manual)
-and SysArch (HSA Platform System Architecture)
+conforms to the HSA specifications:
+- HSA PRM (HSA Programmer's Reference Manual) and
+- SysArch (HSA Platform System Architecture)
 
-Detailed documentation: docs/HsaPrmConformance.*
+Detailed documentation: docs/HsaPrmConformance.[md|html|pdf]
 Release Notes: docs/ReleaseNotes
 

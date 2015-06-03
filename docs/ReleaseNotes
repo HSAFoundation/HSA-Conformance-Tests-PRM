@@ -6,18 +6,16 @@ Test suite revision
 
 System Requirements
 
- * Hardware architecture: HSA
- * OS: Linux Ubuntu 14.04 64 bit
- * Software stack: HSAIL Runtime (KFD, HSA Runtime and Finalizer)
+ * Architecture: HSA
+ * OS: Linux 64 bit Ubuntu 14.04 or Fedora 21
 
 Tested configuration
 
  * AMD HSAIL Runtime built from staging HSA CL 1153739 and 1.0f.2.RC4
  * KFD 1.0f.2.RC3
  * Thunk 1.0f.2.RC3
- * Kaveri and Carrizo APUs
+ * Kaveri APUs
  * Ubuntu 14.04 and Fedora 21 64 bit
- * exclude list for staging HSA_PRM: Stg "-exclude amdhsa.exclude"
  * exclude list for 1.0f.2.RC4: "-exclude amdhsa.exclude.1.0f.2.rc4"
 
 Specifications coverage
@@ -25,12 +23,5 @@ Specifications coverage
  * Version: 1.0 Final
  * HSA PRM: fully covered
  * HSA SysArch: covered functional parts (except not supported by the existing hardware or software: 2.2, 2.7, 2.11)
-
-Known issues
-
- * Tests can't be executed on Linux 32 bit due to an assert in AMD HSA Runtime. EPR 409618
- * Tests will fail randomly with AMD HSA Runtime on Windows 32 and 64 bit bacause it uses deprecated non-AQL path
- * Exception and debugtrap instructions are not described clearly in the specification and are not implemented in AMD HSAIL Runtime
- * Some tests will fail or hang due to AMD HSA implemenation bugs. Exclude list "amdhsa.exclude" is provided
 
 For more information about running test suite and details for the tests please refer to the "HSA PRM Conformance Manual" document
