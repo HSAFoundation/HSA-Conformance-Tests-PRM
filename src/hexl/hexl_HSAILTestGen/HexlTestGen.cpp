@@ -109,7 +109,6 @@ private:
   TestSpec* CreateTestSpec(TestDesc& testDesc)
   {
     BrigCodeOffset32_t ioffset = testDesc.getInst().brigOffset();
-    brig_container_t brig = CreateBrigFromContainer(testDesc.getContainer());
     // TODO: update inst because CreateBrigFromContainer can modify the container invalidatng sections.
     testDesc.setInst(Inst(testDesc.getContainer(), ioffset));
     TestGroupArray* testGroup = testDesc.getData();
@@ -162,7 +161,7 @@ private:
     std::string testName = ss.str();
 
     Context* initialContext = te->ReleaseContext();
-    initialContext->Move("sample.brig", brig);
+    initialContext->Move("sample.brig", testDesc.getContainer());
     initialContext->Move("scenario", te->TestScenario()->ReleaseScenario());
     Test* test = new ScenarioTest(testName, initialContext);
     return new TestHolder(test);

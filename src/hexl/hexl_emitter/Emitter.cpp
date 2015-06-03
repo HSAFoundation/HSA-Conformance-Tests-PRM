@@ -3156,7 +3156,7 @@ void EModule::StartModule()
 
 void EModule::EndModule()
 {
-  te->InitialContext()->Move(id.str() + ".brig", te->Brig()->Brig());
+  te->InitialContext()->Move(id.str() + ".brig", brigContainer.get());
   te->Brig()->End();
 }
 

@@ -20,7 +20,6 @@
 #include <vector>
 #include "HSAILBrigContainer.h"
 #include "HSAILBrigantine.h"
-#include "hsail_c.h"
 #include "Arena.hpp"
 #include "HexlTest.hpp"
 #include "EmitterCommon.hpp"
@@ -43,8 +42,8 @@ namespace Variables { class Spec; }
 class BrigEmitter {
 private:
   hexl::Arena* ap;
-  brig_container_t brig;
   CoreConfig* coreConfig;
+  std::shared_ptr<HSAIL_ASM::BrigContainer> container;
   std::unique_ptr<HSAIL_ASM::Brigantine> brigantine;
 
   std::map<std::string, unsigned> nameIndexes;
@@ -67,10 +66,8 @@ public:
   ~BrigEmitter();
 
   void SetCoreConfig(CoreConfig* coreConfig) { assert(coreConfig && !this->coreConfig); this->coreConfig = coreConfig; }
-  HSAIL_ASM::BrigContainer* BrigC();
-  brig_container_t Brig();
-  HSAIL_ASM::Brigantine& Brigantine() { return *brigantine; }
-  void DestroyBrigContainer(brig_container_t container);
+  HSAIL_ASM::Brigantine& Brigantine() { assert(brigantine != nullptr); return *brigantine; }
+  void DestroyBrigContainer(std::shared_ptr<HSAIL_ASM::BrigContainer> container);
 
   std::string AddName(const std::string& name, bool addZero = false);
 
@@ -102,7 +99,7 @@ public:
   std::string OName(unsigned n = 0) { return AddName("out"); }
   std::string GenVariableName(BrigSegment segment, bool output = false);
 
-  brig_container_t Start();
+  std::shared_ptr<HSAIL_ASM::BrigContainer> Start();
   void End();
   HSAIL_ASM::DirectiveModule StartModule(const std::string& name = "&module");
   HSAIL_ASM::DirectiveKernel StartKernel(const std::string& name = "&test_kernel", bool definition = true);

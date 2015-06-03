@@ -30,24 +30,6 @@ namespace emitter {
 
 const Operand BrigEmitter::nullOperand;
 
-brig_container_t BrigEmitter::Brig()
-{
-  brig_container_t res = brig;
-  brig = 0;
-  return res;
-}
-
-BrigContainer* BrigEmitter::BrigC() {
-  // TODO: fix hsail_c API not to do cast.
-  return (BrigContainer*) brig;
-/*
-  return brig_container_create_copy(Brig()->strings().data().begin,
-    Brig()->code().data().begin,
-    Brig()->operands().data().begin,
-    0);
-*/
-}
-
 BrigType EPointerReg::GetSegmentPointerType(BrigSegment8_t segment, bool large)
 {
   switch (getSegAddrSize(segment, large)) {
@@ -63,8 +45,8 @@ BrigType EPointerReg::GetSegmentPointerType(BrigSegment8_t segment, bool large)
 
 BrigEmitter::BrigEmitter()
   : ap(new Arena()),
-    brig(nullptr),
     coreConfig(0),
+    container(nullptr),
     brigantine(nullptr),
     currentScope(ES_MODULE)
 {
@@ -77,10 +59,10 @@ BrigEmitter::~BrigEmitter()
   delete ap;
 }
 
-void BrigEmitter::DestroyBrigContainer(brig_container_t container)
+void BrigEmitter::DestroyBrigContainer(std::shared_ptr<BrigContainer> container)
 {
   assert(container);
-  brig_container_destroy(brig);
+  container.reset();
 }
 
 std::string BrigEmitter::AddName(const std::string& name, bool addZero)
@@ -201,13 +183,13 @@ BrigType BrigEmitter::PointerType(BrigSegment8_t asegment) const
   }
 }
 
-brig_container_t BrigEmitter::Start()
+std::shared_ptr<BrigContainer> BrigEmitter::Start()
 {
   assert(coreConfig);
-  brig = brig_container_create_empty();
-  brigantine.reset(new HSAIL_ASM::Brigantine(*BrigC()));
+  container.reset(new HSAIL_ASM::BrigContainer());
+  brigantine.reset(new HSAIL_ASM::Brigantine(*container));
   brigantine->startProgram();
-  return brig;
+  return container;
 }
 
 void BrigEmitter::End()

@@ -4,6 +4,7 @@
 #include "RuntimeContext.hpp"
 #include <fstream>
 #include <iomanip>
+#include "HSAILTool.h"
 
 namespace hexl {
 
@@ -11,10 +12,7 @@ namespace hexl {
   void Print(const GridGeometry& grid, std::ostream& out) { grid.Print(out); }
 
   template <>
-  void Print(const brig_container_t& o, std::ostream& out) { out << "<brig>"; }
-
-  template <>
-  void Print(const brig_container_struct& o, std::ostream& out) { out << "<brig>";  }
+  void Print(const HSAIL_ASM::BrigContainer& o, std::ostream& out) { out << "<brig>"; }
 
   template <>
   void Print(const Value& value, std::ostream& out) { value.Print(out); }
@@ -38,16 +36,17 @@ namespace hexl {
   }
 
   template <>
-  void Dump<brig_container_struct>(const brig_container_struct& brig, const std::string& path, const std::string& name)
+  void Dump<HSAIL_ASM::BrigContainer>(const HSAIL_ASM::BrigContainer& brig, const std::string& path, const std::string& name)
   {
-    brig_container_t brigt = const_cast<brig_container_t>(&brig);
     std::string brigFileName = GetOutputName(path, name, "brig");
-    if (0 != brig_container_save_to_file(brigt, brigFileName.c_str())) {
-      //Info() << "Warning: failed to dump brig to " << brigFileName << ": " << brig_container_get_error_text(brig) << std::endl;
+    HSAIL_ASM::BrigContainer* brigC = const_cast<HSAIL_ASM::BrigContainer *>(&brig); 
+    HSAIL_ASM::Tool tool(brigC);
+    if (0 != tool.saveToFile(brigFileName)) {
+      //Info() << "Warning: failed to dump brig to " << brigFileName << ": " << tool->output() << std::endl;
     }
     std::string hsailFileName = GetOutputName(path, name, "hsail");
-    if (0 != brig_container_disassemble_to_file(brigt, hsailFileName.c_str())) {
-      //Info() << "Warning: failed to dump hsail to " << hsailFileName << ": " << brig_container_get_error_text(brig) << std::endl;
+    if (0 != tool.disassembleToFile(hsailFileName)) {
+      //Info() << "Warning: failed to dump hsail to " << hsailFileName << ": " << tool->output() << std::endl;
     }
   }
 

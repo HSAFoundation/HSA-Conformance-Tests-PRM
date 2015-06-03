@@ -20,32 +20,16 @@
 #include "HSAILParser.h"
 #include "HSAILValidator.h"
 #include "HSAILBrigObjectFile.h"
-#include "hsail_c.h"
 
 using namespace HSAIL_ASM;
 
 namespace hexl {
 
-BrigContainer* BrigC(brig_container_t brig)
+BrigMachineModel8_t GetBrigMachineModel(BrigContainer* brig)
 {
-  BrigModuleHeader* brigm = static_cast<BrigModuleHeader*>(brig_container_get_brig_module(brig));
-  return new BrigContainer(brigm);
-}
-
-brig_container_t CreateBrigFromContainer(HSAIL_ASM::BrigContainer* container)
-{
-  BrigModule_t brigModule = container->getBrigModule();
-  return brig_container_create_copy(brigModule, brigModule->byteCount);
-}
-
-
-BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig)
-{
-  BrigContainer* brigc = BrigC(brig);
-  for (Code d = brigc->code().begin(), e = brigc->code().end(); d != e; ) {
+  for (Code d = brig->code().begin(), e = brig->code().end(); d != e; ) {
     if (DirectiveModule v = d) {
       BrigMachineModel8_t model = v.machineModel().enumValue();
-      delete brigc;
       return model;
     }
     if (DirectiveExecutable exec = d) {
@@ -54,17 +38,15 @@ BrigMachineModel8_t GetBrigMachineModel(brig_container_t brig)
       d = d.next();
     }
   }
-  delete brigc;
   return BRIG_MACHINE_UNDEF;
 }
 
-BrigCodeOffset32_t GetBrigUniqueKernelOffset(brig_container_t brig)
+BrigCodeOffset32_t GetBrigUniqueKernelOffset(BrigContainer* brig)
 {
   BrigCodeOffset32_t uniqueKernelOffset = 0;
-  BrigContainer* brigc = BrigC(brig);
 
   DirectiveKernel k;
-  for (Code d = brigc->code().begin(), e = brigc->code().end(); d != e; ) {
+  for (Code d = brig->code().begin(), e = brig->code().end(); d != e; ) {
     k = d;
     if (k) {
       if (!uniqueKernelOffset) {
@@ -81,27 +63,22 @@ BrigCodeOffset32_t GetBrigUniqueKernelOffset(brig_container_t brig)
       d = d.next();
     }
   }
-  delete brigc;
   return uniqueKernelOffset;
 }
 
-std::string GetBrigKernelName(brig_container_t brig, BrigCodeOffset32_t kernelOffset)
+std::string GetBrigKernelName(BrigContainer* brig, BrigCodeOffset32_t kernelOffset)
 {
-  BrigContainer* brigc = BrigC(brig);
-  DirectiveKernel kernel(brigc, kernelOffset);
+  DirectiveKernel kernel(brig, kernelOffset);
   assert(kernel != 0);
   std::string kernelName = kernel.name().str();
-  delete brigc;
   return kernelName;
 }
 
-unsigned GetBrigKernelInArgCount(brig_container_t brig, BrigCodeOffset32_t kernelOffset)
+unsigned GetBrigKernelInArgCount(BrigContainer* brig, BrigCodeOffset32_t kernelOffset)
 {
-  BrigContainer* brigc = BrigC(brig);
-  DirectiveKernel k(brigc, kernelOffset);
+  DirectiveKernel k(brig, kernelOffset);
   assert(k != 0);
   unsigned res = k.inArgCount();
-  delete brigc;
   return res;
 }
 

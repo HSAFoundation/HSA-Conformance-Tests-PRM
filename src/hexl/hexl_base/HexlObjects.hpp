@@ -3,7 +3,7 @@
 
 #include <string>
 #include <ostream>
-#include "hsail_c.h"
+#include "HSAILBrigContainer.h"
 #include "MObject.hpp"
 
 struct BrigModuleHeader;
@@ -34,7 +34,7 @@ namespace hexl {
   }
 
   template <>
-  void Print(const brig_container_struct& o, std::ostream& out);
+  void Print(const HSAIL_ASM::BrigContainer& o, std::ostream& out);
 
   template <>
   inline void Print(const BrigModuleHeader& o, std::ostream& out) { }
@@ -73,10 +73,7 @@ namespace hexl {
   inline void Dump(const T& t, const std::string& path, const std::string& name) { }
 
   template <>
-  void Dump<brig_container_t>(const brig_container_t&, const std::string& path, const std::string& name);
-
-  template <>
-  void Dump<brig_container_struct>(const brig_container_struct&, const std::string& path, const std::string& name);
+  void Dump<HSAIL_ASM::BrigContainer>(const HSAIL_ASM::BrigContainer&, const std::string& path, const std::string& name);
 
   template <>
   void Dump<Values>(const Values&, const std::string& path, const std::string& name);

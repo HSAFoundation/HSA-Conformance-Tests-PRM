@@ -53,13 +53,6 @@ namespace hexl {
     ~ContextManagedPointer() { delete this->t;  }
   };
 
-  template <>
-  class ContextManagedPointer<brig_container_struct> : public ContextPointer<brig_container_struct> {
-  public:
-    ContextManagedPointer(brig_container_t t_) : ContextPointer<brig_container_struct>(t_) { }
-    ~ContextManagedPointer() { brig_container_destroy(t);  }
-  };
-
   template <typename T>
   class ContextValue : public ContextObject {
   private:
@@ -173,7 +166,7 @@ namespace hexl {
     std::string GetOutputName(const std::string& name, const std::string& what);
     bool DumpTextIfEnabled(const std::string& name, const std::string& what, const std::string& text);
     bool DumpBinaryIfEnabled(const std::string& name, const std::string& what, const void *buffer, size_t bufferSize);
-    void DumpBrigIfEnabled(const std::string& name, void* brig);
+    void DumpBrigIfEnabled(const std::string& name, HSAIL_ASM::BrigContainer* brig);
 
     // Helper methods. Include HexlTest.hpp to use them.
     ResourceManager* RM() { return Get<ResourceManager>("hexl.rm"); }
