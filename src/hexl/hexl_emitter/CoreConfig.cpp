@@ -261,7 +261,7 @@ static const BrigImageQuery allImgQueries[] = {
 
 static const unsigned arrayGeometry[] = { 1, 2, 10, };
 
-static const uint32_t numberRwArray[] = { 0, 17, 32, 64 };
+static const uint32_t numberRwArray[] = { 17, 32, 47 };
 
 CoreConfig::ImageConfig::ImageConfig(CoreConfig* cc)
   : ConfigBase(cc),
