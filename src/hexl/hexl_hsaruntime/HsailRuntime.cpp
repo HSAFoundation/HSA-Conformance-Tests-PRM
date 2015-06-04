@@ -656,7 +656,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       hsa_queue_t* queue = Runtime()->QueueNoError();
       if (!queue) { runtime->HsaError("Queue is not available"); return false; }
-      uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);
+      uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);    
+      context->Put(dispatchId, "dispatchpacketid", Value(MV_UINT64, packetId));
       hsa_kernel_dispatch_packet_t* p = (hsa_kernel_dispatch_packet_t*) queue->base_address + packetId;
       memset(p, 0, sizeof(*p));
 
