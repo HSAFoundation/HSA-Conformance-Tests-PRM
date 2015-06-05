@@ -43,7 +43,7 @@ uint64_t TestProp::MaxWgId()                                         const { ret
 TypedReg TestProp::Id()                                              const { return test->TestAbsId(getBrigTypeNumBits(type) == 64); }
 TypedReg TestProp::Id32()                                            const { return test->TestAbsId(false); }
 TypedReg TestProp::Idx()                                             const { return test->Index(); }
-TypedReg TestProp::Idx(unsigned writeIdx, unsigned access)           const { return test->Index(writeIdx, access); }
+TypedReg TestProp::Idx(unsigned arrayId, unsigned access)            const { return test->Index(arrayId, access); }
 
 //=====================================================================================
 

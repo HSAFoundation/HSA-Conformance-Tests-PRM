@@ -21,45 +21,122 @@
 //
 // This is a set of tests that check compliance with memory model requirements
 //
-// The purpose of this code is to test the result of execution of 
-// a pair of write instructions A and B which should not be reordered.
-// These instructions are executed by one workitem (X) but results are 
-// inspected by another workitem (Y). If X execute A and B in this order,
-// Y must see the result of A after the result of B is visible.
+// The purpose of this code is to test most "happens-before" (HB) and "synchronizes-with"
+// (SYNC) scenarios. Each of these scenarios involve read/write pairs (R and W) 
+// of instructions executed by different workitems w1 and w2:
 //
+//                  (w1)                         (w2)
+//                                              
+//                   |                            |
+//                   |      happens-before        |
+//                 HB-W   <-----------------------|----------
+//                   |                            |         |
+//                  F-W     synchronizes-with     |         |
+//                 SYNC-W <------------------- SYNC-R       |
+//                   |                           F-R        |
+//                   |                            |         |
+//                   |                          HB-R --------
+//                   |                            |
+//                  ...                          ...
+// 
+// Write instructions are executed by one workitem (w1), results are 
+// inspected by another workitem (w2). The test expects that a value X written by HB-W 
+// operation and a value Y read by HB-R operation are the same (X=Y).
+//
+//=====================================================================================
+// ATTRIBUTES
+//
+// The following table enumerates valid test attributes for each operation
+//
+// SYNC-W: an atomic store (or rmw atomic)
+//     --------------------------------------------------------------------------------
+//      prop      arg              valid values
+//     --------------------------------------------------------------------------------
+//      op      = sync_op       -- any (except for LD)
+//      order   = sync_order    -- any
+//      scope   = sync_scope    -- any (consistent with test kind and sync segment)
+//      seg     = sync_seg      -- any (consistent with test kind)
+//     --------------------------------------------------------------------------------
+// 
+// SYNC-R: an atomic load (or rmw atomic)
+//     --------------------------------------------------------------------------------
+//      prop      arg              valid values
+//     --------------------------------------------------------------------------------
+//      op      = ld            -- (actually any operation which does not change memory)
+//      order   = sync_order_r  -- any
+//      scope   = sync_scope    -- (may be wider)
+//      seg     = sync_seg 
+//     --------------------------------------------------------------------------------
+// 
+// F-W: memory fence (required if SYNC-W.order != rel/ar)
+//     --------------------------------------------------------------------------------
+//      prop      arg              valid values
+//     --------------------------------------------------------------------------------
+//      order  = rel/ar
+//      scope  = scope1         -- any (consistent with test type)
+//     --------------------------------------------------------------------------------
+// 
+// F-R: memory fence (required if SYNC-R.order != acq/ar)
+//     --------------------------------------------------------------------------------
+//      prop      arg              valid values
+//     --------------------------------------------------------------------------------
+//      order  = acq/ar
+//      scope  = scope1         -- any (consistent with test type)
+//     --------------------------------------------------------------------------------
+// 
+// HB-W: an plain store or an atomic store (or rmw atomic)
+//     --------------------------------------------------------------------------------
+//      prop      arg              valid values
+//     --------------------------------------------------------------------------------
+//      op      = hb_op         -- any (except for LD)
+//      order   = hb_order      -- any 
+//      scope   = hb_scope      -- any (consistent with hb segment)
+//      seg     = hb_seg        -- any (consistent with test kind)
+//     --------------------------------------------------------------------------------
+// 
+// HB-R: an plain load or an atomic load (or rmw atomic)
+//     --------------------------------------------------------------------------------
+//      prop      arg              valid values
+//     --------------------------------------------------------------------------------
+//      op      = ld            -- any (except for LD)
+//      order   = hb_order_r    -- any 
+//      scope   = hb_scope_r    -- any (consistent with hb segment)
+//      seg     = hb_seg        -- 
+//     --------------------------------------------------------------------------------
+// 
 //=====================================================================================
 // GENERIC TEST STRUCTURE
 //
 // Each workitem in this test does the following:
-//  1. prepare test data at index wi.id:
-//      - write test data T0 to array0 at index wi.id (instruction A)
-//      - execute a memory fence if instructions A and B may be reordered
-//      - write test data T1 to array1 at index wi.id (instruction B)
-//  2. read test data written by another workitem at another index:
-//      - read test data H1 from array1 at index testId (instruction C)
-//      - read test data H0 from array0 at index testId (instruction D)
-//  3. validate test data read on the previous step:
-//      - if (H1 == T1) validate(H0 == T0)
+//  1. prepare test data at write index:                                      (workitem w1)
+//      - write test data: hb_array[wi.id] = T0                                   (instruction HB-W)
+//      - execute a memory fence if required for 'synchronizes-with' scenario     (instruction F-W)
+//      - write synchronization data: sync_array[wi.id] = T1                      (instruction SYNC-W)
+//  2. read test data written by another workitem at read index i:            (workitem w2)
+//      - read synchronization data: H1 = sync_array[i]                           (instruction SYNC-R)
+//      - execute a memory fence if required for 'synchronizes-with' scenario     (instruction F-R)
+//      - if (H1=expected) read test data: H0 = hb_array0[i]                      (instruction HB-R)
+//  3. validate test data H0 read on the previous step
 //  
 //=====================================================================================
 // TEST KINDS
 //
 // There are the following types of this test:
 //  1. WAVE kind.
-//     Items withing a wave test data written by other items within the same wave.
+//     Items within a wave test data written by other items within the same wave.
 //  2. WGROUP kind.
-//     Items withing a wave test data written by other items within the same workgroup but in another wave.
+//     Items within a wave test data written by other items within the same workgroup but in another wave.
 //  3. AGENT kind.
-//     Items withing a workgroup N+1 (N>0) test data written by items within the workgroup N.
-//     Items withing a workgroup 0 test data written by itself.
+//     Items within a workgroup N+1 (N>0) test data written by items within the workgroup N.
+//     Items within a workgroup 0 test data written by itself.
 //
 //=====================================================================================
 // DETAILED DESCRIPTION OF TESTS
 //
 // Legend:
-//  - wi.id:   workitemflatabsid
-//  - wg.id:   workgroupid(0)
-//  - wg.size:  workgroup size in X dimension 
+//  - wi.id:      workitemflatabsid
+//  - wg.id:      workgroupid(0)
+//  - wg.size:    workgroup size in X dimension 
 //  - grid.size:  grid size in X dimension 
 //  - test.size:  number of workitems which participate in the test:
 //                   - wavesize for WAVE kind
@@ -71,290 +148,346 @@
 //                   - wavesize for WGROUP kind
 //                   - wg.size for AGENT kind
 //
+//
+// Interface functions:
+//
+//  <type>   InitialValue(unsigned arrayId)    initial value
+//  TypedReg Operand(unsigned arrayId)         generate code for the first source operand of store instruction
+//  TypedReg Operand1(unsigned arrayId)        generate code for the second source operand of store instruction 
+//  <type>   ExpectedValue(unsigned arrayId)   expected value
+//
 //=====================================================================================
 // TEST STRUCTURE FOR WAVE AND WGROUP TEST KINDS
 //
-//                                           // Define and initialize test arrays
-//                                           // NB: initialization is only possible for arrays in GLOBAL segment
-//    <type0> <seg0> testArray0[(seg0 == GROUP)? wg.size : grid.size] = {InitialValue(0), InitialValue(0), ...}; 
-//    <type1> <seg1> testArray1[(seg1 == GROUP)? wg.size : grid.size] = {InitialValue(1), InitialValue(1), ...}; 
+//                                                  // Define and initialize test arrays
+//                                                  // NB: initialization is only possible for arrays in GLOBAL segment
+//    <hb_type>   <hb_seg>   hb_array  [(hb_seg   == GROUP)? wg.size : grid.size] = {InitialValue(HB),   InitialValue(HB),   ...}; 
+//    <sync_type> <sync_seg> sync_array[(sync_seg == GROUP)? wg.size : grid.size] = {InitialValue(SYNC), InitialValue(SYNC), ...}; 
 //    
-//    kernel(unsigned global ok[grid.size]) // output array
+//    kernel(unsigned global ok[grid.size])         // output array
 //    {
 //        private unsigned testId = ((wi.id % test.size) < delta)? wi.id + test.size - delta : wi.id - delta;
 //
-//        // testComplete flag is used to only record result
-//        // at first successful 'synchronized-with' attempt
+//                                                  // testComplete flag is used to record only result
+//                                                  // at first successful 'synchronized-with' attempt
 //        private bool testComplete = 0;
+//
+//                                                  // syncWith flag is set at first successful 
+//                                                  // 'synchronized-with' attempt
+//        private bool syncWith = false;
+//        private bool resultOk = false;
+//        private bool passed   = false;
 //
 //        private loopIdx = MAX_LOOP_CNT;
 //
-//        testArray0[wi.id] = InitialValue(0);	    // init test array (for group segment only)
-//        testArray1[wi.id] = InitialValue(1); 
+//        hb_array  [wi.id] = InitialValue(HB);     // init test array (for group segment only)
+//        sync_array[wi.id] = InitialValue(SYNC); 
+//
 //        ok[wi.id] = 0;                            // clear result flag
 //        
-//        // make sure all workitems have completed initialization
-//        // This is important because otherwise some workitems 
-//        // may see uninitialized values
+//                                                  // make sure all workitems have completed initialization
+//                                                  // This is important because otherwise some workitems 
+//                                                  // may see uninitialized values
 //        
 //        memfence_screl_wg;
 //        (wave)barrier;
 //        memfence_scacq_wg;
-//        
-//        // These are the instructions being tested
-//        // Note that write attributes (order, scope, etc) are not shown here for brevity
-//        
-//        testArray0[wi.id] = ExpectedValue(0);     // Instruction A
-//        memory_fence;                             // optional fence - inserted only if instructions A and B may be reordered
-//        testArray1[wi.id] = ExpectedValue(1);     // Instruction B
-//        
-//        //NB: execution model for workitems within a wave or workgroup is not defined.
-//        //    The code below attempts to synchronize with the second write (instruction B)
-//        //    executing a limited number of iterations. If this attempt fails, the code
-//        //    waits at barrier and does one more synchrinization attempt which should
-//        //    succeed regardless of used execution model.
+//                                                  // this is a part of "happens-before" code
+//                                                  // this instruction should "happen-before" HB-R                    
+//        StoreOp(hb_op, &hb_array[wi.id], Operand(HB), Operand1(HB));         // HB-W
+//
+//                                                  // this is a part of 'synchronized-with' code
+//        optional memory_fence;                                               // F-W
+//        StoreOp(sync_op, &sync_array[wi.id], Operand(SYNC), Operand1(SYNC)); // SYNC-W
+//
+//                                                  //NB: execution model for workitems within a wave 
+//                                                  //    or workgroup is not defined. The code below 
+//                                                  //    attempts to synchronize with SYNC-W executing
+//                                                  //    a limited number of iterations. If this attempt 
+//                                                  //    fails, the code waits at barrier and does one 
+//                                                  //    more synchrinization attempt which should
+//                                                  //    succeed regardless of used execution model.
 //
 //        do
 //        {
-//            private bool syncWith = (testArray1[testId] == ExpectedValue(1));     // Instruction C
-//            private bool resultOk = (testArray0[testId] == ExpectedValue(0));     // Instruction D
-//            ok[wi.id] |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
+//            syncWith = (sync_array[testId] == ExpectedValue(SYNC));               // SYNC-R
+//            optional memory_fence;                                                // F-R
+//            if (syncWith) resultOk = (hb_array[testId] == ExpectedValue(HB));     // HB-R
+//            passed |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
 //            testComplete |= syncWith;
 //        }
 //        while (--loopIdx != 0);
 //
-//        // make sure all workitems have completed writing test data.
-//        // note that (wave)barrier below cannot be removed because it is the only 
-//        // way to ensure pseudo-parallel execution.
+//                                                  // make sure all workitems have completed writing test data.
+//                                                  // note that (wave)barrier below cannot be removed because 
+//                                                  // it is the only way to ensure (pseudo) parallel execution.
 //        
 //        memfence_screl_wg;
 //        (wave)barrier;
 //        memfence_scacq_wg;
 //        
-//        // Validate test values written by another workitem
-//        // Note that read attributes (order, scope, etc) are not shown here for brevity
+//                                                  // This is the last attempt to synchronize-with SYNC-W
 //        
-//        private bool syncWith = (testArray1[testId] == ExpectedValue(1));         // Instruction C'
-//        private bool resultOk = (testArray0[testId] == ExpectedValue(0));         // Instruction D'
-//        ok[wi.id] |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
+//        syncWith = (sync_array[testId] == ExpectedValue(SYNC));               // SYNC-R
+//        optional memory_fence;                                                // F-R
+//        if (syncWith) resultOk = (hb_array[testId] == ExpectedValue(HB));     // HB-R
+//        passed |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
+//
+//        ok[wi.id] = passed;
 //    }
 // 
 //=====================================================================================
 // TEST STRUCTURE FOR AGENT TEST KIND
 //
-//                                           // Define and initialize test arrays
-//    <type0> GLOBAL testArray0[grid.size] = {InitialValue(0), InitialValue(0), ...}; 
-//    <type1> GLOBAL testArray1[grid.size] = {InitialValue(1), InitialValue(1), ...}; 
+//                                                  // Define and initialize test arrays
+//    <hb_type>   GLOBAL hb_array  [grid.size] = {InitialValue(HB),   InitialValue(HB),   ...}; 
+//    <sync_type> GLOBAL sync_array[grid.size] = {InitialValue(SYNC), InitialValue(SYNC), ...}; 
 //
-//    // Array used to check if all workitems in the previous workgroup have finished
-//    // When workitem i finishes, it increments element at index i+1
-//    // First element is initialized to ensure completion of first group
+//                                                  // Array used to check if all workitems in the previous 
+//                                                  // workgroup have finished. When workitem i finishes, 
+//                                                  // it increments element at index i+1. First element 
+//                                                  // is initialized to ensure completion of first group
 //    unsigned global finished[grid.size / wg.size + 1] = {wg.size, 0, 0, ...};
 //    
-//    kernel(unsigned global ok[grid.size]) // output array
+//    kernel(unsigned global ok[grid.size])         // output array
 //    {
-//        // workitems in first workgroup test data written by itself;
-//        // workitems in other workgroups test data written by items in previous wgs
+//                                                  // workitems in first workgroup test data written by itself;
+//                                                  // workitems in other workgroups test data written 
+//                                                  // by items in previous workgroups
 //        private unsigned testId = (wi.id < wg.size)? wi.id : wi.id - wg.size;
 //
-//        // testComplete flag is used to only record result
-//        // at first successful 'synchronized-with' attempt
+//                                                  // testComplete flag is used to only record result
+//                                                  // at first successful 'synchronized-with' attempt
 //        private bool testComplete = 0;
 //
+//                                                  // syncWith flag is set at first successful 
+//                                                  // 'synchronized-with' attempt
+//        private bool syncWith = false;
+//        private bool resultOk = false;
+//        private bool passed   = false;
+//
 //        ok[wi.id] = 0;                            // clear result flag
+//
+//                                                  // this is a part of "happens-before" code
+//                                                  // this instruction should "happen-before" HB-R                    
+//        StoreOp(hb_op, &hb_array[wi.id], Operand(HB), Operand1(HB));         // HB-W
+//
+//                                                  // this is a part of 'synchronized-with' code
+//        memory_fence;                                                        // F-W
+//        StoreOp(sync_op, &sync_array[wi.id], Operand(SYNC), Operand1(SYNC)); // SYNC-W
 //        
-//        // These are the instructions being tested
-//        // Note that write attributes (order, scope, etc) are not shown here for brevity
-//        
-//        testArray0[wi.id] = ExpectedValue(0);     // Instruction A
-//        memory_fence;                             // optional fence - inserted only if instructions A and B may be reordered
-//        testArray1[wi.id] = ExpectedValue(1);     // Instruction B
-//        
-//        // Wait for test values written by another workitem
-//        do
+//        do                                        // try synchronizing with SYNC-W 
 //        {
-//            private bool syncWith = (testArray1[testId] == ExpectedValue(1));         // Instruction C
-//            private bool resultOk = (testArray0[testId] == ExpectedValue(0));         // Instruction D
-//            ok[wi.id] |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
+//            syncWith = (sync_array[testId] == ExpectedValue(SYNC));               // SYNC-R
+//            optional memory_fence;                                                // F-R
+//            if (syncWith) resultOk = (hb_array[testId] == ExpectedValue(HB));     // HB-R
+//            passed |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
 //            testComplete |= syncWith;
 //        }
-//        while (finished[wg.id] < wg.size); // wait for previous wg to complete
+//        while (finished[wg.id] < wg.size);        // wait for previous wg to complete
 //
-//        finished[wg.id + 1]++; // Label this wi as completed
+//        finished[wg.id + 1]++;                    // Label this wi as completed
+//
+//                                                  // This is the last attempt to synchronize-with SYNC-W
+//        
+//        syncWith = (sync_array[testId] == ExpectedValue(SYNC));               // SYNC-R
+//        optional memory_fence;                                                // F-R
+//        if (syncWith) resultOk = (hb_array[testId] == ExpectedValue(HB));     // HB-R
+//        passed |= (!testComplete && syncWith && resultOk)? PASSED : FAILED;
+//
+//        ok[wi.id] = passed;
 //    }
 // 
+//=====================================================================================
+// TODO:
+//
+// Add tests:
+// - with barrier
+// - for seq consistency (visible in the same order to all workitems)
+// - asynch data exchange using non-synchronized atomics
+//
 //=====================================================================================
 
 #include "MModelTests.hpp"
 #include "AtomicTestHelper.hpp"
 
+using std::string;
+using std::ostringstream;
+
 namespace hsail_conformance {
 
 #define QUICK_TEST
+//#define TINY_TEST
+
+//=====================================================================================
+
+enum
+{
+    WRITE_IDX   = 0,
+    READ_IDX    = 1,
+    ACCESS_NUM
+};
 
 //=====================================================================================
 
 class MModelTestProp : public TestProp
 {
 private:
-    unsigned writeIdx;
-    unsigned access;
+    unsigned accessIdx;
 
 protected:
-    TypedReg Idx() const { return TestProp::Idx(writeIdx, access); }
-
-private:
-    void SetContext(unsigned idx, unsigned acc) { writeIdx = idx; access = acc; }
+    TypedReg Idx() const { return TestProp::Idx(arrayId, accessIdx); }
 
 public:
-    virtual TypedReg InitialValue(unsigned idx,   unsigned acc) { SetContext(idx, acc); return InitialValue();   }
-    virtual TypedReg ExpectedValue(unsigned idx,  unsigned acc) { SetContext(idx, acc); return ExpectedValue();  }
-    virtual TypedReg AtomicOperand(unsigned idx,  unsigned acc) { SetContext(idx, acc); return AtomicOperand();  }
-    virtual TypedReg AtomicOperand1(unsigned idx, unsigned acc) { SetContext(idx, acc); return AtomicOperand1(); }
+    virtual TypedReg InitialValue()               { accessIdx = WRITE_IDX; return InitialVal();    }
+    virtual uint64_t InitialValue(unsigned idx)   { accessIdx = WRITE_IDX; return InitialVal(idx); }
+    virtual TypedReg ExpectedValue(unsigned acc)  { accessIdx = acc;       return ExpectedVal();   }
+    virtual TypedReg AtomicOperand()              { accessIdx = WRITE_IDX; return Operand();       }
+    virtual TypedReg AtomicOperand1()             { accessIdx = WRITE_IDX; return Operand1();      }
 
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { assert(false); return 0; }
-    virtual TypedReg InitialValue()                 const { assert(false); return 0; }
+protected:
+    virtual uint64_t InitialVal(unsigned idx) const { assert(false); return 0; }
+    virtual TypedReg InitialVal()             const { assert(false); return 0; }
 
-    virtual TypedReg AtomicOperand()                const { assert(false); return 0; }
-    virtual TypedReg AtomicOperand1()               const {                return 0; }
+    virtual TypedReg Operand()                const { assert(false); return 0; }
+    virtual TypedReg Operand1()               const {                return 0; }
 
-    virtual TypedReg ExpectedValue()                const { assert(false); return 0; }
+    virtual TypedReg ExpectedVal()            const { assert(false); return 0; }
 };
 
 //=====================================================================================
 
 class MModelTestPropAdd : public MModelTestProp // ******* BRIG_ATOMIC_ADD *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
-    virtual TypedReg InitialValue()                 const { return Idx(); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialVal()                 const { return Idx(); }
 
-    virtual TypedReg AtomicOperand()                const { return Idx(); }
+    virtual TypedReg Operand()                    const { return Idx(); }
 
-    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+    virtual TypedReg ExpectedVal()                const { return Mul(Idx(), 2); }
 };
 
 class MModelTestPropSub : public MModelTestProp // ******* BRIG_ATOMIC_SUB *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx * 2; }
-    virtual TypedReg InitialValue()                 const { return Mul(Idx(), 2); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx * 2; }
+    virtual TypedReg InitialVal()                 const { return Mul(Idx(), 2); }
 
-    virtual TypedReg AtomicOperand()                const { return Idx(); }
+    virtual TypedReg Operand()                    const { return Idx(); }
 
-    virtual TypedReg ExpectedValue()                const { return Idx(); }
+    virtual TypedReg ExpectedVal()                const { return Idx(); }
 };
 
 class MModelTestPropOr : public MModelTestProp // ******* BRIG_ATOMIC_OR *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx * 2; }
-    virtual TypedReg InitialValue()                 const { return Mul(Idx(), 2); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx * 2; }
+    virtual TypedReg InitialVal()                 const { return Mul(Idx(), 2); }
 
-    virtual TypedReg AtomicOperand()                const { return Mov(1); }
+    virtual TypedReg Operand()                    const { return Mov(1); }
 
-    virtual TypedReg ExpectedValue()                const { return Add(Mul(Idx(), 2), 1); }
+    virtual TypedReg ExpectedVal()                const { return Add(Mul(Idx(), 2), 1); }
 };
 
 class MModelTestPropXor : public MModelTestProp // ******* BRIG_ATOMIC_XOR *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx * 2; }
-    virtual TypedReg InitialValue()                 const { return Mul(Idx(), 2); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx * 2; }
+    virtual TypedReg InitialVal()                 const { return Mul(Idx(), 2); }
 
-    virtual TypedReg AtomicOperand()                const { return Mov(1); }
+    virtual TypedReg Operand()                    const { return Mov(1); }
 
-    virtual TypedReg ExpectedValue()                const { return Add(Mul(Idx(), 2), 1); }
+    virtual TypedReg ExpectedVal()                const { return Add(Mul(Idx(), 2), 1); }
 };
 
 class MModelTestPropAnd : public MModelTestProp // ******* BRIG_ATOMIC_AND *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx + 0xFF000000; }
-    virtual TypedReg InitialValue()                 const { return Add(Idx(), 0xFF000000); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx + 0xFF000000; }
+    virtual TypedReg InitialVal()                 const { return Add(Idx(), 0xFF000000); }
 
-    virtual TypedReg AtomicOperand()                const { return Idx(); }
+    virtual TypedReg Operand()                    const { return Idx(); }
 
-    virtual TypedReg ExpectedValue()                const { return Idx(); }
+    virtual TypedReg ExpectedVal()                const { return Idx(); }
 };
 
 class MModelTestPropWrapinc : public MModelTestProp // ******* BRIG_ATOMIC_WRAPINC *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
-    virtual TypedReg InitialValue()                 const { return Idx(); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialVal()                 const { return Idx(); }
 
-    virtual TypedReg AtomicOperand()                const { return Mov(-1); }     // max value
+    virtual TypedReg Operand()                    const { return Mov(-1); }     // max value
 
-    virtual TypedReg ExpectedValue()                const { return Add(Idx(), 1); }
+    virtual TypedReg ExpectedVal()                const { return Add(Idx(), 1); }
 };
 
 class MModelTestPropWrapdec : public MModelTestProp // ******* BRIG_ATOMIC_WRAPDEC *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx + 1; }
-    virtual TypedReg InitialValue()                 const { return Add(Idx(), 1); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx + 1; }
+    virtual TypedReg InitialVal()                 const { return Add(Idx(), 1); }
 
-    virtual TypedReg AtomicOperand()                const { return Mov(-1); }     // max value
+    virtual TypedReg Operand()                    const { return Mov(-1); }     // max value
 
-    virtual TypedReg ExpectedValue()                const { return Idx(); }
+    virtual TypedReg ExpectedVal()                const { return Idx(); }
 };
 
 class MModelTestPropMax : public MModelTestProp // ******* BRIG_ATOMIC_MAX *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
-    virtual TypedReg InitialValue()                 const { return Idx(); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialVal()                 const { return Idx(); }
 
-    virtual TypedReg AtomicOperand()                const { return Add(Idx(), 1); }
+    virtual TypedReg Operand()                    const { return Add(Idx(), 1); }
 
-    virtual TypedReg ExpectedValue()                const { return Add(Idx(), 1); }
+    virtual TypedReg ExpectedVal()                const { return Add(Idx(), 1); }
 };
 
 class MModelTestPropMin : public MModelTestProp // ******* BRIG_ATOMIC_MIN *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx + 1; }
-    virtual TypedReg InitialValue()                 const { return Add(Idx(), 1); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx + 1; }
+    virtual TypedReg InitialVal()                 const { return Add(Idx(), 1); }
 
-    virtual TypedReg AtomicOperand()                const { return Idx(); }
+    virtual TypedReg Operand()                    const { return Idx(); }
 
-    virtual TypedReg ExpectedValue()                const { return Idx(); }
+    virtual TypedReg ExpectedVal()                const { return Idx(); }
 };
 
 class MModelTestPropExch : public MModelTestProp // ******* BRIG_ATOMIC_EXCH *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
-    virtual TypedReg InitialValue()                 const { return Idx(); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialVal()                 const { return Idx(); }
 
-    virtual TypedReg AtomicOperand()                const { return Mul(Idx(), 2); }
+    virtual TypedReg Operand()                    const { return Mul(Idx(), 2); }
 
-    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+    virtual TypedReg ExpectedVal()                const { return Mul(Idx(), 2); }
 };
 
 class MModelTestPropCas : public MModelTestProp // ******* BRIG_ATOMIC_CAS *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
-    virtual TypedReg InitialValue()                 const { return Idx(); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialVal()                 const { return Idx(); }
 
-    virtual TypedReg AtomicOperand()                const { return InitialValue(); } // value which is being compared
-    virtual TypedReg AtomicOperand1()               const { return Mul(Idx(), 2); }  // value to swap
+    virtual TypedReg Operand()                    const { return InitialVal(); }   // value which is being compared
+    virtual TypedReg Operand1()                   const { return Mul(Idx(), 2); }  // value to swap
 
-    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+    virtual TypedReg ExpectedVal()                const { return Mul(Idx(), 2); }
 };
 
 class MModelTestPropSt : public MModelTestProp // ******* BRIG_ATOMIC_ST *******
 {
-public:
-    virtual uint64_t InitialValue(unsigned idx)     const { return idx; }
-    virtual TypedReg InitialValue()                 const { return Idx(); }
+protected:
+    virtual uint64_t InitialVal(unsigned idx)     const { return idx; }
+    virtual TypedReg InitialVal()                 const { return Idx(); }
 
-    virtual TypedReg AtomicOperand()                const { return Mul(Idx(), 2); }
+    virtual TypedReg Operand()                    const { return Mul(Idx(), 2); }
 
-    virtual TypedReg ExpectedValue()                const { return Mul(Idx(), 2); }
+    virtual TypedReg ExpectedVal()                const { return Mul(Idx(), 2); }
 };
 
 class MModelTestPropLd : public MModelTestProp // ******* BRIG_ATOMIC_LD *******
@@ -363,8 +496,11 @@ class MModelTestPropLd : public MModelTestProp // ******* BRIG_ATOMIC_LD *******
 
 //=====================================================================================
 
-class MModelTestPropFactory : public TestPropFactory<MModelTestProp>
+class MModelTestPropFactory : public TestPropFactory<MModelTestProp, 2>
 {
+public:
+    MModelTestPropFactory(unsigned dim) : TestPropFactory<MModelTestProp, 2>(dim) {}
+
 public:
     virtual MModelTestProp* CreateProp(BrigAtomicOperation op)
     {
@@ -391,48 +527,57 @@ public:
     }
 };
 
-template<> TestPropFactory<MModelTestProp>* TestPropFactory<MModelTestProp>::factory = 0;
+template<> TestPropFactory<MModelTestProp, 2>* TestPropFactory<MModelTestProp, 2>::factory[2];
 
 //=====================================================================================
 
 class MModelTest : public AtomicTestHelper
 {
 private:
+    static const BrigType LOOP_IDX_TYPE  = BRIG_TYPE_U32; // Type of loop index
     static const BrigType RES_TYPE       = BRIG_TYPE_U32; // Type of elements in output array
-    static const unsigned RES_VAL_FAILED = 0;
-    static const unsigned RES_VAL_PASSED = 1;
+    static const uint64_t RES_VAL_FAILED = 0;
+    static const uint64_t RES_VAL_PASSED = 1;
+    static const unsigned EQUIV          = 0;
 
 private:
-    static const unsigned WRITE_ACCESS = 0;
-    static const unsigned READ_ACCESS  = 1;
+    enum // Indices of arrays used by this test
+    {
+        HB_ARRAY_ID     = 0,    // Array accessed by "happens-before" operations
+        SYNC_ARRAY_ID   = 1,    // Array accessed by "synchronized-with" operations
+        ARRAYS_NUM,
+
+        MIN_ARRAY_ID    = 0,
+        MAX_ARRAY_ID    = ARRAYS_NUM - 1
+    };
 
 private:
     static const unsigned MAX_LOOP = 1000;
 
-protected:                                                  // attributes of write operations which are being tested
-    BrigAtomicOperation atomicOp[2];
-    BrigSegment         segment[2];
-    BrigMemoryOrder     memoryOrder[2];
-    BrigMemoryScope     memoryScope[2];
-    BrigType            type[2];
-    uint8_t             equivClass[2];
-    bool                atomicNoRet[2];                     // atomic or atomicNoRet
-    bool                isPlainOp[2];                       // atomic or plain ld/st
+private:                                // Properties of "happens-before" operations
+    MModelTestProp*     writeHbOp;      // Write operation
+    MemOpProp           readHbOp;       // Read operation
+
+private:                                // Properties of "synchronized-with" operations
+    MModelTestProp*     writeSyncOp;    // Write operation
+    MemOpProp           readSyncOp;     // Read operation
+
+private:                                // Properties of fences
+    FenceOpProp         writeFence;     // Fence before "synchronized-with" write operation
+    FenceOpProp         readFence;      // Fence after "synchronized-with" read operation
 
 private:
-    MModelTestProp*     prop[2];                            // properties of (atomic) operation
+    DirectiveVariable   testArray[ARRAYS_NUM];                      // Arrays
+    PointerReg          testArrayAddr[ARRAYS_NUM];                  // Array addresses
+    TypedReg            indexInTestArray[ARRAYS_NUM][ACCESS_NUM];   // Read and write indices in each array
 
 private:
-    DirectiveVariable   testArray[2];
-    PointerReg          testArrayAddr[2];
-    TypedReg            indexInTestArray[2][2];
+    PointerReg          resArrayAddr;       // Result array indicating test pass/fail status for each workitem
+    TypedReg            indexInResArray;    // Index of current workitem in result array
 
 private:
-    PointerReg          resArrayAddr;
-    TypedReg            indexInResArray;
-
-private:
-    bool                mapFlat2Group;                     // if true, map flat to group, if false, map flat to global
+    bool                mapFlat2Group;      // if true, map flat to group, if false, map flat to global
+    TypedReg            resultFlag;
     TypedReg            loopIdx;
 
 public:
@@ -441,145 +586,226 @@ public:
 
 #ifdef QUICK_TEST
 
-    MModelTest(Grid geometry_,
-                BrigAtomicOperation atomicOp_0,
-                BrigSegment segment_0,
-                BrigSegment segment_1,
-                BrigMemoryOrder memoryOrder_0,
-                BrigMemoryOrder memoryOrder_1,
-                BrigMemoryScope memoryScope_0,
-                BrigMemoryScope memoryScope_1,
-                BrigType type_1,
-                bool isPlainOp_0
-                )
-    : AtomicTestHelper(KERNEL, geometry_),
+    MModelTest(Grid                 geometry,
+               BrigSegment          sync_seg,
+               BrigMemoryOrder      sync_order,
+               BrigMemoryScope      sync_scope,
+               BrigType             sync_type,
+               BrigAtomicOperation  hb_op,
+               BrigSegment          hb_seg,
+               BrigMemoryOrder      hb_order,
+               BrigMemoryScope      hb_scope,
+               bool                 hb_plain
+               )
+    : AtomicTestHelper(KERNEL, geometry),
         resArrayAddr(0),
         indexInResArray(0),
+        resultFlag(0),
         loopIdx(0)
     {
         SetTestKind();
 
-        BrigType type_0 = type_1;                       // This is to minimize total number of tests
-        mapFlat2Group = isBitType(type_1);              // This is to minimize total number of tests
-        bool isPlainOp_1 = false;                       // Second write must be an atomic to make synchromization possible
+        //---------------------------------------------------------------------------------------
+        // Set properties of synchronozes-with and happens-before r/w operations
 
-        BrigAtomicOperation atomicOp_1;
-        switch (atomicOp_0)
+        BrigAtomicOperation sync_op = ShuffleOp(hb_op);
+
+        MemOpProp syncOp(sync_op, sync_seg, sync_order, sync_scope, sync_type, EQUIV, false, false,    SYNC_ARRAY_ID);
+        MemOpProp hbOp  (hb_op,   hb_seg,   hb_order,   hb_scope,   sync_type, EQUIV, true,  hb_plain, HB_ARRAY_ID);
+
+        EnsureValid(hbOp); // HB op and type are derived from sync and may require corrections
+
+        writeHbOp = MModelTestPropFactory::Get(HB_ARRAY_ID)->GetProp(this, hbOp);
+
+        readHbOp         = hbOp;
+        readHbOp.op      = BRIG_ATOMIC_LD;
+        readHbOp.order   = BRIG_MEMORY_ORDER_RELAXED;
+        readHbOp.scope   = ShuffleLdScope(syncOp.scope, readHbOp.seg, readHbOp.isPlainOp);
+        readHbOp.isNoRet = false;
+
+        writeSyncOp = MModelTestPropFactory::Get(SYNC_ARRAY_ID)->GetProp(this, syncOp);
+
+        readSyncOp         = syncOp;
+        readSyncOp.op      = BRIG_ATOMIC_LD;
+        readSyncOp.order   = ShuffleLdOrder(hbOp.order);
+        readSyncOp.isNoRet = false;
+
+        //---------------------------------------------------------------------------------------
+        // Set properties of synchronozes-with fences
+
+        if (!writeSyncOp->IsRelease()) writeFence.Release(writeSyncOp->scope);
+        if (!readSyncOp.IsAcquire())   readFence.Acquire(readSyncOp.scope);
+
+        //---------------------------------------------------------------------------------------
+
+        mapFlat2Group = isBitType(sync_type);       // This is to minimize total number of tests
+
+        for (unsigned id = MIN_ARRAY_ID; id <= MAX_ARRAY_ID; ++id)
         {
-        case BRIG_ATOMIC_ADD:         atomicOp_1 = BRIG_ATOMIC_SUB;     break;
-        case BRIG_ATOMIC_AND:         atomicOp_1 = BRIG_ATOMIC_XOR;     break;
-        case BRIG_ATOMIC_CAS:         atomicOp_1 = BRIG_ATOMIC_OR;      break;
-        case BRIG_ATOMIC_EXCH:        atomicOp_1 = BRIG_ATOMIC_CAS;     break;
-        case BRIG_ATOMIC_MAX:         atomicOp_1 = BRIG_ATOMIC_MIN;     break;
-        case BRIG_ATOMIC_ST:          atomicOp_1 = BRIG_ATOMIC_ST;      break;
-        case BRIG_ATOMIC_WRAPINC:     atomicOp_1 = BRIG_ATOMIC_WRAPDEC; break;
+            indexInTestArray[id][WRITE_IDX] = 0;
+            indexInTestArray[id][READ_IDX]  = 0;
+            testArrayAddr[id] = 0;
+        }
+    }
+
+    BrigAtomicOperation ShuffleOp(BrigAtomicOperation op)
+    {
+        switch (op)
+        {
+        case BRIG_ATOMIC_ADD:         return BRIG_ATOMIC_SUB;
+        case BRIG_ATOMIC_AND:         return BRIG_ATOMIC_XOR;
+        case BRIG_ATOMIC_CAS:         return BRIG_ATOMIC_OR; 
+        case BRIG_ATOMIC_EXCH:        return BRIG_ATOMIC_CAS;
+        case BRIG_ATOMIC_MAX:         return BRIG_ATOMIC_MIN;
+        case BRIG_ATOMIC_ST:          return BRIG_ATOMIC_ST; 
+        case BRIG_ATOMIC_WRAPINC:     return BRIG_ATOMIC_WRAPDEC;
         default:
             assert(false);
-            atomicOp_1 = atomicOp_0;
-            break;
+            return op;
+        }
+    }
+
+    //NB: 'ar' is not supported for 'ld'
+    BrigMemoryOrder ShuffleLdOrder(BrigMemoryOrder order, bool isPlain = false)
+    {
+        if (isPlain) return BRIG_MEMORY_ORDER_RELAXED;
+
+        switch (order)
+        {
+        case BRIG_MEMORY_ORDER_RELAXED:               return BRIG_MEMORY_ORDER_SC_ACQUIRE;
+        case BRIG_MEMORY_ORDER_SC_ACQUIRE:            return BRIG_MEMORY_ORDER_RELAXED;
+        case BRIG_MEMORY_ORDER_SC_RELEASE:            return BRIG_MEMORY_ORDER_SC_ACQUIRE;
+        case BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE:    return BRIG_MEMORY_ORDER_RELAXED;
+        default:
+            assert(false);
+            return order;
+        }
+    }
+
+    BrigMemoryScope ShuffleLdScope(BrigMemoryScope scope, BrigSegment seg, bool isPlain = false)
+    {
+        if (isPlain) return BRIG_MEMORY_SCOPE_NONE;
+
+        switch (scope)
+        {
+        case BRIG_MEMORY_SCOPE_WAVEFRONT:   scope = BRIG_MEMORY_SCOPE_SYSTEM;
+        case BRIG_MEMORY_SCOPE_WORKGROUP:   scope = BRIG_MEMORY_SCOPE_AGENT;
+        case BRIG_MEMORY_SCOPE_AGENT:       scope = BRIG_MEMORY_SCOPE_WORKGROUP;
+        case BRIG_MEMORY_SCOPE_SYSTEM:      scope = BRIG_MEMORY_SCOPE_WAVEFRONT;
+        default:                            scope = BRIG_MEMORY_SCOPE_WAVEFRONT;
         }
 
-        for (unsigned i = 0; i < 2; ++i)
+        //NB: 'system' and 'agent' scopes are not supported for group segment
+        if (seg == BRIG_SEGMENT_GROUP && 
+            (scope == BRIG_MEMORY_SCOPE_AGENT || scope == BRIG_MEMORY_SCOPE_SYSTEM))
         {
-            atomicOp[i]    = (i == 0)? atomicOp_0    : atomicOp_1;
-            segment[i]     = (i == 0)? segment_0     : segment_1;
-            memoryOrder[i] = (i == 0)? memoryOrder_0 : memoryOrder_1;
-            memoryScope[i] = (i == 0)? memoryScope_0 : memoryScope_1;
-            type[i]        = (i == 0)? type_0        : type_1;
-            isPlainOp[i]   = (i == 0)? isPlainOp_0   : isPlainOp_1;
-            atomicNoRet[i] = (i == 0);
-            equivClass[i]  = 0;
-
-            indexInTestArray[i][0] = 0;
-            indexInTestArray[i][1] = 0;
-            testArrayAddr[i] = 0;
+            scope = BRIG_MEMORY_SCOPE_WAVEFRONT;
         }
+        
+        return scope;
+    }
 
-        unsigned typeSz_0 = getBrigTypeNumBits(type[0]);
+    // As quick test does not enumerate all possible combinations for first write, 
+    // the following code ensures that attributes of this operation are valid
+    void EnsureValid(MemOpProp& op)
+    {
+        unsigned typeSz = getBrigTypeNumBits(op.type);
 
-        // As quick test does not enumerate all possible combinations for first write, 
-        // the following code ensures that attributes of this operation are valid
-        if (isPlainOp[0])
+        if (op.isPlainOp)
         {
-            type[0]         = (typeSz_0 == 32)? BRIG_TYPE_S32 : BRIG_TYPE_S64;
-            atomicOp[0]     = BRIG_ATOMIC_ST;
-            atomicNoRet[0]  = true;
+            op.type    = (typeSz == 32)? BRIG_TYPE_S32 : BRIG_TYPE_S64;
+            op.op      = BRIG_ATOMIC_ST;
+            op.isNoRet = true;
         }
         else
         {
-            if (!IsValidAtomicOp(atomicOp[0], atomicNoRet[0])) atomicOp[0] = BRIG_ATOMIC_ST;
-            if (!IsValidAtomicType(atomicOp[0], type[0]))      type[0]     = (typeSz_0 == 32)? BRIG_TYPE_B32 : BRIG_TYPE_B64;
-        }
-
-        for (unsigned i = 0; i < 2; ++i)
-        {
-            prop[i] = MModelTestPropFactory::Get()->GetProp(this, atomicOp[i], type[i]);
+            if (!IsValidAtomicOp(op.op, op.isNoRet)) op.op   = BRIG_ATOMIC_ST;
+            if (!IsValidAtomicType(op.op, op.type))  op.type = (typeSz == 32)? BRIG_TYPE_B32 : BRIG_TYPE_B64;
         }
     }
 
 #else
 
-    MModelTest(Grid geometry_,
-                BrigAtomicOperation atomicOp_0,
-                BrigAtomicOperation atomicOp_1,
-                BrigSegment segment_0,
-                BrigSegment segment_1,
-                BrigMemoryOrder memoryOrder_0,
-                BrigMemoryOrder memoryOrder_1,
-                BrigMemoryScope memoryScope_0,
-                BrigMemoryScope memoryScope_1,
-                BrigType type_0,
-                BrigType type_1,
-                bool isPlainOp_0
-                )
+    MModelTest(Grid                 geometry_,
+               BrigAtomicOperation  hb_op,
+               BrigAtomicOperation  sync_op,
+               BrigSegment          hb_seg,
+               BrigSegment          sync_seg,
+               BrigMemoryOrder      hb_order,
+               BrigMemoryOrder      sync_order,
+               BrigMemoryScope      hb_scope,
+               BrigMemoryScope      sync_scope,
+               BrigType             hb_type,
+               BrigType             sync_type,
+               bool                 hb_plain
+               )
     : AtomicTestHelper(KERNEL, geometry_),
         resArrayAddr(0),
         indexInResArray(0),
+        resultFlag(0),
         loopIdx(0)
     {
         SetTestKind();
 
-        mapFlat2Group = isBitType(type_1);              // This is to minimize total number of tests
-        bool isPlainOp_1 = false;                       // Second write must be an atomic to make synchromization possible
+        mapFlat2Group = isBitType(sync_type);              // This is to minimize total number of tests
+        bool sync_plain = false;                       // Second write must be an atomic to make synchromization possible
+        bool hb_noret = true;
+        bool sync_noret = false;
 
-        for (unsigned i = 0; i < 2; ++i)
+        for (unsigned id = MIN_ARRAY_ID; id <= MAX_ARRAY_ID; ++id)
         {
-            atomicOp[i]    = (i == 0)? atomicOp_0    : atomicOp_1;
-            segment[i]     = (i == 0)? segment_0     : segment_1;
-            memoryOrder[i] = (i == 0)? memoryOrder_0 : memoryOrder_1;
-            memoryScope[i] = (i == 0)? memoryScope_0 : memoryScope_1;
-            type[i]        = (i == 0)? type_0        : type_1;
-            isPlainOp[i]   = (i == 0)? isPlainOp_0   : isPlainOp_1;
-            atomicNoRet[i] = (i == 0);
-            equivClass[i]  = 0;
-
-            indexInTestArray[i][0] = 0;
-            indexInTestArray[i][1] = 0;
-            testArrayAddr[i] = 0;
+            indexInTestArray[id][WRITE_IDX] = 0;
+            indexInTestArray[id][READ_IDX]  = 0;
+            testArrayAddr[id] = 0;
         }
 
         // To avoid enumeration of all possible combinations of atomicNoRet for
         // both writes, deduce required value based on other attributes.
         // This is quite sufficient for test purposes.
 
-        if (isPlainOp[0])
+        if (hb_plain)
         {
-            atomicNoRet[0] = true;
+            hb_noret = true;
         }
         else
         {
-            if (!IsValidAtomicOp(atomicOp[0], atomicNoRet[0])) atomicNoRet[0] = !atomicNoRet[0];
+            if (!IsValidAtomicOp(hb_op, hb_noret)) hb_noret = !hb_noret;
         }
 
-        if (!IsValidAtomicOp(atomicOp[1], atomicNoRet[1]))
+        if (!IsValidAtomicOp(sync_op, sync_noret))
         {
-            atomicNoRet[1] = !atomicNoRet[1];
+            sync_noret = !sync_noret;
         }
 
-        for (unsigned i = 0; i < 2; ++i)
-        {
-            prop[i] = MModelTestPropFactory::Get()->GetProp(this, atomicOp[i], type[i]);
-        }
+        writeHbOp = MModelTestPropFactory::Get(0)->GetProp(this, 
+                                                           hb_op, 
+                                                           hb_seg, 
+                                                           hb_order, 
+                                                           hb_scope, 
+                                                           hb_type, 
+                                                           EQUIV, 
+                                                           hb_noret,
+                                                           hb_plain,
+                                                           HB_ARRAY_ID);
+        readHbOp = *writeHbOp;
+        readHbOp.op      = BRIG_ATOMIC_LD;
+        readHbOp.order   = BRIG_MEMORY_ORDER_RELAXED;
+        readHbOp.isNoRet = false;
+
+        writeSyncOp = MModelTestPropFactory::Get(1)->GetProp(this, 
+                                                             sync_op, 
+                                                             sync_seg, 
+                                                             sync_order, 
+                                                             sync_scope, 
+                                                             sync_type, 
+                                                             EQUIV, 
+                                                             sync_noret,
+                                                             sync_plain,
+                                                             SYNC_ARRAY_ID);
+        readSyncOp = *writeSyncOp;
+        readSyncOp.op      = BRIG_ATOMIC_LD;
+        readSyncOp.order   = BRIG_MEMORY_ORDER_SC_ACQUIRE;
+        readSyncOp.isNoRet = false;
     }
 
 #endif
@@ -589,28 +815,28 @@ public:
 
     void Name(std::ostream& out) const 
     { 
-        if (isPlainOp[0]) StName(out, 0); else AtomicName(out, 0);
-        if (FenceRequired()) FenceName(out);
+        if (writeHbOp->isPlainOp) StName(out, writeHbOp); else AtomicName(out, writeHbOp);
+        if (writeFence.IsRequired()) FenceName(out);
         out << "__";
-        if (isPlainOp[1]) StName(out, 1); else AtomicName(out, 1);
+        if (writeSyncOp->isPlainOp) StName(out, writeSyncOp); else AtomicName(out, writeSyncOp);
         out << "/" << geometry; 
     }
 
-    void AtomicName(std::ostream& out, unsigned idx) const 
+    void AtomicName(std::ostream& out, MemOpProp* p) const 
     { 
-        assert(idx <= 1);
-        out << (atomicNoRet[idx]? "atomicnoret" : "atomic")
-            << "_" << atomicOperation2str(atomicOp[idx])
-                   << SegName(segment[idx])
-            << "_" << memoryOrder2str(memoryOrder[idx])
-            << "_" << memoryScope2str(memoryScope[idx])
-            << "_" << type2str(type[idx]);
+        assert(p);
+        out << (p->isNoRet? "atomicnoret" : "atomic")
+            << "_" << atomicOperation2str(p->op)
+                   << SegName(p->seg)
+            << "_" << memoryOrder2str(p->order)
+            << "_" << memoryScope2str(p->scope)
+            << "_" << type2str(p->type);
     }
 
-    void StName(std::ostream& out, unsigned idx) const 
+    void StName(std::ostream& out, MemOpProp* p) const 
     { 
-        assert(idx <= 1);
-        out << "st" << SegName(segment[idx]) << "_" << type2str(type[idx]);
+        assert(p);
+        out << "st" << SegName(p->seg) << "_" << type2str(p->type);
     }
 
     std::string SegName(BrigSegment seg) const
@@ -623,8 +849,8 @@ public:
     { 
         out << "__"
             << "fence"
-            << "_" << memoryOrder2str(FenceOrder())
-            << "_" << memoryScope2str(FenceScope());
+            << "_" << memoryOrder2str(writeFence.order)
+            << "_" << memoryScope2str(writeFence.scope);
     }
 
     // ========================================================================
@@ -634,7 +860,7 @@ public:
     
     Value ExpectedResult() const
     {
-        return Value(MV_UINT32, U32(1));
+        return Value(MV_UINT32, U32(RES_VAL_PASSED));
     }
 
     void Init()
@@ -646,70 +872,129 @@ public:
     {
         Comment("Testing memory operations within " + TestName());
 
-        DefineArray(0);
-        DefineArray(1);
+        DefineArray(writeHbOp);
+        DefineArray(writeSyncOp);
 
         DefineWgCompletedArray();
     }
 
-    void DefineArray(unsigned idx)
+    // ========================================================================
+    // Array properties
+
+    MemOpProp* ArrayId2WriteOp(unsigned arrayId)
     {
-        assert(idx <= 1);
-
-        std::string arrayName;
-        BrigSegment seg = segment[idx];
-
-        switch (seg) 
+        assert(MIN_ARRAY_ID <= arrayId && arrayId <= MAX_ARRAY_ID);
+        switch(arrayId)
         {
-        case BRIG_SEGMENT_GLOBAL: arrayName = (idx == 0)? "global_array_0" : "global_array_1"; break;
-        case BRIG_SEGMENT_GROUP:  arrayName = (idx == 0)? "group_array_0"  : "group_array_1";  break;
-        case BRIG_SEGMENT_FLAT:   arrayName = (idx == 0)? "flat_array_0"   : "flat_array_1";   break;
+        case HB_ARRAY_ID:   return writeHbOp;
+        case SYNC_ARRAY_ID: return writeSyncOp;
+        default:
+            assert(false);
+            return 0;
+        }
+    }
+
+    string GetArrayName(MemOpProp* p)
+    {
+        assert(p);
+
+        ostringstream s;
+
+        switch (p->seg) 
+        {
+        case BRIG_SEGMENT_GLOBAL: s << "global"; break;
+        case BRIG_SEGMENT_GROUP:  s << "group";  break;
+        case BRIG_SEGMENT_FLAT:   s << "flat";   break;
         default: 
             assert(false);
             break;
         }
 
-        testArray[idx] = be.EmitVariableDefinition(arrayName, ArraySegment(idx), ArrayElemType(idx), BRIG_ALIGNMENT_NONE, ArraySize(idx));
-        if (ArraySegment(idx) != BRIG_SEGMENT_GROUP) testArray[idx].init() = ArrayInitializer(idx);
+        s << "_array";
+
+        switch(p->arrayId)
+        {
+        case HB_ARRAY_ID:     s << "_hb";     break;
+        case SYNC_ARRAY_ID:   s << "_sync";   break;
+        default: 
+            assert(false);
+            break;
+        }
+
+        return s.str();
     }
 
-    Operand ArrayInitializer(unsigned idx)
+    void DefineArray(MModelTestProp* p)
     {
-        assert(idx <= 1);
-        assert(isIntType(type[idx]));
+        assert(p);
+
+        unsigned arrayId = p->arrayId;
+        string arrayName = GetArrayName(p);
+
+        testArray[arrayId] = be.EmitVariableDefinition(arrayName, ArraySegment(p), ArrayElemType(p), BRIG_ALIGNMENT_NONE, ArraySize(p));
+        if (ArraySegment(p) != BRIG_SEGMENT_GROUP) testArray[arrayId].init() = ArrayInitializer(p);
+    }
+
+    Operand ArrayInitializer(MModelTestProp* p)
+    {
+        assert(p);
+        assert(isIntType(p->type));
 
         ArbitraryData values;
-        unsigned typeSize = getBrigTypeNumBytes(type[idx]);
+        unsigned typeSize = getBrigTypeNumBytes(p->type);
         for (unsigned pos = 0; pos < geometry->GridSize(); ++pos)
         {
-            uint64_t value = InitialValue(idx, pos);
+            uint64_t value = InitialValue(p, pos);
             values.write(&value, typeSize, pos * typeSize);
         }
-        return be.Brigantine().createOperandConstantBytes(values.toSRef(), ArrayElemType(idx), true);
+        return be.Brigantine().createOperandConstantBytes(values.toSRef(), ArrayElemType(p), true);
     }
 
-    BrigType ArrayElemType(unsigned idx)
+    BrigType ArrayElemType(MemOpProp* p)
     {
-        assert(idx <= 1);
-        return isBitType(type[idx])? (BrigType)getUnsignedType(getBrigTypeNumBits(type[idx])) : type[idx];
+        assert(p);
+        return isBitType(p->type)? (BrigType)getUnsignedType(getBrigTypeNumBits(p->type)) : p->type;
     }
 
-    BrigSegment ArraySegment(unsigned idx) const
+    BrigSegment ArraySegment(MemOpProp* p) const
     {
-        assert(idx <= 1);
-        if (segment[idx] == BRIG_SEGMENT_FLAT) return mapFlat2Group? BRIG_SEGMENT_GROUP : BRIG_SEGMENT_GLOBAL;
-        return segment[idx];
+        assert(p);
+        if (p->seg == BRIG_SEGMENT_FLAT) return mapFlat2Group? BRIG_SEGMENT_GROUP : BRIG_SEGMENT_GLOBAL;
+        return p->seg;
+    }
+
+    uint64_t ArraySize(MemOpProp* p) const 
+    { 
+        assert(p);
+        return (ArraySegment(p) == BRIG_SEGMENT_GROUP)? (uint64_t)geometry->WorkgroupSize() : geometry->GridSize();
+    }
+    
+    TypedReg Initializer(MModelTestProp* p)
+    {
+        assert(p);
+        assert(isIntType(p->type));
+
+        return p->InitialValue();
+    }
+
+    uint64_t InitialValue(MModelTestProp* p, unsigned pos)
+    {
+        assert(p);
+
+        return p->InitialValue(pos);
+    }
+
+    TypedReg ExpectedValue(MModelTestProp* p, unsigned accessIdx)
+    {
+        assert(p);
+        assert(accessIdx == WRITE_IDX || accessIdx == READ_IDX);
+
+        return p->ExpectedValue(accessIdx);
     }
 
     // ========================================================================
     // Test properties
 
-    uint64_t ArraySize(unsigned idx) const 
-    { 
-        assert(idx <= 1);
-        return (ArraySegment(idx) == BRIG_SEGMENT_GROUP)? (uint64_t)geometry->WorkgroupSize() : geometry->GridSize();
-    }
-    
     void SetTestKind()
     {
         if      (geometry->WorkgroupSize() == Wavesize())             testKind = TEST_KIND_WAVE;
@@ -746,61 +1031,26 @@ public:
     }
 
     // ========================================================================
-    // Initialization of test arrays
-
-    virtual TypedReg Index(unsigned idx, unsigned access)
-    {
-        assert(access == WRITE_ACCESS || access == READ_ACCESS);
-
-        TypedReg index = ArrayIndex(idx, access);
-        if (index->RegSizeBits() != getBrigTypeNumBits(type[idx])) index = Cvt(index);
-        return index;
-    }
-
-    TypedReg Initializer(unsigned idx)
-    {
-        assert(idx <= 1);
-        assert(isIntType(type[idx]));
-
-        return prop[idx]->InitialValue(idx, WRITE_ACCESS);
-    }
-
-    uint64_t InitialValue(unsigned idx, unsigned pos)
-    {
-        assert(idx <= 1);
-
-        return prop[idx]->InitialValue(pos);
-    }
-
-    TypedReg ExpectedValue(unsigned idx, unsigned access)
-    {
-        assert(idx <= 1);
-        assert(access == WRITE_ACCESS || access == READ_ACCESS);
-
-        return prop[idx]->ExpectedValue(idx, access);
-    }
-
-    // ========================================================================
     // Encoding of atomic read and write operations
 
-    ItemList AtomicOperands(unsigned idx)
+    ItemList AtomicOperands(MModelTestProp* p)
     {
-        assert(idx <= 1);
+        assert(p);
 
-        TypedReg src0 = prop[idx]->AtomicOperand(idx,  WRITE_ACCESS);
-        TypedReg src1 = prop[idx]->AtomicOperand1(idx, WRITE_ACCESS);
+        TypedReg src0 = p->AtomicOperand();
+        TypedReg src1 = p->AtomicOperand1();
 
         assert(src0);
 
         ItemList operands;
 
-        if (!atomicNoRet[idx])
+        if (!p->isNoRet)
         { 
-            TypedReg atomicDst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(type[idx])));
+            TypedReg atomicDst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(p->type)));
             operands.push_back(atomicDst->Reg());
         }
 
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, WRITE_ACCESS), type[idx]);
+        OperandAddress target = TargetAddr(LoadArrayAddr(p), ArrayIndex(p, WRITE_IDX), p->type);
         operands.push_back(target);
 
         if (src0) operands.push_back(src0->Reg());
@@ -809,31 +1059,29 @@ public:
         return operands;
     }
 
-    void AtomicSt(unsigned idx)
+    void AtomicSt(MModelTestProp* p)
     {
-        assert(idx <= 1);
+        assert(p);
+        assert(!p->isPlainOp);
 
-        ItemList operands = AtomicOperands(idx);
-        InstAtomic inst = Atomic(type[idx], atomicOp[idx], memoryOrder[idx], memoryScope[idx], segment[idx], equivClass[idx], !atomicNoRet[idx]);
+        ItemList operands = AtomicOperands(p);
+        InstAtomic inst = Atomic(p->type, p->op, p->order, p->scope, p->seg, p->eqClass, !p->isNoRet);
         inst.operands() = operands;
     }
 
-    TypedReg AtomicLd(unsigned idx)
+    TypedReg AtomicLd(MemOpProp* p)
     {
-        assert(idx <= 1);
+        assert(p);
+        assert(!p->isPlainOp);
 
         ItemList operands;
-        TypedReg atomicDst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(type[idx])));
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, READ_ACCESS), type[idx]);
+        TypedReg atomicDst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(p->type)));
+        OperandAddress target = TargetAddr(LoadArrayAddr(p), ArrayIndex(p, READ_IDX), p->type);
 
         operands.push_back(atomicDst->Reg());
         operands.push_back(target);
 
-        // NB: reading is done in reversed order: 1 -> 0
-        BrigMemoryOrder readOrder = (idx == 0)? BRIG_MEMORY_ORDER_RELAXED : 
-                                                BRIG_MEMORY_ORDER_SC_ACQUIRE; // NB: ACQUIRE_RELEASE is not supported by 'ld'
-
-        InstAtomic inst = Atomic(type[idx], BRIG_ATOMIC_LD, readOrder, memoryScope[idx], segment[idx], equivClass[idx]);
+        InstAtomic inst = Atomic(p->type, p->op, p->order, p->scope, p->seg, p->eqClass, !p->isNoRet);
         inst.operands() = operands;
 
         return atomicDst;
@@ -842,43 +1090,30 @@ public:
     // ========================================================================
     // Encoding of plain read and write operations
 
-    void PlainSt(unsigned idx = 0)
+    void PlainSt(MModelTestProp* p)
     {
-        assert(idx <= 1);
+        assert(p);
+        assert(p->op == BRIG_ATOMIC_ST);
+        assert(p->order == BRIG_MEMORY_ORDER_RELAXED);
+        assert(p->isPlainOp);
+        assert(p->isNoRet);
 
-        ItemList operands;
-        TypedReg val = ExpectedValue(idx, WRITE_ACCESS);
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, WRITE_ACCESS), type[idx]);
-        operands.push_back(val->Reg());
-        operands.push_back(target);
-
-        InstMem inst = be.Brigantine().addInst<InstMem>(BRIG_OPCODE_ST, getUnsignedType(getBrigTypeNumBits(type[idx])));
-        inst.segment() = segment[idx];
-        inst.equivClass() = equivClass[idx];
-        inst.align() = BRIG_ALIGNMENT_1;
-        inst.width() = BRIG_WIDTH_NONE;
-        inst.modifier().isConst() = 0;
-        inst.operands() = operands;
+        TypedReg val = ExpectedValue(p, WRITE_IDX);
+        OperandAddress target = TargetAddr(LoadArrayAddr(p), ArrayIndex(p, WRITE_IDX), p->type);
+        St(p->type, p->seg, target, val);
     }
 
-    TypedReg PlainLd(unsigned idx = 0)
+    TypedReg PlainLd(MemOpProp* p)
     {
-        assert(idx <= 1);
+        assert(p);
+        assert(p->op == BRIG_ATOMIC_LD);
+        assert(p->order == BRIG_MEMORY_ORDER_RELAXED);
+        assert(p->isPlainOp);
+        assert(!p->isNoRet);
 
-        ItemList operands;
-        TypedReg dst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(type[idx])));
-        OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, READ_ACCESS), type[idx]);
-
-        operands.push_back(dst->Reg());
-        operands.push_back(target);
-
-        InstMem inst = be.Brigantine().addInst<InstMem>(BRIG_OPCODE_LD, type[idx]);
-        inst.segment() = segment[idx];
-        inst.equivClass() = equivClass[idx];
-        inst.align() = BRIG_ALIGNMENT_1;
-        inst.width() = BRIG_WIDTH_1;
-        inst.modifier().isConst() = 0;
-        inst.operands() = operands;
+        TypedReg dst = be.AddTReg(getUnsignedType(getBrigTypeNumBits(p->type)));
+        OperandAddress target = TargetAddr(LoadArrayAddr(p), ArrayIndex(p, READ_IDX), p->type);
+        Ld(p->type, p->seg, target, dst);
 
         return dst;
     }
@@ -890,20 +1125,20 @@ public:
     {
         assert(codeLocation == emitter::KERNEL);
         
-        LoadArrayAddr(0);
-        LoadArrayAddr(1);
+        LoadArrayAddr(writeHbOp);
+        LoadArrayAddr(writeSyncOp);
         LoadResAddr();
         LoadWgCompleteAddr();
 
-        ArrayIndex(0, WRITE_ACCESS);
-        ArrayIndex(0, READ_ACCESS);
-        ArrayIndex(1, WRITE_ACCESS);
-        ArrayIndex(1, READ_ACCESS);
+        ArrayIndex(writeHbOp, WRITE_IDX);
+        ArrayIndex(writeHbOp, READ_IDX);
+        ArrayIndex(writeSyncOp, WRITE_IDX);
+        ArrayIndex(writeSyncOp, READ_IDX);
         ResIndex();
 
-        InitArray(0);
-        InitArray(1);
-        InitRes();
+        InitArray(writeHbOp);
+        InitArray(writeSyncOp);
+        InitResFlag();
 
         InitLoop();
 
@@ -911,8 +1146,8 @@ public:
         TypedReg testComplete = be.AddTReg(BRIG_TYPE_B1);   // testComplete flag is used to record the result
         be.EmitMov(testComplete, (uint64_t)0);              // at first successful 'synchronized-with' attempt
 
-        if (ArraySegment(0) == BRIG_SEGMENT_GROUP ||
-            ArraySegment(1) == BRIG_SEGMENT_GROUP) 
+        if (ArraySegment(writeHbOp) == BRIG_SEGMENT_GROUP ||
+            ArraySegment(writeSyncOp) == BRIG_SEGMENT_GROUP) 
         {
             assert(testKind == TEST_KIND_WAVE || testKind == TEST_KIND_WGROUP);
             Comment("Make sure all workitems have completed initialization before starting test code", 
@@ -922,121 +1157,199 @@ public:
             MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP);
         }
 
-        Comment("This is the pair of instructions which should not be reordered");
-        if (isPlainOp[0]) PlainSt(0); else AtomicSt(0); // instruction A
-        if (FenceRequired()) Fence();
-        if (isPlainOp[1]) PlainSt(1); else AtomicSt(1); // instruction B
+        Comment("This instruction is a part of 'happens-before' pair");
+        if (writeHbOp->isPlainOp) PlainSt(writeHbOp); else AtomicSt(writeHbOp);         // HB-W
 
-        //NB: execution model for workitems within a wave or workgroup is not defined.
-        //    The code below attempts to synchronize with the second write (instruction B)
+        Comment("This is the instruction another thread will 'synchronize-with'");
+        if (writeFence.IsRequired()) Fence(writeFence);                                 // F-W
+        if (writeSyncOp->isPlainOp) PlainSt(writeSyncOp); else AtomicSt(writeSyncOp);   // SYNC-W
+
+        //NB: Execution model for workitems within a wave or workgroup is not defined.
+        //    So when testing synchronization between workitems in a wave or workgroup
+        //    the code below attempts to synchronize with SYNC-W in another workitem
         //    executing a limited number of iterations. If this attempt fails, the code
         //    waits at barrier and does one more synchrinization attempt which should
         //    succeed regardless of used execution model.
+        //
+        //NB: When testing synchronization between workgroups, the code attempts to 
+        //    synchronize with the second write (instruction B) and also waits for 
+        //    previous workgroups to complete. In this scenario the number of 
+        //    iterations is not limited.
 
         StartLoop();
 
-//FF            TypedReg synchronizedWith = CheckResult(testComplete);  // instructions C and D
+            TypedReg synchronizedWith = CheckResult(testComplete);  // SYNC-R, F-R, HB-R
 
-//FF            Comment("Update 'testComplete' flag");
-//FF            Or(testComplete, testComplete, synchronizedWith);
+            Comment("Update 'testComplete' flag");
+            Or(testComplete, testComplete, synchronizedWith);
 
         EndLoop();
 
         if (testKind == TEST_KIND_WAVE || testKind == TEST_KIND_WGROUP)
         {
-            Comment("this is the last attempt to synchronize with the second write",
-                    "make sure all workitems within a workgroup have completed writing test data");
-            if (!isValidTestOrder(memoryOrder[1], BRIG_MEMORY_ORDER_RELAXED)) MemFence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP);
+            Comment("This is the last attempt to synchronize with another workitem",
+                    "Make sure all workitems within a workgroup have completed writing test data");
+            
+            // NB: fences are required to avoid reordering of test operations with barrier
+            if (!writeSyncOp->IsRelease()) MemFence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP);
             Barrier(testKind == TEST_KIND_WAVE);
-            MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP);
+            if (!readSyncOp.IsAcquire()) MemFence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP);
+        }
+        else
+        {
+            Comment("This is the last attempt to synchronize with another workitem");
         }
 
+        // Last attempt to synchronize (should always succeed)
         CheckResult(testComplete);
+
+        // Save result flag in output array
+        SaveResFlag();
     }
 
     TypedReg CheckResult(TypedReg testComplete)
     {
-        Comment("Load test values");
-        TypedReg sync = AtomicLd(1);
-        TypedReg res  = isPlainOp[0]? PlainLd(0) : AtomicLd(0);
+        Comment("Attempt to 'synchronize-with' another workitem");
+        TypedReg sync = AtomicLd(&readSyncOp);                          // SYNC-R
+        if (readFence.IsRequired()) Fence(readFence);                   // F-R
 
-        Comment("Compare test values with expected values");
-        TypedReg synchronizedWith = COND(sync, EQ, ExpectedValue(1, READ_ACCESS)->Reg());
-        TypedReg isResSet         = COND(res,  EQ, ExpectedValue(0, READ_ACCESS)->Reg());
+        Comment("Compare test value with expected value");
+        TypedReg synchronizedWith = COND(sync, EQ, ExpectedValue(writeSyncOp, READ_IDX)->Reg());
 
-        Comment("Set test result flag");
+        string lab = IfCond(synchronizedWith);                          // Skip HB code if synchronization failed
+
+            Comment("This instruction is a part of 'happens-before' pair");
+            TypedReg res  = writeHbOp->isPlainOp? PlainLd(&readHbOp) : AtomicLd(&readHbOp); // HB-R
+            TypedReg isResSet = COND(res,  EQ, ExpectedValue(writeHbOp, READ_IDX)->Reg());
+
+        EndIfCond(lab);
+
+        Comment("Set test result");
         TypedReg ok = And(Not(testComplete), And(synchronizedWith, isResSet));
 
-        Comment("Update result in output array");
-        TypedReg result = CondAssign(BRIG_TYPE_U32, RES_VAL_PASSED, RES_VAL_FAILED, ok);
-        SetRes(BRIG_ATOMIC_OR, result->Reg());
+        Comment("Update result flag");
+        CondAssign(resultFlag, RES_VAL_PASSED, resultFlag, ok);
 
         return synchronizedWith;
     }
 
-    void Fence()
+    void Fence(FenceOpProp fence)
     {
-        be.EmitMemfence(FenceOrder(), FenceScope(), FenceScope(), BRIG_MEMORY_SCOPE_NONE);
+        be.EmitMemfence(fence.order, fence.scope, fence.scope, BRIG_MEMORY_SCOPE_NONE);
     }
 
     // ========================================================================
     // Helper code for array access
 
-    PointerReg LoadArrayAddr(unsigned idx)
+    PointerReg LoadArrayAddr(MemOpProp* p)
     {
-        assert(idx <= 1);
+        assert(p);
 
-        if (!testArrayAddr[idx])
+        unsigned arrayId = p->arrayId;
+
+        if (!testArrayAddr[arrayId])
         {
             Comment("Load array address");
-            testArrayAddr[idx] = be.AddAReg(testArray[idx].segment());
-            be.EmitLda(testArrayAddr[idx], testArray[idx]);
-            if (segment[idx] == BRIG_SEGMENT_FLAT && ArraySegment(idx) == BRIG_SEGMENT_GROUP) // NB: conversion is not required for global segment
+            testArrayAddr[arrayId] = be.AddAReg(testArray[arrayId].segment());
+            be.EmitLda(testArrayAddr[arrayId], testArray[arrayId]);
+            if (p->seg == BRIG_SEGMENT_FLAT && ArraySegment(p) == BRIG_SEGMENT_GROUP) // NB: conversion is not required for global segment
             {
                 PointerReg flat = be.AddAReg(BRIG_SEGMENT_FLAT);
-                be.EmitStof(flat, testArrayAddr[idx]);
-                testArrayAddr[idx] = flat;
+                be.EmitStof(flat, testArrayAddr[arrayId]);
+                testArrayAddr[arrayId] = flat;
             }
         }
-        return testArrayAddr[idx];
+
+        return testArrayAddr[arrayId];
     }
 
-    PointerReg LoadResAddr()
+    void InitArray(MModelTestProp* p)
     {
-        if (!resArrayAddr)
-        {
-            Comment("Load result address");
-            resArrayAddr = output->Address();
-        }
-        return resArrayAddr;
-    }
+        assert(p);
 
-    void InitArray(unsigned idx)
-    {
-        assert(idx <= 1);
-
-        if (ArraySegment(idx) == BRIG_SEGMENT_GROUP)
+        if (ArraySegment(p) == BRIG_SEGMENT_GROUP)
         {
             Comment("Init array element");
         
-            TypedReg val = Initializer(idx);
-            OperandAddress target = TargetAddr(LoadArrayAddr(idx), ArrayIndex(idx, WRITE_ACCESS), type[idx]);
-            InstAtomic inst = Atomic(type[idx], BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope[idx], segment[idx], equivClass[idx], false);
+            TypedReg val = Initializer(p);
+            OperandAddress target = TargetAddr(LoadArrayAddr(p), ArrayIndex(p, WRITE_IDX), p->type);
+            InstAtomic inst = Atomic(p->type, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, p->scope, p->seg, p->eqClass, false);
             inst.operands() = be.Operands(target, val->Reg());
         }
     }
 
-    void InitRes()
+    TypedReg ArrayIndex(MemOpProp* p, unsigned access)
     {
-        Comment("Clear result array");
-        SetRes(BRIG_ATOMIC_ST, be.Immed(type2bitType(ResultType()), RES_VAL_FAILED));
+        assert(p);
+        assert(access == WRITE_IDX || access == READ_IDX);
+
+        unsigned arrayId = p->arrayId;
+
+        if (!indexInTestArray[arrayId][access])
+        {
+            if (access == WRITE_IDX)
+            {
+                Comment("Init write array index for " + GetArrayName(p));
+
+                indexInTestArray[arrayId][access] = TestIndex(p);
+            }
+            else // READ_IDX
+            {
+                Comment("Init read array index for " + GetArrayName(p));
+
+                TypedReg id = TestIndex(p);
+
+                if (testKind == TEST_KIND_AGENT)
+                {
+                    assert(ArraySegment(p) == BRIG_SEGMENT_GLOBAL);
+
+                    // index == (id < wg.size)? id : id - wg.size;
+                    TypedReg testId = Sub(id, Delta());
+                    indexInTestArray[arrayId][access] = CondAssign(id, testId, COND(id, LT, Delta()));
+                }
+                else if (testKind == TEST_KIND_WGROUP || testKind == TEST_KIND_WAVE)
+                {
+                    // index == ((id % test.size) < delta)? id + test.size - delta : id - delta;
+                    TypedReg localId = Rem(id, TestSize());
+                    TypedReg testId1 = Add(id, TestSize() - Delta());
+                    TypedReg testId2 = Sub(id, Delta());
+                    indexInTestArray[arrayId][access] = CondAssign(testId1, testId2, COND(localId, LT, Delta()));
+                }
+                else
+                {
+                    assert(false);
+                }
+            }
+        }
+        return indexInTestArray[arrayId][access];
     }
 
-    void SetRes(BrigAtomicOperation op, Operand res)
+    TypedReg TestIndex(MemOpProp* p)
     {
+        assert(p);
+
+        if (ArraySegment(p) == BRIG_SEGMENT_GLOBAL)
+            return TestAbsId(LoadArrayAddr(p)->IsLarge());
+        else
+            return TestId(LoadArrayAddr(p)->IsLarge());
+    }
+
+    // ========================================================================
+    // Helper code for working with result flag and output array
+
+    void InitResFlag()
+    {
+        Comment("Init result flag");
+        resultFlag = be.AddTReg(RES_TYPE);
+        be.EmitMov(resultFlag, RES_VAL_FAILED);
+    }
+
+    void SaveResFlag()
+    {
+        Comment("Save result in output array");
+
         OperandAddress target = TargetAddr(LoadResAddr(), ResIndex(), ResultType());
-        InstAtomic inst = Atomic(ResultType(), op, BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, (BrigSegment)LoadResAddr()->Segment(), 0, false);
-        inst.operands() = be.Operands(target, res);
+        St(ResultType(), (BrigSegment)LoadResAddr()->Segment(), target, resultFlag);
     }
 
     TypedReg ResIndex()
@@ -1049,57 +1362,28 @@ public:
         return indexInResArray;
     }
 
-    TypedReg TestIndex(unsigned idx)
+    PointerReg LoadResAddr()
     {
-        assert(idx <= 1);
-
-        if (ArraySegment(idx) == BRIG_SEGMENT_GLOBAL)
-            return TestAbsId(LoadArrayAddr(idx)->IsLarge());
-        else
-            return TestId(LoadArrayAddr(idx)->IsLarge());
+        if (!resArrayAddr)
+        {
+            Comment("Load result address");
+            resArrayAddr = output->Address();
+        }
+        return resArrayAddr;
     }
 
-    TypedReg ArrayIndex(unsigned idx, unsigned access)
+    // ========================================================================
+    // Interface with MModelTestProp
+
+    virtual TypedReg Index(unsigned arrayId, unsigned accessIdx)
     {
-        assert(idx <= 1);
-        assert(access == WRITE_ACCESS || access == READ_ACCESS);
+        assert(accessIdx == WRITE_IDX || accessIdx == READ_IDX);
+        assert(MIN_ARRAY_ID <= arrayId && arrayId <= MAX_ARRAY_ID);
 
-        if (!indexInTestArray[idx][access])
-        {
-            if (access == WRITE_ACCESS)
-            {
-                if (idx == 0) Comment("Init first write array index"); else Comment("Init second write array index");
-                indexInTestArray[idx][access] = TestIndex(idx);
-            }
-            else // READ_ACCESS
-            {
-                if (idx == 0) Comment("Init first read array index"); else Comment("Init second read array index");
-
-                TypedReg id = TestIndex(idx);
-
-                if (testKind == TEST_KIND_AGENT)
-                {
-                    assert(ArraySegment(idx) == BRIG_SEGMENT_GLOBAL);
-
-                    // index == (id < wg.size)? id : id - wg.size;
-                    TypedReg testId = Sub(id, Delta());
-                    indexInTestArray[idx][access] = CondAssign(id, testId, COND(id, LT, Delta()));
-                }
-                else if (testKind == TEST_KIND_WGROUP || testKind == TEST_KIND_WAVE)
-                {
-                    // index == ((id % test.size) < delta)? id + test.size - delta : id - delta;
-                    TypedReg localId = Rem(id, TestSize());
-                    TypedReg testId1 = Add(id, TestSize() - Delta());
-                    TypedReg testId2 = Sub(id, Delta());
-                    indexInTestArray[idx][access] = CondAssign(testId1, testId2, COND(localId, LT, Delta()));
-                }
-                else
-                {
-                    assert(false);
-                }
-            }
-        }
-        return indexInTestArray[idx][access];
+        MemOpProp* p = ArrayId2WriteOp(arrayId);
+        TypedReg index = ArrayIndex(p, accessIdx);
+        if (index->RegSizeBits() != getBrigTypeNumBits(p->type)) index = Cvt(index);
+        return index;
     }
 
     // ========================================================================
@@ -1111,7 +1395,7 @@ public:
         {
             Comment("Init loop index");
 
-            loopIdx = be.AddTReg(BRIG_TYPE_U32);
+            loopIdx = be.AddTReg(LOOP_IDX_TYPE);
             be.EmitMov(loopIdx, MAX_LOOP);
         }
     }
@@ -1129,49 +1413,12 @@ public:
         }
         else
         {
-//FF            Comment("Decrement loop index and continue if not zero");
-//FF
-//FF            Sub(loopIdx, loopIdx, 1);
-//FF            TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
-//FF            be.EmitCmp(cReg->Reg(), loopIdx, be.Immed(loopIdx->Type(), 0), BRIG_COMPARE_NE);
-//FF            be.EmitCbr(cReg, LAB_NAME, BRIG_WIDTH_ALL);
-        }
-    }
+            Comment("Decrement loop index and continue if not zero");
 
-    // ========================================================================
-    // Detection of fence attributes
-
-    bool FenceRequired() const { return !isValidTestOrder(memoryOrder[0], memoryOrder[1]); }
-
-    BrigMemoryOrder FenceOrder() const
-    {
-        assert(FenceRequired());
-
-        if (isPlainOp[0]) 
-        {
-            return isBitType(type[1])? BRIG_MEMORY_ORDER_SC_RELEASE : 
-                                       BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
-        }
-        else
-        {
-            return isBitType(type[1])?    BRIG_MEMORY_ORDER_SC_ACQUIRE :
-                   isSignedType(type[1])? BRIG_MEMORY_ORDER_SC_RELEASE : 
-                                          BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
-        }
-    }
-
-    BrigMemoryScope FenceScope() const
-    {
-        assert(FenceRequired());
-
-        switch(testKind)
-        {
-        case TEST_KIND_WAVE:	return BRIG_MEMORY_SCOPE_WAVEFRONT;
-        case TEST_KIND_WGROUP:	return BRIG_MEMORY_SCOPE_WORKGROUP;
-        case TEST_KIND_AGENT:	return BRIG_MEMORY_SCOPE_AGENT;
-        default:
-            assert(false);
-            return BRIG_MEMORY_SCOPE_NONE;
+            Sub(loopIdx, loopIdx, 1);
+            TypedReg cReg = be.AddTReg(BRIG_TYPE_B1);
+            be.EmitCmp(cReg->Reg(), loopIdx, be.Immed(loopIdx->Type(), 0), BRIG_COMPARE_NE);
+            be.EmitCbr(cReg, LAB_NAME, BRIG_WIDTH_ALL);
         }
     }
 
@@ -1180,58 +1427,64 @@ public:
 
     bool IsValid() const
     {
-        if (isPlainOp[0])
+#ifdef TINY_TEST
+        if (writeHbOp->op != BRIG_ATOMIC_ADD) return false;
+        if (writeSyncOp->type != BRIG_TYPE_U32) return false;
+#endif
+        if (writeHbOp->isPlainOp)
         {
-            if (!IsValidPlainStTest(0)) return false;
+            if (!IsValidPlainStTest(writeHbOp)) return false;
         }
         else
         {
-            if (!IsValidAtomicTest(0)) return false;
+            if (!IsValidAtomicTest(writeHbOp)) return false;
         }
 
-        if (isPlainOp[1])
+        if (writeSyncOp->isPlainOp)
         {
-            if (!IsValidPlainStTest(1)) return false;
+            if (!IsValidPlainStTest(writeSyncOp)) return false;
         }
         else
         {
-            if (!IsValidAtomicTest(1)) return false;
+            if (!IsValidAtomicTest(writeSyncOp)) return false;
         }
 
-        if(!isValidTestSegment(0)) return false;
-        if(!isValidTestSegment(1)) return false;
+        if(!isValidTestSegment(writeHbOp)) return false;
+        if(!isValidTestSegment(writeSyncOp)) return false;
 
-        if(!isValidTestScope(0)) return false;
-        if(!isValidTestScope(1)) return false;
+        //NB: Any scope is valid for HB-W and HB-R
+        //if(!isValidTestScope(writeHbOp)) return false;
+        if(!isValidTestScope(writeSyncOp)) return false;
 
         return true;
     }
 
-    bool isValidTestSegment(unsigned idx) const
+    bool isValidTestSegment(MemOpProp* p) const
     {
-        assert(idx <= 1);
-        if (testKind == TEST_KIND_AGENT) return ArraySegment(idx) != BRIG_SEGMENT_GROUP;
+        assert(p);
+        if (testKind == TEST_KIND_AGENT) return ArraySegment(p) != BRIG_SEGMENT_GROUP;
         return true;
     }
 
-    bool isValidTestScope(unsigned idx)  const
+    bool isValidTestScope(MemOpProp* p)  const
     {
-        assert(idx <= 1);
-        if (testKind == TEST_KIND_WGROUP) return memoryScope[idx] != BRIG_MEMORY_SCOPE_WAVEFRONT;
-        if (testKind == TEST_KIND_AGENT)  return memoryScope[idx] != BRIG_MEMORY_SCOPE_WAVEFRONT &&
-                                                 memoryScope[idx] != BRIG_MEMORY_SCOPE_WORKGROUP;
+        assert(p);
+
+        if (testKind == TEST_KIND_WGROUP) return p->scope != BRIG_MEMORY_SCOPE_WAVEFRONT;
+        if (testKind == TEST_KIND_AGENT)  return p->scope != BRIG_MEMORY_SCOPE_WAVEFRONT &&
+                                                 p->scope != BRIG_MEMORY_SCOPE_WORKGROUP;
         return true;
     }
 
-    bool IsValidPlainStTest(unsigned idx) const
+    bool IsValidPlainStTest(MemOpProp* p) const
     {
-        assert(idx <= 1);
-        BrigMemoryScope scope = (ArraySegment(idx) == BRIG_SEGMENT_GROUP)? BRIG_MEMORY_SCOPE_WORKGROUP : BRIG_MEMORY_SCOPE_AGENT;
-        return isValidStType(type[idx]) &&
-               atomicOp[idx]    == BRIG_ATOMIC_ST &&
-               memoryOrder[idx] == BRIG_MEMORY_ORDER_RELAXED &&
-               memoryScope[idx] == scope &&
-               atomicNoRet[idx];
+        assert(p);
+        BrigMemoryScope scope = (ArraySegment(p) == BRIG_SEGMENT_GROUP)? BRIG_MEMORY_SCOPE_WORKGROUP : BRIG_MEMORY_SCOPE_AGENT;
+        return isValidStType(p->type) &&
+               p->op    == BRIG_ATOMIC_ST &&
+               p->order == BRIG_MEMORY_ORDER_RELAXED &&
+               p->scope == scope &&
+               p->isNoRet;
     }
 
     bool isValidStType(BrigType t) const
@@ -1242,44 +1495,29 @@ public:
                t == BRIG_TYPE_B128;
     }
 
-    bool isValidTestOrder(BrigMemoryOrder order0, BrigMemoryOrder order1) const
+    bool IsValidAtomicTest(MemOpProp* p) const
     {
-        switch(order0)
-        {
-        case BRIG_MEMORY_ORDER_RELAXED:             return order1 == BRIG_MEMORY_ORDER_SC_RELEASE || 
-                                                           order1 == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE;
-        case BRIG_MEMORY_ORDER_SC_RELEASE:          return order1 != BRIG_MEMORY_ORDER_RELAXED;
-        case BRIG_MEMORY_ORDER_SC_ACQUIRE:          return true;
-        case BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE:  return true;
-        default:
-            assert(false);
-            return false;
-        }
-    }
+        assert(p);
 
-    bool IsValidAtomicTest(unsigned idx) const
-    {
-        assert(idx <= 1);
+        if (!IsValidAtomic(p->op, p->seg, p->order, p->scope, p->type, p->isNoRet)) return false;
+        if (!IsValidGrid(p)) return false;
 
-        if (!IsValidAtomic(atomicOp[idx], segment[idx], memoryOrder[idx], memoryScope[idx], type[idx], atomicNoRet[idx])) return false;
-        if (!IsValidGrid(idx)) return false;
-
-        if (atomicOp[idx] == BRIG_ATOMIC_LD) return false;
-        //if (memoryScope[idx] == BRIG_MEMORY_SCOPE_SYSTEM) return false; //F
+        if (p->op == BRIG_ATOMIC_LD) return false;
+        //if (p->scope == BRIG_MEMORY_SCOPE_SYSTEM) return false; //F
 
         return true;
     }
 
-    bool IsValidGrid(unsigned idx) const
+    bool IsValidGrid(MemOpProp* p) const
     {
-        assert(idx <= 1);
+        assert(p);
 
-        switch (atomicOp[idx])
+        switch (p->op)
         {
         case BRIG_ATOMIC_AND:
         case BRIG_ATOMIC_OR:
         case BRIG_ATOMIC_XOR:
-            return getBrigTypeNumBits(type[idx]) == TestSize();
+            return getBrigTypeNumBits(p->type) == TestSize();
             
         default:
             return true;
@@ -1294,18 +1532,25 @@ public:
 
 void MModelTests::Iterate(hexl::TestSpecIterator& it)
 {
-    MModelTestPropFactory singleton;
+    MModelTestPropFactory first(0);
+    MModelTestPropFactory second(1);
+
     CoreConfig* cc = CoreConfig::Get(context);
     MModelTest::wavesize = cc->Wavesize(); //F: how to get the value from inside of AtomicTest?
     Arena* ap = cc->Ap();
-    TestForEach<MModelTest>(ap, it, "mmodel", 
-                            cc->Grids().MModelSet(),                                            // grid
-                            cc->Memory().LimitedAtomics(),                                      // op
-                            cc->Segments().Atomic(),        cc->Segments().Atomic(),            // segment
-                            cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryOrders(),     // order
-                            cc->Memory().AllMemoryScopes(), cc->Memory().AllMemoryScopes(),     // scope
-                            cc->Types().MemModel(),                                             // type
-                            Bools::All()                                                        // isPlainOp_0
+
+    TestForEach<MModelTest>(ap, it, "mmodel", cc->Grids().MModelSet(),
+                                                                // "synchronized-with" properties:
+                            cc->Segments().Atomic(),            //  - segment
+                            cc->Memory().AllMemoryOrders(),     //  - order
+                            cc->Memory().AllMemoryScopes(),     //  - scope
+                            cc->Types().MemModel(),             //  - type
+                                                                // "happens-before" properties:
+                            cc->Memory().LimitedAtomics(),      //  - op
+                            cc->Segments().Atomic(),            //  - segment
+                            cc->Memory().AllMemoryOrders(),     //  - order
+                            cc->Memory().AllMemoryScopes(),     //  - scope
+                            Bools::All()                        //  - isPlain
                             );
 }
 
@@ -1313,10 +1558,13 @@ void MModelTests::Iterate(hexl::TestSpecIterator& it)
 
 void MModelTests::Iterate(hexl::TestSpecIterator& it)
 {
-    MModelTestPropFactory singleton;
+    MModelTestPropFactory first(0);
+    MModelTestPropFactory second(1);
+
     CoreConfig* cc = CoreConfig::Get(context);
     MModelTest::wavesize = cc->Wavesize(); //F: how to get the value from inside of AtomicTest?
     Arena* ap = cc->Ap();
+
     TestForEach<MModelTest>(ap, it, "mmodel", 
                             cc->Grids().MModelSet(),                                            // grid
                             cc->Memory().AllAtomics(),      cc->Memory().AllAtomics(),          // op
@@ -1324,7 +1572,7 @@ void MModelTests::Iterate(hexl::TestSpecIterator& it)
                             cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryOrders(),     // order
                             cc->Memory().AllMemoryScopes(), cc->Memory().AllMemoryScopes(),     // scope
                             cc->Types().Atomic(),           cc->Types().Atomic(),               // type
-                            Bools::All()                                                        // isPlainOp_0
+                            Bools::All()                                                        // isPlain
                             );
 }
 
