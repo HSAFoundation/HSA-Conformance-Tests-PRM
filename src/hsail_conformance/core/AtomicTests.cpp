@@ -1,5 +1,5 @@
 /*
-   Copyright 2014-2015 Heterogeneous System Architecture (HSA) Foundation
+   Copyright 2014-2015   Heterogeneous System Architecture (HSA) Foundation
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.
@@ -52,14 +52,14 @@
 // operation could be implemented:
 //
 //    global unsigned var = 0;        // Initial value
-//    Kernel(unsigned res[test.size]) // Expected (DST_PASSED | MEM_PASSED) for each wi
+//    Kernel(unsigned res[test.size]) // Expected (FLAG_DST | FLAG_MEM) for each wi
 //    {
 //        res[wi.id] = FAILED;
 //        Synchronize(1);
 //        dst = Atomic(ADD, UNSIGNED, GLOBAL, var, 1); // Each workitem adds 1
 //        Synchronize(2);
-//        if (dst     < test.size) res[wi.id] |= DST_PASSED;
-//        if (var - 1 < test.size) res[wi.id] |= MEM_PASSED;
+//        if (dst     < test.size) res[wi.id] |= FLAG_DST;
+//        if (var - 1 < test.size) res[wi.id] |= FLAG_MEM;
 //    }
 //
 // However a simple analysis shows that each workitem has a unique dst value and
@@ -67,14 +67,14 @@
 // a more intelligent test:
 //
 //    <seg> <type> var = 0;           // Initial value
-//    Kernel(unsigned res[test.size]) // Expected (DST_PASSED | MEM_PASSED) for each wi
+//    Kernel(unsigned res[test.size]) // Expected (FLAG_DST | FLAG_MEM) for each wi
 //    {
 //        res[wi.id] = FAILED;
 //        Synchronize(1);
 //        dst = Atomic(ADD, UNSIGNED, GLOBAL, var, 1); // Each workitem adds 1
 //        Synchronize(2);
-//        if (dst     < test.size) res[dst]   |= DST_PASSED;
-//        if (var - 1 < test.size) res[wi.id] |= MEM_PASSED;
+//        if (dst     < test.size) res[dst]   |= FLAG_DST;
+//        if (var - 1 < test.size) res[wi.id] |= FLAG_MEM;
 //    }
 //
 // Test values being written to memory by initializer and atomic instruction depend on 
@@ -90,20 +90,23 @@
 //
 // unsigned Encode(unsigned val) { return val * 0x10001; }
 // unsigned Decode(unsigned val) { return val / 0x10001; }
+// bool ValidateDecode(unsigned val) { return (val % 0x10001) == 0; }
 //
 // Using these functions, test code may be rewritten as shown below:
 //
-//    <seg> <type> var = Encode(0);           // Initial value
-//    Kernel(unsigned res[test.size]) // Expected (DST_PASSED | MEM_PASSED) for each wi
+//    <seg> <type> var = Encode(0);   // Initial value
+//    Kernel(unsigned res[test.size]) // Expected (FLAG_VLD_DST | FLAG_VLD_MEM | FLAG_DST | FLAG_MEM) for each wi
 //    {
 //        res[wi.id] = FAILED;
 //        Synchronize(1);
 //        dst = Atomic(ADD, UNSIGNED, GLOBAL, var, Encode(1)); // Each workitem adds 1
 //        Synchronize(2);
+//        if (ValidateDecode(dst)) res[wi.id]   |= FLAG_VLD_DST;
+//        if (ValidateDecode(mem)) res[wi.id]   |= FLAG_VLD_MEM;
 //        dst = Decode(dst);
 //        mem = Decode(var);
-//        if (dst     < test.size) res[dst]   |= DST_PASSED;
-//        if (mem - 1 < test.size) res[wi.id] |= MEM_PASSED;
+//        if (dst     < test.size) res[dst]   |= FLAG_DST;
+//        if (mem - 1 < test.size) res[wi.id] |= FLAG_MEM;
 //    }
 //
 //=====================================================================================
@@ -135,13 +138,13 @@
 // However a workitem in a workgroup may wait for completion of workitems in
 // previous worgroups; this is an allowed behavior. 
 //
-// Consequently, tests for AGENT kind are more complicated. First, these test must 
+// Consequently, tests for AGENT kind are more complicated. First, these tests must 
 // include synchronization so that workitems in the last workgroup see final value 
 // in memory:
 //
 //     void Synchronize(int i) { barrier(); if (i == 1) WaitForPrevWgToComplete(); }
 //
-// Also note that other workgroups are not guaranteed to see final value in memory so
+// Second, workgroups other than the last are not guaranteed to see final value in memory so
 // checks for these workgroups have to be more conservative.
 //
 //=====================================================================================
@@ -177,44 +180,48 @@
 // TEST STRUCTURE FOR WAVE AND WGROUP TEST KINDS
 //
 //    // Define a test array. Each test must have a separate element in this array.
-//    // NB: that array size depends on test kind and segment <seg>.
+//    // NB: test array size depends on test kind and segment <seg>.
 //    // NB: Initialization shown below is only possible for global array.
 //    <seg> <type> var[TestArraySize()] = {Encode(InitialValue()), Encode(InitialValue()), ...; 
 //
 //    kernel(unsigned global res[grid.size]) // output array
 //    {
-//        private unsigned loc = MemLoc(); // Compute location of this test in test array
+//        private unsigned loc = MemLoc();   // Compute location of this test in test array
 //
-//        var[loc] = Encode(InitialValue());
-//        res[wi.id] = 0;                            // clear result flag
+//        var[loc] = Encode(InitialValue()); // initialization is required for group memory only
+//        res[wi.id] = 0;                    // clear result flag
 //        
-//        // Make sure all workitems have completed initialization
+//                                           // Make sure all workitems have completed initialization
 //
 //        memfence_screl_wg;
 //        (wave)barrier;
 //        memfence_scacq_wg;
 //
-//        // This is the instruction being tested
+//                                           // This is the instruction being tested
+//
+//                                           // NB: to avoid races, this instruction must have 
+//                                           // wave scope instance for WAVE test and 
+//                                           // workgroup scope instance for WGROUP test
 //
 //        private dst = AtomicOp(var[loc], EncodeRt(AtomicOperand()), EncodeRt(AtomicOperand1()));
 //
-//        // Make sure all workitems have completed atomic operation
+//                                           // Make sure all workitems have completed atomic operation
 //
 //        memfence_screl_wg;
 //        (wave)barrier;
 //        memfence_scacq_wg;
 //
-//        // Validate that test values may be decoded and set result flags
+//                                           // Validate that test values may be decoded and set result flags
 //
 //        if (VerifyRt(dst))      res[wi.id] |= FLAG_VLD_DST;
 //        if (VerifyRt(var[loc])) res[wi.id] |= FLAG_VLD_MEM;
 //
-//        // Decode test values for subsequent checks 
+//                                           // Decode test values for subsequent checks 
 //
 //        private <type> d_dst = DecodeRt(dst);
 //        private <type> d_mem = DecodeRt(var[loc]);
 //        
-//        // Validate decoded values
+//                                           // Validate decoded values
 //
 //        res[DstIndex(d_dst)] = DstCond(d_dst, d_mem)? FLAG_DST : 0;
 //        res[MemIndex()]      = MemCond(d_mem)?        FLAG_MEM : 0;
@@ -233,36 +240,40 @@
 //
 //    kernel(unsigned global res[grid.size]) // output array
 //    {
-//        res[wi.id] = 0;                            // clear result flag
+//        res[wi.id] = 0;                    // clear result flag
 //        
-//        // This is the instruction being tested
+//                                           // This is the instruction being tested
+//
+//
+//                                           // NB: to avoid races, this instruction must have 
+//                                           // agent or system scope instance
 //
 //        private <type> dst = AtomicOp(var, EncodeRt(AtomicOperand()), EncodeRt(AtomicOperand1()));
 //
-//        // Make sure all workitems within workgroup have completed atomic operation
+//                                           // Make sure all workitems within workgroup have completed atomic operation
 //
 //        memfence_screl_wg;
 //        barrier;
 //        memfence_scacq_wg;
 //
-//        // Wait for previous workgroup to complete
+//                                           // Wait for previous workgroup to complete
 //
 //        do {} while (finished[wg.id] < wg.size);
 //
-//        finished[wg.id + 1]++; // Label this workitem as completed
+//        finished[wg.id + 1]++;             // Label this workitem as completed
 //
-//        // Validate that test values may be decoded and set result flags
+//                                           // Validate that test values may be decoded and set result flags
 //
 //        if (VerifyRt(dst)) res[wi.id] |= FLAG_VLD_DST;
 //        if (VerifyRt(var)) res[wi.id] |= FLAG_VLD_MEM;
 //
-//        // Decode test values for subsequent checks 
+//                                           // Decode test values for subsequent checks 
 //
 //        private <type> d_dst = DecodeRt(dst);
 //        private <type> d_mem = DecodeRt(var);
 //        
-//        // Validate decoded values
-//        // NB: only workitems in the last workgroup are guaranteed to see final value in memory
+//                                           // Validate decoded values
+//                                           // NB: only workitems in the last workgroup are guaranteed to see final value in memory
 //
 //        res[DstIndex(d_dst)] = DstCond(d_dst, d_mem)? FLAG_DST : 0;
 //        res[MemIndex()]      = MemCond(d_mem)?        FLAG_MEM : 0;
@@ -536,9 +547,9 @@ class AtomicTestPropLd : public AtomicTestProp // ******* BRIG_ATOMIC_LD *******
 class AtomicTestPropFactory : public TestPropFactory<AtomicTestProp>
 {
 public:
-    virtual AtomicTestProp* CreateProp(BrigAtomicOperation op)
+    virtual AtomicTestProp* CreateProp(BrigAtomicOperation atmOp)
     {
-        switch (op)
+        switch (atmOp)
         {
         case BRIG_ATOMIC_ADD:      return new AtomicTestPropAdd();    
         case BRIG_ATOMIC_AND:      return new AtomicTestPropAnd();    
@@ -561,7 +572,7 @@ public:
     }
 };
 
-template<> TestPropFactory<AtomicTestProp>* TestPropFactory<AtomicTestProp>::factory = 0;
+template<> TestPropFactory<AtomicTestProp>* TestPropFactory<AtomicTestProp>::factory[1];
 
 //=====================================================================================
 //=====================================================================================
@@ -577,18 +588,11 @@ protected: // Flags indicating passed/failed conditions
     static const unsigned FLAG_VLD_DST = 8;     // passed decryption of destination value
 
 protected:
-    BrigAtomicOperation atomicOp;
-    BrigSegment         segment;
-    BrigMemoryOrder     memoryOrder;
-    BrigMemoryScope     memoryScope;
-    BrigType            type;
-    bool                atomicNoRet;
-    uint8_t             equivClass;
     DirectiveVariable   testVar;                // memory which is being accessed by atomic ops
     bool                mapFlat2Group;          // if true, map flat to group, if false, map flat to global
 
 private:
-    AtomicTestProp*     prop;                   // properties of the current atomic operation
+    AtomicTestProp*     op;                     // properties of the current atomic operation
     PointerReg          atomicVarAddr;          // address of variable which is modified by atomic ops
     PointerReg          resArrayAddr;           // output array of test flags (passed/failed)
     TypedReg            indexInResArray;        // index of current workitem in result array
@@ -599,23 +603,16 @@ private:
     // ========================================================================
 
 public:
-    AtomicTest(Grid geometry_,
-                BrigAtomicOperation atomicOp_,
-                BrigSegment segment_,
-                BrigMemoryOrder memoryOrder_,
-                BrigMemoryScope memoryScope_,
-                BrigType type_,
-                bool mapFlat2Group_,
+    AtomicTest(Grid geometry,
+                BrigAtomicOperation atomicOp,
+                BrigSegment segment,
+                BrigMemoryOrder memoryOrder,
+                BrigMemoryScope memoryScope,
+                BrigType type,
+                bool mapFlat2Grp,
                 bool noret)
-    : AtomicTestHelper(KERNEL, geometry_),
-        atomicOp(atomicOp_),
-        segment(segment_),
-        memoryOrder(memoryOrder_),
-        memoryScope(memoryScope_),
-        type(type_),
-        atomicNoRet(noret),
-        equivClass(0),
-        mapFlat2Group(mapFlat2Group_),
+    : AtomicTestHelper(KERNEL, geometry),
+        mapFlat2Group(mapFlat2Grp),
         atomicVarAddr(0),
         resArrayAddr(0),
         indexInResArray(0),
@@ -624,8 +621,8 @@ public:
     {
         SetTestKind();
         
-        prop = AtomicTestPropFactory::Get()->GetProp(this, atomicOp, type);
-        prop->SetTestSize(geometry->GridSize());
+        op = AtomicTestPropFactory::Get()->GetProp(this, atomicOp, segment, memoryOrder, memoryScope, type, 0, noret);
+        op->SetTestSize(geometry->GridSize());
     }
 
     // ========================================================================
@@ -642,18 +639,18 @@ public:
 
     void Name(std::ostream& out) const 
     { 
-        out << (atomicNoRet? "atomicnoret" : "atomic")
-            << "_" << atomicOperation2str(atomicOp)
+        out << (op->isNoRet? "atomicnoret" : "atomic")
+            << "_" << atomicOperation2str(op->op)
                    << SegName()
-            << "_" << memoryOrder2str(memoryOrder)
-            << "_" << memoryScope2str(memoryScope)
-            << "_" << type2str(type)
+            << "_" << memoryOrder2str(op->order)
+            << "_" << memoryScope2str(op->scope)
+            << "_" << type2str(op->type)
             << "/" << geometry; 
     }
 
     std::string SegName() const
     {
-        string pref = (segment == BRIG_SEGMENT_FLAT)? "_f" : "_";
+        string pref = (op->seg == BRIG_SEGMENT_FLAT)? "_f" : "_";
         return pref + segment2str(VarSegment());
     }
 
@@ -662,7 +659,7 @@ public:
     Value ExpectedResult() const
     {
         unsigned expected = FLAG_MEM | (Encryptable()? FLAG_VLD_MEM : FLAG_NONE);
-        if (!atomicNoRet) expected |= FLAG_DST | (Encryptable()? FLAG_VLD_DST : FLAG_NONE);
+        if (!op->isNoRet) expected |= FLAG_DST | (Encryptable()? FLAG_VLD_DST : FLAG_NONE);
         return Value(MV_UINT32, U32(expected));
     }
 
@@ -677,7 +674,7 @@ public:
 
         std::string varName;
 
-        switch (segment) 
+        switch (op->seg) 
         {
         case BRIG_SEGMENT_GLOBAL: varName = "global_var"; break;
         case BRIG_SEGMENT_GROUP:  varName = "group_var";  break;
@@ -687,17 +684,17 @@ public:
             break;
         }
 
-        testVar = be.EmitVariableDefinition(varName, VarSegment(), type);
+        testVar = be.EmitVariableDefinition(varName, VarSegment(), op->type);
 
-        if (VarSegment() != BRIG_SEGMENT_GROUP) testVar.init() = Initializer(type);
+        if (VarSegment() != BRIG_SEGMENT_GROUP) testVar.init() = Initializer(op->type);
 
         DefineWgCompletedArray();
     }
 
     BrigSegment VarSegment() const
     {
-        if (segment == BRIG_SEGMENT_FLAT) return mapFlat2Group? BRIG_SEGMENT_GROUP : BRIG_SEGMENT_GLOBAL;
-        return segment;
+        if (op->seg == BRIG_SEGMENT_FLAT) return mapFlat2Group? BRIG_SEGMENT_GROUP : BRIG_SEGMENT_GLOBAL;
+        return op->seg;
     }
 
     // ========================================================================
@@ -707,7 +704,7 @@ public:
     uint64_t Key() const
     {
         uint64_t maxValue = geometry->GridSize() * LoopCount();
-        uint64_t mask     = (getBrigTypeNumBits(type) == 32) ? 0xFFFFFFFFULL : 0xFFFFFFFFFFFFFFFFULL;
+        uint64_t mask     = (getBrigTypeNumBits(op->type) == 32) ? 0xFFFFFFFFULL : 0xFFFFFFFFFFFFFFFFULL;
         
         if (maxValue <= 0x40)       return 0x0101010101010101ULL & mask;
         if (maxValue <= 0x4000)     return 0x0001000100010001ULL & mask;
@@ -735,7 +732,7 @@ public:
         assert(val);
         assert(isUnsignedType(val->Type()));
 
-        return (Key() == 1)? Mov(type, 0) : Rem(val, Key());
+        return (Key() == 1)? Mov(op->type, 0) : Rem(val, Key());
     }
 
     Operand Initializer(BrigType t)
@@ -745,20 +742,20 @@ public:
         return be.Immed(t, init);
     }
 
-    BrigType UnsignedType() { return (BrigType)getUnsignedType(getBrigTypeNumBits(type)); }
+    BrigType UnsignedType() { return (BrigType)getUnsignedType(getBrigTypeNumBits(op->type)); }
 
     // ========================================================================
 
     bool Encryptable() const
     {
-        assert(prop);
-        return prop->Encryptable();
+        assert(op);
+        return op->Encryptable();
     }
 
     uint64_t InitialValue()
     {
-        assert(prop);
-        return prop->InitialValue();
+        assert(op);
+        return op->InitialValue();
     }
 
     // ========================================================================
@@ -803,7 +800,7 @@ public:
 
     void DecodeDst()
     {
-        if (!atomicNoRet && Encryptable())
+        if (!op->isNoRet && Encryptable())
         {
             assert(atomicDst);
             assert(isUnsignedType(atomicDst->Type()));
@@ -837,9 +834,9 @@ public:
 
     void CheckDst()
     {
-        assert(prop);
+        assert(op);
         
-        if (!atomicNoRet && prop->CheckDst())
+        if (!op->isNoRet && op->CheckDst())
         {
             assert(atomicDst);
             assert(atomicMem);
@@ -847,12 +844,12 @@ public:
             assert(isUnsignedType(atomicMem->Type()));
 
             Comment("Compute and normalize dst index (if necessary)");
-            TypedReg idx = prop->DstIndex(atomicDst);
+            TypedReg idx = op->DstIndex(atomicDst);
         
             assert(idx);
 
             Comment("Check atomic dst");
-            TypedReg cond = prop->DstCond(atomicDst, atomicMem);
+            TypedReg cond = op->DstCond(atomicDst, atomicMem);
 
             assert(cond);
 
@@ -862,20 +859,20 @@ public:
 
     void CheckExch()
     {
-        assert(prop);
+        assert(op);
         
-        if (!atomicNoRet && prop->CheckExch())
+        if (!op->isNoRet && op->CheckExch())
         {
             assert(atomicDst);
             assert(isUnsignedType(atomicDst->Type()));
 
             Comment("Compute and normalize special dst index");
-            TypedReg idx = prop->ExchIndex(LdVar());
+            TypedReg idx = op->ExchIndex(LdVar());
         
             assert(idx);
 
             Comment("Check atomic dst (special)");
-            TypedReg cond = prop->ExchCond(atomicDst, testKind == TEST_KIND_AGENT);
+            TypedReg cond = op->ExchCond(atomicDst, testKind == TEST_KIND_AGENT);
 
             assert(cond);
 
@@ -885,16 +882,16 @@ public:
 
     void CheckMem()
     {
-        assert(prop);
+        assert(op);
         
-        if (prop->CheckMem())
+        if (op->CheckMem())
         {
-            TypedReg idx = prop->MemIndex();
+            TypedReg idx = op->MemIndex();
         
             assert(idx);
 
             Comment("Check final value in memory");
-            TypedReg cond = prop->MemCond(LdVar(), testKind == TEST_KIND_AGENT);
+            TypedReg cond = op->MemCond(LdVar(), testKind == TEST_KIND_AGENT);
 
             assert(cond);
 
@@ -908,18 +905,18 @@ public:
     {
         Comment("This is the instruction being tested:");
 
-        InstAtomic inst = Atomic(type, atomicOp, memoryOrder, memoryScope, segment, equivClass, !atomicNoRet);
+        InstAtomic inst = Atomic(op->type, op->op, op->order, op->scope, op->seg, op->eqClass, !op->isNoRet);
         inst.operands() = operands;
     }
 
     ItemList AtomicOperands()
     {
-        assert(prop);
+        assert(op);
 
         Comment("Load atomic operands");
 
-        TypedReg src0 = prop->AtomicOperand();
-        TypedReg src1 = prop->AtomicOperand1();
+        TypedReg src0 = op->AtomicOperand();
+        TypedReg src1 = op->AtomicOperand1();
 
         assert(src0);
 
@@ -931,7 +928,7 @@ public:
 
         ItemList operands;
 
-        if (!atomicNoRet)
+        if (!op->isNoRet)
         { 
             assert(!atomicDst);
             atomicDst = be.AddTReg(UnsignedType()); // NB: atomicDst is interpreted as unsigned to simplify checks
@@ -954,7 +951,7 @@ public:
             Comment("Load variable address");
             atomicVarAddr = be.AddAReg(VarSegment());
             be.EmitLda(atomicVarAddr, testVar);
-            if (segment == BRIG_SEGMENT_FLAT && VarSegment() == BRIG_SEGMENT_GROUP) // NB: conversion is not required for global segment
+            if (op->seg == BRIG_SEGMENT_FLAT && VarSegment() == BRIG_SEGMENT_GROUP) // NB: conversion is not required for global segment
             {
                 PointerReg flat = be.AddAReg(BRIG_SEGMENT_FLAT);
                 be.EmitStof(flat, atomicVarAddr);
@@ -992,8 +989,8 @@ public:
             TypedReg id = be.EmitWorkitemFlatAbsId(false);
             STARTIF(id, EQ, 0)
 
-            InstAtomic inst = Atomic(type, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, segment, equivClass, false);
-            inst.operands() = be.Operands(be.Address(LoadVarAddr()), Initializer((BrigType)type2bitType(type)));
+            InstAtomic inst = Atomic(op->type, BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, op->scope, op->seg, op->eqClass, false);
+            inst.operands() = be.Operands(be.Address(LoadVarAddr()), Initializer((BrigType)type2bitType(op->type)));
 
             ENDIF
         }
@@ -1004,7 +1001,7 @@ public:
         Comment("Clear result array");
 
         OperandAddress target = TargetAddr(LoadResAddr(), Index(), ResultType());
-        InstAtomic inst = Atomic(ResultType(), BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, memoryScope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
+        InstAtomic inst = Atomic(ResultType(), BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE, op->scope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
         inst.operands() = be.Operands(target, be.Immed(ResultType(), FLAG_NONE));
     }
 
@@ -1015,7 +1012,7 @@ public:
             Comment("Load final value from memory");
 
             atomicMem = be.AddTReg(UnsignedType()); // NB: atomicMem is interpreted as unsigned to simplify checks
-            InstAtomic inst = Atomic(type, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, memoryScope, segment, equivClass);
+            InstAtomic inst = Atomic(op->type, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, op->scope, op->seg, op->eqClass);
             inst.operands() = be.Operands(atomicMem->Reg(), be.Address(LoadVarAddr()));
         }
 
@@ -1029,7 +1026,7 @@ public:
     {
         TypedReg flagValue = CondAssign(ResultType(), flagVal, FLAG_NONE, cond);
         OperandAddress target = TargetAddr(LoadResAddr(), index, ResultType());
-        InstAtomic inst = Atomic(ResultType(), BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, memoryScope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
+        InstAtomic inst = Atomic(ResultType(), BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, op->scope, (BrigSegment)LoadResAddr()->Segment(), 0, false);
         inst.operands() = be.Operands(target, flagValue->Reg());
     }
     
@@ -1049,19 +1046,19 @@ public:
 
     bool IsValid() const
     {
-        if (!IsValidAtomic(atomicOp, segment, memoryOrder, memoryScope, type, atomicNoRet)) return false;
+        if (!IsValidAtomic(op->op, op->seg, op->order, op->scope, op->type, op->isNoRet)) return false;
         if (!isValidTestSegment()) return false;
         if (!isValidTestScope()) return false;
         if (!IsValidGrid()) return false;
 
         // List of current limitations (features that require special testing setup)
         // Tests for the following features should be implemented separately
-        if (atomicOp == BRIG_ATOMIC_LD) return false;
+        if (op->op == BRIG_ATOMIC_LD) return false;
 
         //F
-        //if (memoryScope == BRIG_MEMORY_SCOPE_SYSTEM) return false;
-        //if (atomicOp == BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_RELEASE) return false;
-        //if (atomicOp != BRIG_ATOMIC_ST && memoryOrder != BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE) return false;
+        //if (op->scope == BRIG_MEMORY_SCOPE_SYSTEM) return false;
+        //if (op->op == BRIG_ATOMIC_ST && op->order != BRIG_MEMORY_ORDER_SC_RELEASE) return false;
+        //if (op->op != BRIG_ATOMIC_ST && op->order != BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE) return false;
 
         return true;
     }
@@ -1074,23 +1071,23 @@ public:
 
     bool isValidTestScope()  const
     {
-        if (testKind == TEST_KIND_WGROUP) return memoryScope != BRIG_MEMORY_SCOPE_WAVEFRONT;
-        if (testKind == TEST_KIND_AGENT)  return memoryScope != BRIG_MEMORY_SCOPE_WAVEFRONT &&
-                                                 memoryScope != BRIG_MEMORY_SCOPE_WORKGROUP;
+        if (testKind == TEST_KIND_WGROUP) return op->scope != BRIG_MEMORY_SCOPE_WAVEFRONT;
+        if (testKind == TEST_KIND_AGENT)  return op->scope != BRIG_MEMORY_SCOPE_WAVEFRONT &&
+                                                 op->scope != BRIG_MEMORY_SCOPE_WORKGROUP;
         return true;
     }
 
     bool IsValidGrid() const
     {
-        if (memoryScope == BRIG_MEMORY_SCOPE_WAVEFRONT && Waves()  != 1) return false;
-        if (memoryScope == BRIG_MEMORY_SCOPE_WORKGROUP && Groups() != 1) return false;
+        if (op->scope == BRIG_MEMORY_SCOPE_WAVEFRONT && Waves()  != 1) return false;
+        if (op->scope == BRIG_MEMORY_SCOPE_WORKGROUP && Groups() != 1) return false;
 
-        switch (atomicOp)
+        switch (op->op)
         {
         case BRIG_ATOMIC_AND:
         case BRIG_ATOMIC_OR:
         case BRIG_ATOMIC_XOR:
-            return getBrigTypeNumBits(type) == geometry->GridSize();
+            return getBrigTypeNumBits(op->type) == geometry->GridSize();
             
         default:
             return true;

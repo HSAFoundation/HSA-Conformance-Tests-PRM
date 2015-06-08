@@ -306,10 +306,12 @@ public:
     ControlDirectives directives)
     : DispatchPacketBaseTest(codeLocation, geometry, directives) { }
 
-  BrigType ResultType() const { return BRIG_TYPE_U64; }
+  BrigType ResultType() const override { return BRIG_TYPE_U64; }
 
   Value ExpectedResult() const {
-    return Value(MV_UINT64, 0);
+    std::string *name = new std::string(dispatch->StrId());
+    *name += ".dispatchpacketid";
+    return Value(MV_EXPR, S(name->c_str()));
   }
   
   TypedReg Result() {

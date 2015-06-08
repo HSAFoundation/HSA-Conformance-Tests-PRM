@@ -152,7 +152,7 @@ public:
         operands.push_back(atomicDst->Reg());
         operands.push_back(target);
 
-        InstAtomic inst = Atomic(t, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0);
+        InstAtomic inst = Atomic(t, BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0);
         inst.operands() = operands;
 
         return atomicDst;
@@ -174,7 +174,7 @@ public:
         operands.push_back(target);
         operands.push_back(src0->Reg());
 
-        InstAtomic inst = Atomic(WG_COMPLETE_TYPE, BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0, false);
+        InstAtomic inst = Atomic(WG_COMPLETE_TYPE, BRIG_ATOMIC_ADD, BRIG_MEMORY_ORDER_RELAXED, BRIG_MEMORY_SCOPE_AGENT, BRIG_SEGMENT_GLOBAL, 0, false);
         inst.operands() = operands;
     }
 
@@ -266,6 +266,28 @@ public:
         return inst;
     }
 
+    void St(BrigType t, BrigSegment segment, OperandAddress target, TypedReg val)
+    {
+        InstMem inst = be.Brigantine().addInst<InstMem>(BRIG_OPCODE_ST, getUnsignedType(getBrigTypeNumBits(t)));
+        inst.segment() = segment;
+        inst.equivClass() = 0;
+        inst.align() = BRIG_ALIGNMENT_1;
+        inst.width() = BRIG_WIDTH_NONE;
+        inst.modifier().isConst() = 0;
+        inst.operands() = be.Operands(val->Reg(), target);
+    }
+
+    void Ld(BrigType t, BrigSegment segment, OperandAddress target, TypedReg dst)
+    {
+        InstMem inst = be.Brigantine().addInst<InstMem>(BRIG_OPCODE_LD, getUnsignedType(getBrigTypeNumBits(t)));
+        inst.segment() = segment;
+        inst.equivClass() = 0;
+        inst.align() = BRIG_ALIGNMENT_1;
+        inst.width() = BRIG_WIDTH_1;
+        inst.modifier().isConst() = 0;
+        inst.operands() = be.Operands(dst->Reg(), target);
+    }
+
     void WaveBarrier()
     {
         InstBr inst = be.Brigantine().addInst<InstBr>(BRIG_OPCODE_WAVEBARRIER, BRIG_TYPE_NONE);
@@ -314,7 +336,7 @@ public:
         return dest;
     }
 
-    virtual TypedReg Index(unsigned writeIdx, unsigned access)
+    virtual TypedReg Index(unsigned arrayId, unsigned access)
     { 
         assert(false); 
         return 0;
@@ -383,6 +405,14 @@ public:
         assert(x != y);
 
         EmitCMov(BRIG_OPCODE_CMOV, res, cond, be.Immed(res->Type(), x), be.Immed(res->Type(), y));
+        return res;
+    }
+    
+    TypedReg CondAssign(TypedReg res, int64_t x, TypedReg y, TypedReg cond)
+    {
+        assert(cond);
+
+        EmitCMov(BRIG_OPCODE_CMOV, res, cond, be.Immed(res->Type(), x), y);
         return res;
     }
     
@@ -569,6 +599,17 @@ public:
         return label;
     }
 
+    string IfCond(TypedReg cond)
+    {
+        assert(cond);
+        assert(cond->Type() == BRIG_TYPE_B1);
+
+        string label = be.AddLabel();
+        be.EmitCbr(Not(cond), label);
+    
+        return label;
+    }
+
     void EndIfCond(string label)
     {
         be.EmitLabel(label);
@@ -669,6 +710,13 @@ public:
     {
         InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, dst->Type()));
         inst.operands() = be.Operands(dst->Reg(), src0->Reg(), src1, src2);
+        return inst;
+    }
+
+    InstBasic EmitCMov(BrigOpcode opcode, const TypedReg& dst, const TypedReg& src0, Operand src1, TypedReg& src2)
+    {
+        InstBasic inst = be.Brigantine().addInst<InstBasic>(opcode, ArithType(opcode, dst->Type()));
+        inst.operands() = be.Operands(dst->Reg(), src0->Reg(), src1, src2->Reg());
         return inst;
     }
 
@@ -782,25 +830,95 @@ public:
 //=====================================================================================
 //=====================================================================================
 
-class TestProp
+class FenceOpProp
+{
+public:
+    BrigMemoryOrder     order;
+    BrigMemoryScope     scope;
+
+public:
+    FenceOpProp() : order(BRIG_MEMORY_ORDER_NONE), scope(BRIG_MEMORY_SCOPE_NONE) {}
+
+public:
+    bool IsRequired() const { return order != BRIG_MEMORY_ORDER_NONE; }
+
+public:
+    void Acquire(BrigMemoryScope scope) { this->scope = scope; order = BRIG_MEMORY_ORDER_SC_ACQUIRE; }
+    void Release(BrigMemoryScope scope) { this->scope = scope; order = BRIG_MEMORY_ORDER_SC_RELEASE; }
+};
+
+class MemOpProp
+{
+public:
+    BrigAtomicOperation op;
+    BrigSegment         seg;
+    BrigMemoryOrder     order;
+    BrigMemoryScope     scope;
+    BrigType            type;
+    uint8_t             eqClass;
+    bool                isNoRet;
+    bool                isPlainOp;
+    unsigned            arrayId;
+
+public:
+    MemOpProp() {}
+    MemOpProp(BrigAtomicOperation op,
+              BrigSegment seg,
+              BrigMemoryOrder order,
+              BrigMemoryScope scope,
+              BrigType type,
+              uint8_t eqClass,
+              bool isNoRet,
+              bool isPlainOp,
+              unsigned arrayId)
+    {
+        SetMemOpProps(op, seg, order, scope, type, eqClass, isNoRet, isPlainOp, arrayId);
+    }
+
+public:
+    void SetMemOpProps(BrigAtomicOperation op,
+                       BrigSegment seg,
+                       BrigMemoryOrder order,
+                       BrigMemoryScope scope,
+                       BrigType type,
+                       uint8_t eqClass,
+                       bool isNoRet,
+                       bool isPlainOp,
+                       unsigned arrayId)
+    {
+        this->op        = op;
+        this->seg       = seg;
+        this->order     = order;
+        this->scope     = scope;
+        this->type      = type;
+        this->eqClass   = eqClass;
+        this->isNoRet   = isNoRet;
+        this->isPlainOp = isPlainOp;
+        this->arrayId   = arrayId;
+    }
+
+    bool IsRelaxed() const { return isPlainOp || order == BRIG_MEMORY_ORDER_RELAXED; }
+    bool IsAcquire() const { return order == BRIG_MEMORY_ORDER_SC_ACQUIRE || order == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE; }
+    bool IsRelease() const { return order == BRIG_MEMORY_ORDER_SC_RELEASE || order == BRIG_MEMORY_ORDER_SC_ACQUIRE_RELEASE; }
+};
+
+class TestProp : public MemOpProp
 {
 protected:
     static const uint64_t ZERO = 0;
 
 private:
-    BrigType type;
     AtomicTestHelper* test;
 
 public:
     virtual ~TestProp() {}
 
 public:
-    void setup(AtomicTestHelper* test_, BrigType type_)
+    void setup(AtomicTestHelper* test_)
     {
         assert(test_);
 
         test = test_;
-        type = type_;
     }
 
 protected:
@@ -832,46 +950,68 @@ protected:
 //=====================================================================================
 //=====================================================================================
 
-template<class Prop> class TestPropFactory
+template<class Prop, unsigned size = 1> class TestPropFactory
 {
 private: 
-    static TestPropFactory<Prop>* factory; // singleton
+    static TestPropFactory<Prop, size>* factory[size]; // singleton
 
 private:
     static const unsigned ATOMIC_OPS = BRIG_ATOMIC_XOR + 1; //F
     Prop* prop[ATOMIC_OPS];
 
 public:
-    TestPropFactory()
+    TestPropFactory(unsigned dim = 0)
     { 
+        assert(dim < size);
+
         for (unsigned i = 0; i < ATOMIC_OPS; ++i) prop[i] = 0;
 
-        assert(factory == 0);
-        factory = this;
+        factory[dim] = this;
     }
 
     virtual ~TestPropFactory() 
     { 
         for (unsigned i = 0; i < ATOMIC_OPS; ++i) delete prop[i]; 
-
-        assert(factory == this);
-        factory = 0;
     }
 
 public:
-    Prop* GetProp(AtomicTestHelper* test, BrigAtomicOperation op, BrigType type)
+    Prop* GetProp(AtomicTestHelper* test, 
+                  BrigAtomicOperation op,
+                  BrigSegment seg,
+                  BrigMemoryOrder order,
+                  BrigMemoryScope scope,
+                  BrigType type,
+                  uint8_t eqClass,
+                  bool isNoRet,
+                  bool isPlainOp = false,
+                  unsigned arrayId = 0)
     {
         assert(0 <= op && op < ATOMIC_OPS);
 
         if (prop[op] == 0) prop[op] = CreateProp(op);
-        prop[op]->setup(test, type);
+        prop[op]->SetMemOpProps(op, seg, order, scope, type, eqClass, isNoRet, isPlainOp, arrayId);
+        prop[op]->setup(test);
         return prop[op];
+    }
+
+    Prop* GetProp(AtomicTestHelper* test, MemOpProp& op)
+    {
+        return GetProp(test, 
+                       op.op, 
+                       op.seg, 
+                       op.order, 
+                       op.scope, 
+                       op.type, 
+                       op.eqClass, 
+                       op.isNoRet,
+                       op.isPlainOp,
+                       op.arrayId);
     }
 
     virtual Prop* CreateProp(BrigAtomicOperation op) { assert(false); return 0; }
 
 public:
-    static TestPropFactory<Prop>* Get() { assert(factory); return factory; }
+    static TestPropFactory<Prop, size>* Get(unsigned dim = 0) { assert(factory[dim]); return factory[dim]; }
 };
 
 //=====================================================================================
