@@ -1014,6 +1014,8 @@ public:
     static TestPropFactory<Prop, size>* Get(unsigned dim = 0) { assert(factory[dim]); return factory[dim]; }
 };
 
+template<class Prop, unsigned size> TestPropFactory<Prop, size>* TestPropFactory<Prop, size>::factory[size];
+
 //=====================================================================================
 
 }

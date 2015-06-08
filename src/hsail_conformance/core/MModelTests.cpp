@@ -527,7 +527,7 @@ public:
     }
 };
 
-template<> TestPropFactory<MModelTestProp, 2>* TestPropFactory<MModelTestProp, 2>::factory[2];
+//template<> TestPropFactory<MModelTestProp, 2>* TestPropFactory<MModelTestProp, 2>::factory[2];
 
 //=====================================================================================
 

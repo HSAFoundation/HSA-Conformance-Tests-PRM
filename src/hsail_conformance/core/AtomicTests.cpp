@@ -572,7 +572,7 @@ public:
     }
 };
 
-template<> TestPropFactory<AtomicTestProp>* TestPropFactory<AtomicTestProp>::factory[1];
+//template<> TestPropFactory<AtomicTestProp>* TestPropFactory<AtomicTestProp>::factory[1];
 
 //=====================================================================================
 //=====================================================================================
