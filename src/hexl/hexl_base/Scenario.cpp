@@ -756,12 +756,12 @@ void ScenarioTest::Run()
   Scenario *scenario = context->Get<Scenario>("scenario");
   RuntimeContext* runtime = context->Runtime();
   std::unique_ptr<RuntimeState> rt(runtime->NewState(context.get()));
-  if (!scenario->Execute(rt.get())) {
-    if (!context->Has("NA")) {
-      SetFailed();
-    } else {
-      SetNA();
-    }
+  bool result = scenario->Execute(rt.get());
+  if (context->Has(TEST_STATUS_KEY)) {
+    TestStatus* status = context->Get<TestStatus>(TEST_STATUS_KEY);
+    SetStatus(*status);
+  } else if (!result) {
+    SetFailed();
   }
 }
 

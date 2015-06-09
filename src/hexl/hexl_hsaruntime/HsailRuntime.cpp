@@ -487,7 +487,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, bool optionalFormat) override
     {
       hsa_status_t status;
-      
+
       const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
 
       hsa_access_permission_t access_permission = ImageType2HsaAccessPermission(ip->imageType);
@@ -507,7 +507,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         default: assert(false); supported = false; break;
         }
         if (!supported) {
-          context->Put("NA", NA);
+          context->Move(TEST_STATUS_KEY, new TestStatus(NA));
           return false;
         }
       } 
@@ -523,7 +523,13 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       hsa_ext_image_data_info_t image_info = {0};
       status = Runtime()->Hsa()->hsa_ext_image_data_get_info(Runtime()->Agent(), &image_descriptor, access_permission, &image_info);
-      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); return false; }
+      if (status == HSA_EXT_STATUS_ERROR_IMAGE_SIZE_UNSUPPORTED) {
+        context->Move(TEST_STATUS_KEY, new TestStatus(NA));
+        return false;
+      } else if (status != HSA_STATUS_SUCCESS) { 
+        Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); 
+        return false; 
+      }
 
       hsa_ext_image_t image = {0};
       void *imageData = NULL;
@@ -543,7 +549,14 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 */
 
       status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, imageData, access_permission, &image);
-      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData); return false; }
+      if (status == HSA_STATUS_ERROR_OUT_OF_RESOURCES) {
+        context->Move(TEST_STATUS_KEY, new TestStatus(NA));
+        return false;
+      }
+      if (status != HSA_STATUS_SUCCESS) { 
+        Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData); 
+        return false; 
+      }
 
       Put(imageId, new HsailImage(this, image, imageData));
       context->Put(imageId + ".handle", Value(MV_UINT64, image.handle));
@@ -944,7 +957,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
       }
       if (!supported) {
-        context->Put("NA", NA);
+        context->Move(TEST_STATUS_KEY, new TestStatus(NA));
         return false;
       }
       return true;
@@ -961,7 +974,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
       }
       if (!supported) {
-        context->Put("NA", NA);
+        context->Move(TEST_STATUS_KEY, new TestStatus(NA));
         return false;
       }
       return true;

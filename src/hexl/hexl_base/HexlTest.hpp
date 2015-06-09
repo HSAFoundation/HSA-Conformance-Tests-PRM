@@ -43,6 +43,13 @@ enum TestStatus {
 
 const char *TestStatusString(TestStatus status);
 
+const std::string TEST_STATUS_KEY = "test_status";
+
+template <>
+inline void Print<TestStatus>(const TestStatus& status, std::ostream& out) { 
+  out << TestStatusString(status); 
+}
+
 class TestResult {
 private:
   TestStatus status;
@@ -101,6 +108,7 @@ protected:
   void SetFailed() { result.SetFailed(); }
   void SetError() { result.SetError(); }
   void SetNA() { result.SetNA(); }
+  void SetStatus(TestStatus status) { result.SetStatus(status); }
   void Fail(const std::string& msg);
   virtual void SerializeData(std::ostream& out) const { assert(false); }
   std::string GetOutputName(const std::string& what);

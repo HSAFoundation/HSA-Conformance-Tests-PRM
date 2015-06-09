@@ -203,7 +203,7 @@ public:
       be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), LimitHeight()), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
     }
-    if (ImageGeometryDims(ImageGeometryProp()) >= 3) { // check height only for 3d geometry
+    if (ImageGeometryDims(ImageGeometryProp()) >= 3) { // check depth only for 3d geometry
       image->EmitImageQuery(query, imageAddr, BRIG_IMAGE_QUERY_DEPTH);
       be.EmitCmp(cmp->Reg(), query, be.Immed(query->Type(), LimitDepth()), BRIG_COMPARE_NE);
       be.EmitCbr(cmp->Reg(), falseLabel);
