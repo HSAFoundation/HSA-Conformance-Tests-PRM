@@ -523,7 +523,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       hsa_ext_image_data_info_t image_info = {0};
       status = Runtime()->Hsa()->hsa_ext_image_data_get_info(Runtime()->Agent(), &image_descriptor, access_permission, &image_info);
-      if (status == HSA_EXT_STATUS_ERROR_IMAGE_SIZE_UNSUPPORTED) {
+      if (status == static_cast<hsa_status_t>(HSA_EXT_STATUS_ERROR_IMAGE_SIZE_UNSUPPORTED)) {
         context->Move(TEST_STATUS_KEY, new TestStatus(NA));
         return false;
       } else if (status != HSA_STATUS_SUCCESS) { 
