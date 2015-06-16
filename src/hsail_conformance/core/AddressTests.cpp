@@ -68,69 +68,60 @@ protected:
 
 class StofIdentityTest : public Test {
 private:
-  AddressSpec addressSpec;
+  VariableSpec varSpec;
+  Variable var;
+  Buffer input;
   bool segmentStore;
   bool nonull;
 
 public:
-  StofIdentityTest(const AddressSpec& addressSpec_,
+  StofIdentityTest(VariableSpec varSpec_,
     bool segmentStore_, bool nonull_)
-    : addressSpec(addressSpec_), segmentStore(segmentStore_), nonull(nonull_) { }
+    : varSpec(varSpec_), segmentStore(segmentStore_), nonull(nonull_) { }
 
   void Name(std::ostream& out) const {
-    out << "stof/identity/" << addressSpec
+    out << "stof/identity/" << varSpec
         << "_" << (segmentStore ? "s" : "f") << (nonull ? "n" : "");
   }
 
 protected:
-  BrigType ResultType() const { return addressSpec->Type(); }
+  BrigType ResultType() const { return varSpec->Type(); }
 
-  Value ExpectedResult() const { return be.GenerateTestValue(addressSpec->Type()); }
+  Value ExpectedResult() const { return be.GenerateTestValue(varSpec->Type()); }
 
-  DirectiveVariable in;
-
-  void SetupDispatch(const std::string& dispatchId) {
-    Test::SetupDispatch(dispatchId);
-    /*
-    te->TestScenario()->Commands()->DispatchArg(dispatchId, 
-    unsigned id = dsetup->MSetup().Count();
-    MObject* in = NewMValue(id++, "Input", MEM_GLOBAL, addressSpec->VType(), U64(42));
-    dsetup->MSetup().Add(in);
-    dsetup->MSetup().Add(NewMValue(id++, "Input (arg)", MEM_KERNARG, MV_REF, R(in->Id())));
-    */
+  void Init() override {
+    Test::Init();
+    var = kernel->NewVariable("var", varSpec);
+    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, varSpec->VType(), OutputBufferSize());
+    for (uint64_t i = 0; i < OutputBufferSize(); ++i) {
+      input->AddData(ExpectedResult());
+    }
   }
 
-  void KernelArguments() {
-    Test::KernelArguments();
-    in = be.EmitVariableDefinition(be.IName(), BRIG_SEGMENT_KERNARG, be.PointerType());
-  }
-
-  TypedReg Result() {
-    PointerReg inp = be.AddAReg(BRIG_SEGMENT_GLOBAL);
-    be.EmitLoad(in.segment(), inp, be.Address(in));
-    TypedReg data = be.AddTReg(addressSpec->Type());
-    be.EmitLoad(data, inp);
-//    PointerReg segmentAddr = addressSpec->AddAReg();
-//    addressSpec->EmitLda(segmentAddr);
+  TypedReg Result() override {
+    TypedReg data = input->AddDataReg();
+    input->EmitLoadData(data);
+    PointerReg segmentAddr = be.AddAReg(varSpec->Segment());
     PointerReg flatAddr = be.AddAReg(BRIG_SEGMENT_FLAT);
-//    be.EmitStof(flatAddr, segmentAddr, nonull);
+    be.EmitLda(segmentAddr, be.Address(var->Variable()));
+    be.EmitStof(flatAddr, segmentAddr, nonull);
     if (segmentStore) {
       // Segment store / flat load
-  //    be.EmitStore(data, segmentAddr);
+      be.EmitStore(data, segmentAddr);
       be.EmitLoad(data, flatAddr);
     } else {
       // Flat store / segment load
       be.EmitStore(data, flatAddr);
-    //  be.EmitLoad(data, segmentAddr);
+      be.EmitLoad(data, segmentAddr);
     }
     return data;
   }
 
   bool IsValid() const {
-    return Test::IsValid() /*&&
-           addressSpec->Segment() != BRIG_SEGMENT_FLAT &&
-           cc->Segments().CanStore(addressSpec->Segment()) &&
-           cc->Segments().HasFlatAddress(addressSpec->Segment()) */;
+    return Test::IsValid() &&
+           varSpec->Segment() != BRIG_SEGMENT_FLAT &&
+           cc->Segments().CanStore(varSpec->Segment()) &&
+           cc->Segments().HasFlatAddress(varSpec->Segment());
   }
 
 };
@@ -379,7 +370,7 @@ void AddressArithmeticTests::Iterate(hexl::TestSpecIterator& it)
   Arena* ap = cc->Ap();
   static const char *base = "address";
   TestForEach<StofNullTest>(ap, it, base, cc->Segments().All());
-//  TestForEach<StofIdentityTest>(ap, it, base, Address::All(), Bools::All(), Bools::All());
+  //TestForEach<StofIdentityTest>(ap, it, base, cc->Variables().ByTypeAlign(BRIG_SEGMENT_PRIVATE), Bools::All(), Bools::All());
   TestForEach<FtosNullTest>(ap, it, base, cc->Segments().All());
   //TestForEach<FtosIdentityTest>(ap, it, base, Address::All(), Bools::All(), Bools::All());
   TestForEach<SegmentpNullTest>(ap, it, base, cc->Segments().All());
