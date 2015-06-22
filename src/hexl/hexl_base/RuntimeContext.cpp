@@ -154,12 +154,12 @@ namespace hexl {
     bool ExecutableFreeze(const std::string& executableId = "executable") { return true; }
 
     bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId = "") { return true; }
-    bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") { return true; }
+    bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, ValueType memoryType, const std::string& method = "") { return true; }
 
     bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, bool optionalFormat) { return true; }
     bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId) { return true; }
     bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region) { return true; }
-    bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") { return true; }
+    bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, ValueType memoryType, const std::string& method = "") { return true; }
     bool SamplerCreate(const std::string& samplerId, const std::string& samplerParamsId) override { return true;  }
 
     bool DispatchCreate(const std::string& dispatchId = "dispatch", const std::string& executableId = "executable", const std::string& kernelName = "") { return true; }

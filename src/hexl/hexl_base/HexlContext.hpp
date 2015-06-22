@@ -178,7 +178,7 @@ namespace hexl {
     AllStats& Stats() { return *Get<AllStats>("hexl.stats"); }
   };
 
-  bool ValidateMemory(Context* context, const Values& expected, const void *actualPtr, const std::string& method);
+  bool ValidateMemory(Context* context, ValueType vtype, const Values& expected, const void *actualPtr, const std::string& method);
 }
 
 #endif // HEXL_CONTEXT_HPP

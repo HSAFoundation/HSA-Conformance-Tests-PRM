@@ -157,12 +157,12 @@ namespace hexl {
       virtual bool ExecutableFreeze(const std::string& executableId = "executable") = 0;
 
       virtual bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId = "") = 0;
-      virtual bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") = 0;
+      virtual bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, ValueType memoryType, const std::string& method = "") = 0;
 
       virtual bool ImageCreate(const std::string& imageId, const std::string& imageParamsId, bool optionalFormat) = 0;
       virtual bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, const std::string& initValueId) = 0;
       virtual bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, const ImageRegion& region) = 0;
-      virtual bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") = 0;
+      virtual bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, ValueType memoryType, const std::string& method = "") = 0;
       virtual bool SamplerCreate(const std::string& samplerId, const std::string& samplerParamsId) = 0;
 
       virtual bool DispatchCreate(const std::string& dispatchId = "dispatch", const std::string& executableId = "executable", const std::string& kernelName = "") = 0;
