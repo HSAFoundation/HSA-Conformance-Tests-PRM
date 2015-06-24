@@ -32,7 +32,7 @@
 //                 HB-W   <-----------------------|----------
 //                   |                            |         |
 //                  F-W     synchronizes-with     |         |
-//                 SYNC-W <------------------- SYNC-R       |
+//                 SYNC-W <------------------  SYNC-R       |
 //                   |                           F-R        |
 //                   |                            |         |
 //                   |                          HB-R --------
@@ -526,8 +526,6 @@ public:
         }
     }
 };
-
-//template<> TestPropFactory<MModelTestProp, 2>* TestPropFactory<MModelTestProp, 2>::factory[2];
 
 //=====================================================================================
 
