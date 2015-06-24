@@ -1712,7 +1712,6 @@ private:
 
             if (OperandAddress addr = operand)
             {
-                unsigned instSegment = getSegment(inst);
                 DirectiveVariable var = addr.symbol();
                 if (var) // symbolic addressing
                 {

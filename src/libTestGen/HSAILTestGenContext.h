@@ -88,7 +88,7 @@ public:
     // This constructor is useful in two cases:
     // 1. To create a single file with many tests cases (option PACKAGE_SINGLE);
     // 2. To create special 'playground' context for generation of temporary samples (see description above).
-    Context(bool isPlayground = false) : BrigContext(), playground(isPlayground), genDefaultSymbols(true)
+    Context(bool isPlayground = false) : BrigContext(), genDefaultSymbols(true), playground(isPlayground)
     {
         emitModule();
         if (gcnInstEnabled()) emitExtension("amd:gcn");
@@ -99,7 +99,7 @@ public:
     }
 
     // Used to create context for tests which include just one _test_ instruction specified by sample
-    Context(const Sample s, bool isPositive, bool genDefault = true) : BrigContext(), playground(false), genDefaultSymbols(genDefault)
+    Context(const Sample s, bool isPositive, bool genDefault = true) : BrigContext(), genDefaultSymbols(genDefault), playground(false)
     {
         emitModule();
 
@@ -287,7 +287,7 @@ private:
 
     void genSymbols(bool isLocal)   // Create only those symbols which are referred to by test instruction
     {
-        for (int i = 0; i < symbols.size(); ++i)
+        for (unsigned i = 0; i < (unsigned)symbols.size(); ++i)
         {
             if (isLocal == isLocalSym(symbols[i])) genSymbol(symbols[i]);
         }
