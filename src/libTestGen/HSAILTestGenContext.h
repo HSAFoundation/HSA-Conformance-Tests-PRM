@@ -31,8 +31,11 @@
 
 #include <cassert>
 #include <sstream>
+#include <vector>
 
 using std::ostringstream;
+using std::vector;
+
 using HSAIL_ASM::isTermInst;
 using HSAIL_ASM::ItemList;
 
@@ -66,7 +69,9 @@ class Context : public BrigContext
 private:
     DirectiveKernel testKernel;     // kernel for which test code is generated
     Operand operandTab[O_MAXID];    // operands used for testing. Created at first access
+    vector<unsigned> symbols;       // Symbol IDs used for testing
     Directive symTab[SYM_MAXID];    // Symbols used for testing
+    bool genDefaultSymbols;         // true if symbols and operands with symbols shall be generated
     bool playground;                // true for playground context (see description above)
 
     //==========================================================================
@@ -83,16 +88,18 @@ public:
     // This constructor is useful in two cases:
     // 1. To create a single file with many tests cases (option PACKAGE_SINGLE);
     // 2. To create special 'playground' context for generation of temporary samples (see description above).
-    Context(bool isPlayground = false) : BrigContext(), playground(isPlayground)
+    Context(bool isPlayground = false) : BrigContext(), playground(isPlayground), genDefaultSymbols(true)
     {
         emitModule();
         if (gcnInstEnabled()) emitExtension("amd:gcn");
         if (imgInstEnabled()) emitExtension("IMAGE");
-        genSymbols(); // Generate all symbols which can potentially be used
+
+        identifyAllSymbols();
+        genGlobalSymbols();
     }
 
     // Used to create context for tests which include just one _test_ instruction specified by sample
-    Context(const Sample s, bool isPositive) : BrigContext(), playground(false)
+    Context(const Sample s, bool isPositive, bool genDefault = true) : BrigContext(), playground(false), genDefaultSymbols(genDefault)
     {
         emitModule();
 
@@ -111,12 +118,8 @@ public:
             emitExtension("IMAGE");
         }
 
-        // Generate only those symbols which are referred to by test instruction
-        for (int i = 0; i < s.getInst().operands().size(); ++i)
-        {
-            unsigned propId = getSrcOperandId(i);
-            genSymbol(operandId2SymId(s.get(propId)));
-        }
+        identifyUsedSymbols(s);
+        genGlobalSymbols();
     }
 
     //==========================================================================
@@ -124,7 +127,7 @@ public:
 public:
 
     void defineTestKernel()  { testKernel = emitSbrStart(BRIG_KIND_DIRECTIVE_KERNEL, "&Test"); }
-    void startKernelBody()   { startSbrBody(); }
+    void startKernelBody()   { startSbrBody(); genLocalSymbols(); }
 
     void finishKernelBody()
     {
@@ -153,7 +156,14 @@ public:
         for (int i = 0; i < copy.getInst().operands().size(); ++i)
         {
             unsigned propId = getSrcOperandId(i);
-            copy.set(propId, s.get(propId));
+            unsigned operandId = s.get(propId);
+
+            // Do not generate operands with symbols if default symbols are disabled
+            // This may be useful to avoid duplication of code if backend generates is own symbols
+            if (genDefaultSymbols || !isSymRefOperandId(operandId))
+            {
+                copy.set(propId, operandId);
+            }
         }
 
         finalizeSample(copy);
@@ -270,13 +280,45 @@ private:
 
 private:
 
+    void genSymbol(unsigned symId);                         // Create only symbol required for operandId
+
+    void genLocalSymbols()  { genSymbols(true);  }
+    void genGlobalSymbols() { genSymbols(false); }
+
+    void genSymbols(bool isLocal)   // Create only those symbols which are referred to by test instruction
+    {
+        for (int i = 0; i < symbols.size(); ++i)
+        {
+            if (isLocal == isLocalSym(symbols[i])) genSymbol(symbols[i]);
+        }
+    }
+
+    void identifyUsedSymbols(const Sample s)   // Identify symbols which are referred to by test instruction
+    {
+        if (genDefaultSymbols) // if backend creates its own symbols, default symbols are not required
+        {
+            for (int i = 0; i < s.getInst().operands().size(); ++i)
+            {
+                unsigned propId = getSrcOperandId(i);
+                unsigned symId  = operandId2SymId(s.get(propId));
+                if (symId != SYM_NONE) symbols.push_back(symId);
+            }
+        }
+    }
+
+    void identifyAllSymbols()
+    {
+        for (unsigned symId = SYM_MINID + 1; symId < SYM_MAXID; ++symId) symbols.push_back(symId);
+    }
+
+    //==========================================================================
+
+private:
+
     bool    isOperandCreated(unsigned oprId) const { assert(O_MINID < oprId && oprId < O_MAXID); return oprId == O_NULL || operandTab[oprId]; }
     Operand readOperand(unsigned oprId)      const { assert(O_MINID < oprId && oprId < O_MAXID); return operandTab[oprId]; }
 
-    Operand getOperand(unsigned oprId);                 // create if not created yet
-
-    void genSymbols();                                  // Create all symbols
-    void genSymbol(unsigned symId);                     // Create only symbol required for operandId
+    Operand getOperand(unsigned oprId);                     // create if not created yet
     Operand emitOperandRef(unsigned symId);
 
     Directive emitSymbol(unsigned symId);

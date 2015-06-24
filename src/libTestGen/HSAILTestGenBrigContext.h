@@ -43,7 +43,10 @@ using HSAIL_ASM::DirectiveLabel;
 using HSAIL_ASM::Inst;
 using HSAIL_ASM::Operand;
 using HSAIL_ASM::OperandRegister;
+using HSAIL_ASM::OperandAddress;
 using HSAIL_ASM::SRef;
+using HSAIL_ASM::OperandConstantBytes;
+using HSAIL_ASM::ArbitraryData;
 
 using HSAIL_ASM::getNaturalAlignment;
 using HSAIL_ASM::elementType2arrayType;
@@ -155,6 +158,8 @@ public: // Instructions
     void emitGetWorkItemId(Operand res, unsigned dim);
     void emitCvt(unsigned dstType, unsigned srcType, OperandRegister to, OperandRegister from);
     void emitLda(OperandRegister dst, DirectiveVariable var);
+    void emitLda(OperandRegister dst, OperandAddress addr);
+    void emitStoF(OperandRegister dst, OperandRegister src, unsigned segment);
     void emitCmpEq(unsigned cRegIdx, unsigned sRegIdx, unsigned immVal);
     void emitCbr(unsigned cRegIdx, Operand label);
     void emitBr(Operand label);
@@ -199,6 +204,11 @@ public: // Operands
         sym.align() = getNaturalAlignment(scalarType);
 
         return sym;
+    }
+
+    OperandConstantBytes emitInitializer(ArbitraryData& values, unsigned arrayElementType)
+    {
+        return brigantine.createOperandConstantBytes(values.toSRef(), arrayElementType, true);
     }
 
     DirectiveFbarrier emitFBarrier(const char* name)

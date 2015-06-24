@@ -224,6 +224,8 @@ enum BrigOperandId
     O_ADDRESS_GROUP_VAR,        // 32-bit segment
     O_ADDRESS_PRIVATE_VAR,      // 32-bit segment
 
+    O_ADDRESS_SPILL_VAR,
+
     O_ADDRESS_GLOBAL_ROIMG,
     O_ADDRESS_GLOBAL_WOIMG,
     O_ADDRESS_GLOBAL_RWIMG,
@@ -240,9 +242,17 @@ enum BrigOperandId
     O_ADDRESS_GLOBAL_SIG64,
     O_ADDRESS_READONLY_SIG64,
 
-    O_ADDRESS_FLAT_DREG,
-    O_ADDRESS_FLAT_SREG,
-    O_ADDRESS_FLAT_OFF,
+    O_ADDRESS_GLOBAL_DREG,
+    O_ADDRESS_READONLY_DREG,
+    O_ADDRESS_GROUP_DREG,
+    O_ADDRESS_PRIVATE_DREG,
+
+    O_ADDRESS_GLOBAL_SREG,
+    O_ADDRESS_READONLY_SREG,
+    O_ADDRESS_GROUP_SREG,
+    O_ADDRESS_PRIVATE_SREG,
+
+    O_ADDRESS_OFFSET,
 
     O_JUMPTAB,          // currently not used
     O_CALLTAB,          // currently not used
@@ -317,6 +327,46 @@ inline bool isImmOperandId(unsigned val)
     }
 }
 
+inline bool isSymRefOperandId(unsigned val)
+{
+    switch(val)
+    {
+    case O_LABELREF:
+    case O_FUNCTIONREF:
+    case O_IFUNCTIONREF:
+    case O_KERNELREF:
+    case O_SIGNATUREREF:
+    case O_FBARRIERREF:
+
+    case O_ADDRESS_GLOBAL_VAR:
+    case O_ADDRESS_READONLY_VAR:
+
+    case O_ADDRESS_GROUP_VAR:
+    case O_ADDRESS_PRIVATE_VAR:
+    case O_ADDRESS_SPILL_VAR:
+
+    case O_ADDRESS_GLOBAL_ROIMG:
+    case O_ADDRESS_GLOBAL_WOIMG:
+    case O_ADDRESS_GLOBAL_RWIMG:
+
+    case O_ADDRESS_READONLY_ROIMG:
+    case O_ADDRESS_READONLY_RWIMG:
+
+    case O_ADDRESS_GLOBAL_SAMP:
+    case O_ADDRESS_READONLY_SAMP:
+
+    case O_ADDRESS_GLOBAL_SIG32:
+    case O_ADDRESS_READONLY_SIG32:
+
+    case O_ADDRESS_GLOBAL_SIG64:
+    case O_ADDRESS_READONLY_SIG64:
+        return true;
+
+    default:
+        return false;
+    }
+}
+
 unsigned operandId2SymId(unsigned oprId);
 bool     isSupportedOperand(unsigned oprId);
 
@@ -355,6 +405,7 @@ enum SymId
     SYM_GROUP_VAR,
     SYM_PRIVATE_VAR,
     SYM_READONLY_VAR,
+    SYM_SPILL_VAR,
     SYM_GLOBAL_ROIMG,
     SYM_GLOBAL_WOIMG,
     SYM_GLOBAL_RWIMG,
@@ -386,6 +437,7 @@ unsigned    getSymType(unsigned symId);
 unsigned    getSymDim(unsigned symId);
 unsigned    getSymSegment(unsigned symId);
 bool        isSupportedSym(unsigned symId);
+bool        isLocalSym(unsigned val);
 
 //=============================================================================
 //=============================================================================

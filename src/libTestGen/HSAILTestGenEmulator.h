@@ -34,9 +34,6 @@ namespace TESTGEN {
 // packed instructions which only modify part of dst
 extern uint64_t initialPackedVal;
 
-// Check generic limitations on instruction being tested
-bool testableInst(Inst inst);
-
 // Emulate execution of instruction 'inst' using provided input values.
 // Return value stored into destination register or an empty value
 // if there is no destination or if emulation failed.

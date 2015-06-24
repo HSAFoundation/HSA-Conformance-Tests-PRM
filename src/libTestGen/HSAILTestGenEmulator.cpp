@@ -49,7 +49,6 @@ using HSAIL_ASM::getPackedTypeDim;
 using HSAIL_ASM::packedType2elementType;
 using HSAIL_ASM::packedType2baseType;
 using HSAIL_ASM::isSignalingRounding;
-using HSAIL_ASM::isSatRounding;
 
 //=================================================================================================
 //=================================================================================================
@@ -1663,21 +1662,6 @@ static Val emulateMemMem(unsigned segment, unsigned opcode, Val arg0, Val arg1)
 //=============================================================================
 // Helpers
 
-// Arrays declared at TOPLEVEL must belong to global, group or private segments.
-// NB: Readonly cannot be initialized and so unsuitable for tesing.
-static bool isSupportedSegment(unsigned segment)
-{
-    switch (segment)
-    {
-    case BRIG_SEGMENT_GLOBAL:
-    case BRIG_SEGMENT_GROUP:
-    case BRIG_SEGMENT_PRIVATE:
-        return true;
-    default:
-        return false;
-    }
-}
-
 static bool emulateFtz(Inst inst, Val& arg0, Val& arg1, Val& arg2, Val& arg3, Val& arg4)
 {
     bool ftz = false;
@@ -1911,38 +1895,6 @@ static Val emulateDstValCommon(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3
 //=============================================================================
 //=============================================================================
 // Public interface with Emulator
-
-// Check generic limitations on instruction being tested
-// NB: Most limitations should be encoded in HSAILTestGenTestData.h
-//     This function shall only check limitations which cannot be expressed there
-bool testableInst(Inst inst)
-{
-    assert(inst);
-
-    if (InstAtomic instAtomic = inst)
-    {
-        if (!isSupportedSegment(instAtomic.segment())) return false;
-        if (instAtomic.equivClass() != 0) return false;
-        //if (instAtomic.memoryOrder() == ...) return false;
-        //if (instAtomic.memoryScope() == ...) return false;
-    }
-    else if (InstMem instMem = inst)
-    {
-        if (instMem.type() == BRIG_TYPE_B128 && OperandOperandList(inst.operand(0))) return false; //F1.0
-        if (!isSupportedSegment(instMem.segment())) return false;
-        if (instMem.width() != BRIG_WIDTH_NONE && instMem.width() != BRIG_WIDTH_1) return false;
-        if (instMem.modifier().isConst()) return false;
-        if (instMem.equivClass() != 0) return false;
-    }
-    else if (InstCvt instCvt = inst)
-    {
-        // Saturating signalign rounding is badly defined in spec; the behavior is unclear
-        unsigned rounding = instCvt.round();
-        return !(isSatRounding(rounding) && isSignalingRounding(rounding));
-    }
-
-    return true;
-}
 
 // Emulate execution of instruction 'inst' using provided input values.
 // Return value stored into destination register or an empty value
