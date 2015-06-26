@@ -757,7 +757,7 @@ void EBuffer::ScenarioValidation()
 {
   CommandsBuilder* commands = te->TestScenario()->Commands();
   if (type == HOST_RESULT_BUFFER) {
-    commands->BufferValidate(Id(), IdData(), comparisonMethod);
+    commands->BufferValidate(Id(), IdData(), vtype, comparisonMethod);
   }
 }
 

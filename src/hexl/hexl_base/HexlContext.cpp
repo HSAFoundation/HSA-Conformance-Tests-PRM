@@ -146,10 +146,9 @@ namespace hexl {
 
   static const unsigned MAX_SHOWN_FAILURES = 16;
 
-  bool ValidateMemory(Context* context, const Values& expected, const void *actualPtr, const std::string& method)
+  bool ValidateMemory(Context* context, ValueType vtype, const Values& expected, const void *actualPtr, const std::string& method)
   {
     assert(expected.size() > 0);
-    ValueType vtype = expected[0].Type();
     std::unique_ptr<Comparison> comparison(NewComparison(method, vtype));
     assert(comparison.get());
     comparison->Reset(vtype);

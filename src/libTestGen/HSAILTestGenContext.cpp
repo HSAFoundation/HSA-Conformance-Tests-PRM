@@ -230,17 +230,25 @@ Operand Context::getOperand(unsigned oprId)
     case O_VEC3_SIG64_SRC:  opr = emitVector(3, BRIG_TYPE_SIG64, false, 2); break;
     case O_VEC4_SIG64_SRC:  opr = emitVector(4, BRIG_TYPE_SIG64, false, 3); break;
 
+    case O_WAVESIZE:        opr = emitWavesize();                           break;
 
-    case O_WAVESIZE:        opr = emitWavesize();              break;
+    case O_ADDRESS_GLOBAL_DREG:    opr = emitAddrRef(DirectiveVariable(), emitReg(64, 0), BRIG_SEGMENT_GLOBAL);   break;
+    case O_ADDRESS_READONLY_DREG:  opr = emitAddrRef(DirectiveVariable(), emitReg(64, 0), BRIG_SEGMENT_READONLY); break;
+    case O_ADDRESS_GROUP_DREG:     opr = emitAddrRef(DirectiveVariable(), emitReg(64, 0), BRIG_SEGMENT_GROUP);    break;
+    case O_ADDRESS_PRIVATE_DREG:   opr = emitAddrRef(DirectiveVariable(), emitReg(64, 0), BRIG_SEGMENT_PRIVATE);  break;
+                            
+    case O_ADDRESS_GLOBAL_SREG:    opr = emitAddrRef(DirectiveVariable(), emitReg(32, 0), BRIG_SEGMENT_GLOBAL);   break;
+    case O_ADDRESS_READONLY_SREG:  opr = emitAddrRef(DirectiveVariable(), emitReg(32, 0), BRIG_SEGMENT_READONLY); break;
+    case O_ADDRESS_GROUP_SREG:     opr = emitAddrRef(DirectiveVariable(), emitReg(32, 0), BRIG_SEGMENT_GROUP);    break;
+    case O_ADDRESS_PRIVATE_SREG:   opr = emitAddrRef(DirectiveVariable(), emitReg(32, 0), BRIG_SEGMENT_PRIVATE);  break;
 
-    case O_ADDRESS_FLAT_DREG: opr = emitAddrRef(DirectiveVariable(), emitReg(64, 0)); break;
-    case O_ADDRESS_FLAT_SREG: opr = emitAddrRef(DirectiveVariable(), emitReg(32, 0)); break;
-    case O_ADDRESS_FLAT_OFF:  opr = emitAddrRef(0, true);                             break; // size does not matter because offset = 0
+    case O_ADDRESS_OFFSET:         opr = emitAddrRef(0, true); break; // size does not matter because offset = 0
 
     case O_ADDRESS_GLOBAL_VAR:
     case O_ADDRESS_READONLY_VAR:
     case O_ADDRESS_GROUP_VAR:
     case O_ADDRESS_PRIVATE_VAR:
+    case O_ADDRESS_SPILL_VAR:
     case O_ADDRESS_GLOBAL_ROIMG:
     case O_ADDRESS_GLOBAL_WOIMG:
     case O_ADDRESS_GLOBAL_RWIMG:
@@ -266,11 +274,6 @@ Operand Context::getOperand(unsigned oprId)
 
     operandTab[oprId] = opr;
     return opr;
-}
-
-void Context::genSymbols()
-{
-    for (unsigned i = SYM_MINID + 1; i < SYM_MAXID; ++i) genSymbol(i);
 }
 
 Directive Context::emitSymbol(unsigned symId)

@@ -111,6 +111,13 @@ public:
     // By default, no arguments are generated
     virtual void defKernelArgs() {}
 
+    // Called right after test kernel is defined.
+    // This is a convenient place for backend to generate definition of local symbols
+    //
+    // Note that this function is called only once for each kernel.
+    //
+    virtual void beginTestCode() {}
+
     // Called after test kernel is defined but before generation of the instruction being tested.
     // This is a convenient place for backend to generate test prologue code
     // (e.g. load registers with test data)
@@ -178,6 +185,10 @@ public:
     // Called when all test for the current template (i.e. test set) have been generated.
     // This is a good place for backend cleanup
     virtual void endTestSet() {}
+
+    // Return true if backend uses default symbols
+    // Should return false if backend generates its own symbols
+    virtual bool genDefaultSymbols() { return true; }
 
     static TestGenBackend* get(string name);
     static void dispose();

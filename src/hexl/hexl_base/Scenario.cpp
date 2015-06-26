@@ -19,6 +19,7 @@
 #include "HexlTest.hpp"
 #include "HexlResource.hpp"
 #include "HexlTestFactory.hpp"
+#include "Utils.hpp"
 #include <thread>
 #include <sstream>
 
@@ -387,24 +388,25 @@ namespace scenario {
   private:
     std::string bufferId;
     std::string expectedDataId;
+    ValueType memoryType;
     std::string method;
 
   public:
-    BufferValidateCommand (const std::string& bufferId_, const std::string& expectedDataId_, const std::string& method_)
-      : bufferId(bufferId_), expectedDataId(expectedDataId_), method(method_) { }
+    BufferValidateCommand (const std::string& bufferId_, const std::string& expectedDataId_, ValueType memoryType_, const std::string& method_)
+      : bufferId(bufferId_), expectedDataId(expectedDataId_), memoryType(memoryType_), method(method_) { }
 
     virtual bool Execute(runtime::RuntimeState* rt) {
-      return rt->BufferValidate(bufferId, expectedDataId, method);
+      return rt->BufferValidate(bufferId, expectedDataId, memoryType, method);
     }
 
     void Print(std::ostream& out) const {
-      out << "buffer_validate " << bufferId << " " << expectedDataId << " " << method;
+      out << "buffer_validate " << bufferId << " " << expectedDataId << " " << method << " " << ValueType2Str(memoryType);
     }
   };
 
-  bool CommandsBuilder::BufferValidate(const std::string& bufferId, const std::string& expectedDataId, const std::string& method)
+  bool CommandsBuilder::BufferValidate(const std::string& bufferId, const std::string& expectedDataId, ValueType memoryType, const std::string& method)
   {
-    commands->Add(new BufferValidateCommand(bufferId, expectedDataId, method));
+    commands->Add(new BufferValidateCommand(bufferId, expectedDataId, memoryType, method));
     return true;
   }
 
@@ -488,24 +490,25 @@ namespace scenario {
   private:
     std::string imageId;
     std::string expectedDataId;
+    ValueType memoryType;
     std::string method;
 
   public:
-    ImageValidateCommand(const std::string& imageId_, const std::string& expectedDataId_, const std::string& method_)
-      : imageId(imageId_), expectedDataId(expectedDataId_), method(method_) { }
+    ImageValidateCommand(const std::string& imageId_, const std::string& expectedDataId_, ValueType memoryType_, const std::string& method_)
+      : imageId(imageId_), expectedDataId(expectedDataId_), memoryType(memoryType_), method(method_) { }
 
     virtual bool Execute(runtime::RuntimeState* rt) {
-      return rt->ImageValidate(imageId, expectedDataId, method);
+      return rt->ImageValidate(imageId, expectedDataId, memoryType, method);
     }
 
     void Print(std::ostream& out) const {
-      out << "image_validate " << imageId << " " << expectedDataId << " " << method;
+      out << "image_validate " << imageId << " " << expectedDataId << " " << method << "" << ValueType2Str(memoryType);
     }
   };
 
-  bool CommandsBuilder::ImageValidate(const std::string& imageId, const std::string& expectedDataId, const std::string& method)
+  bool CommandsBuilder::ImageValidate(const std::string& imageId, const std::string& expectedDataId, ValueType memoryType, const std::string& method)
   {
-    commands->Add(new ImageValidateCommand(imageId, expectedDataId, method));
+    commands->Add(new ImageValidateCommand(imageId, expectedDataId, memoryType, method));
     return true;
   }
 

@@ -372,12 +372,12 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       return true;
     }
 
-    virtual bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, const std::string& method = "") override
+    virtual bool BufferValidate(const std::string& bufferId, const std::string& expectedValuesId, ValueType memoryType, const std::string& method = "") override
     {
       HsailBuffer *buf = context->Get<HsailBuffer>(bufferId);
       context->Info() << "Validating buffer " << bufferId << " with expected values " << expectedValuesId << "(method: " << method << ")" << std::endl;
       Values* expectedValues = context->Get<Values>(expectedValuesId);
-      return ValidateMemory(context, *expectedValues, buf->Ptr(), method);
+      return ValidateMemory(context, memoryType, *expectedValues, buf->Ptr(), method);
     }
 
     hsa_access_permission_t ImageType2HsaAccessPermission(BrigType type)
@@ -563,11 +563,11 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       return true;
     }
 
-    virtual bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, const std::string& method = "") override
+    virtual bool ImageValidate(const std::string& imageId, const std::string& expectedValuesId, ValueType memoryType, const std::string& method = "") override
     {
       HsailImage* image = context->Get<HsailImage>(imageId);
       Values expectedValues = context->GetValues(expectedValuesId);
-      return ValidateMemory(context, expectedValues, image->Data(), method);
+      return ValidateMemory(context, memoryType, expectedValues, image->Data(), method);
     }
 
     class HsailSampler {

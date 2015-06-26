@@ -216,13 +216,14 @@ private:
             {
                 for (;;)
                 {
-                    Context* ctx = new Context(positiveSample, true);
+                    Context* ctx = new Context(positiveSample, true, backend->genDefaultSymbols());
                     if (backend->beginTestGroup(ctx, getTestName()))
                     {
                         ctx->defineTestKernel();
                         backend->defKernelArgs();
 
                         ctx->startKernelBody();
+                        backend->beginTestCode();
 
                         Sample res;
                         for (unsigned tstIdx = 0; tstIdx < backend->getTestGroupSize(); ++tstIdx)

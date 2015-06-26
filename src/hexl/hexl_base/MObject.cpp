@@ -15,6 +15,7 @@
 */
 
 #include "MObject.hpp"
+#include "Utils.hpp"
 #include <cassert>
 #include <iomanip>
 #include <iostream>
@@ -375,49 +376,6 @@ const char *SamplerQueryString(MObjectSamplerQuery mem)
 
 }
 
-const char *ValueTypeString(ValueType type)
-{
-  switch (type) {
-  case MV_INT8: return "int8";
-  case MV_UINT8: return "uint8";
-  case MV_INT16: return "int16";
-  case MV_UINT16: return "uint16";
-  case MV_INT32: return "int32";
-  case MV_UINT32: return "uint32";
-  case MV_INT64: return "int64";
-  case MV_UINT64: return "uint64";
-#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
-  case MV_PLAIN_FLOAT16:
-#endif
-  case MV_FLOAT16: return "half";
-  case MV_FLOAT: return "float";
-  case MV_DOUBLE: return "double";
-  case MV_INT8X4: return "int8x4";
-  case MV_INT8X8: return "int8x8";
-  case MV_UINT8X4: return "uint8x4";
-  case MV_UINT8X8: return "uint8x8";
-  case MV_INT16X2: return "int16x2";
-  case MV_INT16X4: return "int16x4";
-  case MV_UINT16X2: return "uint16x2";
-  case MV_UINT16X4: return "uint16x4";
-  case MV_INT32X2: return "int32x2";
-  case MV_UINT32X2: return "uint32x2";
-  case MV_UINT128: return "uint128";
-  case MV_FLOAT16X2: return "halfx2";
-  case MV_FLOAT16X4: return "halfx4";
-  case MV_FLOATX2: return "floatx2";
-  case MV_IMAGE: return "image";
-  case MV_REF: return "ref";
-  case MV_IMAGEREF: return "imageref";
-  case MV_SAMPLERREF: return "samplerref";
-  case MV_POINTER: return "pointer";
-  case MV_EXPR: return "expr";
-  case MV_STRING: return "string";
-  default:
-    assert(false); return "<unknown type>";
-  }
-}
-
 /// For X2/X4/X8 types - returns width per element
 size_t ValueTypePrintWidth(ValueType type)
 {
@@ -770,7 +728,7 @@ uint32_t SizeOf(const Values& values)
 void MBuffer::Print(std::ostream& out) const
 {
   MObject::Print(out);
-  out << ", MBuffer in " << MemString(mtype) << ", type " << ValueTypeString(vtype) << ", ";
+  out << ", MBuffer in " << MemString(mtype) << ", type " << ValueType2Str(vtype) << ", ";
   for (unsigned i = 0; i < dim; ++i) {
     if (i != 0) { out << "x"; }
     out << size[i];

@@ -38,6 +38,7 @@ std::string GetBrigKernelName(HSAIL_ASM::BrigContainer* brig, BrigCodeOffset32_t
 unsigned GetBrigKernelInArgCount(HSAIL_ASM::BrigContainer* brig, BrigCodeOffset32_t kernelOffset);
 std::string ExtractTestPath(const std::string& name, unsigned level);
 hexl::ValueType Brig2ValueType(BrigType type);
+std::string ValueType2Str(hexl::ValueType vtype);
 BrigType Value2BrigType(hexl::ValueType type);
 bool Is128Bit(BrigType type);
 std::string ExceptionsNumber2Str(uint32_t exceptionsNumber);
