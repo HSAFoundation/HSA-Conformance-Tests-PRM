@@ -119,6 +119,7 @@ protected:
 
   bool IsValid() const {
     return Test::IsValid() &&
+           varSpec->IsValid() &&
            varSpec->Segment() != BRIG_SEGMENT_FLAT &&
            cc->Segments().CanStore(varSpec->Segment()) &&
            cc->Segments().HasFlatAddress(varSpec->Segment());
