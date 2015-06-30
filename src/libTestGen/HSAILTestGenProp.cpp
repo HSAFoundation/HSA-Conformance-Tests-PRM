@@ -113,8 +113,11 @@ static const unsigned valMapDesc[] = // from HDL to TestGen
 
     OPERAND_VAL_LAB,        O_LABELREF, 0,
 
-    OPERAND_VAL_ADDR,       O_ADDRESS_FLAT_DREG, O_ADDRESS_FLAT_OFF, O_ADDRESS_FLAT_SREG,
-                            O_ADDRESS_GLOBAL_VAR, O_ADDRESS_READONLY_VAR, O_ADDRESS_GROUP_VAR, O_ADDRESS_PRIVATE_VAR,
+    OPERAND_VAL_ADDR,       O_ADDRESS_GLOBAL_DREG, O_ADDRESS_OFFSET, O_ADDRESS_GLOBAL_SREG,
+                            O_ADDRESS_READONLY_DREG, O_ADDRESS_READONLY_SREG,
+                            O_ADDRESS_GROUP_DREG, O_ADDRESS_GROUP_SREG,
+                            O_ADDRESS_PRIVATE_DREG, O_ADDRESS_PRIVATE_SREG,
+                            O_ADDRESS_GLOBAL_VAR, O_ADDRESS_READONLY_VAR, O_ADDRESS_GROUP_VAR, O_ADDRESS_PRIVATE_VAR, O_ADDRESS_SPILL_VAR,
                             O_ADDRESS_GLOBAL_ROIMG, O_ADDRESS_GLOBAL_WOIMG, O_ADDRESS_GLOBAL_RWIMG, O_ADDRESS_GLOBAL_SAMP, O_ADDRESS_GLOBAL_SIG32, O_ADDRESS_GLOBAL_SIG64,
                             O_ADDRESS_READONLY_ROIMG, O_ADDRESS_READONLY_RWIMG, O_ADDRESS_READONLY_SAMP, O_ADDRESS_READONLY_SIG32, O_ADDRESS_READONLY_SIG64, 0,
 
@@ -154,6 +157,7 @@ unsigned operandId2SymId(unsigned operandId)
     case O_ADDRESS_READONLY_VAR:    return SYM_READONLY_VAR;
     case O_ADDRESS_GROUP_VAR:       return SYM_GROUP_VAR;
     case O_ADDRESS_PRIVATE_VAR:     return SYM_PRIVATE_VAR;
+    case O_ADDRESS_SPILL_VAR:       return SYM_SPILL_VAR;
 
     case O_ADDRESS_GLOBAL_ROIMG:    return SYM_GLOBAL_ROIMG;
     case O_ADDRESS_READONLY_ROIMG:  return SYM_READONLY_ROIMG;
@@ -198,6 +202,7 @@ const SymDesc symDescTab[SYM_MAXID] =
     {SYM_GROUP_VAR,      "&GroupVar",      BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), BRIG_SEGMENT_GROUP},
     {SYM_PRIVATE_VAR,    "&PrivateVar",    BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), BRIG_SEGMENT_PRIVATE},
     {SYM_READONLY_VAR,   "&ReadonlyVar",   BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), BRIG_SEGMENT_READONLY},
+    {SYM_SPILL_VAR,      "%SpillVar",      BRIG_TYPE_S32,    TEST_ARRAY_SIZE / sizeof(u32_t), BRIG_SEGMENT_SPILL},
     {SYM_GLOBAL_ROIMG,   "&GlobalROImg",   BRIG_TYPE_ROIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), BRIG_SEGMENT_GLOBAL},
     {SYM_GLOBAL_WOIMG,   "&GlobalWOImg",   BRIG_TYPE_WOIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), BRIG_SEGMENT_GLOBAL},
     {SYM_GLOBAL_RWIMG,   "&GlobalRWImg",   BRIG_TYPE_RWIMG,  TEST_ARRAY_SIZE / sizeof(u64_t), BRIG_SEGMENT_GLOBAL},
@@ -218,6 +223,7 @@ const char* getSymName(unsigned symId)    { assert(SYM_MINID < symId && symId < 
 unsigned    getSymType(unsigned symId)    { assert(SYM_MINID < symId && symId < SYM_MAXID && symDescTab[symId].id == symId); return symDescTab[symId].type;    }
 unsigned    getSymDim(unsigned symId)     { assert(SYM_MINID < symId && symId < SYM_MAXID && symDescTab[symId].id == symId); return symDescTab[symId].dim;     }
 unsigned    getSymSegment(unsigned symId) { assert(SYM_MINID < symId && symId < SYM_MAXID && symDescTab[symId].id == symId); return symDescTab[symId].segment; }
+bool        isLocalSym(unsigned symId)    { assert(SYM_MINID < symId && symId < SYM_MAXID && symDescTab[symId].id == symId); return symDescTab[symId].segment == BRIG_SEGMENT_SPILL; }
 
 bool isSupportedSym(unsigned symId)
 {
@@ -422,14 +428,23 @@ string operand2str(unsigned operandId)
     case O_FBARRIERREF:   return getSymName(operandId2SymId(operandId));
 
 
-    case O_ADDRESS_FLAT_DREG:           return "[$d0]";
-    case O_ADDRESS_FLAT_SREG:           return "[$s0]";
-    case O_ADDRESS_FLAT_OFF:            return "[0]";
+    case O_ADDRESS_GLOBAL_DREG:
+    case O_ADDRESS_READONLY_DREG:
+    case O_ADDRESS_GROUP_DREG:
+    case O_ADDRESS_PRIVATE_DREG:   return "[$d0]";
+
+    case O_ADDRESS_GLOBAL_SREG:
+    case O_ADDRESS_READONLY_SREG:
+    case O_ADDRESS_GROUP_SREG:
+    case O_ADDRESS_PRIVATE_SREG:   return "[$s0]";
+
+    case O_ADDRESS_OFFSET:         return "[0]";
 
     case O_ADDRESS_GLOBAL_VAR:
     case O_ADDRESS_READONLY_VAR:
     case O_ADDRESS_GROUP_VAR:
     case O_ADDRESS_PRIVATE_VAR:
+    case O_ADDRESS_SPILL_VAR:
     case O_ADDRESS_GLOBAL_ROIMG:
     case O_ADDRESS_GLOBAL_RWIMG:
     case O_ADDRESS_GLOBAL_WOIMG:

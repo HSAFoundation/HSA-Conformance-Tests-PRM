@@ -47,6 +47,7 @@ using HSAIL_ASM::DirectiveFbarrier;
 using HSAIL_ASM::InstBasic;
 using HSAIL_ASM::InstAtomic;
 using HSAIL_ASM::InstCmp;
+using HSAIL_ASM::InstSegCvt;
 using HSAIL_ASM::InstCvt;
 using HSAIL_ASM::InstImage;
 using HSAIL_ASM::InstMem;
@@ -262,6 +263,35 @@ void BrigContext::emitLda(OperandRegister dst, DirectiveVariable var)
     lda.segment()   = var.segment();
 
     append(lda, dst, emitAddrRef(var));
+}
+
+void BrigContext::emitLda(OperandRegister dst, OperandAddress addr)
+{
+    assert(dst);
+    assert(addr);
+
+    DirectiveVariable var = addr.symbol();
+    assert(var);
+
+    InstAddr lda = brigantine.addInst<InstAddr>(BRIG_OPCODE_LDA, getSegAddrType(var.segment()));
+
+    lda.segment() = var.segment();
+
+    append(lda, dst, addr);
+}
+
+void BrigContext::emitStoF(OperandRegister dst, OperandRegister src, unsigned segment)
+{
+    assert(dst);
+    assert(src);
+
+    InstSegCvt stof = brigantine.addInst<InstSegCvt>(BRIG_OPCODE_STOF, getModelType());
+
+    stof.segment() = segment;
+    stof.sourceType() = getSegAddrType(segment);
+    stof.modifier().isNoNull() = false;
+
+    append(stof, dst, src);
 }
 
 void BrigContext::emitCmpEq(unsigned cRegIdx, unsigned sRegIdx, unsigned immVal)
