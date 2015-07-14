@@ -146,11 +146,11 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     HostThreads hostThreads;
     std::vector<std::string> keys;
 
-    const static uint32_t TIMEOUT = 120;
+    const uint32_t TIMEOUT;
 
   public:
-    HsailRuntimeContextState(HsailRuntimeContext* runtime_, Context* context_)
-      : runtime(runtime_), context(context_), hostThreads(this) { }
+    HsailRuntimeContextState(HsailRuntimeContext* runtime_, Context* context_, uint32_t timeout)
+      : runtime(runtime_), context(context_), hostThreads(this), TIMEOUT(timeout) { }
 
     ~HsailRuntimeContextState()
     {
@@ -998,7 +998,7 @@ HsailRuntimeContext::HsailRuntimeContext(Context* context)
 runtime::RuntimeState* HsailRuntimeContext::NewState(Context* context)
 {
   this->context = context;
-  return new HsailRuntimeContextState(this, context);
+  return new HsailRuntimeContextState(this, context, context->Opts()->GetUnsigned("timeout", HSAILRUNTIMEDEFAULTTIMEOUT));
 }
 
 void HsailRuntimeContext::QueueDestroy()

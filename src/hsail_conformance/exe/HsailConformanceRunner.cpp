@@ -200,6 +200,7 @@ void HCRunner::Run()
   optReg.RegisterBooleanOption("dump.dispatchsetup");
   optReg.RegisterBooleanOption("XtestFtzF16"); // eXperimental
   optReg.RegisterOption("match");
+  optReg.RegisterOption("timeout");
   {
     int n = hexl::ParseOptions(argc, argv, optReg, options);
     if (n != 0) {

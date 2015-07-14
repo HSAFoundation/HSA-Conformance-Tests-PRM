@@ -90,6 +90,7 @@ int HexlRunner::ParseOptions()
   optReg.RegisterOption("match");
   optReg.RegisterOption("testlog");
   optReg.RegisterOption("rtlib");
+  optReg.RegisterOption("timeout");
   int n;
   if ((n = hexl::ParseOptions(argc, argv, optReg, options)) != 0) {
     std::cout << "Invalid option: " << argv[n] << std::endl;

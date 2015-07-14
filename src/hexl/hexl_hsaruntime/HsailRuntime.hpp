@@ -27,6 +27,8 @@
 #include "HSAILBrigContainer.h"
 #include <functional>
 
+#define HSAILRUNTIMEDEFAULTTIMEOUT 120
+
 namespace hexl {
 
 class EnvContext;
