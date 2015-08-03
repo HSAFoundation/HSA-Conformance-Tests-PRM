@@ -371,7 +371,7 @@ void AddressArithmeticTests::Iterate(hexl::TestSpecIterator& it)
   Arena* ap = cc->Ap();
   static const char *base = "address";
   TestForEach<StofNullTest>(ap, it, base, cc->Segments().All());
-  //TestForEach<StofIdentityTest>(ap, it, base, cc->Variables().ByTypeAlign(BRIG_SEGMENT_PRIVATE), Bools::All(), Bools::All());
+  TestForEach<StofIdentityTest>(ap, it, base, cc->Variables().ByTypeAlign(BRIG_SEGMENT_PRIVATE), Bools::All(), Bools::All());
   TestForEach<FtosNullTest>(ap, it, base, cc->Segments().All());
   //TestForEach<FtosIdentityTest>(ap, it, base, Address::All(), Bools::All(), Bools::All());
   TestForEach<SegmentpNullTest>(ap, it, base, cc->Segments().All());
