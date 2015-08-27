@@ -171,11 +171,17 @@ bool HTestRunner::BeforeTestSet(TestSet& testSet)
     context->Error() << "Failed to open test log " << testLogName << std::endl;
     return false;
   }
+  if (context->Opts()->GetBoolean("dsign")) {
+     testLog << "Digital Signature: " << "NNNNNNNNNNNNN" << std::endl << std::endl;
+  }
   return true;
 }
 
 bool HTestRunner::AfterTestSet(TestSet& testSet)
 {
+  if (context->Opts()->GetBoolean("dsign")) {
+     testLog << "Digital Signature: " << "NNNNNNNNNNNNN" << std::endl;
+  }
   testLog.close();
   // Process first path.
   RunnerLog() << "  ";

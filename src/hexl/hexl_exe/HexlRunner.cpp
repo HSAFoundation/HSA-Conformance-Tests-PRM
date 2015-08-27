@@ -87,6 +87,7 @@ int HexlRunner::ParseOptions()
   optReg.RegisterBooleanOption("dummy");
   optReg.RegisterBooleanOption("verbose");
   optReg.RegisterBooleanOption("dump");
+  optReg.RegisterBooleanOption("dsign");
   optReg.RegisterOption("match");
   optReg.RegisterOption("testlog");
   optReg.RegisterOption("rtlib");

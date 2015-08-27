@@ -199,6 +199,7 @@ void HCRunner::Run()
   optReg.RegisterBooleanOption("dump.hsail");
   optReg.RegisterBooleanOption("dump.dispatchsetup");
   optReg.RegisterBooleanOption("XtestFtzF16"); // eXperimental
+  optReg.RegisterBooleanOption("dsign");
   optReg.RegisterOption("match");
   optReg.RegisterOption("timeout");
   {
