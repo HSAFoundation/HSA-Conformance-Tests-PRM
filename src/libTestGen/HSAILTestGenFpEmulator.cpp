@@ -391,11 +391,12 @@ f64_t f64_unsupported()
 //==============================================================================
 // HSAIL Floating-Point Library: Precision of Emulation
 
-// Return precision of result computation for this instruction.
-// If the value is 0, the precision is infinite.
-// If the value is between 0 and 1, the precision is relative.
-// If the value is greater than or equals to 1, the precision is specified in ULPS.
-// This is a property of target HW, not emulator!
+// Returns expected accuracy for an HSAIL instruction.
+// If the value == 0, the precision is infinite (no deviation is allowed).
+// The values in the (0,1) range specify relative precision.
+// Values >= 1 denote precision in ULPS calculated as (value - 0.5), i.e. 1.0 means 0.5 ULPS.
+//
+// Accuracy of native ops depends on target HW!
 double getNativeOpPrecision(unsigned opcode, unsigned type)
 {
     switch(opcode)
@@ -405,7 +406,8 @@ double getNativeOpPrecision(unsigned opcode, unsigned type)
     case BRIG_OPCODE_NRSQRT:
     case BRIG_OPCODE_NEXP2:
     case BRIG_OPCODE_NLOG2:
-        if (type == BRIG_TYPE_F16) return 0.0000005;  // TODO
+    case BRIG_OPCODE_NFMA:
+        if (type == BRIG_TYPE_F16) return 0.04;
         if (type == BRIG_TYPE_F32) return 0.0000005;  // Relative
         if (type == BRIG_TYPE_F64) return 0.00000002; // Relative
         break;
@@ -413,9 +415,6 @@ double getNativeOpPrecision(unsigned opcode, unsigned type)
     case BRIG_OPCODE_NSIN:
     case BRIG_OPCODE_NCOS:
         return NSIN_NCOS_RESULT_PRECISION_ULPS;
-
-    case BRIG_OPCODE_NFMA:
-        return 1; // TODO
 
     default:
         assert(false);
