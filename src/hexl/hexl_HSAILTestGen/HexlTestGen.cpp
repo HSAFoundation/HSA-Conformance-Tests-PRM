@@ -23,12 +23,6 @@
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenDataProvider.h"
 
-//#define TESTGEN_PRECISION_HACK_2
-#define TESTGEN_PRECISION_HACK
-    /// \todo 1ULP for all f16 ops
-    /// \todo Default (very rough) for all native floating ops
-    /// \todo Default (very rough) for fma_f64 and mad_f64 ops
-
 using namespace TESTGEN;
 using namespace HSAIL_ASM;
 using namespace hexl::emitter;
@@ -80,33 +74,6 @@ private:
   string getSrcArrayName(unsigned idx, string prefix = "")
   { return prefix + "src" + index2str(idx); }
 
-#ifdef TESTGEN_PRECISION_HACK
-  bool isNativeFloatingOp(Inst inst)
-  {
-      switch(inst.opcode())
-      {
-      case BRIG_OPCODE_NCOS: case BRIG_OPCODE_NEXP2: case BRIG_OPCODE_NFMA: case BRIG_OPCODE_NLOG2:
-      case BRIG_OPCODE_NRCP: case BRIG_OPCODE_NRSQRT: case BRIG_OPCODE_NSIN: case BRIG_OPCODE_NSQRT:
-          return true;
-      default:
-        return false;
-      }
-  }
-
-  bool isFmaOrMadF64(Inst inst)
-  {
-      switch(inst.opcode()) {
-      case BRIG_OPCODE_FMA: case BRIG_OPCODE_MAD:
-          switch(getType(inst)) {
-          case BRIG_TYPE_F64: case BRIG_TYPE_F64X2: return true;
-          default: break;
-          }
-      default:
-        return false;
-      }
-  }
-#endif
-
   TestSpec* CreateTestSpec(TestDesc& testDesc)
   {
     BrigCodeOffset32_t ioffset = testDesc.getInst().brigOffset();
@@ -128,25 +95,11 @@ private:
       id++;
     }
     if (map->getDstArgsNum() == 1) {
-      defResultArray(testGroup, id, "dst", true
-#ifdef TESTGEN_PRECISION_HACK_2
-        , map->getPrecision()
-#endif
-#ifdef TESTGEN_PRECISION_HACK
-        , isNativeFloatingOp(testDesc.getInst()) || isFmaOrMadF64(testDesc.getInst())
-#endif
-        );
+      defResultArray(testGroup, id, "dst", true, map->getPrecision());
       id++;
     }
     if (map->getMemArgsNum() == 1) {
-      defResultArray(testGroup, id, "mem", false
-#ifdef TESTGEN_PRECISION_HACK_2
-        , map->getPrecision()
-#endif
-#ifdef TESTGEN_PRECISION_HACK
-        , false
-#endif
-        );
+      defResultArray(testGroup, id, "mem", false, map->getPrecision());
       id++;
     }
 
@@ -188,19 +141,11 @@ private:
     }
   }
 
-  void defResultArray(TestGroupArray* testGroup, unsigned id, std::string name, bool isDst
-#ifdef TESTGEN_PRECISION_HACK_2
-    , double precision
-#endif
-#ifdef TESTGEN_PRECISION_HACK
-    , bool compareWithDefaultPrecision
-#endif
-  ) {
+  void defResultArray(TestGroupArray* testGroup, unsigned id, std::string name, bool isDst, double precision) {
     TestData& data = testGroup->getData(0);
     unsigned vecSize = isDst? data.dst.getDim() : data.mem.getDim();
     BrigType type = (BrigType) (isDst? data.dst.getValType() : data.mem.getValType());
     Buffer buffer = dispatch->NewBuffer(name, HOST_RESULT_BUFFER, BufferValueType(type), BufferArraySize(type, vecSize * testGroup->getFlatSize()));
-#ifdef TESTGEN_PRECISION_HACK_2
     {
       std::ostringstream ps;
       if (precision < 0) {
@@ -216,11 +161,6 @@ private:
       }
       buffer->SetComparisonMethod(ps.str());
     }
-#endif
-#ifdef TESTGEN_PRECISION_HACK
-    if (buffer->VType() == MV_FLOAT16 || buffer->VType() == MV_PLAIN_FLOAT16) { buffer->SetComparisonMethod("ulps=1"); }
-    if (compareWithDefaultPrecision) { buffer->SetComparisonMethod("legacy_default"); }
-#endif
     for (unsigned flatIdx = 0; flatIdx < testGroup->getFlatSize(); ++flatIdx) {
       TestData& data = testGroup->getData(flatIdx);
       for (unsigned k = 0; k < vecSize; ++k) {
