@@ -23,6 +23,7 @@
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenDataProvider.h"
 
+//#define TESTGEN_PRECISION_HACK_2
 #define TESTGEN_PRECISION_HACK
     /// \todo 1ULP for all f16 ops
     /// \todo Default (very rough) for all native floating ops
@@ -128,6 +129,9 @@ private:
     }
     if (map->getDstArgsNum() == 1) {
       defResultArray(testGroup, id, "dst", true
+#ifdef TESTGEN_PRECISION_HACK_2
+        , map->getPrecision()
+#endif
 #ifdef TESTGEN_PRECISION_HACK
         , isNativeFloatingOp(testDesc.getInst()) || isFmaOrMadF64(testDesc.getInst())
 #endif
@@ -136,6 +140,9 @@ private:
     }
     if (map->getMemArgsNum() == 1) {
       defResultArray(testGroup, id, "mem", false
+#ifdef TESTGEN_PRECISION_HACK_2
+        , map->getPrecision()
+#endif
 #ifdef TESTGEN_PRECISION_HACK
         , false
 #endif
@@ -182,6 +189,9 @@ private:
   }
 
   void defResultArray(TestGroupArray* testGroup, unsigned id, std::string name, bool isDst
+#ifdef TESTGEN_PRECISION_HACK_2
+    , double precision
+#endif
 #ifdef TESTGEN_PRECISION_HACK
     , bool compareWithDefaultPrecision
 #endif
@@ -190,6 +200,23 @@ private:
     unsigned vecSize = isDst? data.dst.getDim() : data.mem.getDim();
     BrigType type = (BrigType) (isDst? data.dst.getValType() : data.mem.getValType());
     Buffer buffer = dispatch->NewBuffer(name, HOST_RESULT_BUFFER, BufferValueType(type), BufferArraySize(type, vecSize * testGroup->getFlatSize()));
+#ifdef TESTGEN_PRECISION_HACK_2
+    {
+      std::ostringstream ps;
+      if (precision < 0) {
+        ps << "legacy_default";
+      } else if (precision == 0.0) {
+        ps << "absf=" << 0.0;
+      } else if (precision >= 1.0) {
+        /// precision == 1.0 on input means 0.5 ULPS
+        /// \todo For now, conformance accepts unsigned and treates 0 as ~0.5 ULPS
+        ps << "ulps=" << (unsigned)(precision - 1);
+      } else {
+        ps << "relf=" << precision;
+      }
+      buffer->SetComparisonMethod(ps.str());
+    }
+#endif
 #ifdef TESTGEN_PRECISION_HACK
     if (buffer->VType() == MV_FLOAT16 || buffer->VType() == MV_PLAIN_FLOAT16) { buffer->SetComparisonMethod("ulps=1"); }
     if (compareWithDefaultPrecision) { buffer->SetComparisonMethod("legacy_default"); }

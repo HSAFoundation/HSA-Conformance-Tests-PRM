@@ -84,10 +84,10 @@ public:
     void setInst(Inst inst)             { testInst = inst; }
     void setScript(string s)            { script = s;      }
 
-    BrigContainer*  getContainer()  const { return container; }
-    TestGroupArray* getData()       const { return testData;  }
-    TestDataMap*    getMap()        const { return map;  }
-    Inst            getInst()       const { return testInst;  }
+    BrigContainer*  getContainer()  const { assert(container); return container; }
+    TestGroupArray* getData()       const { assert(testData); return testData;  }
+    TestDataMap*    getMap()        const { assert(map); return map;  }
+    Inst            getInst()       const { assert(testInst); return testInst;  }
     string          getScript()     const { return script;    }
 
     unsigned        getOpcode()           { assert(testInst); return testInst.opcode(); }

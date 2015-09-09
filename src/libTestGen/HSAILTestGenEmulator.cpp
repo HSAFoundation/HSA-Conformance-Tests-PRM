@@ -1950,11 +1950,10 @@ Val emulateMemVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
     return res;
 }
 
-// Return precision of result computation for this instruction.
-// If the value is 0, the precision is infinite.
-// If the value is between 0 and 1, the precision is relative.
-// If the value is greater than or equals to 1, the precision is specified in ULPS.
-// This is a property of target HW, not emulator!
+// Returns expected accuracy for an HSAIL instruction.
+// If the value == 0, the precision is infinite (no deviation is allowed).
+// The values in the (0,1) range specify relative precision.
+// Values >= 1 denote precision in ULPS calculated as (value - 0.5), i.e. 1.0 means 0.5 ULPS.
 double getPrecision(Inst inst)
 {
     switch(inst.opcode()) // Instructions with HW-specific precision
@@ -1970,7 +1969,16 @@ double getPrecision(Inst inst)
         return getNativeOpPrecision(inst.opcode(), inst.type());
 
     default:
-        return 1; // 0.5 ULP (infinite precision)
+        if (isFloatType(inst.type() & BRIG_TYPE_BASE_MASK)) {
+            if (BRIG_TYPE_F16 == (inst.type() & BRIG_TYPE_BASE_MASK)) {
+                /// \todo Temporary: While correct f16 rounding isn't implemented here,
+                /// let's coarsen precison requirements for f16
+                return 2;
+            }
+            return 1; // 0.5 ULP (infinite precision)
+        } else {
+            return 0;
+        }
     }
 }
 
