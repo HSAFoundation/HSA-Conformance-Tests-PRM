@@ -1956,6 +1956,11 @@ Val emulateMemVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
 // Values >= 1 denote precision in ULPS calculated as (value - 0.5), i.e. 1.0 means 0.5 ULPS.
 double getPrecision(Inst inst)
 {
+    if ( (inst.opcode() == BRIG_OPCODE_FMA || inst.opcode() == BRIG_OPCODE_MAD)
+    && BRIG_TYPE_F64 == (inst.type() & BRIG_TYPE_BASE_MASK) ) {
+        /// \todo Workaround for FMA and floating MAD due to double rounding in TestGen: use NFMA's precision.
+        return 0.00000002; // Relative
+    }
     switch(inst.opcode()) // Instructions with HW-specific precision
     {
     case BRIG_OPCODE_NRCP:
