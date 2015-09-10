@@ -1,4 +1,4 @@
-@rem Includes AMD specific internal ORCA targets - no support in the main package
+@rem Includes AMD specific experimental ORCA targets - no support in the main package
 
 set HSAIL_TOOLS=C:/ws/git/HSAIL-Tools
 set HSA_RUNTIME_INC=C:/ws/hsa_prm/drivers/hsa/runtime/inc

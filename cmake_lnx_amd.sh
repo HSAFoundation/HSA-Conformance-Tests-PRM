@@ -1,5 +1,5 @@
 #!/bin/bash
-# Includes AMD specific internal ORCA targets - no support in the main package
+# Includes AMD specific experimental ORCA targets - no support in the main package
 
 set -e
 
