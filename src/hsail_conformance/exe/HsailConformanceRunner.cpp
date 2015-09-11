@@ -180,7 +180,7 @@ void HCRunner::Run()
     " (" <<
     "HSAIL " << BRIG_VERSION_HSAIL_MAJOR << "." << BRIG_VERSION_HSAIL_MINOR <<
     ", BRIG " << BRIG_VERSION_BRIG_MAJOR << "." << BRIG_VERSION_BRIG_MINOR <<
-    ")" << std::endl << std::endl;
+    ")" << std::endl;
   OptionRegistry optReg;
   optReg.RegisterOption("rt");
   optReg.RegisterOption("runner");
@@ -190,6 +190,7 @@ void HCRunner::Run()
   optReg.RegisterOption("tests");
   optReg.RegisterOption("testloglevel");
   optReg.RegisterOption("testlog");
+  optReg.RegisterOption("testsummary");
   optReg.RegisterOption("rtlib");
   optReg.RegisterOption("exclude");
   optReg.RegisterBooleanOption("dummy");

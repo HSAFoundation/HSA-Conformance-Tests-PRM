@@ -90,6 +90,7 @@ int HexlRunner::ParseOptions()
   optReg.RegisterBooleanOption("dsign");
   optReg.RegisterOption("match");
   optReg.RegisterOption("testlog");
+  optReg.RegisterOption("testsummary");
   optReg.RegisterOption("rtlib");
   optReg.RegisterOption("timeout");
   int n;

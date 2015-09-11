@@ -75,11 +75,13 @@ private:
   std::string pathPrev;
   std::ostringstream testOut;
   std::ofstream testLog;
+  std::ofstream testSummary;
   AllStats pathStats;
   unsigned testLogLevel;
 
 protected:
   std::ostream& RunnerLog() { return std::cout; }
+  std::ofstream& RunnerLog(std::ofstream& of) { return of; }
   std::ostream* TestOut() { return &testOut; }
   virtual bool BeforeTestSet(TestSet& testSet);
   virtual bool AfterTestSet(TestSet& testSet);

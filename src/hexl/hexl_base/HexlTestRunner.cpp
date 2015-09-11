@@ -20,6 +20,7 @@
 #include "HexlResource.hpp"
 #include <sstream>
 #include "Utils.hpp"
+#include <time.h>
 
 namespace hexl {
 
@@ -154,24 +155,39 @@ void HTestRunner::BeforeTest(const std::string& path, Test* test)
   if (cpath != pathPrev) {
     if (!pathPrev.empty()) {
       RunnerLog() << "  ";
+      RunnerLog(testSummary) << "  ";
       pathStats.TestSet().PrintShort(RunnerLog());
+      pathStats.TestSet().PrintShort(RunnerLog(testSummary));
       RunnerLog() << std::endl;
+      RunnerLog(testSummary) << std::endl;
     }
     pathStats.Clear();
     RunnerLog() << cpath << "  " << std::endl;
+    RunnerLog(testSummary) << cpath << "  " << std::endl;
     pathPrev = cpath;
   }
 }
 
 bool HTestRunner::BeforeTestSet(TestSet& testSet)
 {
+  time_t time_begin = time(0);
+  tm* time_begin_UTC = gmtime(&time_begin);
   std::string testLogName = context->Opts()->GetString("testlog", "test.log");
   testLog.open(testLogName.c_str(), std::ofstream::out);
   if (!testLog.is_open()) {
     context->Error() << "Failed to open test log " << testLogName << std::endl;
     return false;
   }
+  std::string testSummaryName = context->Opts()->GetString("testsummary", "test_summary.log");
+  testSummary.open(testSummaryName.c_str(), std::ofstream::out);
+  if (!testSummary.is_open()) {
+    context->Error() << "Failed to open test summary " << testSummaryName << std::endl;
+    return false;
+  }
+  RunnerLog() << "UTC Start Date & Time: " << asctime(time_begin_UTC) << std::endl;
+  RunnerLog(testSummary) << "UTC Start Date & Time: " << asctime(time_begin_UTC) << std::endl;
   if (context->Opts()->GetBoolean("dsign")) {
+     RunnerLog(testSummary) << "Digital Signature: " << "NNNNNNNNNNNNN" << std::endl << std::endl;
      testLog << "Digital Signature: " << "NNNNNNNNNNNNN" << std::endl << std::endl;
   }
   return true;
@@ -179,18 +195,29 @@ bool HTestRunner::BeforeTestSet(TestSet& testSet)
 
 bool HTestRunner::AfterTestSet(TestSet& testSet)
 {
-  if (context->Opts()->GetBoolean("dsign")) {
-     testLog << "Digital Signature: " << "NNNNNNNNNNNNN" << std::endl;
-  }
-  testLog.close();
+  time_t time_end = time(0);
+  tm* time_end_UTC = gmtime(&time_end);
   // Process first path.
   RunnerLog() << "  ";
+  RunnerLog(testSummary) << "  ";
   pathStats.TestSet().PrintShort(RunnerLog());
+  pathStats.TestSet().PrintShort(RunnerLog(testSummary));
   RunnerLog() << std::endl;
+  RunnerLog(testSummary) << std::endl;
 
   // Totals
   RunnerLog() << std::endl << "Testrun" << std::endl << "  ";
+  RunnerLog(testSummary) << std::endl << "Testrun" << std::endl << "  ";
   Stats().TestSet().PrintShort(RunnerLog()); RunnerLog() << std::endl;
+  Stats().TestSet().PrintShort(RunnerLog(testSummary)); RunnerLog(testSummary) << std::endl;
+  RunnerLog()  << std::endl << "UTC Finish Date & Time: " << asctime(time_end_UTC) << std::endl;
+  RunnerLog(testSummary) << std::endl << "UTC Finish Date & Time: " << asctime(time_end_UTC) << std::endl;
+  if (context->Opts()->GetBoolean("dsign")) {
+     RunnerLog(testSummary) << "Digital Signature: " << "NNNNNNNNNNNNN" << std::endl;
+     testLog << "Digital Signature: " << "NNNNNNNNNNNNN" << std::endl;
+  }
+  testLog.close();
+  testSummary.close();
   return true;
 }
 
