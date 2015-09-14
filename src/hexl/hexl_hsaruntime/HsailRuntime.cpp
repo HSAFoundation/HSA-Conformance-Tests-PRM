@@ -1046,7 +1046,7 @@ static hsa_status_t IterateAgentGetHsaDevice(hsa_agent_t agent, void *data) {
     if (status != HSA_STATUS_SUCCESS) { return status; }
     status = idata.Runtime()->Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_FEATURE, &features);
     if (status != HSA_STATUS_SUCCESS) { return status; }
-    if (device_type == HSA_DEVICE_TYPE_GPU && (features & HSA_AGENT_FEATURE_KERNEL_DISPATCH)) {
+    if (features & HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
       idata.Set(agent);
       return HSA_STATUS_SUCCESS;
     }
