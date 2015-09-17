@@ -35,8 +35,6 @@ private:
   bool useVectorInstructionsForFormals;
   bool useVectorInstructionsForActuals;
 
-  static const uint32_t length = 64;
-
 public:
   FunctionArguments(VariableSpec argSpec_,
     bool useVectorInstructionsForFormals_, bool useVectorInstructionsForActuals_)
