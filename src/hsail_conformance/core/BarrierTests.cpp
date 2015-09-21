@@ -310,6 +310,7 @@ protected:
     // init and join fbarrier
     Fb()->EmitInitfbarInFirstWI();
     Fb()->EmitJoinfbar();
+    be.EmitBarrier();
   }
 
   virtual void EmitRelease() {
@@ -371,7 +372,7 @@ public:
     be.EmitLabel(elseLabel);
     EmitSecondBranch(wiId, globalOffset);
     be.EmitLabel(endifLabel);
-    
+
     EmitRelease();
   }
 
@@ -388,6 +389,40 @@ protected:
 
   TypedReg EmitWorkitemId() override {
     return be.EmitWorkitemFlatId();
+  }
+
+  PointerReg EmitGlobalOffset(TypedReg wiId) override {
+    // organize output array in chunks by work-groups and wavefronts
+    // work-group size
+    auto wgSizeX = be.EmitWorkgroupSize(0);
+    auto wgSizeY = be.EmitWorkgroupSize(1);
+    auto wgSize = be.AddTReg(wgSizeX->Type());
+    be.EmitArith(BRIG_OPCODE_MUL, wgSize, wgSizeX, wgSizeY);
+    be.EmitArith(BRIG_OPCODE_MUL, wgSize, wgSize, be.EmitWorkgroupSize(2));
+
+    // work-group flattaned ID
+    auto wgFlatId = be.AddTReg(wgSizeX->Type());
+    be.EmitArith(BRIG_OPCODE_MAD, wgFlatId, be.EmitWorkgroupId(2), wgSizeY, be.EmitWorkgroupId(1)->Reg());
+    be.EmitArith(BRIG_OPCODE_MAD, wgFlatId, wgFlatId, wgSizeX, be.EmitWorkgroupId(0)->Reg());
+
+    auto offset32 = be.AddTReg(wgFlatId->Type());
+    // size of wg flattened id must be 32-bit as well as wi flattened id
+    assert(wiId->Type() == wgFlatId->Type());
+    auto typeSize = be.Immed(offset32->Type(), getBrigTypeNumBytes(ResultType()));
+    // offset32 = (wgSize * wgFlatId + wiFlatId) * typeSize
+    be.EmitArith(BRIG_OPCODE_MAD, offset32, wgSize, wgFlatId, wiId->Reg());
+    be.EmitArith(BRIG_OPCODE_MUL, offset32, offset32, typeSize);
+
+    // convert offset32 to global offset
+    auto offset = be.AddAReg(BRIG_SEGMENT_GLOBAL);
+    if (offset->Type() == offset32->Type()) {
+      be.EmitMov(offset, offset32);
+    } else {
+      be.EmitCvt(offset, offset32);
+    }
+    // global offset must be same size as output address
+    be.EmitArith(BRIG_OPCODE_ADD, offset, offset, output->Address());
+    return offset;
   }
 
   TypedReg EmitBranchCondition(TypedReg wiId) override {
@@ -429,10 +464,13 @@ public:
   explicit FBarrierBasicTest(Grid geometry): FBarrierDoubleBranchTest(geometry) {}
 
   bool IsValid() const override {
-    uint32_t wavesize = 64;
-    return FBarrierDoubleBranchTest::IsValid() 
-        && !geometry->isPartial() // no partial work-groups
-        && (geometry->WorkgroupSize() % (2 * wavesize)) == 0; // group size is multiple of WAVESIZE and there are even number of waves in work-group
+    return FBarrierDoubleBranchTest::IsValid()
+        && !geometry->isPartial(); // no partial work-groups
+  }
+
+  void Init() override {
+    FBarrierDoubleBranchTest::Init();
+    assert((geometry->WorkgroupSize() % (2 * te->CoreCfg()->Wavesize())) == 0); // group size is multiple of WAVESIZE and there are even number of waves in work-group
   }
 
   BrigType ResultType() const override { return VALUE_TYPE; }
@@ -733,14 +771,13 @@ public:
   explicit FBarrierThirdExampleTest(Grid geometry): FBarrierDoubleBranchTest(geometry) {}
 
   bool IsValid() const override {
-    uint32_t wavesize = 64;
     return FBarrierDoubleBranchTest::IsValid() 
-        && !geometry->isPartial() // no partial work-groups
-        && (geometry->WorkgroupSize() % (2 * wavesize)) == 0; // group size is multiple of WAVESIZE and there are even number of waves in work-group
+        && !geometry->isPartial(); // no partial work-groups
   }
 
   void Init() override {
     FBarrierDoubleBranchTest::Init();
+    assert((geometry->WorkgroupSize() % (2 * te->CoreCfg()->Wavesize())) == 0); // group size is multiple of WAVESIZE and there are even number of waves in work-group
     cfb = kernel->NewFBarrier("consumed_fb");
     buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, VALUE_TYPE, Location::KERNEL, BRIG_ALIGNMENT_NONE, geometry->WorkgroupSize() / 2);
   }
@@ -1065,10 +1102,10 @@ void BarrierTests::Iterate(hexl::TestSpecIterator& it) {
   Arena* ap = cc->Ap();
   TestForEach<BarrierTest>(ap, it, "barrier/atomics", cc->Grids().BarrierSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), Bools::All(), Bools::All());
   
-  TestForEach<FBarrierBasicTest>(ap, it, "fbarrier/basic", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierBasicTest>(ap, it, "fbarrier/basic", cc->Grids().FBarrierEvenWaveSet());
   TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().FBarrierSet());
   TestForEach<FBarrierSecondExampleTest>(ap, it, "fbarrier/example2", cc->Grids().FBarrierSet());
-  TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().FBarrierSet());
+  TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().FBarrierEvenWaveSet());
 
   TestForEach<LdfTest>(ap, it, "fbarrier/ldf", Bools::Value(true));
   TestForEach<FBarrierJoinLeaveJoinTest>(ap, it, "fbarrier/join_leave_join", Bools::Value(true));

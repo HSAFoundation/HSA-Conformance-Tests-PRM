@@ -93,8 +93,8 @@ namespace hexl {
         hexl::GridGeometry defaultGeometry, trivialGeometry, allWavesIdGeometry;
         hexl::Sequence<hexl::Grid> *defaultGeometrySet, *trivialGeometrySet, *allWavesIdSet;
         hexl::VectorSequence<hexl::Grid> *simple, *degenerate, *dimension, *boundary24, *boundary32,
-          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *mmodel, *emodel, *barrier, *fbarrier, 
-          *images, *memfence, *partial;
+          *severalwaves, *workgroup256, *limitGrids, *singleGroup, *atomic, *mmodel, *emodel,
+          *barrier, *fbarrier, *fbarrierEven, *images, *memfence, *partial;
 
       public:
         GridsConfig(CoreConfig* cc);
@@ -114,6 +114,7 @@ namespace hexl {
         hexl::Sequence<hexl::Grid>* SeveralWavesSet() { return severalwaves; }
         hexl::Sequence<hexl::Grid>* BarrierSet() { return barrier; }
         hexl::Sequence<hexl::Grid>* FBarrierSet() { return fbarrier; }
+        hexl::Sequence<hexl::Grid>* FBarrierEvenWaveSet() { return fbarrierEven; }
         hexl::Sequence<hexl::Grid>* AllWavesIdSet() { return allWavesIdSet; }
         hexl::Sequence<hexl::Grid>* WorkGroupsSize256() { return workgroup256; }
         hexl::Sequence<hexl::Grid>* LimitGridSet() { return limitGrids; }
