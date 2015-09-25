@@ -555,9 +555,31 @@ protected:
     auto prevVal = be.AddTReg(CompareType());
     auto loadAddr = be.AddAReg(buffer->Segment());
     be.EmitArith(BRIG_OPCODE_SUB, loadAddr, storeAddr, be.Immed(loadAddr->Type(), numBytes));
-    be.EmitLoad(prevVal, loadAddr);
+    EmitBufferLoad(prevVal, loadAddr);
 
     return prevVal;
+  }
+
+  virtual void EmitBufferLoad(TypedReg dst, PointerReg addr) {
+    assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(be.AtomicValueType(BRIG_ATOMIC_LD)));
+    auto opAddress = be.Address(addr);
+    auto memoryOrder = be.AtomicMemoryOrder(BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE);
+    auto memoryScope = be.AtomicMemoryScope(
+      IsGlobal() ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP, 
+      static_cast<BrigSegment>(addr->Segment())); 
+    be.EmitAtomic(dst, opAddress, nullptr, nullptr, BRIG_ATOMIC_LD, memoryOrder, memoryScope, 
+      static_cast<BrigSegment>(addr->Segment()));
+  }
+
+  virtual void EmitBufferStore(TypedReg src, PointerReg addr) {
+    assert(getBrigTypeNumBits(src->Type()) == getBrigTypeNumBits(be.AtomicValueType(BRIG_ATOMIC_ST)));
+    auto opAddress = be.Address(addr);
+    auto memoryOrder = be.AtomicMemoryOrder(BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE);
+    auto memoryScope = be.AtomicMemoryScope(
+      IsGlobal() ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP, 
+      static_cast<BrigSegment>(addr->Segment())); 
+    be.EmitAtomic(nullptr, opAddress, src, nullptr, BRIG_ATOMIC_ST, memoryOrder, memoryScope, 
+      static_cast<BrigSegment>(addr->Segment()));
   }
 
 public:
@@ -582,6 +604,10 @@ public:
 
   void Init() {
     Test::Init();
+    compareType = be.AtomicValueType(BRIG_ATOMIC_ST);
+    if (isBitType(compareType)) {
+      compareType = static_cast<BrigType>(bitType2uType(compareType));
+    }
     buffer = module->NewVariable("buffer", bufferSegment, compareType, Location::MODULE, BRIG_ALIGNMENT_NONE, size);
   }
 
@@ -606,7 +632,10 @@ public:
 
     // a value to store in buffer and to compare
     auto compareVal = EmitCompareValue();
-    assert(compareVal->Type() == CompareType());
+    // need to convert compare value if it is not same size as atomic type
+    auto cvt = be.AddTReg(CompareType());
+    be.EmitCvtOrMov(cvt, compareVal);
+    compareVal = cvt;
 
     //work-item id
     auto wiId = EmitWorkItemId();
@@ -620,7 +649,7 @@ public:
     }
     be.EmitArith(BRIG_OPCODE_MUL, storeAddr, storeAddr, be.Immed(storeAddr->Type(), numBytes));
     be.EmitArith(BRIG_OPCODE_ADD, storeAddr, storeAddr, bufAddr->Reg());
-    be.EmitStore(compareVal, storeAddr);
+    EmitBufferStore(compareVal, storeAddr);
 
     // barrier
     be.EmitBarrier();
@@ -663,12 +692,6 @@ public:
         BRIG_SEGMENT_GROUP, 
         compareType_, 
         geometry_->WorkgroupSize()) { }
-
-
-  bool IsValid() const override {
-    auto numBytes = getBrigTypeNumBytes(CompareType());
-    return geometry->WorkgroupSize() < (UINT32_MAX / numBytes);
-  }
 };
 
 
@@ -706,7 +729,7 @@ public:
 };
 
 
-class MaxcuidIdentityTest: public GlobalBufferIdentityTest {
+class MaxcuidIdentityTest: public GroupBufferIdentityTest {
 protected:
   virtual TypedReg EmitCompareValue() override {
     auto maxcuid = be.AddTReg(BRIG_TYPE_U32);
@@ -716,7 +739,7 @@ protected:
 
 public:
   MaxcuidIdentityTest(Location codeLocation_, Grid geometry_) 
-    : GlobalBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
+    : GroupBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
 
@@ -766,7 +789,7 @@ public:
 };
 
 
-class MaxwaveidIdentityTest: public GlobalBufferIdentityTest {
+class MaxwaveidIdentityTest: public GroupBufferIdentityTest {
 protected:
   virtual TypedReg EmitCompareValue() override {
     auto maxwaveid = be.AddTReg(BRIG_TYPE_U32);
@@ -776,7 +799,7 @@ protected:
 
 public:
   MaxwaveidIdentityTest(Location codeLocation_, Grid geometry_) 
-    : GlobalBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
+    : GroupBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
 
