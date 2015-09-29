@@ -565,7 +565,7 @@ protected:
     auto opAddress = be.Address(addr);
     auto memoryOrder = be.AtomicMemoryOrder(BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE);
     auto memoryScope = be.AtomicMemoryScope(
-      IsGlobal() ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP, 
+      addr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP,
       static_cast<BrigSegment>(addr->Segment())); 
     be.EmitAtomic(dst, opAddress, nullptr, nullptr, BRIG_ATOMIC_LD, memoryOrder, memoryScope, 
       static_cast<BrigSegment>(addr->Segment()));
@@ -576,10 +576,14 @@ protected:
     auto opAddress = be.Address(addr);
     auto memoryOrder = be.AtomicMemoryOrder(BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE);
     auto memoryScope = be.AtomicMemoryScope(
-      IsGlobal() ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP, 
+      addr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP,
       static_cast<BrigSegment>(addr->Segment())); 
-    be.EmitAtomic(nullptr, opAddress, src, nullptr, BRIG_ATOMIC_ST, memoryOrder, memoryScope, 
+    be.EmitAtomic(nullptr, opAddress, src, nullptr, BRIG_ATOMIC_ST, memoryOrder, memoryScope,
       static_cast<BrigSegment>(addr->Segment()));
+  }
+
+  virtual void EmitWaitWorkgroup(TypedReg wiId) {
+    be.EmitBarrier();
   }
 
 public:
@@ -642,17 +646,13 @@ public:
 
     // store compare vales for all work-items
     auto storeAddr = be.AddAReg(buffer->Segment());
-    if (wiId->Type() != storeAddr->Type()) {
-      be.EmitCvt(storeAddr, wiId);
-    } else {
-      be.EmitMov(storeAddr, wiId);
-    }
+    be.EmitCvtOrMov(storeAddr, wiId);
     be.EmitArith(BRIG_OPCODE_MUL, storeAddr, storeAddr, be.Immed(storeAddr->Type(), numBytes));
     be.EmitArith(BRIG_OPCODE_ADD, storeAddr, storeAddr, bufAddr->Reg());
     EmitBufferStore(compareVal, storeAddr);
 
-    // barrier
-    be.EmitBarrier();
+    // wait for result from previous workgroup
+    EmitWaitWorkgroup(wiId);
 
     // if first work item then always return 1
     auto cmp = EmitIsFirst(wiId);
@@ -696,11 +696,61 @@ public:
 
 
 class GlobalBufferIdentityTest: public BufferIdentityTest {
+private:
+  Variable flags; // array of flags signaling that workgroup finished execution
+  TypedReg wgFlatId;
+
+  static const int FLAG_VALUE = 1;
+
 protected:
   virtual TypedReg EmitWorkItemId() override {
-    return be.EmitWorkitemFlatAbsId(false);
+    // organize workitem id's in chunks by workgroups
+    auto wiId = be.EmitWorkitemFlatId();
+    be.EmitArith(BRIG_OPCODE_MAD, wiId, wgFlatId, be.EmitWorkgroupSize(), wiId->Reg());
+    return wiId;
   }
   
+  virtual void EmitWaitWorkgroup(TypedReg wiId) override {
+    // current workgroup should wait for previous workgroup to finish storing values
+    be.EmitBarrier();
+
+    // address where current workgroup should store flag
+    auto storeAddr = be.AddAReg(flags->Segment());
+    be.EmitLda(storeAddr, flags->Variable());
+    auto cvt = be.AddTReg(storeAddr->Type());
+    be.EmitCvtOrMov(cvt, wgFlatId);
+    auto flagSize =  be.Immed(storeAddr->Type(), getBrigTypeNumBytes(flags->Type()));
+    be.EmitArith(BRIG_OPCODE_MAD, storeAddr->Type(), storeAddr->Reg(), cvt->Reg(), flagSize, storeAddr->Reg());
+
+    // store flag
+    auto flagValue = be.AddTReg(flags->Type());
+    be.EmitMov(flagValue, be.Immed(flagValue->Type(), FLAG_VALUE));
+    EmitBufferStore(flagValue, storeAddr);
+
+    // wait for other item in workgroup
+    be.EmitBarrier();
+
+    // don't wait in first workgroup
+    std::string skipLabel = "@skip_wg";
+    auto firstWg = be.AddCTReg();
+    be.EmitCmp(firstWg, wgFlatId, be.Immed(wgFlatId->Type(), 0), BRIG_COMPARE_EQ);
+    be.EmitCbr(firstWg, skipLabel);
+
+    // address for flag of previous workgroup
+    auto loadAddr = be.AddAReg(flags->Segment());
+    be.EmitArith(BRIG_OPCODE_SUB, loadAddr, storeAddr, flagSize);
+
+    // wait for flag
+    std::string whileLabel = "@while";
+    be.EmitLabel(whileLabel);
+    EmitBufferLoad(flagValue, loadAddr);
+    auto flagNotSet = be.AddCTReg();
+    be.EmitCmp(flagNotSet, flagValue, be.Immed(flagValue->Type(), FLAG_VALUE), BRIG_COMPARE_NE);
+    be.EmitCbr(flagNotSet, whileLabel);
+
+    be.EmitLabel(skipLabel);
+  }
+
 public:
   GlobalBufferIdentityTest(
     Location codeLocation_, 
@@ -712,6 +762,31 @@ public:
         BRIG_SEGMENT_GLOBAL, 
         compareType_, 
         geometry_->GridSize())  {}
+
+  bool IsValid() const override {
+    return BufferIdentityTest::IsValid()
+        && !geometry->isPartial();
+  }
+
+  void Init() override {
+    BufferIdentityTest::Init();
+    auto gridGroups = geometry->GridGroups();
+    auto flagType = be.AtomicValueType(BRIG_ATOMIC_ST);
+    if (isBitType(flagType)) {
+      flagType = static_cast<BrigType>(bitType2uType(flagType));
+    }
+    flags = module->NewVariable("flags", BRIG_SEGMENT_GLOBAL, flagType, Location::MODULE,
+                                BRIG_ALIGNMENT_NONE, gridGroups);
+    for (uint32_t i = 0; i < gridGroups; ++i) {
+      flags->AddData(Value(Brig2ValueType(flags->Type()), 0));
+    }
+  }
+
+  TypedReg Result() override {
+    wgFlatId = be.EmitWorkgroupFlatId();
+
+    return BufferIdentityTest::Result();
+  }
 };
 
 
@@ -729,7 +804,7 @@ public:
 };
 
 
-class MaxcuidIdentityTest: public GroupBufferIdentityTest {
+class MaxcuidIdentityTest: public GlobalBufferIdentityTest {
 protected:
   virtual TypedReg EmitCompareValue() override {
     auto maxcuid = be.AddTReg(BRIG_TYPE_U32);
@@ -739,7 +814,7 @@ protected:
 
 public:
   MaxcuidIdentityTest(Location codeLocation_, Grid geometry_) 
-    : GroupBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
+    : GlobalBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
 
@@ -789,7 +864,7 @@ public:
 };
 
 
-class MaxwaveidIdentityTest: public GroupBufferIdentityTest {
+class MaxwaveidIdentityTest: public GlobalBufferIdentityTest {
 protected:
   virtual TypedReg EmitCompareValue() override {
     auto maxwaveid = be.AddTReg(BRIG_TYPE_U32);
@@ -799,7 +874,7 @@ protected:
 
 public:
   MaxwaveidIdentityTest(Location codeLocation_, Grid geometry_) 
-    : GroupBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
+    : GlobalBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
 

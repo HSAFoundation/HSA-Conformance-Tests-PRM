@@ -288,7 +288,9 @@ public:
   TypedReg EmitPacketCompletionSig();
   TypedReg EmitPacketId();
   TypedReg EmitWorkgroupId(uint32_t dim);
+  TypedReg EmitWorkgroupFlatId();
   TypedReg EmitWorkgroupSize(uint32_t dim);
+  TypedReg EmitWorkgroupSize();
   TypedReg EmitWorkitemAbsId(uint32_t dim, bool large);
   TypedReg EmitWorkitemFlatAbsId(bool large);
   TypedReg EmitWorkitemFlatId();

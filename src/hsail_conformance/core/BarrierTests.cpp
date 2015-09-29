@@ -393,17 +393,8 @@ protected:
 
   PointerReg EmitGlobalOffset(TypedReg wiId) override {
     // organize output array in chunks by work-groups and wavefronts
-    // work-group size
-    auto wgSizeX = be.EmitWorkgroupSize(0);
-    auto wgSizeY = be.EmitWorkgroupSize(1);
-    auto wgSize = be.AddTReg(wgSizeX->Type());
-    be.EmitArith(BRIG_OPCODE_MUL, wgSize, wgSizeX, wgSizeY);
-    be.EmitArith(BRIG_OPCODE_MUL, wgSize, wgSize, be.EmitWorkgroupSize(2));
-
-    // work-group flattaned ID
-    auto wgFlatId = be.AddTReg(wgSizeX->Type());
-    be.EmitArith(BRIG_OPCODE_MAD, wgFlatId, be.EmitWorkgroupId(2), wgSizeY, be.EmitWorkgroupId(1)->Reg());
-    be.EmitArith(BRIG_OPCODE_MAD, wgFlatId, wgFlatId, wgSizeX, be.EmitWorkgroupId(0)->Reg());
+    auto wgSize = be.EmitWorkgroupSize();
+    auto wgFlatId = be.EmitWorkgroupFlatId();
 
     auto offset32 = be.AddTReg(wgFlatId->Type());
     // size of wg flattened id must be 32-bit as well as wi flattened id

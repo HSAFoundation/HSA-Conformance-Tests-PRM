@@ -1818,11 +1818,25 @@ TypedReg BrigEmitter::EmitWorkgroupId(uint32_t dim) {
   return result;
 }
 
+TypedReg BrigEmitter::EmitWorkgroupFlatId() {
+  TypedReg wgFlatId = AddTReg(BRIG_TYPE_U32);
+  EmitArith(BRIG_OPCODE_MAD, wgFlatId, EmitWorkgroupId(2), EmitGridGroups(1), EmitWorkgroupId(1)->Reg());
+  EmitArith(BRIG_OPCODE_MAD, wgFlatId, wgFlatId, EmitGridGroups(0), EmitWorkgroupId(0)->Reg());
+  return wgFlatId;
+}
+
 TypedReg BrigEmitter::EmitWorkgroupSize(uint32_t dim) {
   TypedReg result = AddTReg(BRIG_TYPE_U32);
   InstBasic inst = Brigantine().addInst<InstBasic>(BRIG_OPCODE_WORKGROUPSIZE, BRIG_TYPE_U32);
   inst.operands() = Operands(result->Reg(), Immed(BRIG_TYPE_U32, dim));
   return result;
+}
+
+TypedReg BrigEmitter::EmitWorkgroupSize() {
+  TypedReg wgSize = AddTReg(BRIG_TYPE_U32);
+  EmitArith(BRIG_OPCODE_MUL, wgSize, EmitWorkgroupSize(0), EmitWorkgroupSize(1));
+  EmitArith(BRIG_OPCODE_MUL, wgSize, wgSize, EmitWorkgroupSize(2));
+  return wgSize;
 }
 
 void BrigEmitter::EmitCuid(TypedReg dest) {
