@@ -247,6 +247,7 @@ private:
   EString id;
   HSAIL_ASM::DirectiveVariable var;
   std::unique_ptr<hexl::Values> data;
+  bool hasInitializer;
 
   Location RealLocation() const;
 
@@ -267,6 +268,7 @@ public:
   void EmitDefinition();
   void EmitDeclaration();
   void EmitInitializer();
+  void EmitMemorySync();
   void EmitLoadTo(TypedReg dst, bool useVectorInstructions = true);
   void EmitStoreFrom(TypedReg src, bool useVectorInstructions = true);
 

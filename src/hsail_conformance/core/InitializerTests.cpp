@@ -351,6 +351,7 @@ public:
   }
 
   void KernelCode() override {
+    var->EmitMemorySync();
     InitializerCode(output->Address());
   }
 };
@@ -376,6 +377,7 @@ public:
   }
 
   void KernelCode() override {
+    var->EmitMemorySync();
     InitializerCode(output->Address());
   }
 };
@@ -408,6 +410,7 @@ public:
   }
 
   void KernelCode() override {
+    var->EmitMemorySync();
     auto inputArgs = be.AddTRegList();
     auto outputArgs = be.AddTRegList();
     ActualCallArguments(inputArgs, outputArgs);
@@ -549,6 +552,7 @@ public:
   }
 
   void KernelCode() override {
+    var->EmitMemorySync();
     InitializerCode(output->Address());
   }
 };
@@ -574,6 +578,7 @@ public:
   }
 
   void KernelCode() override {
+    var->EmitMemorySync();
     InitializerCode(output->Address());
   }
 };
@@ -606,6 +611,7 @@ public:
   }
 
   void KernelCode() override {
+    var->EmitMemorySync();
     auto inputArgs = be.AddTRegList();
     auto outputArgs = be.AddTRegList();
     ActualCallArguments(inputArgs, outputArgs);

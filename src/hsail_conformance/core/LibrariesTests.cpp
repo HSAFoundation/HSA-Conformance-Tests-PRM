@@ -68,6 +68,9 @@ public:
   }
 
   TypedReg Result() override {
+    // memory synchronizarion if initializer is presented
+    var->EmitMemorySync();
+
     // store VALUE in def
     if (segment != BRIG_SEGMENT_READONLY) {
       be.EmitStore(var->Segment(), VALUE_TYPE, be.Immed(VALUE_TYPE, VALUE), be.Address(var->Variable()));
@@ -353,6 +356,9 @@ public:
   }
 
   TypedReg Result() override {
+    //emit memory synchronization if initializer presented
+    firstKernelVar->EmitMemorySync();
+
     // emit call to second function
     auto emptyArgs = be.AddTRegList();
     be.EmitCallSeq(SecondFunction(), emptyArgs, emptyArgs);
@@ -587,6 +593,9 @@ public:
   TypedReg Result() override {
     auto result = be.AddTReg(VALUE_TYPE);
 
+    //emit memory synchronization if initializer presented
+    functionVar->EmitMemorySync();
+
     // first arg scope: store VALUE in result
     be.StartArgScope();
     firstVar->EmitDefinition();
@@ -699,6 +708,7 @@ public:
   }
 
   TypedReg Result() override {
+    var->EmitMemorySync();
     if (segment != BRIG_SEGMENT_GLOBAL && segment != BRIG_SEGMENT_READONLY) {
       be.EmitStore(var->Segment(), var->Type(), be.Immed(var->Type(), VALUE), be.Address(var->Variable()));
     }

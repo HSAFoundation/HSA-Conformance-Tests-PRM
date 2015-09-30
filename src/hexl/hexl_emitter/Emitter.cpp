@@ -366,11 +366,12 @@ void EVariableSpec::Name(std::ostream& out) const
 
 EVariable::EVariable(TestEmitter* te_, const std::string& id_,
   BrigSegment segment_, BrigType type_, Location location_, BrigAlignment align_, uint64_t dim_, bool isConst_, bool output_)
-  : EVariableSpec(segment_, type_, location_, align_, dim_, isConst_, output_), id(id_.c_str(), te_->Ap()) { te = te_;  }
+  : EVariableSpec(segment_, type_, location_, align_, dim_, isConst_, output_), 
+  id(id_.c_str(), te_->Ap()), hasInitializer(false) { te = te_;  }
 EVariable::EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_)
-  : EVariableSpec(*spec_), id(id_.c_str(), te_->Ap()) { te = te_; }
+  : EVariableSpec(*spec_), id(id_.c_str(), te_->Ap()), hasInitializer(false) { te = te_; }
 EVariable::EVariable(TestEmitter* te_, const std::string& id_, const EVariableSpec* spec_, bool output)
-  : EVariableSpec(*spec_, output), id(id_.c_str(), te_->Ap()) { te = te_; }
+  : EVariableSpec(*spec_, output), id(id_.c_str(), te_->Ap()), hasInitializer(false) { te = te_; }
 
 Location EVariable::RealLocation() const
 {
@@ -400,6 +401,9 @@ void EVariable::AddData(hexl::Value val)
   assert(hexl::Brig2ValueType(type) == val.Type());
   if (!data.get()) { data.reset(new Values()); }
   data->push_back(val);
+  if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) {
+    hasInitializer = true;
+  }
 }
 
 void EVariable::ModuleVariables()
@@ -485,6 +489,7 @@ void EVariable::EmitInitializer()
   assert(var);
   if (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) { 
     if (Values* data = this->data.release()) {
+      hasInitializer = true;
       ArbitraryData arbData;
       for (const auto& val: *data) {
         switch (type) {
@@ -525,6 +530,17 @@ void EVariable::EmitInitializer()
       te->Brig()->EmitVariableInitializer(var, arbData.toSRef());
       delete data;
     }
+  }
+}
+
+void EVariable::EmitMemorySync()
+{
+  if (segment == BRIG_SEGMENT_GLOBAL && hasInitializer) {
+    te->Brig()->EmitMemfence(
+      BRIG_MEMORY_ORDER_SC_ACQUIRE,
+      BRIG_MEMORY_SCOPE_SYSTEM,
+      BRIG_MEMORY_SCOPE_SYSTEM,
+      BRIG_MEMORY_SCOPE_NONE);
   }
 }
 

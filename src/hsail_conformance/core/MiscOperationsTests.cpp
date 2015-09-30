@@ -783,8 +783,8 @@ public:
   }
 
   TypedReg Result() override {
+    flags->EmitMemorySync();
     wgFlatId = be.EmitWorkgroupFlatId();
-
     return BufferIdentityTest::Result();
   }
 };
