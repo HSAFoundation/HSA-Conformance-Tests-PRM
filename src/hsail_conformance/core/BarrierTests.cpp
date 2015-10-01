@@ -805,11 +805,13 @@ public:
     fb->EmitLdf(ldf);
     be.EmitInitfbarInFirstWI(ldf);
     be.EmitJoinfbar(ldf);
+    be.EmitBarrier();
     be.EmitArrivefbar(ldf);
     be.EmitBarrier();
     be.EmitWaitfbar(ldf);
     be.EmitBarrier();
     be.EmitLeavefbar(ldf);
+    be.EmitBarrier();
     be.EmitReleasefbarInFirstWI(ldf);
 
     return utils::SkipTest::Result();
@@ -868,6 +870,7 @@ protected:
     FBarrierDoubleBranchTest::EmitInit();
     Fb1()->EmitInitfbarInFirstWI();
     Fb1()->EmitJoinfbar();
+    be.EmitBarrier();
   }
 
   void EmitRelease() override {
@@ -899,36 +902,6 @@ public:
   Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE); }
 };
 
-class FBarrierJoinLeaveWaitTest: public FBarrierPairOperationTest {
-protected:
-  void EmitFirstLoop() override {
-    // wait on addition fbarrier
-    Fb1()->EmitWaitfbar();
-    // wait fbarrier
-    Fb()->EmitWaitfbar();
-  }
-
-  void EmitPreSecondLoop() override {
-    // leave from fbarrier before loop
-    Fb()->EmitLeavefbar();
-  }
-
-  void EmitSecondLoop() override {
-    // wait on addition fbarrier
-    Fb1()->EmitWaitfbar();
-    // join fbarrier
-    Fb()->EmitJoinfbar();
-    Fb()->EmitLeavefbar();
-  }
-  
-  void EmitPostSecondLoop() override {
-    // join to fbarrier after loop to satisfy leave at the end of kernel
-    Fb()->EmitJoinfbar();
-  }
-
-public:
-  explicit FBarrierJoinLeaveWaitTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
-};
 
 class FBarrierWaitArriveTest: public FBarrierPairOperationTest {
 protected:
@@ -1032,6 +1005,7 @@ public:
   TypedReg Result() override {
     fb->EmitInitfbarInFirstWI();
     fb->EmitJoinfbar();
+    be.EmitBarrier();
 
     auto counter = be.AddTReg(BRIG_TYPE_U32);
     be.EmitMov(counter, (uint64_t) 0);
@@ -1053,6 +1027,51 @@ public:
     fb->EmitReleasefbarInFirstWI();
 
     return SkipTest::Result();
+  }
+};
+
+
+class FBarrierJoinLeaveTest: public Test {
+private:
+  FBarrier fb;
+
+  static const uint32_t VALUE = 123456789;
+  static const uint32_t LOOP_COUNT = 32;
+
+public:
+  explicit FBarrierJoinLeaveTest(Grid geometry): Test(Location::KERNEL, geometry) {}
+
+  void Name(std::ostream& out) const override {
+    out << geometry;
+  }
+
+  void Init() override {
+    Test::Init();
+    fb = kernel->NewFBarrier("fb");
+  }
+
+  BrigType ResultType() const override { return BRIG_TYPE_U32; }
+  Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), VALUE); }
+
+  TypedReg Result() override {
+    auto loop = "@loop";
+
+    fb->EmitInitfbarInFirstWI();
+
+    // execute join/leave in cycle
+    auto count = be.AddInitialTReg(BRIG_TYPE_U32, 0);
+    be.EmitLabel(loop);
+    fb->EmitJoinfbar();
+    fb->EmitLeavefbar();
+    be.EmitArith(BRIG_OPCODE_ADD, count, count, be.Immed(count->Type(), 1));
+    auto lt = be.AddCTReg();
+    be.EmitCmp(lt, count, be.Immed(count->Type(), LOOP_COUNT), BRIG_COMPARE_LT);
+    be.EmitCbr(lt, loop);
+
+    be.EmitBarrier();
+    fb->EmitReleasefbarInFirstWI();
+
+    return be.AddInitialTReg(ResultType(), VALUE);
   }
 };
 
@@ -1099,9 +1118,9 @@ void BarrierTests::Iterate(hexl::TestSpecIterator& it) {
   TestForEach<FBarrierThirdExampleTest>(ap, it, "fbarrier/example3", cc->Grids().FBarrierEvenWaveSet());
 
   TestForEach<LdfTest>(ap, it, "fbarrier/ldf", Bools::Value(true));
+  TestForEach<FBarrierJoinLeaveTest>(ap, it, "fbarrier/join_leave", cc->Grids().FBarrierSet());
   TestForEach<FBarrierJoinLeaveJoinTest>(ap, it, "fbarrier/join_leave_join", Bools::Value(true));
 
-  TestForEach<FBarrierJoinLeaveWaitTest>(ap, it, "fbarrier/joinleave_wait", cc->Grids().FBarrierSet());
   TestForEach<FBarrierWaitArriveTest>(ap, it, "fbarrier/wait_arrive", cc->Grids().FBarrierSet());
   TestForEach<FBarrierWaitLeaveTest>(ap, it, "fbarrier/wait_leave", cc->Grids().FBarrierSet());
   TestForEach<FBarrierArriveLeaveTest>(ap, it, "fbarrier/arrive_leave", cc->Grids().FBarrierSet());
