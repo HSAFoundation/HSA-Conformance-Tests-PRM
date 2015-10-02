@@ -1428,6 +1428,26 @@ void BrigEmitter::EmitAtomic(TypedReg dest, OperandAddress addr, TypedReg src0, 
   }
 }
 
+void BrigEmitter::EmitAtomicLoad(TypedReg dst, PointerReg addr, BrigMemoryOrder memoryOrder, BrigMemoryScope memoryScope)
+{
+  assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(AtomicValueType(BRIG_ATOMIC_LD)));
+  auto opAddress = Address(addr);
+  auto atomicMemoryOrder = AtomicMemoryOrder(BRIG_ATOMIC_LD, memoryOrder);
+  auto atomicMemoryScope = AtomicMemoryScope(memoryScope, static_cast<BrigSegment>(addr->Segment())); 
+  EmitAtomic(dst, opAddress, nullptr, nullptr, BRIG_ATOMIC_LD, atomicMemoryOrder, atomicMemoryScope,
+    static_cast<BrigSegment>(addr->Segment()));
+}
+
+void BrigEmitter::EmitAtomicStore(TypedReg src, PointerReg addr, BrigMemoryOrder memoryOrder, BrigMemoryScope memoryScope)
+{
+  assert(getBrigTypeNumBits(src->Type()) == getBrigTypeNumBits(AtomicValueType(BRIG_ATOMIC_ST)));
+  auto opAddress = Address(addr);
+  auto atomicMemoryOrder = AtomicMemoryOrder(BRIG_ATOMIC_ST, memoryOrder);
+  auto atomicMemoryScope = AtomicMemoryScope(memoryScope, static_cast<BrigSegment>(addr->Segment())); 
+  EmitAtomic(nullptr, opAddress, src, nullptr, BRIG_ATOMIC_ST, atomicMemoryOrder, atomicMemoryScope,
+    static_cast<BrigSegment>(addr->Segment()));
+}
+
 void BrigEmitter::EmitSignalOp(TypedReg dest, TypedReg signal, Operand src0, Operand src1, BrigAtomicOperation signalOp, BrigMemoryOrder memoryOrder, bool isSigned, uint64_t timeout)
 {
   unsigned int instType = SignalValueType(signalOp, isSigned);

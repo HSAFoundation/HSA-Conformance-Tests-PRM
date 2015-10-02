@@ -555,31 +555,10 @@ protected:
     auto prevVal = be.AddTReg(CompareType());
     auto loadAddr = be.AddAReg(buffer->Segment());
     be.EmitArith(BRIG_OPCODE_SUB, loadAddr, storeAddr, be.Immed(loadAddr->Type(), numBytes));
-    EmitBufferLoad(prevVal, loadAddr);
+    be.EmitAtomicLoad(prevVal, loadAddr, BRIG_MEMORY_ORDER_SC_ACQUIRE, 
+      loadAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
 
     return prevVal;
-  }
-
-  virtual void EmitBufferLoad(TypedReg dst, PointerReg addr) {
-    assert(getBrigTypeNumBits(dst->Type()) == getBrigTypeNumBits(be.AtomicValueType(BRIG_ATOMIC_LD)));
-    auto opAddress = be.Address(addr);
-    auto memoryOrder = be.AtomicMemoryOrder(BRIG_ATOMIC_LD, BRIG_MEMORY_ORDER_SC_ACQUIRE);
-    auto memoryScope = be.AtomicMemoryScope(
-      addr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP,
-      static_cast<BrigSegment>(addr->Segment())); 
-    be.EmitAtomic(dst, opAddress, nullptr, nullptr, BRIG_ATOMIC_LD, memoryOrder, memoryScope, 
-      static_cast<BrigSegment>(addr->Segment()));
-  }
-
-  virtual void EmitBufferStore(TypedReg src, PointerReg addr) {
-    assert(getBrigTypeNumBits(src->Type()) == getBrigTypeNumBits(be.AtomicValueType(BRIG_ATOMIC_ST)));
-    auto opAddress = be.Address(addr);
-    auto memoryOrder = be.AtomicMemoryOrder(BRIG_ATOMIC_ST, BRIG_MEMORY_ORDER_SC_RELEASE);
-    auto memoryScope = be.AtomicMemoryScope(
-      addr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP,
-      static_cast<BrigSegment>(addr->Segment())); 
-    be.EmitAtomic(nullptr, opAddress, src, nullptr, BRIG_ATOMIC_ST, memoryOrder, memoryScope,
-      static_cast<BrigSegment>(addr->Segment()));
   }
 
   virtual void EmitWaitWorkgroup(TypedReg wiId) {
@@ -649,7 +628,8 @@ public:
     be.EmitCvtOrMov(storeAddr, wiId);
     be.EmitArith(BRIG_OPCODE_MUL, storeAddr, storeAddr, be.Immed(storeAddr->Type(), numBytes));
     be.EmitArith(BRIG_OPCODE_ADD, storeAddr, storeAddr, bufAddr->Reg());
-    EmitBufferStore(compareVal, storeAddr);
+    be.EmitAtomicStore(compareVal, storeAddr, BRIG_MEMORY_ORDER_SC_RELEASE, 
+      storeAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
 
     // wait for result from previous workgroup
     EmitWaitWorkgroup(wiId);
@@ -725,7 +705,8 @@ protected:
     // store flag
     auto flagValue = be.AddTReg(flags->Type());
     be.EmitMov(flagValue, be.Immed(flagValue->Type(), FLAG_VALUE));
-    EmitBufferStore(flagValue, storeAddr);
+    be.EmitAtomicStore(flagValue, storeAddr, BRIG_MEMORY_ORDER_SC_RELEASE, 
+      storeAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
 
     // wait for other item in workgroup
     be.EmitBarrier();
@@ -743,7 +724,8 @@ protected:
     // wait for flag
     std::string whileLabel = "@while";
     be.EmitLabel(whileLabel);
-    EmitBufferLoad(flagValue, loadAddr);
+    be.EmitAtomicLoad(flagValue, loadAddr, BRIG_MEMORY_ORDER_SC_ACQUIRE, 
+      loadAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
     auto flagNotSet = be.AddCTReg();
     be.EmitCmp(flagNotSet, flagValue, be.Immed(flagValue->Type(), FLAG_VALUE), BRIG_COMPARE_NE);
     be.EmitCbr(flagNotSet, whileLabel);

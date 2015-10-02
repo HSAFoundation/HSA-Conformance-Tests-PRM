@@ -247,6 +247,8 @@ public:
   BrigMemoryOrder AtomicMemoryOrder(BrigAtomicOperation atomiclOp, BrigMemoryOrder initialMemoryOrder) const;
   BrigMemoryScope AtomicMemoryScope(BrigMemoryScope initialMemoryScope, BrigSegment segment) const;
   void EmitAtomic(TypedReg dest, HSAIL_ASM::OperandAddress addr, TypedReg src0, TypedReg src1, BrigAtomicOperation op, BrigMemoryOrder memoryOrder, BrigMemoryScope memoryScope, BrigSegment segment = BRIG_SEGMENT_FLAT, bool isSigned = false, uint8_t equivClass = 0);
+  void EmitAtomicLoad(TypedReg dst, PointerReg addr, BrigMemoryOrder memoryOrder = BRIG_MEMORY_ORDER_RELAXED, BrigMemoryScope memoryScope = BRIG_MEMORY_SCOPE_WORKGROUP);
+  void EmitAtomicStore(TypedReg src, PointerReg addr, BrigMemoryOrder memoryOrder = BRIG_MEMORY_ORDER_RELAXED, BrigMemoryScope memoryScope = BRIG_MEMORY_SCOPE_WORKGROUP);
 
   // Signals
   BrigType SignalType() const;

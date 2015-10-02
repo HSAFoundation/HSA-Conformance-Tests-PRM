@@ -381,7 +381,6 @@ public:
 
 class FBarrierBasicTest: public FBarrierDoubleBranchTest {
 private:
-  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t VALUE1 = 123;
   static const uint32_t VALUE2 = 456;
 
@@ -430,9 +429,10 @@ protected:
   void EmitFirstBranch(TypedReg wiId, PointerReg globalOffset) override {
     // odd
     // store data in output
-    be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
+    auto value = be.AddInitialTReg(ResultType(), VALUE1);
+    be.EmitAtomicStore(value, globalOffset);
     // wait on fbarrrier
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE);
     Fb()->EmitWaitfbar();
   }
 
@@ -440,15 +440,16 @@ protected:
     // even
     // wait on fbarrrier
     Fb()->EmitWaitfbar();
-    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_AGENT, BRIG_MEMORY_SCOPE_NONE);
+    be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE);
     // store data in output
-    be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), globalOffset);
+    auto value = be.AddInitialTReg(ResultType(), VALUE2);
+    be.EmitAtomicStore(value, globalOffset);
     // store data in neighbours wave output memory region
     auto outputAddr = be.AddAReg(globalOffset->Segment());
     auto typeSize = be.AddTReg(outputAddr->Type());
-    be.EmitMov(typeSize, getBrigTypeNumBytes(VALUE_TYPE));
+    be.EmitMov(typeSize, getBrigTypeNumBytes(ResultType()));
     be.EmitArith(BRIG_OPCODE_MAD, outputAddr, typeSize, be.Wavesize(), globalOffset);
-    be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE2), outputAddr);
+    be.EmitAtomicStore(value, outputAddr);
   }
 
 public:
@@ -464,8 +465,11 @@ public:
     assert((geometry->WorkgroupSize() % (2 * te->CoreCfg()->Wavesize())) == 0); // group size is multiple of WAVESIZE and there are even number of waves in work-group
   }
 
-  BrigType ResultType() const override { return VALUE_TYPE; }
-  Value ExpectedResult() const override { return Value(Brig2ValueType(VALUE_TYPE), VALUE2); }
+  BrigType ResultType() const override { 
+    return te->CoreCfg()->IsLarge() ? BRIG_TYPE_U64 : BRIG_TYPE_U32; 
+  }
+
+  Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), VALUE2); }
 };
 
 
@@ -644,7 +648,6 @@ private:
   TypedReg counter;
   PointerReg groupOffset;
 
-  static const BrigType VALUE_TYPE = BRIG_TYPE_U32;
   static const uint32_t DATA_ITEM_COUNT = 8;
 
   FBarrier Pfb() const { return Fb(); }
@@ -689,10 +692,10 @@ protected:
     groupOffset = be.AddAReg(BRIG_SEGMENT_GROUP);
     auto bufferAddress = be.AddAReg(buffer->Segment());
     be.EmitLda(bufferAddress, be.Address(buffer->Variable()));
-    be.EmitArith(BRIG_OPCODE_MAD, groupOffset, arith, be.Immed(groupOffset->Type(), getBrigTypeNumBytes(VALUE_TYPE)), bufferAddress);
+    be.EmitArith(BRIG_OPCODE_MAD, groupOffset, arith, be.Immed(groupOffset->Type(), getBrigTypeNumBytes(ResultType())), bufferAddress);
 
     // counter
-    counter = be.AddTReg(VALUE_TYPE);
+    counter = be.AddTReg(ResultType());
     be.EmitMov(counter, (uint64_t) 0);
 
     // is work-item - producer
@@ -709,13 +712,13 @@ protected:
     // wait on consumer fbarrrier
     Cfb()->EmitWaitfbar();
     // fill group buffer with data and signal consumers
-    be.EmitStore(counter, groupOffset);
+    be.EmitAtomicStore(counter, groupOffset);
     be.EmitMemfence(BRIG_MEMORY_ORDER_SC_RELEASE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE);
     Pfb()->EmitArrivefbar();
     // producer store data in output
     auto outputAddr = be.AddAReg(globalOffset->Segment());
     auto cvt = be.AddTReg(outputAddr->Type());
-    auto counterShift = be.Immed(cvt->Type(), geometry->GridSize() * getBrigTypeNumBytes(VALUE_TYPE));
+    auto counterShift = be.Immed(cvt->Type(), geometry->GridSize() * getBrigTypeNumBytes(ResultType()));
     be.EmitCvtOrMov(cvt, counter);
     be.EmitArith(BRIG_OPCODE_MAD, outputAddr, cvt, counterShift, globalOffset);
     be.EmitStore(counter, outputAddr);
@@ -736,8 +739,8 @@ protected:
     Pfb()->EmitWaitfbar();
     be.EmitMemfence(BRIG_MEMORY_ORDER_SC_ACQUIRE, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_WORKGROUP, BRIG_MEMORY_SCOPE_NONE);
     // read produced data
-    auto data = be.AddTReg(VALUE_TYPE);
-    be.EmitLoad(data, groupOffset);
+    auto data = be.AddTReg(ResultType());
+    be.EmitAtomicLoad(data, groupOffset);
     // if counter != DATA_ITEM_COUNT - 1 then signal producers
     auto cmp = be.AddCTReg();
     be.EmitCmp(cmp->Reg(), counter, be.Immed(counter->Type(), DATA_ITEM_COUNT - 1), BRIG_COMPARE_EQ);
@@ -749,7 +752,7 @@ protected:
     auto outputAddr = be.AddAReg(globalOffset->Segment());
     auto cvt = be.AddTReg(outputAddr->Type());
     be.EmitCvtOrMov(cvt, counter);
-    auto counterShift = be.Immed(cvt->Type(), geometry->GridSize() * getBrigTypeNumBytes(VALUE_TYPE));
+    auto counterShift = be.Immed(cvt->Type(), geometry->GridSize() * getBrigTypeNumBytes(ResultType()));
     be.EmitArith(BRIG_OPCODE_MAD, outputAddr, cvt, counterShift, globalOffset);
     be.EmitStore(data, outputAddr);
     // loop
@@ -770,17 +773,20 @@ public:
     FBarrierDoubleBranchTest::Init();
     assert((geometry->WorkgroupSize() % (2 * te->CoreCfg()->Wavesize())) == 0); // group size is multiple of WAVESIZE and there are even number of waves in work-group
     cfb = kernel->NewFBarrier("consumed_fb");
-    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, VALUE_TYPE, Location::KERNEL, BRIG_ALIGNMENT_NONE, geometry->WorkgroupSize() / 2);
+    buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, ResultType(), Location::KERNEL, BRIG_ALIGNMENT_NONE, geometry->WorkgroupSize() / 2);
   }
 
-  BrigType ResultType() const override { return VALUE_TYPE; }
+  BrigType ResultType() const override { 
+    return te->CoreCfg()->IsLarge() ? BRIG_TYPE_U64 : BRIG_TYPE_U32; 
+  }
+
   uint64_t ResultDim() const override { return DATA_ITEM_COUNT; }
 
   void ExpectedResults(Values* result) const override {
     result->reserve(OutputBufferSize());
     for (uint32_t i = 0; i < DATA_ITEM_COUNT; ++i) {
       for (uint32_t j = 0; j < geometry->GridSize(); ++j) {
-        result->push_back(Value(Brig2ValueType(VALUE_TYPE), i));
+        result->push_back(Value(Brig2ValueType(ResultType()), i));
       }
     }
   }
