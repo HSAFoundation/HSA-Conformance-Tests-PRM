@@ -61,6 +61,7 @@ struct HsaApiTable {
   void (*hsa_signal_store_relaxed)(hsa_signal_t signal_handle, hsa_signal_value_t signal_value);
   void (*hsa_signal_store_release)(hsa_signal_t signal, hsa_signal_value_t value);
   hsa_signal_value_t (*hsa_signal_wait_acquire)(hsa_signal_t signal, hsa_signal_condition_t condition, hsa_signal_value_t compare_value, uint64_t timeout_hint, hsa_wait_state_t wait_expectancy_hint);
+  hsa_status_t (*hsa_isa_get_info)(hsa_isa_t isa, hsa_isa_info_t attribute, uint32_t index, void *value);
   hsa_status_t (*hsa_ext_program_create)(
     hsa_machine_model_t machine_model,
     hsa_profile_t profile,
@@ -118,7 +119,7 @@ struct HsaApiTable {
   hsa_status_t (*hsa_executable_destroy)(
     hsa_executable_t executable);
 
-  hsa_status_t (*hsa_ext_image_data_get_info)(hsa_agent_t agent, 
+  hsa_status_t (*hsa_ext_image_data_get_info)(hsa_agent_t agent,
     const hsa_ext_image_descriptor_t *image_descriptor,
     hsa_access_permission_t access_permission,
     hsa_ext_image_data_info_t *image_data_info);
@@ -128,7 +129,7 @@ struct HsaApiTable {
     hsa_access_permission_t access_permission,
     hsa_ext_image_t *image);
   hsa_status_t (*hsa_ext_image_destroy)(hsa_agent_t agent, hsa_ext_image_t image);
-  hsa_status_t (*hsa_ext_sampler_create)(hsa_agent_t agent, 
+  hsa_status_t (*hsa_ext_sampler_create)(hsa_agent_t agent,
     const hsa_ext_sampler_descriptor_t *sampler_descriptor,
     hsa_ext_sampler_t *sampler);
   hsa_status_t (*hsa_ext_sampler_destroy)(hsa_agent_t agent, hsa_ext_sampler_t sampler);
@@ -136,7 +137,7 @@ struct HsaApiTable {
                          size_t src_row_pitch, size_t src_slice_pitch,
                          hsa_ext_image_t dst_image,
                          const hsa_ext_image_region_t *image_region);
-  hsa_status_t (*hsa_ext_image_get_capability)(hsa_agent_t agent, hsa_ext_image_geometry_t geometry, 
+  hsa_status_t (*hsa_ext_image_get_capability)(hsa_agent_t agent, hsa_ext_image_geometry_t geometry,
                          const hsa_ext_image_format_t* format,
                          uint32_t* capability_mask);
 };
@@ -217,6 +218,10 @@ public:
   uint32_t Wavesize() override { return wavesize; }
   uint32_t WavesPerGroup() override { return wavesPerGroup; }
   bool IsLittleEndianness() override { return endianness == HSA_ENDIANNESS_LITTLE; }
+
+  void PrintSystemInfo(std::ostream& out);
+  void PrintAgentInfo(std::ostream& out, hsa_agent_t agent);
+  void PrintInfo(std::ostream& out);
 };
 
 HsailRuntimeContext* HsailRuntimeFromContext(runtime::RuntimeContext* runtime);

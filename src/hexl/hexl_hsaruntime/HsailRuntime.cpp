@@ -25,7 +25,8 @@
 #include <sstream>
 #include <time.h>
 #include <set>
-      
+#include <bitset>
+
 #if defined(_WIN32) || defined(_WIN64)  // Windows
   #include <intrin.h>
   #pragma intrinsic (_InterlockedExchange16)
@@ -60,13 +61,14 @@ const HsaApiTable* HsaApi::InitApiTable() {
   GET_FUNCTION(hsa_memory_register);
   GET_FUNCTION(hsa_memory_deregister);
   GET_FUNCTION(hsa_signal_create);
+  GET_FUNCTION(hsa_isa_get_info);
   GET_FUNCTION(hsa_signal_destroy);
   GET_FUNCTION(hsa_ext_program_create);
   GET_FUNCTION(hsa_ext_program_destroy);
   GET_FUNCTION(hsa_ext_program_add_module);
   GET_FUNCTION(hsa_ext_program_finalize);
   GET_FUNCTION(hsa_ext_program_get_info);
-  
+
   GET_FUNCTION(hsa_executable_create);
   GET_FUNCTION(hsa_code_object_destroy);
   GET_FUNCTION(hsa_executable_load_code_object);
@@ -228,7 +230,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     virtual bool ProgramAddModule(const std::string& programId = "program", const std::string& moduleId = "module") override
     {
       HsailProgram* program = context->Get<HsailProgram>(programId);
-      BrigModule_t module = context->Get<BrigModuleHeader>(moduleId);      
+      BrigModule_t module = context->Get<BrigModuleHeader>(moduleId);
       hsa_status_t status = Runtime()->Hsa()->hsa_ext_program_add_module(program->Program(), module);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_add_module failed", status); return false; }
       return true;
@@ -270,7 +272,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       memset(&cd, 0, sizeof(cd));
       hsa_code_object_t codeObject;
       status = Runtime()->Hsa()->hsa_ext_program_finalize(
-        program->Program(), 
+        program->Program(),
         isa, 0, cd, "", HSA_CODE_OBJECT_TYPE_PROGRAM, &codeObject);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_finalize_program failed", status); return false; }
       Put(codeId, new HsailCode(this, codeObject));
@@ -427,13 +429,13 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       alignedFree(data);
     }
 
-    virtual bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId, 
-                                 const std::string& initValueId) override 
+    virtual bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId,
+                                 const std::string& initValueId) override
     {
       auto image = context->Get<HsailImage>(imageId);
       auto initValue = context->GetValue(initValueId);
       auto imageParams = context->Get<ImageParams>(imageParamsId);
-      
+
       hsa_ext_image_region_t hsaRegion;
       hsaRegion.offset.x = 0;
       hsaRegion.offset.y = 0;
@@ -447,17 +449,17 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       auto cbuff = buff;
       for (uint32_t i = 0; i < size; ++i) {
         initValue.WriteTo(cbuff);
-        cbuff += initValue.Size();      
+        cbuff += initValue.Size();
       }
-      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), buff, 
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), buff,
         imageParams->width, imageParams->width * imageParams->height, image->Image(), &hsaRegion);
       delete[] buff;
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return false; }
       return true;
     }
 
-    virtual bool ImageWrite(const std::string& imageId, const std::string& writeValuesId, 
-                            const ImageRegion& region) override 
+    virtual bool ImageWrite(const std::string& imageId, const std::string& writeValuesId,
+                            const ImageRegion& region) override
     {
       if (region.size_x == 0 || region.size_y == 0 || region.size_z == 0) {
         return true;
@@ -466,7 +468,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       auto image = context->Get<HsailImage>(imageId);
       auto writeValues = context->Get<Values>(writeValuesId);
       assert(writeValues->size() == size);
-      
+
       hsa_ext_image_region_t hsaRegion;
       hsaRegion.offset.x = region.x;
       hsaRegion.offset.y = region.y;
@@ -477,7 +479,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       char* buff = new char[SizeOf(*writeValues)];
       WriteTo(buff, *writeValues);
-      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), buff, 
+      hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), buff,
         region.size_x, region.size_x * region.size_y, image->Image(), &hsaRegion);
       delete[] buff;
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return false; }
@@ -510,7 +512,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
           context->Move(TEST_STATUS_KEY, new TestStatus(NA));
           return false;
         }
-      } 
+      }
 
       hsa_ext_image_descriptor_t image_descriptor;
       image_descriptor.geometry = (hsa_ext_image_geometry_t) ip->geometry;
@@ -526,9 +528,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       if (status == static_cast<hsa_status_t>(HSA_EXT_STATUS_ERROR_IMAGE_SIZE_UNSUPPORTED)) {
         context->Move(TEST_STATUS_KEY, new TestStatus(NA));
         return false;
-      } else if (status != HSA_STATUS_SUCCESS) { 
-        Runtime()->HsaError("hsa_ext_image_data_get_info failed", status); 
-        return false; 
+      } else if (status != HSA_STATUS_SUCCESS) {
+        Runtime()->HsaError("hsa_ext_image_data_get_info failed", status);
+        return false;
       }
 
       hsa_ext_image_t image = {0};
@@ -553,9 +555,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         context->Move(TEST_STATUS_KEY, new TestStatus(NA));
         return false;
       }
-      if (status != HSA_STATUS_SUCCESS) { 
-        Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData); 
-        return false; 
+      if (status != HSA_STATUS_SUCCESS) {
+        Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData);
+        return false;
       }
 
       Put(imageId, new HsailImage(this, image, imageData));
@@ -647,11 +649,11 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       if (!kernelName.empty()) {
         std::string kname = "&" + kernelName;
         status = Runtime()->Hsa()->hsa_executable_get_symbol(
-          executable->Executable(), 
-          hasMain ? mainModuleName.c_str() : nullptr, 
-          kname.c_str(), 
-          Runtime()->Agent(), 
-          0, 
+          executable->Executable(),
+          hasMain ? mainModuleName.c_str() : nullptr,
+          kname.c_str(),
+          Runtime()->Agent(),
+          0,
           &kernel);
         if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_get_symbol failed", status); return false; }
       } else {
@@ -661,7 +663,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       assert(kernel.handle);
 
       uint32_t kernargSize;
-      status = Runtime()->Hsa()->hsa_executable_symbol_get_info(kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE, &kernargSize);      
+      status = Runtime()->Hsa()->hsa_executable_symbol_get_info(kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE, &kernargSize);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE) failed", status); return false; }
 
       hsa_region_t kernargRegion = Runtime()->GetRegion(RegionMatchKernarg);
@@ -669,7 +671,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       hsa_queue_t* queue = Runtime()->QueueNoError();
       if (!queue) { runtime->HsaError("Queue is not available"); return false; }
-      uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);    
+      uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);
       context->Put(dispatchId, "dispatchpacketid", Value(MV_UINT64, packetId));
       hsa_kernel_dispatch_packet_t* p = (hsa_kernel_dispatch_packet_t*) queue->base_address + (packetId % queue->size);
       memset(((uint8_t*) p) + 4, 0, sizeof(hsa_kernel_dispatch_packet_t) - 4);
@@ -761,7 +763,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         HsailQueue* queue = context->Get<HsailQueue>(argKey);
         return Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uint64_t) (uintptr_t) queue->Queue());
       }
-      case DARG_GROUPOFFSET : 
+      case DARG_GROUPOFFSET :
       {
         Value dynamicOffset = context->GetValue(argKey);
         assert(dynamicOffset.Type() == MV_UINT32);
@@ -822,7 +824,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         (HSA_FENCE_SCOPE_SYSTEM << HSA_PACKET_HEADER_RELEASE_FENCE_SCOPE) |
         (HSA_PACKET_TYPE_KERNEL_DISPATCH << HSA_PACKET_HEADER_TYPE);
       uint16_t setup = context->GetValue(dispatchId, "dimensions").U16() << HSA_KERNEL_DISPATCH_PACKET_SETUP_DIMENSIONS;
-      SetPacketHeader(reinterpret_cast<uint32_t*>(d->packet), header, setup);      
+      SetPacketHeader(reinterpret_cast<uint32_t*>(d->packet), header, setup);
       Runtime()->Hsa()->hsa_signal_store_release(queue->doorbell_signal, d->packetId);
 
       // Wait for kernel completion.
@@ -950,10 +952,10 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       bool supported = false;
       uint16_t exceptionMask;
       hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
-        Runtime()->Agent(), 
-        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE, 
+        Runtime()->Agent(),
+        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE,
         &exceptionMask);
-      if (status == HSA_STATUS_SUCCESS) { 
+      if (status == HSA_STATUS_SUCCESS) {
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
       }
       if (!supported) {
@@ -962,15 +964,15 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       }
       return true;
     }
-    
+
     virtual bool IsBreakSupported() override {
       bool supported = false;
       uint16_t exceptionMask;
       hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
-        Runtime()->Agent(), 
-        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE, 
+        Runtime()->Agent(),
+        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE,
         &exceptionMask);
-      if (status == HSA_STATUS_SUCCESS) { 
+      if (status == HSA_STATUS_SUCCESS) {
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
       }
       if (!supported) {
@@ -1058,7 +1060,7 @@ static hsa_status_t IterateRegionsGet(hsa_region_t region, void* data) {
   IterateData<hsa_region_t, RegionMatch> idata(data);
   RegionMatch match = idata.Param();
   if (!idata.IsSet()) {
-    if (!match || match(idata.Runtime(), region)) { 
+    if (!match || match(idata.Runtime(), region)) {
       idata.Set(region);
     }
   }
@@ -1129,6 +1131,268 @@ hsa_region_t HsailRuntimeContext::GetRegion(RegionMatch match)
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_iterate_regions failed", status); return region; }
   return region;
 }
+
+#define CHECK_HSA_STATUS(MESSAGE, FUNC) \
+  { \
+    hsa_status_t status = Hsa()->FUNC; \
+    if (status != HSA_STATUS_SUCCESS) { \
+      HsaError(MESSAGE, status); \
+      return; \
+    } \
+  }
+
+void HsailRuntimeContext::PrintSystemInfo(std::ostream& out)
+{
+  uint16_t major;
+  CHECK_HSA_STATUS("hsa_system_get_info failed",
+                   hsa_system_get_info(HSA_SYSTEM_INFO_VERSION_MAJOR, &major));
+  out << "Major version of the HSA runtime specification supported: " << major << std::endl;
+
+  uint16_t minor;
+  CHECK_HSA_STATUS("hsa_system_get_info failed",
+                   hsa_system_get_info(HSA_SYSTEM_INFO_VERSION_MAJOR, &minor));
+  out << "Minor version of the HSA runtime specification supported: " << minor << std::endl;
+
+  uint64_t timestampFreq;
+  CHECK_HSA_STATUS("hsa_system_get_info failed",
+                   hsa_system_get_info(HSA_SYSTEM_INFO_TIMESTAMP_FREQUENCY, &timestampFreq));
+  out << "Timestamp value increase rate, in Hz: " << timestampFreq << std::endl;
+
+  uint64_t signalMaxWait;
+  CHECK_HSA_STATUS("hsa_system_get_info failed",
+                   hsa_system_get_info(HSA_SYSTEM_INFO_SIGNAL_MAX_WAIT, &signalMaxWait));
+  out << "Maximum duration of signal wait operation: " << signalMaxWait << std::endl;
+
+  hsa_endianness_t endianness;
+  CHECK_HSA_STATUS("hsa_system_get_info failed",
+                   hsa_system_get_info(HSA_SYSTEM_INFO_ENDIANNESS, &endianness));
+  out << "Endianness of the system: "
+      << (endianness == HSA_ENDIANNESS_BIG ? "HSA_ENDIANNESS_BIG" : "HSA_ENDIANNESS_LITTLE")
+      << std::endl;
+
+  hsa_machine_model_t machineModel;
+  CHECK_HSA_STATUS("hsa_system_get_info failed",
+                   hsa_system_get_info(HSA_SYSTEM_INFO_MACHINE_MODEL, &machineModel));
+  out << "Machine model: "
+      << (machineModel == HSA_MACHINE_MODEL_LARGE ? "HSA_MACHINE_MODEL_LARGE" : "HSA_MACHINE_MODEL_SMALL")
+      << std::endl;
+
+  uint8_t extensionMask[128];
+  CHECK_HSA_STATUS("hsa_system_get_info failed",
+                   hsa_system_get_info(HSA_SYSTEM_INFO_EXTENSIONS, extensionMask));
+  out << "Extensions:" << std::endl;
+  out << '\t' << "Finalizer: "
+      << ((1<<0 | extensionMask[0]) ? "supported" : "not supported") << std::endl;
+  out << '\t' << "Images: "
+      << ((1<<1 | extensionMask[0]) ? "supported" : "not supported") << std::endl;
+}
+
+void HsailRuntimeContext::PrintAgentInfo(std::ostream& out, hsa_agent_t agent)
+{
+  char name[64];
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_NAME, name));
+  out << "Agent name: " << name << std::endl;
+
+  char vendorName[64];
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_VENDOR_NAME, vendorName));
+  out << "Name of vendor: " << vendorName << std::endl;
+
+  hsa_agent_feature_t feature;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_FEATURE, &feature));
+  out << "Agent capability: "
+      << (feature == HSA_AGENT_FEATURE_AGENT_DISPATCH ? "HSA_AGENT_FEATURE_AGENT_DISPATCH" : "HSA_AGENT_FEATURE_KERNEL_DISPATCH")
+      << std::endl;
+
+  hsa_machine_model_t machineModel;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_MACHINE_MODEL, &machineModel));
+  out << "Machine model: "
+      << (machineModel == HSA_MACHINE_MODEL_LARGE ? "HSA_MACHINE_MODEL_LARGE" : "HSA_MACHINE_MODEL_SMALL")
+      << std::endl;
+
+  hsa_profile_t profile;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_PROFILE, &profile));
+  out << "Profile: "
+      << (profile == HSA_PROFILE_BASE ? "HSA_PROFILE_BASE" : "HSA_PROFILE_FULL")
+      << std::endl;
+
+  hsa_default_float_rounding_mode_t rounding;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_DEFAULT_FLOAT_ROUNDING_MODE, &rounding));
+  out << "Default floating-point rounding mode: ";
+  switch (rounding) {
+    case HSA_DEFAULT_FLOAT_ROUNDING_MODE_DEFAULT:
+      out << "HSA_DEFAULT_FLOAT_ROUNDING_MODE_DEFAULT"; break;
+    case HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO:
+      out << "HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO"; break;
+    case HSA_DEFAULT_FLOAT_ROUNDING_MODE_NEAR:
+      out << "HSA_DEFAULT_FLOAT_ROUNDING_MODE_NEAR"; break;
+  default:
+    HsaError("hsa_agent_get_info failed");
+  }
+  out << std::endl;
+
+  hsa_default_float_rounding_mode_t baseRounding;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_BASE_PROFILE_DEFAULT_FLOAT_ROUNDING_MODES, &baseRounding));
+  out << "Base profile default floating-point rounding modes:" << std::endl;
+  out << '\t' << "HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO: "
+      << ((baseRounding | HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO) ? "supported" : "not supported") << std::endl;
+  out << '\t' << "HSA_DEFAULT_FLOAT_ROUNDING_MODE_NEAR: "
+      << ((baseRounding | HSA_DEFAULT_FLOAT_ROUNDING_MODE_NEAR) ? "supported" : "not supported") << std::endl;
+
+  if (feature == HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
+    bool fastF16;
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                     hsa_agent_get_info(agent, HSA_AGENT_INFO_FAST_F16_OPERATION, &fastF16));
+    out << "Fast f16 HSAIL operations: " << (fastF16 ? "supported" : "not supported") << std::endl;
+
+    uint32_t wavesize;
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                     hsa_agent_get_info(agent, HSA_AGENT_INFO_WAVEFRONT_SIZE, &wavesize));
+    out << "Number of work-items in a wavefront: " << wavesize << std::endl;
+
+    uint16_t wgMaxDim[3];
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                     hsa_agent_get_info(agent, HSA_AGENT_INFO_WORKGROUP_MAX_DIM, wgMaxDim));
+    out << "Maximum number of work-items in work-group: " << wgMaxDim[0] << "x" << wgMaxDim[1] << "x" << wgMaxDim[2] << std::endl;
+
+    uint32_t wgMaxSize;
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                     hsa_agent_get_info(agent, HSA_AGENT_INFO_WORKGROUP_MAX_SIZE, &wgMaxSize));
+    out << "Maximum total number of work-items in a work-group: " << wgMaxSize << std::endl;
+
+    hsa_dim3_t gridMaxDim;
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                     hsa_agent_get_info(agent, HSA_AGENT_INFO_GRID_MAX_DIM, &gridMaxDim));
+    out << "Maximum number of work-items in a grid: " << gridMaxDim.x << "x" << gridMaxDim.y << "x" << gridMaxDim.z << std::endl;
+
+    uint32_t gridMaxSize;
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                     hsa_agent_get_info(agent, HSA_AGENT_INFO_GRID_MAX_SIZE, &gridMaxSize));
+    out << "Maximum total number of work-items in a grid: " << gridMaxSize << std::endl;
+
+    uint32_t fbarMax;
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                     hsa_agent_get_info(agent, HSA_AGENT_INFO_FBARRIER_MAX_SIZE, &fbarMax));
+    out << "Maximum number of fbarriers per work-group: " << fbarMax << std::endl;
+  }
+
+  uint32_t queuesMax;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_QUEUES_MAX, &queuesMax));
+  out << "Maximum number of queues that can be active at one time: " << queuesMax << std::endl;
+
+  uint32_t queueMinSize;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_QUEUE_MIN_SIZE, &queueMinSize));
+  out << "Minimum number of packets that a queue can hold: " << queueMinSize << std::endl;
+
+  uint32_t queueMaxSize;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_QUEUE_MAX_SIZE, &queueMaxSize));
+  out << "Maximum number of packets that a queue can hold: " << queueMaxSize << std::endl;
+
+  hsa_queue_type_t queueType;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_QUEUE_TYPE, &queueType));
+  out << "Type of a queue: "
+      << (queueType == HSA_QUEUE_TYPE_MULTI ? "HSA_QUEUE_TYPE_MULTI " : "HSA_QUEUE_TYPE_SINGLE")
+      << std::endl;
+
+  uint32_t node;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_NODE, &node));
+  out << "Identifier of the NUMA node: " << node << std::endl;
+
+  hsa_device_type_t deviceType;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_DEVICE, &deviceType));
+  out << "Type of hardware device: ";
+  switch (deviceType) {
+    case HSA_DEVICE_TYPE_CPU:
+      out << "HSA_DEVICE_TYPE_CPU"; break;
+    case HSA_DEVICE_TYPE_GPU:
+      out << "HSA_DEVICE_TYPE_GPU"; break;
+    case HSA_DEVICE_TYPE_DSP:
+      out << "HSA_DEVICE_TYPE_DSP"; break;
+  default:
+    HsaError("hsa_agent_get_info failed");
+  }
+  out << std::endl;
+
+  uint32_t cacheSize[4];
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_CACHE_SIZE, &cacheSize));
+  out << "Data cache sizes:" << std::endl;
+  for (int i = 0; i < 4; ++i) {
+    if (cacheSize[i] == 0) {
+      continue;
+    }
+    out << '\t' << 'L' << i + 1 << ": " << cacheSize[i] << std::endl;
+  }
+
+  hsa_isa_t isa;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_ISA, &isa));
+  out << "Instruction set architecture:" << std::endl;
+  uint32_t isaNameLength;
+  CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_NAME_LENGTH, 0, &isaNameLength));
+  std::vector<char> isaName(isaNameLength, '\0');
+  CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_NAME, 0, isaName.data()));
+  isaName.resize(isaNameLength + 1);
+  isaName.back() = '\0';
+  out << '\t' << "Name: " << isaName.data() << std::endl;
+  uint32_t isaConventionCount;
+  CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_COUNT, 0, &isaConventionCount));
+  out << '\t' << "Number of call conventions: " << isaConventionCount << std::endl;
+  for (uint32_t i = 0; i < isaConventionCount; ++i) {
+    out << '\t' << "Convention " << i << ": " << std::endl;
+    uint32_t isaWavesize;
+    CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_INFO_WAVEFRONT_SIZE, i, &isaWavesize));
+    out << "\t\t" << "Number of work-items in a wavefront: " << isaWavesize << std::endl;
+    uint32_t isaWavesCU;
+    CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_INFO_WAVEFRONTS_PER_COMPUTE_UNIT, i, &isaWavesCU));
+    out << "\t\t" << "Number of wavefronts per compute: " << isaWavesCU << std::endl;
+  }
+
+  uint8_t extensionMask[128];
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                   hsa_agent_get_info(agent, HSA_AGENT_INFO_EXTENSIONS, extensionMask));
+  out << "Extensions:" << std::endl;
+  out << '\t' << "Finalizer: "
+      << ((1<<0 | extensionMask[0]) ? "supported" : "not supported") << std::endl;
+  out << '\t' << "Images: "
+      << ((1<<1 | extensionMask[0]) ? "supported" : "not supported") << std::endl;
+
+  uint16_t versionMajor;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_VERSION_MAJOR, &versionMajor));
+  out << "Major version of the HSA runtime specification supported: " << versionMajor << std::endl;
+
+  uint16_t versionMinor;
+  CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                    hsa_agent_get_info(agent, HSA_AGENT_INFO_VERSION_MINOR, &versionMinor));
+  out << "Minor version of the HSA runtime specification supported: " << versionMinor << std::endl;
+}
+
+void HsailRuntimeContext::PrintInfo(std::ostream& out)
+{
+  out << "--------------- System Info ---------------" << std::endl;
+  PrintSystemInfo(out);
+  hsa_agent_t* agents = Agents();
+  for (uint32_t i = 0; i < AgentCount(); ++i) {
+    out << std::endl << std::endl;
+    out << "--------------- Agent " << i << " info ---------------" << std::endl;
+    PrintAgentInfo(out, agents[i]);
+  }
+}
+
+#undef CHECK_HSA_STATUS
 
 bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region)
 {

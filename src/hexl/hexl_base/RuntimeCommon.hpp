@@ -73,7 +73,7 @@ namespace hexl {
     BrigSamplerCoordNormalization Coord() const { return coord; }
     BrigSamplerFilter Filter() const { return filter; }
     BrigSamplerAddressing Addressing() const { return addressing; }
-  
+
     void Coord(BrigSamplerCoordNormalization coord_) { coord = coord_; }
     void Filter(BrigSamplerFilter filter_) { filter = filter_; }
     void Addressing(BrigSamplerAddressing addressing_) { addressing = addressing_; }
@@ -135,7 +135,7 @@ namespace hexl {
       virtual ~RuntimeState() { }
 
       virtual void Print(std::ostream& out) const { }
-      
+
       virtual Context* GetContext() = 0;
 
       virtual void Set(const std::string& key, Value value);
@@ -190,8 +190,9 @@ namespace hexl {
       RuntimeContext(Context* context_)
         : context(context_) { }
       virtual ~RuntimeContext() { }
-    
+
       virtual void Print(std::ostream& out) const { out << Description(); }
+      virtual void PrintInfo(std::ostream& out) {}
       virtual bool Init() = 0;
       virtual RuntimeState* NewState(Context* context) = 0;
       virtual std::string Description() const = 0;

@@ -81,7 +81,7 @@ private:
 
 protected:
   std::ostream& RunnerLog() { return std::cout; }
-  std::ofstream& RunnerLog(std::ofstream& of) { return of; }
+  std::ofstream& SummaryLog() { return testSummary; }
   std::ostream* TestOut() { return &testOut; }
   virtual bool BeforeTestSet(TestSet& testSet);
   virtual bool AfterTestSet(TestSet& testSet);
