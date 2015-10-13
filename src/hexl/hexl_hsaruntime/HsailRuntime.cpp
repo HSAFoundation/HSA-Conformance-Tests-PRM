@@ -225,10 +225,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     {
       hsa_ext_program_t program;
       hsa_machine_model_t machineModel = context->IsLarge() ? HSA_MACHINE_MODEL_LARGE : HSA_MACHINE_MODEL_SMALL;
-      hsa_profile_t profile = HSA_PROFILE_FULL;
       hsa_status_t status =
         Runtime()->Hsa()->hsa_ext_program_create(
-          machineModel, profile, HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &program);
+          machineModel, Runtime()->Profile(), HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &program);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_create failed", status); return false; }
       Put(programId, new HsailProgram(this, program));
       return true;
@@ -313,7 +312,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     virtual bool ExecutableCreate(const std::string& executableId = "executable") override
     {
       hsa_executable_t executable;
-      hsa_status_t status = Runtime()->Hsa()->hsa_executable_create(HSA_PROFILE_FULL, HSA_EXECUTABLE_STATE_UNFROZEN, "", &executable);
+      hsa_status_t status = Runtime()->Hsa()->hsa_executable_create(Runtime()->Profile(), HSA_EXECUTABLE_STATE_UNFROZEN, "", &executable);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_create failed", status); return false; }
       Put(executableId, new HsailExecutable(this, executable));
       return true;
@@ -980,7 +979,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       uint16_t exceptionMask;
       hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
         Runtime()->Agent(),
-        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE,
+        Runtime()->Profile(),
         &exceptionMask);
       if (status == HSA_STATUS_SUCCESS) {
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
@@ -997,7 +996,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       uint16_t exceptionMask;
       hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
         Runtime()->Agent(),
-        Runtime()->IsFullProfile() ? HSA_PROFILE_FULL : HSA_PROFILE_BASE,
+        Runtime()->Profile(),
         &exceptionMask);
       if (status == HSA_STATUS_SUCCESS) {
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);
@@ -1127,6 +1126,7 @@ bool HsailRuntimeContext::Init() {
 
   status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_PROFILE, &profile);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
+  profile = HSA_PROFILE_BASE;
   status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_WAVEFRONT_SIZE, &wavesize);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
   uint32_t wgMaxSize;
