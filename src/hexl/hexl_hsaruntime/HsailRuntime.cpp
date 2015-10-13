@@ -105,8 +105,8 @@ class HsailRuntimeContext;
 template <typename D, typename P> class IterateData {
 public:
   IterateData(HsailRuntimeContext* runtime_, D* data_, P param_ = static_cast<P>(0))
-    : runtime(runtime_), data(data_), param(param_) {
-    this->data->handle = 0;
+    : runtime(runtime_), data(data_), param(param_), index(0) {
+    if (data) { this->data->handle = 0; }
   }
 
   IterateData(void *data) {
@@ -118,17 +118,23 @@ public:
 
   HsailRuntimeContext* Runtime() { return runtime; }
   D* Data() { return data; }
-  bool IsSet() { return data->handle != 0; }
-  void Set(D data) { this->data->handle = data.handle; }
+  bool IsSet() { assert(this->data); return data->handle != 0; }
+  void Set(D data) { assert(this->data); this->data->handle = data.handle; }
   P Param() { return param; }
+
+  unsigned GetIndex() const { return index; }
+  unsigned NextIndex() { return index++; }
+
 private:
   HsailRuntimeContext* runtime;
   D* data;
   P param;
+  unsigned index;
 };
 
 static hsa_status_t IterateAgentGetHsaDevice(hsa_agent_t agent, void *data);
 static hsa_status_t IterateRegionsGet(hsa_region_t region, void* data);
+static hsa_status_t IterateRegionsPrint(hsa_region_t region, void* data);
 static hsa_status_t IterateExecutableSymbolsGetKernel(hsa_executable_t executable, hsa_executable_symbol_t symbol, void* data);
 
 bool RegionMatchAny(HsailRuntimeContext* runtime, hsa_region_t region) { return true; }
@@ -1405,6 +1411,75 @@ void HsailRuntimeContext::PrintAgentInfo(std::ostream& out, hsa_agent_t agent)
   CHECK_HSA_STATUS("hsa_agent_get_info failed",
                     hsa_agent_get_info(agent, HSA_AGENT_INFO_VERSION_MINOR, &versionMinor));
   out << "Minor version of the HSA runtime specification supported: " << versionMinor << std::endl;
+
+  IterateData<hsa_region_t, std::ostream*> idata(this, 0, &out);
+  hsa_status_t status = Hsa()->hsa_agent_iterate_regions(Agent(), IterateRegionsPrint, &idata);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_iterate_regions failed", status); return; }
+}
+
+static hsa_status_t IterateRegionsPrint(hsa_region_t region, void* data) {
+  IterateData<hsa_region_t, std::ostream*>& idata = *static_cast<IterateData<hsa_region_t, std::ostream*>*>(data);
+  std::ostream& out = *idata.Param();
+  out << "--------------- Agent region " << idata.NextIndex() << " info --------" << std::endl;
+  idata.Runtime()->PrintRegionInfo(out, region);
+  return HSA_STATUS_SUCCESS;
+}
+
+void HsailRuntimeContext::PrintRegionInfo(std::ostream& out, hsa_region_t region)
+{
+  out << "Handle: " << std::hex << "0x" << region.handle << std::dec << std::endl;
+
+  hsa_region_segment_t segment;
+  CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_SEGMENT) failed",
+                    hsa_region_get_info(region, HSA_REGION_INFO_SEGMENT, &segment));
+  out << "Segment: ";
+  switch (segment) {
+  case HSA_REGION_SEGMENT_GLOBAL: out << "GLOBAL"; break;
+  case HSA_REGION_SEGMENT_READONLY: out << "READONLY"; break;
+  case HSA_REGION_SEGMENT_PRIVATE: out << "PRIVATE"; break;
+  case HSA_REGION_SEGMENT_GROUP: out << "GROUP"; break;
+  default: out << "UNKNOWN"; break;
+  }
+  out << std::endl;
+
+  uint32_t globalFlags;
+  CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_GLOBAL_FLAGS) failed",
+                    hsa_region_get_info(region, HSA_REGION_INFO_GLOBAL_FLAGS, &globalFlags));
+  out << "Global flags: " << std::hex << "0x" << globalFlags << std::dec;
+  if (globalFlags & HSA_REGION_GLOBAL_FLAG_KERNARG) { out << " KERNARG"; }
+  if (globalFlags & HSA_REGION_GLOBAL_FLAG_FINE_GRAINED) { out << " FINE_GRAINED"; }
+  if (globalFlags & HSA_REGION_GLOBAL_FLAG_COARSE_GRAINED) { out << " COARSE_GRAINED"; }
+  out << std::endl;
+
+  size_t size;
+  CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_SIZE) failed",
+                    hsa_region_get_info(region, HSA_REGION_INFO_SIZE, &size));
+  out << "Size: " << size << std::endl;
+
+  size_t allocMaxSize;
+  CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_ALLOC_MAX_SIZE) failed",
+                    hsa_region_get_info(region, HSA_REGION_INFO_ALLOC_MAX_SIZE, &allocMaxSize));
+  out << "Max allocation size: " << allocMaxSize << std::endl;
+  
+  bool runtimeAllocAllowed;
+  CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED) failed",
+                    hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED, &runtimeAllocAllowed));
+  out << "Memory can be allocated with hsa_memory_allocate: " << (runtimeAllocAllowed ? "yes" : "no") << std::endl;
+
+  if (runtimeAllocAllowed) {
+    size_t runtimeAllocGranule;
+    CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE) failed",
+                      hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE, &runtimeAllocGranule));
+    out << "Runtime allocation granularity: " << runtimeAllocGranule << std::endl;
+
+    size_t runtimeAllocAlign;
+    CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_RUNTIME_ALLOC_ALIGNMENT) failed",
+                      hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALIGNMENT, &runtimeAllocAlign));
+    out << "Runtime allocation alignment: " << runtimeAllocAlign << std::endl;
+  }
+
+  if (region.handle == kernargRegion.handle) { out << "Used by tests as kernarg region" << std::endl; }
+  if (region.handle == systemRegion.handle) { out << "Used by tests as system region" << std::endl; }
 }
 
 void HsailRuntimeContext::PrintInfo(std::ostream& out)

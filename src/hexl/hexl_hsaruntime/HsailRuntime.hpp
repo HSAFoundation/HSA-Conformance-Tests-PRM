@@ -225,6 +225,7 @@ public:
 
   void PrintSystemInfo(std::ostream& out);
   void PrintAgentInfo(std::ostream& out, hsa_agent_t agent);
+  void PrintRegionInfo(std::ostream& out, hsa_region_t region);
   void PrintInfo(std::ostream& out);
 };
 
