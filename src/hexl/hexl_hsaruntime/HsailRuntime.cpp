@@ -1126,7 +1126,6 @@ bool HsailRuntimeContext::Init() {
 
   status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_PROFILE, &profile);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
-  profile = HSA_PROFILE_BASE;
   status = Hsa()->hsa_agent_get_info(agent, HSA_AGENT_INFO_WAVEFRONT_SIZE, &wavesize);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_get_info failed", status); return false; }
   uint32_t wgMaxSize;
