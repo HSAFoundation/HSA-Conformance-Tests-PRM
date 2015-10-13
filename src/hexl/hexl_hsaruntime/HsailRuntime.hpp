@@ -165,6 +165,7 @@ private:
   uint32_t wavesize;
   uint32_t wavesPerGroup;
   hsa_endianness_t endianness;
+  hsa_region_t kernargRegion, systemRegion;
 
   bool QueueInit();
   void QueueDestroy();
@@ -214,10 +215,13 @@ public:
   const HsaApi& Hsa() const { return hsaApi; }
   hsa_region_t GetRegion(RegionMatch match = 0);
 
+  hsa_profile_t Profile() const { return profile; }
   bool IsFullProfile() override { return profile == HSA_PROFILE_FULL; }
   uint32_t Wavesize() override { return wavesize; }
   uint32_t WavesPerGroup() override { return wavesPerGroup; }
   bool IsLittleEndianness() override { return endianness == HSA_ENDIANNESS_LITTLE; }
+  hsa_region_t KernargRegion() { return kernargRegion; }
+  hsa_region_t SystemRegion() { return systemRegion; }
 
   void PrintSystemInfo(std::ostream& out);
   void PrintAgentInfo(std::ostream& out, hsa_agent_t agent);

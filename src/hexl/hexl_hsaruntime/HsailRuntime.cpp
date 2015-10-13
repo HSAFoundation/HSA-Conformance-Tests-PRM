@@ -134,6 +134,7 @@ static hsa_status_t IterateExecutableSymbolsGetKernel(hsa_executable_t executabl
 bool RegionMatchAny(HsailRuntimeContext* runtime, hsa_region_t region) { return true; }
 
 bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region);
+bool RegionMatchSystem(HsailRuntimeContext* runtime, hsa_region_t region);
 
 void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 {
@@ -349,21 +350,44 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
     void BufferDestroy(void *ptr)
     {
-      hsa_status_t status = Runtime()->Hsa()->hsa_memory_deregister(ptr);
-      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister failed", status); }
-      alignedFree(ptr);
+      hsa_status_t status;
+      switch (Runtime()->Profile()) {
+      case HSA_PROFILE_FULL:
+        status = Runtime()->Hsa()->hsa_memory_deregister(ptr);
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister failed", status); }
+        alignedFree(ptr);
+        break;
+      case HSA_PROFILE_BASE:
+        status = Runtime()->Hsa()->hsa_memory_free(ptr);
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_free failed", status); }
+        break;
+      default:
+        assert(false); return;
+      }
     }
 
     virtual bool BufferCreate(const std::string& bufferId, size_t size, const std::string& initValuesId) override
     {
       size = (std::max)(size, (size_t) 256);
-      char *ptr = (char *) alignedMalloc(size, 256);
-      hsa_status_t status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
-      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); alignedFree(ptr); return 0; }
+      void *ptr;
+      hsa_status_t status;
+      switch (Runtime()->Profile()) {
+      case HSA_PROFILE_FULL:
+        ptr = alignedMalloc(size, 256);
+        status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register failed", status); alignedFree(ptr); return false; }
+        break;
+      case HSA_PROFILE_BASE:
+        status = Runtime()->Hsa()->hsa_memory_allocate(Runtime()->SystemRegion(), size, &ptr);
+        if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate failed", status); return false; }
+        break;
+      default:
+        assert(false); return false;
+      }
       if (!initValuesId.empty()) {
         Values* initValues = context->Get<Values>(initValuesId);
         assert(initValues->size() <= size);
-        char *vptr = ptr;
+        char *vptr = (char *) ptr;
         for (size_t i = 0; i < initValues->size(); ++i) {
           Value v = context->GetRuntimeValue((*initValues)[i]);
           v.WriteTo(vptr);
@@ -666,9 +690,6 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       status = Runtime()->Hsa()->hsa_executable_symbol_get_info(kernel, HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE, &kernargSize);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_KERNARG_SEGMENT_SIZE) failed", status); return false; }
 
-      hsa_region_t kernargRegion = Runtime()->GetRegion(RegionMatchKernarg);
-      if (!kernargRegion.handle) { context->Error() << "Failed to find kernarg region" << std::endl; return false; }
-
       hsa_queue_t* queue = Runtime()->QueueNoError();
       if (!queue) { runtime->HsaError("Queue is not available"); return false; }
       uint64_t packetId = Runtime()->Hsa()->hsa_queue_add_write_index_relaxed(queue, 1);
@@ -681,7 +702,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_symbol_get_info(HSA_EXECUTABLE_SYMBOL_INFO_KERNEL_OBJECT) failed", status); return false; }
 
       if (kernargSize > 0) {
-        status = Runtime()->Hsa()->hsa_memory_allocate(kernargRegion, kernargSize, &p->kernarg_address);
+        status = Runtime()->Hsa()->hsa_memory_allocate(Runtime()->KernargRegion(), kernargSize, &p->kernarg_address);
         if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate(kernargRegion) failed", status); return false; }
       } else {
         p->kernarg_address = 0;
@@ -1109,6 +1130,12 @@ bool HsailRuntimeContext::Init() {
   status = Hsa()->hsa_system_get_info(HSA_SYSTEM_INFO_ENDIANNESS, &endianness);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_system_get_info failed", status); return false; }
 
+  kernargRegion = GetRegion(RegionMatchKernarg);
+  if (!kernargRegion.handle) { context->Error() << "Failed to find kernarg region" << std::endl; return false; }
+
+  systemRegion = GetRegion(RegionMatchSystem);
+  if (!systemRegion.handle) { context->Error() << "Failed to find system region" << std::endl; return false; }
+
   context->Put("queueid", Value(MV_UINT32, Queue()->id));
   context->Put("queueptr", Value(context->IsLarge() ? MV_UINT64 : MV_UINT32, (uintptr_t) Queue()));
   return true;
@@ -1399,22 +1426,52 @@ bool RegionMatchKernarg(HsailRuntimeContext* runtime, hsa_region_t region)
   hsa_status_t status;
   hsa_region_global_flag_t flags;
   status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_GLOBAL_FLAGS, &flags);
-  if (status != HSA_STATUS_SUCCESS) { return false; }
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_GLOBAL_FLAGS) failed", status); return false; }
   if (!(flags & HSA_REGION_GLOBAL_FLAG_KERNARG)) { return false; }
 
   bool allocAllowed;
   status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED, &allocAllowed);
-  if (status != HSA_STATUS_SUCCESS) { return false; }
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_SEGMENT) failed", status); return false; }
   if (!allocAllowed) { return false; }
 
   size_t granule;
   status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE, &granule);
-  if (status != HSA_STATUS_SUCCESS) { return false; }
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE) failed", status); return false; }
   // if (granule > sizeof(size_t)) { return false; }
 
   size_t maxSize;
   status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_ALLOC_MAX_SIZE, &maxSize);
-  if (status != HSA_STATUS_SUCCESS) { return false; }
+  if (status != HSA_STATUS_SUCCESS) {  runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_ALLOC_MAX_SIZE) failed", status); return false; }
+  if (maxSize < 256) { return false; }
+  return true;
+}
+
+bool RegionMatchSystem(HsailRuntimeContext* runtime, hsa_region_t region)
+{
+  hsa_status_t status;
+  hsa_region_global_flag_t flags;
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_GLOBAL_FLAGS, &flags);
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_GLOBAL_FLAGS) failed", status); return false; }
+  if (!(flags & HSA_REGION_GLOBAL_FLAG_FINE_GRAINED)) { return false; }
+
+  hsa_region_segment_t segment;
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_SEGMENT, &segment);
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_SEGMENT) failed", status); return false; }
+  if (segment != HSA_REGION_SEGMENT_GLOBAL) { return false; }
+
+  bool allocAllowed;
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED, &allocAllowed);
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED) failed", status); return false; }
+  if (!allocAllowed) { return false; }
+
+  size_t granule;
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE, &granule);
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_RUNTIME_ALLOC_GRANULE) failed", status); return false; }
+  // if (granule > sizeof(size_t)) { return false; }
+
+  size_t maxSize;
+  status = runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_ALLOC_MAX_SIZE, &maxSize);
+  if (status != HSA_STATUS_SUCCESS) { runtime->HsaError("hsa_region_get_info(HSA_REGION_INFO_ALLOC_MAX_SIZE) failed", status); return false; }
   if (maxSize < 256) { return false; }
   return true;
 }
