@@ -133,6 +133,7 @@ private:
 };
 
 static hsa_status_t IterateAgentGetHsaDevice(hsa_agent_t agent, void *data);
+static hsa_status_t IterateAgentsPrint(hsa_agent_t agent, void* data);
 static hsa_status_t IterateRegionsGet(hsa_region_t region, void* data);
 static hsa_status_t IterateRegionsPrint(hsa_region_t region, void* data);
 static hsa_status_t IterateExecutableSymbolsGetKernel(hsa_executable_t executable, hsa_executable_symbol_t symbol, void* data);
@@ -1219,6 +1220,16 @@ void HsailRuntimeContext::PrintSystemInfo(std::ostream& out)
       << ((1<<1 | extensionMask[0]) ? "supported" : "not supported") << std::endl;
 }
 
+static hsa_status_t IterateAgentsPrint(hsa_agent_t agent, void* data)
+{
+  IterateData<hsa_agent_t, std::ostream*>& idata = *static_cast<IterateData<hsa_agent_t, std::ostream*>*>(data);
+  std::ostream& out = *idata.Param();
+  out << std::endl << std::endl;
+  out << "--------------- Agent " << idata.NextIndex() << " info ---------------" << std::endl;
+  idata.Runtime()->PrintAgentInfo(out, agent);
+  return HSA_STATUS_SUCCESS;
+}
+
 void HsailRuntimeContext::PrintAgentInfo(std::ostream& out, hsa_agent_t agent)
 {
   char name[64];
@@ -1234,9 +1245,10 @@ void HsailRuntimeContext::PrintAgentInfo(std::ostream& out, hsa_agent_t agent)
   hsa_agent_feature_t feature;
   CHECK_HSA_STATUS("hsa_agent_get_info failed",
                    hsa_agent_get_info(agent, HSA_AGENT_INFO_FEATURE, &feature));
-  out << "Agent capability: "
-      << (feature == HSA_AGENT_FEATURE_AGENT_DISPATCH ? "HSA_AGENT_FEATURE_AGENT_DISPATCH" : "HSA_AGENT_FEATURE_KERNEL_DISPATCH")
-      << std::endl;
+  out << "Agent features: ";
+  if (feature & HSA_AGENT_FEATURE_KERNEL_DISPATCH) { out << "HSA_AGENT_FEATURE_KERNEL_DISPATCH "; }
+  if (feature & HSA_AGENT_FEATURE_AGENT_DISPATCH) { out << "HSA_AGENT_FEATURE_AGENT_DISPATCH "; }
+  out << std::endl;
 
   hsa_machine_model_t machineModel;
   CHECK_HSA_STATUS("hsa_agent_get_info failed",
@@ -1277,7 +1289,7 @@ void HsailRuntimeContext::PrintAgentInfo(std::ostream& out, hsa_agent_t agent)
   out << '\t' << "HSA_DEFAULT_FLOAT_ROUNDING_MODE_NEAR: "
       << ((baseRounding | HSA_DEFAULT_FLOAT_ROUNDING_MODE_NEAR) ? "supported" : "not supported") << std::endl;
 
-  if (feature == HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
+  if (feature & HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
     bool fastF16;
     CHECK_HSA_STATUS("hsa_agent_get_info failed",
                      hsa_agent_get_info(agent, HSA_AGENT_INFO_FAST_F16_OPERATION, &fastF16));
@@ -1368,28 +1380,30 @@ void HsailRuntimeContext::PrintAgentInfo(std::ostream& out, hsa_agent_t agent)
     out << '\t' << 'L' << i + 1 << ": " << cacheSize[i] << std::endl;
   }
 
-  hsa_isa_t isa;
-  CHECK_HSA_STATUS("hsa_agent_get_info failed",
-                    hsa_agent_get_info(agent, HSA_AGENT_INFO_ISA, &isa));
-  out << "Instruction set architecture:" << std::endl;
-  uint32_t isaNameLength;
-  CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_NAME_LENGTH, 0, &isaNameLength));
-  std::vector<char> isaName(isaNameLength, '\0');
-  CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_NAME, 0, isaName.data()));
-  isaName.resize(isaNameLength + 1);
-  isaName.back() = '\0';
-  out << '\t' << "Name: " << isaName.data() << std::endl;
-  uint32_t isaConventionCount;
-  CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_COUNT, 0, &isaConventionCount));
-  out << '\t' << "Number of call conventions: " << isaConventionCount << std::endl;
-  for (uint32_t i = 0; i < isaConventionCount; ++i) {
-    out << '\t' << "Convention " << i << ": " << std::endl;
-    uint32_t isaWavesize;
-    CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_INFO_WAVEFRONT_SIZE, i, &isaWavesize));
-    out << "\t\t" << "Number of work-items in a wavefront: " << isaWavesize << std::endl;
-    uint32_t isaWavesCU;
-    CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_INFO_WAVEFRONTS_PER_COMPUTE_UNIT, i, &isaWavesCU));
-    out << "\t\t" << "Number of wavefronts per compute: " << isaWavesCU << std::endl;
+  if (feature & HSA_AGENT_FEATURE_KERNEL_DISPATCH) {
+    hsa_isa_t isa;
+    CHECK_HSA_STATUS("hsa_agent_get_info failed",
+                      hsa_agent_get_info(agent, HSA_AGENT_INFO_ISA, &isa));
+    out << "Instruction set architecture:" << std::endl;
+    uint32_t isaNameLength;
+    CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_NAME_LENGTH, 0, &isaNameLength));
+    std::vector<char> isaName(isaNameLength, '\0');
+    CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_NAME, 0, isaName.data()));
+    isaName.resize(isaNameLength + 1);
+    isaName.back() = '\0';
+    out << '\t' << "Name: " << isaName.data() << std::endl;
+    uint32_t isaConventionCount;
+    CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_COUNT, 0, &isaConventionCount));
+    out << '\t' << "Number of call conventions: " << isaConventionCount << std::endl;
+    for (uint32_t i = 0; i < isaConventionCount; ++i) {
+      out << '\t' << "Convention " << i << ": " << std::endl;
+      uint32_t isaWavesize;
+      CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_INFO_WAVEFRONT_SIZE, i, &isaWavesize));
+      out << "\t\t" << "Number of work-items in a wavefront: " << isaWavesize << std::endl;
+      uint32_t isaWavesCU;
+      CHECK_HSA_STATUS("hsa_isa_get_info failed", hsa_isa_get_info(isa, HSA_ISA_INFO_CALL_CONVENTION_INFO_WAVEFRONTS_PER_COMPUTE_UNIT, i, &isaWavesCU));
+      out << "\t\t" << "Number of wavefronts per compute: " << isaWavesCU << std::endl;
+    }
   }
 
   uint8_t extensionMask[128];
@@ -1412,11 +1426,12 @@ void HsailRuntimeContext::PrintAgentInfo(std::ostream& out, hsa_agent_t agent)
   out << "Minor version of the HSA runtime specification supported: " << versionMinor << std::endl;
 
   IterateData<hsa_region_t, std::ostream*> idata(this, 0, &out);
-  hsa_status_t status = Hsa()->hsa_agent_iterate_regions(Agent(), IterateRegionsPrint, &idata);
+  hsa_status_t status = Hsa()->hsa_agent_iterate_regions(agent, IterateRegionsPrint, &idata);
   if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_agent_iterate_regions failed", status); return; }
 }
 
-static hsa_status_t IterateRegionsPrint(hsa_region_t region, void* data) {
+static hsa_status_t IterateRegionsPrint(hsa_region_t region, void* data)
+{
   IterateData<hsa_region_t, std::ostream*>& idata = *static_cast<IterateData<hsa_region_t, std::ostream*>*>(data);
   std::ostream& out = *idata.Param();
   out << "--------------- Agent region " << idata.NextIndex() << " info --------" << std::endl;
@@ -1485,12 +1500,9 @@ void HsailRuntimeContext::PrintInfo(std::ostream& out)
 {
   out << "--------------- System Info ---------------" << std::endl;
   PrintSystemInfo(out);
-  hsa_agent_t* agents = Agents();
-  for (uint32_t i = 0; i < AgentCount(); ++i) {
-    out << std::endl << std::endl;
-    out << "--------------- Agent " << i << " info ---------------" << std::endl;
-    PrintAgentInfo(out, agents[i]);
-  }
+  IterateData<hsa_agent_t, std::ostream*> idata(this, 0, &out);
+  hsa_status_t status = Hsa()->hsa_iterate_agents(IterateAgentsPrint, &idata);
+  if (status != HSA_STATUS_SUCCESS) { HsaError("hsa_iterate_agents failed", status); return; }
 }
 
 #undef CHECK_HSA_STATUS
