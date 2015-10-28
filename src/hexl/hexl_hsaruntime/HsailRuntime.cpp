@@ -228,7 +228,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       hsa_machine_model_t machineModel = context->IsLarge() ? HSA_MACHINE_MODEL_LARGE : HSA_MACHINE_MODEL_SMALL;
       hsa_status_t status =
         Runtime()->Hsa()->hsa_ext_program_create(
-          machineModel, Runtime()->Profile(), HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &program);
+          machineModel, Runtime()->ProgramProfile(), HSA_DEFAULT_FLOAT_ROUNDING_MODE_ZERO, "", &program);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_program_create failed", status); return false; }
       Put(programId, new HsailProgram(this, program));
       return true;
@@ -313,7 +313,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     virtual bool ExecutableCreate(const std::string& executableId = "executable") override
     {
       hsa_executable_t executable;
-      hsa_status_t status = Runtime()->Hsa()->hsa_executable_create(Runtime()->Profile(), HSA_EXECUTABLE_STATE_UNFROZEN, "", &executable);
+      hsa_status_t status = Runtime()->Hsa()->hsa_executable_create(Runtime()->ProgramProfile(), HSA_EXECUTABLE_STATE_UNFROZEN, "", &executable);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_executable_create failed", status); return false; }
       Put(executableId, new HsailExecutable(this, executable));
       return true;
@@ -357,7 +357,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     void BufferDestroy(void *ptr)
     {
       hsa_status_t status;
-      switch (Runtime()->Profile()) {
+      switch (Runtime()->RuntimeProfile()) {
       case HSA_PROFILE_FULL:
         status = Runtime()->Hsa()->hsa_memory_deregister(ptr);
         if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_deregister failed", status); }
@@ -377,7 +377,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       size = (std::max)(size, (size_t) 256);
       void *ptr;
       hsa_status_t status;
-      switch (Runtime()->Profile()) {
+      switch (Runtime()->RuntimeProfile()) {
       case HSA_PROFILE_FULL:
         ptr = alignedMalloc(size, 256);
         status = Runtime()->Hsa()->hsa_memory_register(ptr, size);
@@ -980,7 +980,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       uint16_t exceptionMask;
       hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
         Runtime()->Agent(),
-        Runtime()->Profile(),
+        Runtime()->ProgramProfile(),
         &exceptionMask);
       if (status == HSA_STATUS_SUCCESS) {
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_DETECT);
@@ -997,7 +997,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       uint16_t exceptionMask;
       hsa_status_t status = Runtime()->Hsa()->hsa_agent_get_exception_policies(
         Runtime()->Agent(),
-        Runtime()->Profile(),
+        Runtime()->ProgramProfile(),
         &exceptionMask);
       if (status == HSA_STATUS_SUCCESS) {
         supported = static_cast<bool>(exceptionMask & HSA_EXCEPTION_POLICY_BREAK);

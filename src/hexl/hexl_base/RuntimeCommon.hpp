@@ -196,10 +196,11 @@ namespace hexl {
       virtual bool Init() = 0;
       virtual RuntimeState* NewState(Context* context) = 0;
       virtual std::string Description() const = 0;
-      virtual bool IsFullProfile() = 0;
       virtual uint32_t Wavesize()= 0;
       virtual uint32_t WavesPerGroup() = 0;
       virtual bool IsLittleEndianness() { return true; };
+      virtual BrigProfile ModuleProfile() const;
+      bool HasCustomProfile() const;
     };
 
     class HostThreads {

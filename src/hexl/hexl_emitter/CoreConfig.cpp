@@ -52,7 +52,7 @@ CoreConfig::CoreConfig(
 
 void CoreConfig::Init(Context *context) {
   runtime::RuntimeContext* runtimeContext = context->Runtime();
-  profile = runtimeContext->IsFullProfile() ? BRIG_PROFILE_FULL : BRIG_PROFILE_BASE;
+  profile = runtimeContext->ModuleProfile();
   wavesize = runtimeContext->Wavesize();
   wavesPerGroup = runtimeContext->WavesPerGroup();
 }

@@ -187,7 +187,6 @@ namespace hexl {
       bool Init() override { return true; }
       runtime::RuntimeState* NewState(Context* context) override { return new NoneRuntimeState(context); }
       std::string Description() const override { return "No runtime"; }
-      bool IsFullProfile() override { return true; }
       uint32_t Wavesize() override { return 64; }
       uint32_t WavesPerGroup() override { return 4; }
       bool IsLittleEndianness() override { return true; }
@@ -245,6 +244,16 @@ namespace hexl {
     Value RuntimeState::Get(const std::string& parent, const std::string& key)
     {
       return Get(parent + "." + key);
+    }
+
+    BrigProfile RuntimeContext::ModuleProfile() const
+    {
+      return (context->Opts()->GetString("profile") == "base")? BRIG_PROFILE_BASE : BRIG_PROFILE_FULL; // NB: full profile by default
+    }
+
+    bool RuntimeContext::HasCustomProfile() const
+    {
+      return context->Opts()->IsSet("profile");
     }
 
     void HostThreads::RunThread(unsigned id, Command* command)

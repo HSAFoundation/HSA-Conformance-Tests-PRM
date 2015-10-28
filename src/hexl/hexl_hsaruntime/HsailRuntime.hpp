@@ -215,8 +215,15 @@ public:
   const HsaApi& Hsa() const { return hsaApi; }
   hsa_region_t GetRegion(RegionMatch match = 0);
 
-  hsa_profile_t Profile() const { return profile; }
-  bool IsFullProfile() override { return profile == HSA_PROFILE_FULL; }
+  hsa_profile_t RuntimeProfile() const { return profile; }
+  hsa_profile_t ProgramProfile() const { 
+    return (ModuleProfile() == BRIG_PROFILE_FULL)? HSA_PROFILE_FULL : HSA_PROFILE_BASE;
+  }
+  BrigProfile ModuleProfile() const override {
+    if (HasCustomProfile()) return runtime::RuntimeContext::ModuleProfile();
+    return (profile == HSA_PROFILE_FULL)? BRIG_PROFILE_FULL : BRIG_PROFILE_BASE;
+  }
+
   uint32_t Wavesize() override { return wavesize; }
   uint32_t WavesPerGroup() override { return wavesPerGroup; }
   bool IsLittleEndianness() override { return endianness == HSA_ENDIANNESS_LITTLE; }

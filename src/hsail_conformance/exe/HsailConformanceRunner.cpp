@@ -203,6 +203,7 @@ void HCRunner::Run()
   optReg.RegisterBooleanOption("dsign");
   optReg.RegisterOption("match");
   optReg.RegisterOption("timeout");
+  optReg.RegisterOption("profile");
   {
     int n = hexl::ParseOptions(argc, argv, optReg, options);
     if (n != 0) {
@@ -218,6 +219,11 @@ void HCRunner::Run()
       std::cout << "Bad -match: '" << match << "'" << std::endl;
       exit(6);
     }
+    std::string profile = options.GetString("profile");
+    if (profile.length() > 0 && profile != "full" && profile != "base") {
+      std::cout << "Invalid profile option: '" << profile << "'" << std::endl;
+      exit(7);
+    }
   }
   context->Move("hexl.stats", new AllStats());
   ResourceManager* rm = new DirectoryResourceManager(options.GetString("testbase", "."), options.GetString("results", "."));
@@ -227,7 +233,7 @@ void HCRunner::Run()
   runtime = CreateRuntimeContext(context.get());
   if (!runtime) {
     std::cout << "Failed to create runtime" << std::endl;
-    exit(7);
+    exit(8);
   }
   context->Put("hexl.runtime", runtime);
   context->Put("hexl.testFactory", testFactory);
