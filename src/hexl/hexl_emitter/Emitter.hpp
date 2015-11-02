@@ -1086,6 +1086,8 @@ public:
   virtual Value ExpectedResult(uint64_t id) const { return ExpectedResult(); }
   virtual Values* ExpectedResults() const;
   virtual void ExpectedResults(Values* result) const;
+  void InitContext(hexl::Context* context) override;
+
 
   virtual void Scenario();
   virtual void ScenarioInit();

@@ -216,6 +216,7 @@ public:
   }
 
   bool IsValid() const override {
+    if (cc->Profile() == BRIG_PROFILE_BASE && (type == BRIG_TYPE_F64 || type == BRIG_TYPE_F64X2)) return false;
     return (segment == BRIG_SEGMENT_GLOBAL || segment == BRIG_SEGMENT_READONLY) &&
            data.size() < DataSize();
   }

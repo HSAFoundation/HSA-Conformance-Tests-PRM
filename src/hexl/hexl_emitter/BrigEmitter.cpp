@@ -751,10 +751,38 @@ InstBasic BrigEmitter::EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, Ope
   return inst;
 }
 
-InstCmp BrigEmitter::EmitCmp(OperandRegister b, BrigType16_t type, Operand src0, Operand src1, BrigCompareOperation8_t cmp) 
+InstBasic BrigEmitter::EmitArithBase(BrigOpcode16_t opcode, const TypedReg& dst, Operand src0, Operand op)
+{
+  InstMod inst = brigantine->addInst<InstMod>(opcode, LegalizeSourceType(opcode, dst->Type()));
+  inst.operands() = Operands(dst->Reg(), src0, op);
+  if (isFloatType(dst->Type())) {
+    inst.round() = BRIG_ROUND_FLOAT_DEFAULT;
+    inst.modifier().ftz() = 1;
+  }
+  return inst;
+}
+
+InstBasic BrigEmitter::EmitArithBase(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, Operand op)
+{
+  return EmitArithBase(opcode, dst, src0->Reg(), op);
+}
+
+InstBasic BrigEmitter::EmitArithBase(BrigOpcode16_t opcode, const TypedReg& dst, Operand src0)
+{
+  InstMod inst = brigantine->addInst<InstMod>(opcode, LegalizeSourceType(opcode, dst->Type()));
+  inst.operands() = Operands(dst->Reg(), src0);
+  if (isFloatType(dst->Type())) {
+    inst.round() = BRIG_ROUND_FLOAT_DEFAULT;
+    inst.modifier().ftz() = 1;
+  }
+  return inst;
+}
+
+InstCmp BrigEmitter::EmitCmp(OperandRegister b, BrigType16_t type, Operand src0, Operand src1, BrigCompareOperation8_t cmp, bool ftz /*=false*/)
 {
   InstCmp inst = brigantine->addInst<InstCmp>(BRIG_OPCODE_CMP, BRIG_TYPE_B1);
   inst.sourceType() = LegalizeSourceType(BRIG_OPCODE_CMP, type);
+  inst.modifier().ftz() = ftz;
   inst.compare() = cmp;
   inst.operands() = Operands(b, src0, src1);
   return inst;
@@ -913,9 +941,10 @@ InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src)
   return EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
 }
 
-InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round)
+InstCvt BrigEmitter::EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round, bool ftz /*=false*/)
 {
   InstCvt inst = EmitCvt(dst->Reg(), dst->Type(), src->Reg(), src->Type());
+  inst.modifier().ftz() = ftz;
   inst.round() = round;
   return inst;
 }

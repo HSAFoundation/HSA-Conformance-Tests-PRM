@@ -916,7 +916,9 @@ public:
 
       // read from image with sampler and compare R channel with INITIAL_VALUE
       image->EmitImageRd(imageElement, imageAddr, samplerAddr, coord);
-      be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(0), be.Immed(red.F()), BRIG_COMPARE_NE); 
+
+      // NB: FTZ should be set to 1 for compatibility with Base profile
+      be.EmitCmp(cmp->Reg(), imageElement->Type(), imageElement->Reg(0), be.Immed(red.F()), BRIG_COMPARE_NE, true); // ftz=1
       be.EmitCbr(cmp->Reg(), falseLabel);
     }
 

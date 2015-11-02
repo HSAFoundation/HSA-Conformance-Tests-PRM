@@ -59,6 +59,8 @@ protected:
   BrigType ResultType() const { return type; }
 
   bool IsValid() const {
+    if (cc->Profile() == BRIG_PROFILE_BASE && type == BRIG_TYPE_F64)
+      return false;
     if (BRIG_SEGMENT_GROUP == segment && geometry->WorkgroupSize() != geometry->GridSize())
       return false;
     if (BRIG_MEMORY_ORDER_SC_ACQUIRE == memoryOrder1)
@@ -68,7 +70,7 @@ protected:
     return true;
   }
 
-  Value GetInputValueForWI(uint64_t wi) const {
+  virtual Value GetInputValueForWI(uint64_t wi) const {
     return Value(Brig2ValueType(type), 7);
   }
 
@@ -273,12 +275,35 @@ public:
     return true;
   }
 
+  //NB
+  //NB Base profile requires FTZ, so test values for f32 and f64 should not include subnormal values
+  //NB
+
+  Value GetInputValueForWI(uint64_t wi) const override {
+    uint64_t val = 7;
+    if (cc->Profile() == BRIG_PROFILE_BASE) {  // Avoid using subnormal values
+      if (type == BRIG_TYPE_F16) val = 0x3C00; // 1.0h
+      else if (type == BRIG_TYPE_F32) val = 0x3F800000; // 1.0f
+    }
+    return Value(Brig2ValueType(type), val);
+  }
+
   Value GetInputValue2ForWI(uint64_t wi) const {
-    return Value(Brig2ValueType(type), 3);
+    uint64_t val = 3;
+    if (cc->Profile() == BRIG_PROFILE_BASE) {  // Avoid using subnormal values
+      if (type == BRIG_TYPE_F16) val = 0x4000; // 2.0h
+      else if (type == BRIG_TYPE_F32) val = 0x40000000; // 2.0f
+    }
+    return Value(Brig2ValueType(type), val);
   }
 
   Value ExpectedResult(uint64_t i) const {
-    return Value(Brig2ValueType(type), 10);
+    uint64_t val = 10;
+    if (cc->Profile() == BRIG_PROFILE_BASE) {
+      if (type == BRIG_TYPE_F16) val = 0x4200; // 3.0h
+      else if (type == BRIG_TYPE_F32) val = 0x40400000; // 3.0f
+    }
+    return Value(Brig2ValueType(type), val);
   }
 
   void Init() {
@@ -337,7 +362,11 @@ public:
 
     TypedReg result1 = be.AddTReg(type);
     be.EmitCvtOrMov(result1, result2);
-    be.EmitArith(BRIG_OPCODE_ADD, result, result->Reg(), result1->Reg());
+    if (cc->Profile() == BRIG_PROFILE_FULL) {
+      be.EmitArith(BRIG_OPCODE_ADD, result, result->Reg(), result1->Reg());
+    } else { // ftz and default rounding are required for Base profile
+      be.EmitArithBase(BRIG_OPCODE_ADD, result, result->Reg(), result1->Reg());
+    }
     return result;
   }
 

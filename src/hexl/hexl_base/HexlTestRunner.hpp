@@ -26,12 +26,17 @@ namespace hexl {
 class Context;
 
 class TestRunner {
+protected:
+  Context* context;
+
 public:
+  TestRunner(Context* context_) : context(context_) {}
   virtual ~TestRunner() { }
   virtual void RunTest(const std::string& path, Test* test) = 0;
   virtual bool RunTests(TestSet& tests) = 0;
   virtual const AllStats& Stats() const = 0;
   virtual AllStats& Stats() = 0;
+  Context* GetContext() const { return context; }
 };
 
 class TestRunnerBase : public TestRunner {
@@ -39,7 +44,6 @@ private:
   clock_t t_begin, t_end;
 
 protected:
-  Context* context;
   Context* testContext;
   AllStats stats;
 

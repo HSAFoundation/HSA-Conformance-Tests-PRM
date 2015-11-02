@@ -95,6 +95,7 @@ public:
 
   bool IsValid() const
   {
+    if (cc->Profile() == BRIG_PROFILE_BASE && varSpec->Type() == BRIG_TYPE_F64) return false;
     return Test::IsValid() && varSpec->IsValid();
   }
 };
@@ -341,6 +342,10 @@ public:
   }
 
   bool IsValid() const override {
+    if (cc->Profile() == BRIG_PROFILE_BASE) {
+      if (firstVarSpec->Type() == BRIG_TYPE_F64) return false;
+      if (secondVarSpec->Type() == BRIG_TYPE_F64) return false;
+    }
     return Test::IsValid() 
         && firstVarSpec->IsValid()
         && secondVarSpec->IsValid();
@@ -397,9 +402,9 @@ public:
   
   void Init() {
     Test::Init();
-    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, MV_DOUBLE, geometry->GridSize());
+    input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, MV_FLOAT, geometry->GridSize());
     for (uint64_t i = 0; i < GetCycles(); ++i) {
-      input->AddData(Value(MV_DOUBLE, D((double) i)));
+      input->AddData(Value(MV_FLOAT, F((float) i)));
     }
   }
 
@@ -413,7 +418,7 @@ public:
       for (uint16_t l = 0; l < GetCycles(); ++l)
       {
         //don`t change this. It`s correct test action emulate
-        (val += long(sqrt((double)l)))++;
+        (val += long(sqrt((float)l)))++;
       }
       result->push_back(Value(MV_UINT64, val));
     }
@@ -445,19 +450,20 @@ public:
     TypedReg data = input->AddDataReg();
     // Load input
     input->EmitLoadData(data, cnt);
-    TypedReg sqrt = be.AddTReg(BRIG_TYPE_F64);
+    TypedReg sqrt = be.AddTReg(BRIG_TYPE_F32);
     //mov
     be.EmitMov(old_val, clk);
     //clock
     be.EmitClock(clk);
     //sqrt d, d
-    be.EmitArith(BRIG_OPCODE_SQRT, sqrt, data->Reg());
+    be.EmitArithBase(BRIG_OPCODE_SQRT, sqrt, data->Reg());
     //cmp_ge
     TypedReg idx = be.AddTReg(BRIG_TYPE_U64);
     be.EmitCmpTo(idx, clk, old_val->Reg(), BRIG_COMPARE_GE);
     TypedReg cvt = be.AddTReg(BRIG_TYPE_U64);
     //cvt float to int
-    be.EmitCvt(cvt, sqrt, BRIG_ROUND_INTEGER_ZERO);
+    //NB: FTZ is required by Base profile
+    be.EmitCvt(cvt, sqrt, BRIG_ROUND_INTEGER_ZERO, true);
     //add
     be.EmitArith(BRIG_OPCODE_ADD, cvt, cvt, idx->Reg());
     be.EmitArith(BRIG_OPCODE_ADD, result, result, cvt->Reg());

@@ -344,7 +344,7 @@ public:
           TypedReg dimSize = be.AddTReg(BRIG_TYPE_U32);
           be.EmitMov(dimSize, be.Immed(BRIG_TYPE_U32, imageGeometry.ImageSize(k)));
           be.EmitCvt(divisor, dimSize);
-          be.EmitArith(BRIG_OPCODE_DIV, fgid, fgid, divisor->Reg());
+          be.EmitArithBase(BRIG_OPCODE_DIV, fgid, fgid, divisor->Reg());
         }
 
         be.EmitMov(result->Reg(k), fgid->Reg(), 32);

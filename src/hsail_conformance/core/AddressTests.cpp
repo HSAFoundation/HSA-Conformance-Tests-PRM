@@ -118,6 +118,7 @@ protected:
   }
 
   bool IsValid() const {
+    if (cc->Profile() == BRIG_PROFILE_BASE && varSpec->Type() == BRIG_TYPE_F64) return false;
     return Test::IsValid() &&
            varSpec->IsValid() &&
            varSpec->Segment() != BRIG_SEGMENT_FLAT &&

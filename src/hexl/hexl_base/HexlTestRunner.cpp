@@ -26,7 +26,7 @@
 namespace hexl {
 
 TestRunnerBase::TestRunnerBase(Context* context_)
-  : context(context_), testContext(0)
+  : TestRunner(context_), testContext(0)
 {
 }
 
@@ -103,6 +103,7 @@ public:
 
   void operator()(const std::string& path, TestSpec* spec) override
   {
+    spec->InitContext(runner->GetContext());
     if (spec->IsValid()) {
       runner->RunTestSpec(path, spec);
     } else {

@@ -343,6 +343,11 @@ bool EVariableSpec::IsValidVar() const
 
 bool EVariableSpec::IsValid() const
 {
+//FIXME: 'te' is not initialized at this point and we have no access to profile info.
+//       This should be fixed to avoid code duplication
+//
+//  if (te->CoreCfg()->Profile() == BRIG_PROFILE_BASE && (type == BRIG_TYPE_F64 || type == BRIG_TYPE_F64X2))
+//    return false;
   return IsValidAt(location);
 }
 
@@ -3970,6 +3975,11 @@ void EmittedTest::ExpectedResults(Values* result) const
   }
 }
 
+void EmittedTest::InitContext(hexl::Context* context)
+{
+  EmittedTestBase::InitContext(context);
+  cc = hexl::emitter::CoreConfig::Get(context); 
+}
 
 void EmittedTest::Scenario() {
   ScenarioInit();

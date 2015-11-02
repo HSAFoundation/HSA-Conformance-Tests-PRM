@@ -56,6 +56,7 @@ public:
     if (!argSpec->IsValid()) { return false; }
     if (useVectorInstructionsForFormals && !argSpec->IsArray()) { return false; }
     if (useVectorInstructionsForActuals && !argSpec->IsArray()) { return false; }
+    if (cc->Profile() == BRIG_PROFILE_BASE && argSpec->Type() == BRIG_TYPE_F64) return false;
     return true;
   }
 
@@ -685,7 +686,8 @@ public:
     Test(codeLocation_, geometry_), functionsNumber(functionsNumber_), indexType(indexType_), resultType(resultType_) {}
 
   bool IsValid() const override {
-    return Test::IsValid() 
+    return Test::IsValid()
+      && cc->Profile() == BRIG_PROFILE_FULL
       && functionsNumber > 0
       && (indexType == BRIG_TYPE_U32 || indexType == BRIG_TYPE_U64);
   }

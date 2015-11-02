@@ -171,14 +171,19 @@ public:
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg& src0, HSAIL_ASM::Operand src1, HSAIL_ASM::Operand src2);
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand o);
   HSAIL_ASM::InstBasic EmitArith(BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand op);
-  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, BrigType16_t type, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
+
+  HSAIL_ASM::InstBasic EmitArithBase(BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand op);
+  HSAIL_ASM::InstBasic EmitArithBase(BrigOpcode16_t opcode, const TypedReg& dst, const TypedReg&    src0, HSAIL_ASM::Operand op);
+  HSAIL_ASM::InstBasic EmitArithBase(BrigOpcode16_t opcode, const TypedReg& dst, HSAIL_ASM::Operand src0);
+
+  HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, BrigType16_t type, HSAIL_ASM::Operand src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp, bool ftz = false);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(HSAIL_ASM::OperandRegister b, const TypedReg& src0, const TypedReg& src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCmp EmitCmp(TypedReg dst, TypedReg src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   void EmitCmpTo(TypedReg result, TypedReg src0, HSAIL_ASM::Operand src1, BrigCompareOperation8_t cmp);
   HSAIL_ASM::InstCvt EmitCvt(HSAIL_ASM::Operand dst, BrigType16_t dstType, HSAIL_ASM::Operand src, BrigType16_t srcType);
   HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src);
-  HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round);
+  HSAIL_ASM::InstCvt EmitCvt(const TypedReg& dst, const TypedReg& src, BrigRound round, bool ftz = false);
   void EmitCvtOrMov(const TypedReg& dst, const TypedReg& src);
 
   HSAIL_ASM::InstAddr EmitLda(PointerReg dst, HSAIL_ASM::OperandAddress addr);
