@@ -44,11 +44,11 @@ Val emulateDstVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4);
 // instruction does not modify memory or if emulation failed.
 Val emulateMemVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4);
 
-// Return precision of result computation for this instruction.
-// If the value is 0, the precision is infinite.
-// If the value is between 0 and 1, the precision is relative.
-// If the value is greater than or equals to 1, the precision is specified in ULPS.
-// This is a property of target HW, not emulator!
+// Returns expected accuracy for an HSAIL instruction.
+// The values in the (0,1) range specify relative precision.
+// Values >= 1 denote precision in ULPS, calculated as (value - 0.5), i.e. 1.0 means 0.5 ULPS.
+// Values <= 0 denote absolute precision (CM_DECIMAL in lua). Specifically,
+// when value == 0, the precision is infinite (no deviation is allowed).
 double getPrecision(Inst inst);
 
 // ============================================================================

@@ -69,5 +69,25 @@ string index2str(unsigned idx, unsigned width /*=0*/)
 //=============================================================================
 //=============================================================================
 
+#ifdef LINUX_FP_PRINT_QUIRK
+/// Adds leading "0" to exp < 3 digits
+string addLeadingZero2Exponent(const string& src)
+{
+    string s(src);
+    // if found "e+" or "e-" { remember pos } else done
+    size_t pos = s.find_first_of("eE", 0);
+    if (pos == string::npos) return s;
+    ++pos;
+    if (s.find_first_of("+-", pos) != pos) return s;
+    ++pos;
+    // if found [0-9]+ at pos { find out length([0-9]+) } else done
+    if (s.find_first_of("0123456789", pos) != pos) return s;
+    const size_t exp_end = s.find_first_not_of("0123456789", pos);
+    const size_t exp_length = ((exp_end == string::npos) ? s.length() : exp_end) - pos;
+    if (exp_length < 3) s.insert(pos, "0");
+    return s;
+}
+#endif
+
 } // namespace TESTGEN
 

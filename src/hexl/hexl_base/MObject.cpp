@@ -24,79 +24,9 @@
 #include <cstring>
 #include <algorithm>
 
-#ifdef _WIN32
-#define isnan _isnan
-#endif // _WIN32
-
-///\todo (Artem) Generalize (move to libHSAIL?)
-bool is_denorm(hexl::half h)
-{
-  return false; ///\todo (Artem)
-}
-#ifdef _WIN32
-  bool is_denorm(float f)
-  {
-    switch(_fpclassf(f))
-    {
-    case _FPCLASS_ND:
-    case _FPCLASS_PD:
-      return true;
-    default:
-      return false;
-    }
-  }
-
-  bool is_denorm(double df)
-  {
-    switch (_fpclass(df))
-    {
-    case _FPCLASS_ND:
-    case _FPCLASS_PD:
-      return true;
-    default:
-      return false;
-    }
-  }
-#else //assume Linux
-  #if __cplusplus >= 201103L
-  //std::fpclassify() supported
-  bool is_denorm(float f)
-  {
-    return (std::fpclassify(f) == FP_SUBNORMAL);
-  }
-
-  bool is_denorm(double df)
-  {
-    return (std::fpclassify(df) == FP_SUBNORMAL);
-  }
-  #else
-  #error "std::fpclassify() is not guaranteed to be supported. Check your compiler for c++11 support."
-  #endif
-#endif // _WIN32
-
 namespace hexl {
-  
-template <typename T>
-T FlushDenormsToZero(T const x)
-{ /// \ todo (Artem) move to lib
-  if (is_denorm(x) || (x == 0.0)) //will return +0, even if x == -0
-    return 0.0;
-  return x;
-}
-half FlushDenormsToZero(half const x)
-{
-  if (is_denorm(x) || (x.f32() == 0.0f)) //will return +0, even if x == -0
-    return half(0.0f);
-  return x;
-}
 
-template <typename T>
-int is_inf(T const& x)
-{ /// \todo too narrow impl... Rework this
-  if (x == std::numeric_limits<T>::infinity()) return 1;
-  if (x == -std::numeric_limits<T>::infinity()) return -1;
-  return 0;
-}
+template <typename T> inline T FlushDenorms(const T& x) { return x.isSubnormal() ? T().copySign(x) : x; }
 
 const uint32_t MBuffer::default_size[3] = {1,1,1};
 
@@ -259,7 +189,7 @@ ValueData FX2(float a, float b) {
 
 ValueData HX2(half a, half b) {
   std::vector<half::bits_t> vector(2);
-  vector[0] = a.getBits(); vector[1] = b.getBits();
+  vector[0] = a.rawBits(); vector[1] = b.rawBits();
   ValueData data;
   data.u32 = *reinterpret_cast<uint32_t *>(vector.data());
   return data;
@@ -267,7 +197,7 @@ ValueData HX2(half a, half b) {
 
 ValueData HX4(half a, half b, half c, half d) {
   std::vector<half::bits_t> vector(4);
-  vector[0] = a.getBits(); vector[1] = b.getBits(); vector[2] = c.getBits(); vector[3] = d.getBits();
+  vector[0] = a.rawBits(); vector[1] = b.rawBits(); vector[2] = c.rawBits(); vector[3] = d.rawBits();
   ValueData data;
   data.u64 = *reinterpret_cast<uint64_t *>(vector.data());
   return data;
@@ -440,14 +370,6 @@ std::ostream& operator<<(std::ostream& out, const Value& v)
   return out;
 }
 
-static bool isnan_half(const half h) {
-  return HSAIL_X::FloatProp16(h.getBits()).isNan();
-}
-
-static bool isinf_half(const half h) {
-  return HSAIL_X::FloatProp16(h.getBits()).isInf();
-}
-
 static
 void PrintExtraHex(std::ostream& out, uint64_t bits /* zero-extended */, size_t sizeof_bits) {
   const std::streamsize wSave = out.width(); /// \todo get rid of width save/restore? --artem
@@ -455,34 +377,23 @@ void PrintExtraHex(std::ostream& out, uint64_t bits /* zero-extended */, size_t 
   out << std::setfill(' ') << std::dec << std::setw(wSave);
 }
 
+template<typename T>
 static
-std::ostream& PrintHalf(const half h, const half::bits_t bits, std::ostream& out, const bool extraHex){
-  if (isnan_half(h) || isinf_half(h)) {
-    out << (isnan_half(h) ? "NAN" : "INF");
+std::ostream& PrintFloating(const typename T::bits_t bits, std::ostream& out, const bool extraHex){
+  const typename T::props_t props(bits);
+  if (props.isNan() || props.isInf()) {
+    if (!props.isNegative()) out << "+"; else out << "-";
+    if (props.isInf()) {
+      out << "INF";
+    } else {
+      if (props.isSignalingNan()) out << "s"; else out << "q";
+      out << "NAN(" << props.getNanPayload() << ")";
+    }
   } else {
-    out << std::setprecision(Comparison::F16_MAX_DECIMAL_PRECISION) << (float)h;
-  }
-  if (extraHex) PrintExtraHex(out, bits, sizeof(bits));
-  return out;
-};
-
-static
-std::ostream& PrintFloat(const float f, const uint32_t bits, std::ostream& out, const bool extraHex){
-  if (isnan(f) || is_inf(f)) {
-    out << (isnan(f) ? "NAN" : "INF");
-  } else {
-    out << std::setprecision(Comparison::F32_MAX_DECIMAL_PRECISION) << f;
-  }
-  if (extraHex) PrintExtraHex(out, bits, sizeof(bits));
-  return out;
-};
-
-static
-std::ostream& PrintDouble(const double d, const uint64_t bits, std::ostream& out, const bool extraHex){
-  if (isnan(d) || is_inf(d)) {
-    out << (isnan(d) ? "NAN" : "INF");
-  } else {
-    out << std::setprecision(Comparison::F64_MAX_DECIMAL_PRECISION) << d;
+    const int precision = (sizeof(bits) == 8) ? Comparison::F64_MAX_DECIMAL_PRECISION
+                        : (sizeof(bits) == 2) ? Comparison::F16_MAX_DECIMAL_PRECISION
+                        : Comparison::F32_MAX_DECIMAL_PRECISION;
+    out << std::setprecision(precision) << T(props).floatValue();
   }
   if (extraHex) PrintExtraHex(out, bits, sizeof(bits));
   return out;
@@ -522,13 +433,13 @@ void Value::Print(std::ostream& out) const
   case MV_PLAIN_FLOAT16:
 #endif
   case MV_FLOAT16:
-    PrintHalf(H(), U16(), out, printExtraHex);
+    PrintFloating<half>(U16(), out, printExtraHex);
     break;
   case MV_FLOAT:
-    PrintFloat(F(), U32(), out, printExtraHex);
+    PrintFloating<f32_t>(U32(), out, printExtraHex);
     break;
   case MV_DOUBLE:
-    PrintDouble(D(), U64(), out, printExtraHex);
+    PrintFloating<f64_t>(U64(), out, printExtraHex);
     break;
   case MV_INT8X4: 
     out << "(" << S8X4(0) << ", " << S8X4(1) << ", " << S8X4(2) << ", " << S8X4(3) << ")";
@@ -561,9 +472,10 @@ void Value::Print(std::ostream& out) const
     out << "(" << U32X2(0) << ", " << U32X2(1) << ")";
     break;
   case MV_FLOATX2:
-    out << "(";  PrintFloat(FX2(0), U32X2(0), out, printExtraHex);
+    out << "(";
+    PrintFloating<f32_t>(U32X2(0), out, printExtraHex);
     out << ", ";
-    PrintFloat(FX2(1), U32X2(1), out, printExtraHex);
+    PrintFloating<f32_t>(U32X2(1), out, printExtraHex);
     out << ")";
     break;
   case MV_REF:
@@ -989,7 +901,7 @@ ValueType ImageValueType(unsigned geometry)
   return MV_LAST;
 }
 
-const uint32_t Comparison::F_DEFAULT_ULPS_PRECISION = 0;
+const double Comparison::F_DEFAULT_ULPS_PRECISION = 1;
 const double Comparison::F_DEFAULT_RELATIVE_PRECISION = 0.01;
 
 void Comparison::Reset(ValueType type)
@@ -997,10 +909,7 @@ void Comparison::Reset(ValueType type)
   result = false;
   checks = 0;
   failed = 0;
-  switch (method) {
-  case CM_RELATIVE:
-  case CM_DECIMAL:
-    switch (type) {
+  switch (type) {
     case MV_INT8: maxError = Value(MV_UINT8, U8(0)); break;
     case MV_INT16: maxError = Value(MV_UINT16, U16(0)); break;
     case MV_INT32: maxError = Value(MV_UINT32, U32(0)); break;
@@ -1009,9 +918,9 @@ void Comparison::Reset(ValueType type)
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
     case MV_PLAIN_FLOAT16:
 #endif
-    case MV_FLOAT16: maxError = Value(MV_DOUBLE, D((double) 0)); break;
-    case MV_FLOAT: maxError = Value(MV_DOUBLE, D((double) 0)); break;
-    case MV_DOUBLE: maxError = Value(MV_DOUBLE, D((double) 0)); break;
+    case MV_FLOAT16: //fall
+    case MV_FLOAT: //fall
+    case MV_DOUBLE: maxError = Value(MV_DOUBLE, D(0)); break;
     case MV_INT8X4: maxError = Value(MV_INT8X4, S8X4(0, 0, 0, 0)); break;
     case MV_INT8X8: maxError = Value(MV_INT8X8, S8X8(0, 0, 0, 0, 0, 0, 0, 0)); break;
     case MV_UINT8X4: maxError = Value(MV_UINT8X4, U8X4(0, 0, 0, 0)); break;
@@ -1023,58 +932,30 @@ void Comparison::Reset(ValueType type)
     case MV_INT32X2: maxError = Value(MV_INT32X2, S32X2(0, 0)); break;
     case MV_UINT32X2: maxError = Value(MV_UINT32X2, U32X2(0, 0)); break;
     case MV_FLOATX2: maxError = Value(MV_FLOATX2, FX2(0, 0)); break;
-    case MV_FLOAT16X2: maxError = Value(MV_FLOAT16X2, HX2(half(0), half(0))); break;
-    case MV_FLOAT16X4: maxError = Value(MV_FLOAT16X4, HX4(half(0), half(0), half(0), half(0))); break;
+    case MV_FLOAT16X2: maxError = Value(MV_FLOAT16X2, HX2(half(), half())); break;
+    case MV_FLOAT16X4: maxError = Value(MV_FLOAT16X4, HX4(half(), half(), half(), half())); break;
     default: maxError = Value(type, U64((uint64_t) 0)); break;
-    }
-    break;
-  case CM_IMAGE:
-  case CM_ULPS:
-    switch (type) {
-    case MV_FLOAT: maxError = Value(MV_UINT32, U32(0)); break;
-    case MV_DOUBLE: maxError = Value(MV_UINT64, U64(0)); break;
-    case MV_FLOATX2: maxError = Value(MV_UINT32X2, U32X2(0, 0)); break;
-#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
-    case MV_PLAIN_FLOAT16:
-#endif
-    case MV_FLOAT16: maxError = Value(MV_UINT16, U16(0)); break;
-    case MV_FLOAT16X2: maxError = Value(MV_UINT16X2, U16X2(0, 0)); break;
-    case MV_FLOAT16X4: maxError = Value(MV_UINT16X4, U16X4(0, 0, 0, 0)); break;
-    default: assert(false);
-    }
-    break;
-  default: assert(false);
   }
   maxErrorIndex = 0;
-  SetDefaultPrecision(type);
+  if (precision.U64() == uint64_t(-1)) {
+    SetDefaultPrecision(type);
+  }
 }
 
 void Comparison::SetDefaultPrecision(ValueType type)
 {
-  if (precision.U64() != 0) return; // keep value if modified already
   switch (method) {
+  case CM_IMAGE:
   case CM_DECIMAL:
     switch (type) {
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
     case MV_PLAIN_FLOAT16:
 #endif
-    case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
+    case MV_FLOAT16:
+    case MV_FLOAT16X2: case MV_FLOAT16X4:
       precision = Value(MV_DOUBLE, D(pow((double) 10, -F16_DEFAULT_DECIMAL_PRECISION))); break;
-    case MV_FLOAT: case MV_FLOATX2:
-      precision = Value(MV_DOUBLE, D(pow((double) 10, -F32_DEFAULT_DECIMAL_PRECISION))); break;
-    case MV_DOUBLE:
-      precision = Value(MV_DOUBLE, D(pow((double) 10, -F64_DEFAULT_DECIMAL_PRECISION))); break;
-    default: break;
-    }
-    break;
-  case CM_IMAGE:
-    switch (type) {
-#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
-    case MV_PLAIN_FLOAT16:
-#endif
-    case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
-      precision = Value(MV_DOUBLE, D(pow((double) 10, -F16_DEFAULT_DECIMAL_PRECISION))); break;
-    case MV_FLOAT: case MV_FLOATX2:
+    case MV_FLOAT:
+    case MV_FLOATX2:
       precision = Value(MV_DOUBLE, D(pow((double) 10, -F32_DEFAULT_DECIMAL_PRECISION))); break;
     case MV_DOUBLE:
       precision = Value(MV_DOUBLE, D(pow((double) 10, -F64_DEFAULT_DECIMAL_PRECISION))); break;
@@ -1086,12 +967,10 @@ void Comparison::SetDefaultPrecision(ValueType type)
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
     case MV_PLAIN_FLOAT16:
 #endif
-    case MV_FLOAT16: case MV_FLOAT16X2: case MV_FLOAT16X4:
-      precision = Value(MV_UINT16, U16(F_DEFAULT_ULPS_PRECISION)); break;
-    case MV_FLOAT: case MV_FLOATX2:
-      precision = Value(MV_UINT32, U32(F_DEFAULT_ULPS_PRECISION)); break;
-    case MV_DOUBLE:
-      precision = Value(MV_UINT64, U64(F_DEFAULT_ULPS_PRECISION)); break;
+    case MV_FLOAT16: case MV_FLOAT: case MV_DOUBLE:
+    case MV_FLOAT16X2: case MV_FLOAT16X4:
+    case MV_FLOATX2:
+      precision = Value(MV_DOUBLE, D(F_DEFAULT_ULPS_PRECISION)); break;
     default: break;
     }
     break;
@@ -1112,83 +991,123 @@ void Comparison::SetDefaultPrecision(ValueType type)
   }
 }
 
+static
+Value AbsDiffUlps(const Value& v1, const Value& v2)
+{
+  assert(v1.Type() == v2.Type() && "AbsDiffUlps: types do not match");
+  if (v1.Type() != v2.Type()) {
+    return Value(MV_DOUBLE, D(0xffff));
+  }
+  switch(v1.Type()) {
+  case MV_DOUBLE:
+    if (v1.D() == 0.0 && v2.D() == 0.0 && (v1.U64() - v2.U64() != 0)) {
+      return Value(MV_DOUBLE, D(1)); // sign of 0 should be the same
+    }
+    if (v1.U64() > v2.U64()) {
+      return Value(MV_DOUBLE, D(static_cast<double>(v1.U64() - v2.U64())));
+    }
+    return Value(MV_DOUBLE, D(static_cast<double>(v2.U64() - v1.U64())));
+  case MV_FLOAT:
+    if (v1.F() == 0.0f && v2.F() == 0.0f && (v1.U32() - v2.U32() != 0)) {
+      return Value(MV_DOUBLE, D(1));
+    }
+    if (v1.U32() > v2.U32()) {
+      return Value(MV_DOUBLE, D(v1.U32() - v2.U32()));
+    }
+    return Value(MV_DOUBLE, D(v2.U32() - v1.U32()));
+#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
+  case MV_PLAIN_FLOAT16:
+#endif
+  case MV_FLOAT16:
+    if (v1.H().isZero() && v2.H().isZero() && (v1.U16() - v2.U16() != 0)) {
+      return Value(MV_DOUBLE, D(1));
+    }
+    if (v1.U16() > v2.U16()) {
+      return Value(MV_DOUBLE, D(v1.U16() - v2.U16()));
+    }
+    return Value(MV_DOUBLE, D(v2.U16() - v1.U16()));
+  default:
+    assert(0 && "AbsDiffUlps: wrong type");
+    return Value(MV_DOUBLE, D(0xffff));
+  }
+}
+
 bool Comparison::CompareHalf(const Value& v1 /*expected*/, const Value& v2 /*actual*/) {
   bool res;
   bool compared = false;
-  if (isnan_half(v1.H()) || isnan_half(v2.H())) {
-    res = isnan_half(v1.H()) && isnan_half(v2.H());
+  const half f1 = v1.H();
+  const half f2 = v2.H();
+  if (f1.isNan() || f2.isNan()) {
+    /// \todo Check NAN payload and type [see HSAIL spec]
+    /// Sign of NANs is generally ignored, except floating-point bit ops [IEEE-754].
+    /// Let's use absolute compare mode for bit ops.
+    res = f1.isNan() && f2.isNan() && (method != CM_DECIMAL || f1.isNegative() == f2.isNegative());
     compared = true;
-  } else if (isinf_half(v1.H()) || isinf_half(v2.H())) {
-    res = isinf_half(v1.H()) == isinf_half(v2.H());
-    compared = true;
-  } else if (v1.H() == half(0) && v2.H() == half(0)) { // ignore sign of 0
-    res = true;
+  } else if (f1.isInf() || f2.isInf()) {
+    res = (f1.rawBits() == f2.rawBits()); // infinities must be identical
     compared = true;
   }
-  if ( minLimit > (float)v2.H() || (float)v2.H() > maxLimit ) {
+  if ( minLimit > f2.floatValue() || f2.floatValue() > maxLimit ) {
     res = false;
     compared = true;
   }
   if (compared) {
     switch (method) {
-    case CM_ULPS:
-      error = Value(MV_UINT16, U16(res ? 0 : 1));
-      return res;
-    case CM_DECIMAL:
+    case CM_ULPS: // fall
+    case CM_DECIMAL: // fall
     case CM_RELATIVE:
-    case CM_IMAGE:
       error = Value(MV_DOUBLE, D(res ? 0.0 : 1.0));
       return res;
     default:
-      assert(!"Unsupported compare method in CompareValues"); return false;
+      assert(!"Unsupported compare method"); return false;
     }
   }
   switch (method) {
-  case CM_DECIMAL: {
-    error = Value(MV_DOUBLE, D(std::fabs((double) v1.H() - (double) v2.H())));
+  case CM_DECIMAL:
+    error = Value(MV_DOUBLE, D(std::fabs(double(f1.floatValue()) - double(f2.floatValue()))));
     if(flushDenorms){
-      double error_ftz = std::fabs( FlushDenormsToZero((double)v1.H()) - FlushDenormsToZero((double) v2.H()));
+      const double v1_ftz = FlushDenorms(f1).floatValue();
+      const double v2_ftz = FlushDenorms(f2).floatValue();
+      const double error_ftz = std::fabs(v1_ftz - v2_ftz);
       if (error_ftz < error.D())
         error = Value(MV_DOUBLE, D(error_ftz));
     }
-    return error.D() < precision.D();
-  }
-  case CM_ULPS: {
-    error = Value(MV_UINT16, U16((std::max)(v1.U16(), v2.U16()) - (std::min)(v1.U16(), v2.U16())));
+    return error.D() <= precision.D();
+  case CM_ULPS:
+    error = AbsDiffUlps(v1, v2);
     if(flushDenorms){
-      Value v1_ftz = Value(MV_FLOAT16, H(FlushDenormsToZero(v1.H())));
-      Value v2_ftz = Value(MV_FLOAT16, H(FlushDenormsToZero(v2.H())));
-      uint16_t error_ftz = std::max(v1_ftz.U16(), v2_ftz.U16()) - std::min(v1_ftz.U16(), v2_ftz.U16());
-      if (error_ftz < error.U16())
-        error = Value(MV_UINT16, U16(error_ftz));
+      Value v1_ftz = Value(MV_FLOAT16, H(FlushDenorms(f1)));
+      Value v2_ftz = Value(MV_FLOAT16, H(FlushDenorms(f2)));
+      Value error_ftz = AbsDiffUlps(v1_ftz, v2_ftz);
+      if (error_ftz.D() < error.D()) error = error_ftz;
     }
-    return error.U16() <= precision.U16();
-  }
+    return error.D() <= precision.D();
   case CM_RELATIVE: {
     double eps = precision.D();
-    if (v1.H() == half(0)) {
-      error = Value(MV_DOUBLE, D((double) v2.H()));
+    if (f1 == half(0.0f)) {
+      error = Value(MV_DOUBLE, D( std::fabs(2.0 * double(f2.floatValue())) ));
     } else {
-      error = Value(MV_DOUBLE, D(std::fabs((double) v1.H() - (double) v2.H()) / (double) v1.H()));
+      error = Value(MV_DOUBLE, D( std::fabs( (double(f1.floatValue()) - double(f2.floatValue())) / double(f1.floatValue())) ));
     }
     if (flushDenorms){
-      double v1_ftz = FlushDenormsToZero(v1.H());
-      double v2_ftz = FlushDenormsToZero(v2.H());
+      const double v1_ftz = FlushDenorms(f1).floatValue();
+      const double v2_ftz = FlushDenorms(f2).floatValue();
       double error_ftz;
       if (v1_ftz == 0.0) {
-        error_ftz = v2_ftz;
+        error_ftz = std::fabs(2.0 * v2_ftz);
       } else {
-        error_ftz = std::fabs(v1_ftz - v2_ftz) / v1_ftz;
+        error_ftz = std::fabs((v1_ftz - v2_ftz) / v1_ftz);
       }
       if (error_ftz < error.D())
         error = Value(MV_DOUBLE, D(error_ftz));
     }
-    return error.D() < eps;
-  }    
+    return error.D() <= eps;
+  }
   default:
-    assert(!"Unsupported compare method in absdifference"); return false;
+    assert(!"Unsupported compare method"); return false;
   }
 }
+
 
 float Comparison::ConvertToStandard(float f) const
 {
@@ -1213,157 +1132,156 @@ float Comparison::ConvertToStandard(float f) const
 bool Comparison::CompareFloat(const Value& v1 /*expected*/, const Value& v2 /*actual*/) {
   bool res;
   bool compared = false;
-  if (isnan(v1.F()) || isnan(v2.F())) {
-    res = isnan(v1.F()) && isnan(v2.F());
+  const f32_t f1 = f32_t::fromRawBits(v1.U32());
+  const f32_t f2 = f32_t::fromRawBits(v2.U32());
+  if (f1.isNan() || f2.isNan()) {
+    /// \todo Check NAN payload and type [see HSAIL spec]
+    /// Sign of NANs is generally ignored, except floating-point bit ops [IEEE-754].
+    /// Let's use absolute compare mode for bit ops.
+    res = f1.isNan() && f2.isNan() && (method != CM_DECIMAL || f1.isNegative() == f2.isNegative());
     compared = true;
-  } else if (is_inf(v1.F()) || is_inf(v2.F())) {
-    res = is_inf(v1.F()) == is_inf(v2.F());
-    compared = true;
-  } else if (v1.F() == 0.0f && v2.F() == 0.0f) { // ignore sign of 0
-    res = true;
+  } else if (f1.isInf() || f2.isInf()) {
+    res = (f1.rawBits() == f2.rawBits()); // infinities must be identical
     compared = true;
   }
-  if ( minLimit > v2.F() || v2.F() > maxLimit ) {
+  if ( minLimit > f2.floatValue() || f2.floatValue() > maxLimit ) {
     res = false;
     compared = true;
   }
   if (compared) {
     switch (method) {
-    case CM_ULPS:
-      error = Value(MV_UINT32, U32(res ? 0 : 1));
-      return res;
-    case CM_DECIMAL:
+    case CM_ULPS: // fall
+    case CM_DECIMAL: //fall
     case CM_RELATIVE:
     case CM_IMAGE:
-      error = Value(MV_DOUBLE, D(res ? 0.0f : 1.0f));
+      error = Value(MV_DOUBLE, D(res ? 0.0 : 1.0));
       return res;
     default:
-      assert(!"Unsupported compare method in CompareValues"); return false;
+      assert(!"Unsupported compare method"); return false;
     }
   }
   switch (method) {
-  case CM_DECIMAL: {
-    error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F())));
+  case CM_DECIMAL:
+    error = Value(MV_DOUBLE, D(std::fabs(double(f1.floatValue()) - double(f2.floatValue()))));
     if(flushDenorms){
-      double error_ftz = std::fabs( FlushDenormsToZero((double)v1.F()) - FlushDenormsToZero((double) v2.F()));
+      const double v1_ftz = FlushDenorms(f1).floatValue();
+      const double v2_ftz = FlushDenorms(f2).floatValue();
+      const double error_ftz = std::fabs(v1_ftz - v2_ftz);
       if (error_ftz < error.D())
         error = Value(MV_DOUBLE, D(error_ftz));
     }
+    return error.D() <= precision.D();
+  case CM_IMAGE:
+    error = Value(MV_DOUBLE, D(std::fabs((double)ConvertToStandard(f1.floatValue()) - (double)ConvertToStandard(f2.floatValue()))));
     return error.D() < precision.D();
-  }
-  case CM_IMAGE: {
-    error = Value(MV_DOUBLE, D(std::fabs((double) ConvertToStandard(v1.F()) - (double) ConvertToStandard(v2.F()))));
-    return error.D() < precision.D();
-  }
-  case CM_ULPS: {
-    error = Value(MV_UINT32, U32((std::max)(v1.U32(), v2.U32()) - (std::min)(v1.U32(), v2.U32())));
+  case CM_ULPS:
+    error = AbsDiffUlps(v1, v2);
     if(flushDenorms){
-      Value v1_ftz = Value(FlushDenormsToZero(v1.F()));
-      Value v2_ftz = Value(FlushDenormsToZero(v2.F()));
-      uint32_t error_ftz = std::max(v1_ftz.U32(), v2_ftz.U32()) - std::min(v1_ftz.U32(), v2_ftz.U32());
-      if (error_ftz < error.U32())
-        error = Value(MV_UINT32, U32(error_ftz));
+      Value v1_ftz = Value(MV_FLOAT, F(FlushDenorms(f1).floatValue()));
+      Value v2_ftz = Value(MV_FLOAT, F(FlushDenorms(f2).floatValue()));
+      Value error_ftz = AbsDiffUlps(v1_ftz, v2_ftz);
+      if (error_ftz.D() < error.D()) error = error_ftz;
     }
-    return error.U32() <= precision.U32();
-  }
+    return error.D() <= precision.D();
   case CM_RELATIVE: {
     double eps = precision.D();
-    if (v1.F() == 0.0f) {
-      error = Value(MV_DOUBLE, D((double) v2.F()));
+    if (f1 == f32_t(0.0f)) {
+      error = Value(MV_DOUBLE, D( std::fabs(2.0 * double(f2.floatValue())) ));
     } else {
-      error = Value(MV_DOUBLE, D(std::fabs((double) v1.F() - (double) v2.F()) / (double) v1.F()));
+      error = Value(MV_DOUBLE, D( std::fabs( (double(f1.floatValue()) - double(f2.floatValue())) / double(f1.floatValue()) ) ));
     }
     if (flushDenorms){
-      double v1_ftz = FlushDenormsToZero(v1.F());
-      double v2_ftz = FlushDenormsToZero(v2.F());
+      const double v1_ftz = FlushDenorms(f1).floatValue();
+      const double v2_ftz = FlushDenorms(f2).floatValue();
       double error_ftz;
       if (v1_ftz == 0.0) {
-        error_ftz = v2_ftz;
+        error_ftz = std::fabs(2.0 * v2_ftz);
       } else {
-        error_ftz = std::fabs(v1_ftz - v2_ftz) / v1_ftz;
+        error_ftz = std::fabs((v1_ftz - v2_ftz) / v1_ftz);
       }
       if (error_ftz < error.D())
         error = Value(MV_DOUBLE, D(error_ftz));
     }
-    return error.D() < eps;
-  }    
+    return error.D() <= eps;
+  }
   default:
-    assert(!"Unsupported compare method in absdifference"); return false;
+    assert(!"Unsupported compare method"); return false;
   }
 }
 
 bool Comparison::CompareDouble(const Value& v1 /*expected*/, const Value& v2 /*actual*/) {
   bool res;
   bool compared = false;
-  if (isnan(v1.D()) || isnan(v2.D())) {
-    res = isnan(v1.D()) && isnan(v2.D());
+  const f64_t f1 = f64_t::fromRawBits(v1.U64());
+  const f64_t f2 = f64_t::fromRawBits(v2.U64());
+  if (f1.isNan() || f2.isNan()) {
+    /// \todo Check NAN payload and type [see HSAIL spec]
+    /// Sign of NANs is generally ignored, except floating-point bit ops [IEEE-754].
+    /// Let's use absolute compare mode for bit ops.
+    res = f1.isNan() && f2.isNan() && (method != CM_DECIMAL || f1.isNegative() == f2.isNegative());
     compared = true;
-  } else if (is_inf(v1.D()) || is_inf(v2.D())) {
-    res = is_inf(v1.D()) == is_inf(v2.D());
-    compared = true;
-  } else if (v1.D() == 0.0 && v2.D() == 0.0) { // ignore sign of 0
-    res = true;
+  } else if (f1.isInf() || f2.isInf()) {
+    res = (f1.rawBits() == f2.rawBits()); // infinities must be identical
     compared = true;
   }
-  if ( minLimit > v2.D() || v2.D() > maxLimit ) {
+  if ( minLimit > f2.floatValue() || f2.floatValue() > maxLimit ) {
     res = false;
     compared = true;
   }
   if (compared) {
     switch (method) {
-    case CM_ULPS:
-      error = Value(MV_UINT64, U64(res ? 0 : 1));
-      return res;
-    case CM_DECIMAL:
+    case CM_ULPS: //fall
+    case CM_DECIMAL: //fall
     case CM_RELATIVE:
       error = Value(MV_DOUBLE, D(res ? 0.0 : 1.0));
       return res;
     default:
-      assert(!"Unsupported compare method in CompareValues"); return false;
+      assert(!"Unsupported compare method"); return false;
     }
   }
   switch (method) {
   case CM_DECIMAL:
-    error = Value(MV_DOUBLE, D(std::fabs(v1.D() - v2.D())));
+    error = Value(MV_DOUBLE, D(std::fabs(f1.floatValue() - f2.floatValue())));
     if(flushDenorms){
-      double error_ftz = std::fabs( FlushDenormsToZero((double)v1.D()) - FlushDenormsToZero((double) v2.D()));
+      const double v1_ftz = FlushDenorms(f1).floatValue();
+      const double v2_ftz = FlushDenorms(f2).floatValue();
+      const double error_ftz = std::fabs(v1_ftz - v2_ftz);
       if (error_ftz < error.D())
         error = Value(MV_DOUBLE, D(error_ftz));
     }
-    return error.D() < precision.D();
+    return error.D() <= precision.D();
   case CM_ULPS:
-    error = Value(MV_UINT64, U64((std::max)(v1.U64(), v2.U64()) - (std::min)(v1.U64(), v2.U64())));
+    error = AbsDiffUlps(v1, v2);
     if(flushDenorms){
-      Value v1_ftz = Value(MV_DOUBLE, D(FlushDenormsToZero(v1.D())));
-      Value v2_ftz = Value(MV_DOUBLE, D(FlushDenormsToZero(v2.D())));
-      uint64_t error_ftz = std::max(v1_ftz.U64(), v2_ftz.U64()) - std::min(v1_ftz.U64(), v2_ftz.U64());
-      if (error_ftz < error.U64())
-        error = Value(MV_UINT64, U64(error_ftz));
+      Value v1_ftz = Value(MV_DOUBLE, D(FlushDenorms(f1).floatValue()));
+      Value v2_ftz = Value(MV_DOUBLE, D(FlushDenorms(f2).floatValue()));
+      Value error_ftz = AbsDiffUlps(v1_ftz, v2_ftz);
+      if (error_ftz.D() < error.D()) error = error_ftz;
     }
-    return error.U64() <= precision.U64();
+    return error.D() <= precision.D();
   case CM_RELATIVE: {
     double eps = precision.D();
-    if (v1.D() == 0.0) {
-      error = Value(MV_DOUBLE, D(v2.D()));
+    if (f1 == f64_t(0.0)) {
+      error = Value(MV_DOUBLE, D( std::fabs(2.0 * f2.floatValue()) ));
     } else {
-      error = Value(MV_DOUBLE, D(std::fabs(v1.D() - v2.D()) / v1.D()));
+      error = Value(MV_DOUBLE, D( std::fabs( (f1.floatValue() - f2.floatValue()) / f1.floatValue() ) ));
     }
     if (flushDenorms){
-      double v1_ftz = FlushDenormsToZero(v1.D());
-      double v2_ftz = FlushDenormsToZero(v2.D());
+      const double v1_ftz = FlushDenorms(f1).floatValue();
+      const double v2_ftz = FlushDenorms(f2).floatValue();
       double error_ftz;
       if (v1_ftz == 0.0) {
-        error_ftz = v2_ftz;
+        error_ftz = std::fabs(2.0 * v2_ftz);
       } else {
-        error_ftz = std::fabs(v1_ftz - v2_ftz) / v1_ftz;
+        error_ftz = std::fabs((v1_ftz - v2_ftz) / v1_ftz);
       }
       if (error_ftz < error.D())
         error = Value(MV_DOUBLE, D(error_ftz));
     }
-    return error.D() < eps;
+    return error.D() <= eps;
   }
   default:
-    assert(!"Unsupported compare method in absdifference"); return false;
+    assert(!"Unsupported compare method"); return false;
   }
 }
 
@@ -1575,7 +1493,7 @@ void Comparison::PrintLong(std::ostream& out)
 
 void Comparison::PrintDesc(std::ostream& out) const
 {
-  out << GetMethodDescription() << " precision " << precision; 
+  out << GetMethodDescription() << " precision " << precision;
 }
 
 void Comparison::SetFlushDenorms(bool flush)
@@ -1614,8 +1532,8 @@ unsigned str2u(const std::string& s)
 /// Right now only affects comparison of floating types.
 ///
 //  Comparision method (see enum ComparisionMethod):
-//    ulps=X  - set CM_ULPS comparision method with X precision (X is integer)
-//    image=X - set CM_IMAGE comparsion method with X percision (X is double)
+//    ulps=X  - set CM_ULPS comparision method with X precision (X is double)
+//    image=X - set CM_IMAGE comparsion method with X precision (X is double)
 //    absf=X - set CM_DECIMAL comparision method with X precision (X is double)
 //    relf=X - set CM_RELATIVE comparision method with X precision (X is double)
 //    legacy_default - reset method and precision to MObject's defaults.
@@ -1627,7 +1545,7 @@ unsigned str2u(const std::string& s)
 //    "ulps=0,maxf=52.8,flushDenorms"
 //    "absf=0.05,maxf=1.0"
 //    ""
-//    "ulps=0"
+//    "ulps=3.5"
 //
 Comparison* NewComparison(const std::string& c, ValueType type)
 {
@@ -1642,34 +1560,14 @@ Comparison* NewComparison(const std::string& c, ValueType type)
   const std::string absOption="absf=";
   size_t idx;
   float fLimit;
-  Value fPrecision;
-
-  // preset to default "ulps=0", then overwrite as per option(s) found
+  // preset to default "ulps=0.5", then overwrite as per option(s) found
   ComparisonMethod fMethod(CM_ULPS);
-  {
-    uint64_t ulps = 0;
-    idx = options.find(ulpOption);
-    if(idx != std::string::npos) {
-      ulps = std::stoul(options.substr(idx + ulpOption.length()));
-    }
-    switch (type) {
-#ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
-    case MV_PLAIN_FLOAT16: // fall
-#endif
-    case MV_FLOAT16:
-      assert(ulps == static_cast<uint16_t>(ulps));
-      fPrecision = Value(MV_UINT16, U16(static_cast<uint16_t>(ulps)));
-      break;
-    case MV_FLOAT:
-      assert(ulps == static_cast<uint32_t>(ulps));
-      fPrecision = Value(MV_UINT32, U32(static_cast<uint32_t>(ulps)));
-      break;
-    case MV_DOUBLE:
-      fPrecision = Value(MV_UINT64, U64(ulps));
-      break;
-    default:
-      break;
-    }
+  Value fPrecision(MV_DOUBLE, D(0.5));
+
+  idx = options.find(ulpOption);
+  if(idx != std::string::npos) {
+    double maxError = std::stod(options.substr(idx + ulpOption.length()));
+    fPrecision = Value(MV_DOUBLE, D(maxError));
   }
 
   idx = options.find(absOption);
@@ -1764,7 +1662,7 @@ void MemorySetup::Deserialize(std::istream& in) {
   }
 }
 
-}
+} // namespace hexl
 
 /// \todo copy-paste from HSAILTestGenEmulatorTypes
 namespace HSAIL_X { // experimental
@@ -1809,143 +1707,421 @@ bool uint128::operator == (const uint128& x) const {
 //==============================================================================
 //==============================================================================
 //==============================================================================
-// Implementation of F16 type
 
-f16_t::f16_t(double x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
-{ 
-    const FloatProp64 input(asBits(x));
+template<typename T> static T explicit_static_cast(uint64_t); // undefined - should not be called
+template<> inline uint64_t explicit_static_cast<uint64_t>(uint64_t x) { return x; }
+template<> inline uint32_t explicit_static_cast<uint32_t>(uint64_t x) { return static_cast<uint32_t>(x); }
+template<> inline uint16_t explicit_static_cast<uint16_t>(uint64_t x) { return static_cast<uint16_t>(x); }
 
-    if (!input.isRegular())
-    {
-        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
-    }
-    else if (input.isSubnormal()) // f64 subnormal should be mapped to (f16)0
-    {
-        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
-        bits = f16.getBits();
-    }
-    else
-    {
-        int64_t exponent = input.decodeExponent();
-        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
+/// \brief Represents numeric value splitted to sign/exponent/mantissa.
+///
+/// Able to hold any numeric value of any supported type (integer or floating-point)
+/// Mantissa is stored with hidden bit, if it is set. Bit 0 is LSB of mantissa.
+/// Exponent is stored in decoded (unbiased) format.
+///
+/// Manupulations with mantissa, exponent and sign are obviouous,
+/// so these members are exposed to outsize world.
+template <typename T>
+struct DecodedFpValueImpl {
+    typedef T mant_t;
+    mant_t mant; // with hidden bit
+    int64_t exp; // powers of 2
+    bool is_negative;
+    int mant_width; // not counting hidden bit
+    enum AddOmicronKind {
+        ADD_OMICRON_NEGATIVE,
+        ADD_OMICRON_ZERO,
+        ADD_OMICRON_POSITIVE
+    } add_omicron;
 
-        if (!FloatProp16::isValidExponent(exponent))
-        {
-            if (exponent > 0)
-            {
-                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
-            }
-            else
-            {
-                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
-                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
-                bits = f16.getBits();
-            }
+    template<typename BT, int mantissa_width>
+    DecodedFpValueImpl(const Ieee754Props<BT,mantissa_width>& props)
+    : mant(0), exp(0), is_negative(props.isNegative()), mant_width(mantissa_width), add_omicron(ADD_OMICRON_ZERO)
+    {
+        if (props.isInf() || props.isNan()) {
+          assert(!"Input number must represent a numeric value here");
+          return;
         }
-        else
-        {
-            FloatProp16 f16(input.isPositive(), mantissa, exponent);
-            bits = f16.getBits();
+        mant = mant_t(props.getMantissa());
+        if (!props.isSubnormal() && !props.isZero()) mant |= Ieee754Props<BT,mantissa_width>::MANT_HIDDEN_MSB_MASK;
+        exp = props.getExponent();
+    }
+    DecodedFpValueImpl() : mant(0), exp(0), is_negative(false), mant_width(0), add_omicron(ADD_OMICRON_ZERO) {}
+private:
+    template<typename TT> DecodedFpValueImpl(TT); // = delete;
+public:
+    /// \todo use enable_if<is_signed<T>>::value* p = NULL and is_integral<> to extend to other integral types
+    explicit DecodedFpValueImpl(uint64_t val)
+    : mant(val)
+    , exp((int64_t)sizeof(val)*8-1) //
+    , is_negative(false) // unsigned
+    , mant_width((int)sizeof(val)*8-1) // hidden bit is MSB of input integer
+    , add_omicron(ADD_OMICRON_ZERO)
+    {}
+    explicit DecodedFpValueImpl(uint32_t val)
+    : mant(val)
+    , exp((int64_t)sizeof(val)*8-1) //
+    , is_negative(false) // unsigned
+    , mant_width((int)sizeof(val)*8-1) // hidden bit is MSB of input integer
+    , add_omicron(ADD_OMICRON_ZERO)
+    {}
+    explicit DecodedFpValueImpl(int64_t val)
+    : mant(val < 0
+      ? ((uint64_t)val == 0x8000000000000000ULL // Negation of this value yields undefined behavior.
+        // Just keeping it as is gives valid result. Note that literal is used instead of INT_MIN.
+        // The reason is that INT_MIN can be (-INT_MAX) on some systems.
+        // Assumption: 2's complement arithmetic.
+        ? val
+        : -val)
+      : val)
+    , exp((int64_t)sizeof(val)*8-1) //
+    , is_negative(val < 0)
+    , mant_width((int)sizeof(val)*8-1) // hidden bit is MSB of input integer
+    , add_omicron(ADD_OMICRON_ZERO)
+    {}
+    explicit DecodedFpValueImpl(int32_t val)
+    : mant(val < 0 ? -int64_t(val) : val)
+    , exp((int64_t)sizeof(val)*8-1) //
+    , is_negative(val < 0)
+    , mant_width((int)sizeof(val)*8-1) // hidden bit is MSB of input integer
+    , add_omicron(ADD_OMICRON_ZERO)
+    {}
+
+public:
+    template <typename P> // construct Ieee754Props
+    P toProps() const
+    {
+        typedef typename P::Type P_Type; // shortcut
+        assert((mant & ~(P::MANT_HIDDEN_MSB_MASK | P::MANT_MASK)) == 0);
+        assert(mant_width == P::MANT_WIDTH);
+        if (exp > P::DECODED_EXP_NORM_MAX) { // INF or NAN
+            // By design, DecodedFpValue is unable to represent NANs
+            return is_negative ? P::getNegativeInf() : P::getPositiveInf();
         }
+        assert(exp < P::DECODED_EXP_NORM_MIN ? exp == P::DECODED_EXP_SUBNORMAL_OR_ZERO : true);
+        assert(((mant & P::MANT_HIDDEN_MSB_MASK) == 0) ? exp == P::DECODED_EXP_SUBNORMAL_OR_ZERO : true);
+        const P_Type exp_bits = (P_Type)(exp + P::EXP_BIAS) << P::MANT_WIDTH;
+        assert((exp_bits & ~P::EXP_MASK) == 0);
+
+        const P_Type bits =
+            (!is_negative ? 0 : P::SIGN_MASK)
+            | (exp_bits & P::EXP_MASK)
+            | explicit_static_cast<P_Type>(mant & P::MANT_MASK); // throw away hidden bit
+        return P(bits);
+    }
+};
+
+typedef DecodedFpValueImpl<uint64_t> DecodedFpValue; // for conversions with rounding
+
+//=============================================================================
+//=============================================================================
+//=============================================================================
+
+/// Transforms mantissa of DecodedFpValue to the Ieee754Props<> format and normalizes it.
+/// Adjusts exponent if needed. Transformation of mantissa includes shrinking/widening,
+/// IEEE754-compliant rounding and normalization. Adjusting of exponent may be required
+/// due to rounding and normalization. Mantissa as always normalized at the end.
+/// \todo Exponent range is not guaranteed to be valid at the end.
+template<typename T, typename T2>
+class FpProcessorImpl
+{
+    typedef DecodedFpValueImpl<T2> decoded_t;
+    typedef T2 mant_t;
+
+    decoded_t &v;
+    int shrMant;
+    enum TieKind {
+        TIE_UNKNOWN = 0,
+        TIE_LIST_BEGIN_,
+        TIE_IS_ZERO = TIE_LIST_BEGIN_, // exact match, no rounding required, just truncate
+        TIE_LT_HALF, // tie bits ~= 0bb..bb, where at least one b == 1
+        TIE_IS_HALF, // tie bits are exactly 100..00
+        TIE_GT_HALF, // tie bits ~= 1bb..bb, where at least one b == 1
+        TIE_LT_ZERO, // for add/sub
+        TIE_LIST_END_
+    } tieKind;
+    // For manipulations with DecodedFpValueImpl we use MANT_ bitfields/masks from Ieee754Props<>.
+    static_assert((T::MANT_MASK & 0x1), "LSB of mantissa in Ieee754Props<> must be is at bit 0");
+public:
+    explicit FpProcessorImpl(decoded_t &v_)
+    : v(v_), shrMant(v.mant_width - T::MANT_WIDTH), tieKind(TIE_UNKNOWN)
+    { assert(v.mant_width > 0); }
+private:
+    void IncrementMantAdjustExp() const;
+    void DecrementMantAdjustExp() const;
+    void CalculateTieKind();
+    void RoundMantAdjustExp(unsigned rounding);
+    void NormalizeMantAdjustExp();
+public:
+    void NormalizeInputMantAdjustExp();
+    void NormalizeRound(unsigned rounding)
+    {
+        NormalizeInputMantAdjustExp();
+        CalculateTieKind();
+        RoundMantAdjustExp(rounding);
+        NormalizeMantAdjustExp();
+    }
+    int getShrMant() const { return shrMant; }
+};
+
+
+template<typename T, typename T2>
+void FpProcessorImpl<T,T2>::IncrementMantAdjustExp() const // does not care about exponent limits.
+{
+    assert(v.mant <= T::MANT_HIDDEN_MSB_MASK + T::MANT_MASK);
+    ++v.mant;
+    if (v.mant > T::MANT_HIDDEN_MSB_MASK + T::MANT_MASK) { // overflow 1.111...111 -> 10.000...000
+        v.mant >>= 1; // ok to shift zero bit out (no precision loss)
+        ++v.exp;
     }
 }
 
-f16_t::f16_t(float x, unsigned rounding /*=RND_NEAR*/) //TODO: rounding
-{ 
-    const FloatProp32 input(asBits(x));
-
-    if (!input.isRegular())
-    {
-        bits = (f16_t::bits_t)input.mapSpecialValues<FloatProp16>();
+template<typename T, typename T2>
+void FpProcessorImpl<T,T2>::DecrementMantAdjustExp() const // does not care about exponent limits.
+{
+    assert(v.mant <= T::MANT_HIDDEN_MSB_MASK + T::MANT_MASK);
+    --v.mant;
+    if (v.mant < T::MANT_HIDDEN_MSB_MASK) { // underflow 1.000...000 -> 0.111.111
+        v.mant <<= 1;
+        --v.exp;
     }
-    else if (input.isSubnormal()) // subnormal -> (f16)0
-    {
-        FloatProp16 f16(input.isPositive(), 0, FloatProp16::decodedSubnormalExponent());
-        bits = f16.getBits();
-    }
-    else
-    {
-        int64_t exponent = input.decodeExponent();
-        uint64_t mantissa = input.mapNormalizedMantissa<FloatProp16>();
+}
 
-        if (!FloatProp16::isValidExponent(exponent))
-        {
-            if (exponent > 0)
-            {
-                bits = input.isPositive()? FloatProp16::getPositiveInf() : FloatProp16::getNegativeInf();
-            }
-            else
-            {
-                uint64_t mantissa16 = input.normalizeMantissa<FloatProp16>(exponent);
-                FloatProp16 f16(input.isPositive(), mantissa16, exponent);
-                bits = f16.getBits();
-            }
+template<typename T, typename T2>
+void FpProcessorImpl<T,T2>::NormalizeInputMantAdjustExp()
+{
+    if(v.mant == 0) {
+        return; // no need (and impossible) to normalize zero.
+    }
+    const mant_t INPUT_MANT_HIDDEN_MSB_MASK = mant_t(1) << v.mant_width;
+    while ((v.mant & INPUT_MANT_HIDDEN_MSB_MASK) == 0 ) { // denorm on input
+        v.mant <<= 1;
+        --v.exp;
+    }
+    if (v.exp < T::DECODED_EXP_NORM_MIN) {
+        // we expect denorm as output, therefore we will need to shift some extra bits out from mantissa.
+        shrMant += (T::DECODED_EXP_NORM_MIN - v.exp);
+        v.exp = T::DECODED_EXP_NORM_MIN;
+    }
+}
+
+template<typename T, typename T2>
+void FpProcessorImpl<T,T2>::CalculateTieKind()
+{
+    if (shrMant <= 0) {
+        assert(v.add_omicron == decoded_t::ADD_OMICRON_ZERO);
+        tieKind = TIE_IS_ZERO; // widths are equal or source is narrower
+        return;
+    }
+    if (shrMant >= (sizeof(v.mant)*8 - 1)) {
+        // Unable to compute and use MASK/HALF values - difference of widths is too big.
+        // Correct behavior is as if MASK == all ones and tie is always < HALF.
+        assert(v.add_omicron == decoded_t::ADD_OMICRON_ZERO);
+        if (v.mant == 0 ) { tieKind = TIE_IS_ZERO; }
+        else { tieKind = TIE_LT_HALF; }
+        return;
+    }
+    assert(v.add_omicron == decoded_t::ADD_OMICRON_ZERO || v.add_omicron == decoded_t::ADD_OMICRON_POSITIVE || v.add_omicron == decoded_t::ADD_OMICRON_NEGATIVE);
+    assert(v.add_omicron == decoded_t::ADD_OMICRON_ZERO || shrMant >= 2 || !"At least two-bit tail is required to interpret omicron correctly.");
+    const mant_t SRC_MANT_TIE_MASK = (mant_t(1) << shrMant) - mant_t(1);
+    const mant_t TIE_VALUE_HALF = mant_t(1) << (shrMant - 1); // 100..00B
+    const mant_t tie = v.mant & SRC_MANT_TIE_MASK;
+    if (tie == 0) {
+        tieKind = TIE_IS_ZERO;
+        if (v.add_omicron == decoded_t::ADD_OMICRON_NEGATIVE) { tieKind = TIE_LT_ZERO; }
+        if (v.add_omicron == decoded_t::ADD_OMICRON_POSITIVE) { tieKind = TIE_LT_HALF; }
+        return;
+    }
+    if (tie == TIE_VALUE_HALF) {
+        tieKind = TIE_IS_HALF;
+        if (v.add_omicron == decoded_t::ADD_OMICRON_NEGATIVE) { tieKind = TIE_LT_HALF; }
+        if (v.add_omicron == decoded_t::ADD_OMICRON_POSITIVE) { tieKind = TIE_GT_HALF; }
+        return;
+    }
+    if (tie <  TIE_VALUE_HALF) {
+        tieKind = TIE_LT_HALF;
+        return;
+    }
+    /*(tie > TIE_VALUE_HALF)*/ {
+        tieKind = TIE_GT_HALF;
+        return;
+    }
+}
+
+template<typename T, typename T2>
+void FpProcessorImpl<T,T2>::RoundMantAdjustExp(unsigned rounding) // does not care about exponent limits.
+{
+    assert(TIE_LIST_BEGIN_ <= tieKind && tieKind < TIE_LIST_END_);
+    if (shrMant > 0) {
+        // truncate mant, then adjust depending on (pre-calculated) tail kind:
+        if (shrMant >= sizeof(v.mant)*8) { // we need this since C++0x
+          v.mant = mant_t(0);
+        } else {
+          v.mant >>= shrMant;
         }
-        else
-        {
-            FloatProp16 f16(input.isPositive(), mantissa, exponent);
-            bits = f16.getBits();
+        switch (rounding) {
+        default: assert(0); // fall
+        case RND_NEAR:
+            switch(tieKind) {
+            case TIE_LT_ZERO: case TIE_IS_ZERO: case TIE_LT_HALF: default:
+                break;
+            case TIE_IS_HALF:
+                if ((v.mant & 1) != 0) IncrementMantAdjustExp(); // if mant is odd, increment to even
+                break;
+            case TIE_GT_HALF:
+                IncrementMantAdjustExp();
+                break;
+            }
+            break;
+        case RND_ZERO:
+            switch(tieKind) {
+            case TIE_LT_ZERO:
+                DecrementMantAdjustExp();
+                break;
+            case TIE_IS_ZERO: case TIE_LT_HALF: case TIE_IS_HALF: case TIE_GT_HALF: default:
+                break;
+            }
+            break;
+        case RND_PINF:
+            switch(tieKind) {
+            case TIE_LT_ZERO:
+                if (v.is_negative) DecrementMantAdjustExp();
+                break;
+            case TIE_IS_ZERO: default:
+                break;
+            case TIE_LT_HALF: case TIE_IS_HALF: case TIE_GT_HALF:
+                if (!v.is_negative) IncrementMantAdjustExp();
+                break;
+            }
+            break;
+        case RND_MINF:
+            switch(tieKind) {
+            case TIE_LT_ZERO:
+                if (!v.is_negative) DecrementMantAdjustExp();
+                break;
+            case TIE_IS_ZERO: default:
+                break;
+            case TIE_LT_HALF: case TIE_IS_HALF: case TIE_GT_HALF:
+                if (v.is_negative) IncrementMantAdjustExp();
+                break;
+            }
+            break;
         }
+    } else { // destination mantisa is wider or has the same width.
+        // this conversion is always exact
+        assert((0 - shrMant) < sizeof(v.mant)*8);
+        v.mant <<= (0 - shrMant); // fill by 0's from the left
+    }
+    v.mant_width = T::MANT_WIDTH;
+    shrMant = 0;
+}
+
+template<typename T, typename T2>
+void FpProcessorImpl<T,T2>::NormalizeMantAdjustExp() /// \todo does not care about upper exp limit.
+{
+    assert (v.mant_width == T::MANT_WIDTH && shrMant == 0 && "Mantissa must be in destination format here.");
+    assert((v.mant & ~(T::MANT_HIDDEN_MSB_MASK | T::MANT_MASK)) == 0 && "Wrong mantissa, unused upper bits must be 0.");
+    if(v.mant == 0) {
+        v.exp = T::DECODED_EXP_SUBNORMAL_OR_ZERO;
+        return; // no need (and impossible) to normalize zero.
+    }
+    if (v.exp >= T::DECODED_EXP_NORM_MIN) {
+        if ((v.mant & T::MANT_HIDDEN_MSB_MASK) == 0) { // try to normalize
+            while (v.exp > T::DECODED_EXP_NORM_MIN && ((v.mant & T::MANT_HIDDEN_MSB_MASK) == 0)) {
+                v.mant <<= 1;
+                --v.exp;
+            }
+            // end up with (1) either exp >= minimal or (2) hidden bit is 1 or (3) both
+            if (v.exp > T::DECODED_EXP_NORM_MIN) {
+                assert((v.mant & T::MANT_HIDDEN_MSB_MASK) != 0);
+                // exp is above min limit, mant is normalized
+                // nothing to do
+            } else {
+                assert(v.exp == T::DECODED_EXP_NORM_MIN);
+                if ((v.mant & T::MANT_HIDDEN_MSB_MASK) == 0) {
+                    // we dropped exp down to minimal, but mant is still subnormal
+                    v.exp = T::DECODED_EXP_SUBNORMAL_OR_ZERO;
+                } else {
+                    // mant is normalized
+                    // nothing to do
+                }
+            }
+        } else {
+            // mant is normalized
+            // nothing to do
+        }
+    } else {
+        assert (0);
     }
 }
 
-f64_t f16_t::f64() const 
-{ 
-    FloatProp16 f16(bits);
-    uint64_t bits64;
+template<typename T> // shortcut to simplify code
+struct FpProcessor : public FpProcessorImpl<T, uint64_t> {
+    explicit FpProcessor(DecodedFpValue& v_) : FpProcessorImpl<T, uint64_t>(v_) {}
+};
 
-    if (!f16.isRegular())
-    {
-        bits64 = f16.mapSpecialValues<FloatProp64>();
-    }
-    else if (f16.isSubnormal())
-    {
-        int64_t exponent = f16.decodeExponent();
-        assert(exponent == FloatProp16::decodedSubnormalExponent());
-        exponent = FloatProp16::actualSubnormalExponent();
-        uint64_t mantissa = f16.normalizeMantissa<FloatProp64>(exponent);
-        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
-        bits64 = f64.getBits();
-    }
-    else
-    {
-        int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp64>();
-        FloatProp64 f64(f16.isPositive(), mantissa, exponent);
-        bits64 = f64.getBits();
-    }
+//=============================================================================
+//=============================================================================
+//=============================================================================
 
-    return asFloating(bits64);
+template<typename TO, typename T> static
+void convertProp2RawBits(typename TO::bits_t &bits, const typename T::props_t& input, unsigned rounding)
+{
+    if (!input.isRegular()) {
+        bits = TO::props_t::mapSpecialValues(input).rawBits();
+        return;
+    }
+    DecodedFpValue val(input);
+    FpProcessor<typename TO::props_t>(val).NormalizeRound(rounding);
+    bits = val.toProps<typename TO::props_t>().rawBits();
 }
 
-f32_t f16_t::f32() const 
-{ 
-    FloatProp16 f16(bits);
-    uint32_t outbits;
-
-    if (!f16.isRegular())
-    {
-        outbits = f16.mapSpecialValues<FloatProp32>();
-    }
-    else if (f16.isSubnormal())
-    {
-        int64_t exponent = f16.decodeExponent();
-        assert(exponent == FloatProp16::decodedSubnormalExponent());
-        exponent = FloatProp16::actualSubnormalExponent();
-        uint64_t mantissa = f16.normalizeMantissa<FloatProp32>(exponent);
-        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
-        outbits = outprop.getBits();
-    }
-    else
-    {
-        int64_t exponent = f16.decodeExponent();
-        uint64_t mantissa = f16.mapNormalizedMantissa<FloatProp32>();
-        FloatProp32 outprop(f16.isPositive(), mantissa, exponent);
-        outbits = outprop.getBits();
-    }
-
-    return asFloating(outbits);
+template<typename TO, typename T> static
+void convertRawBits2RawBits(typename TO::bits_t &bits, typename T::bits_t x, unsigned rounding)
+{
+    const typename T::props_t input(x);
+    convertProp2RawBits<TO,T>(bits, input, rounding);
 }
 
 
-} // namespace
+template<typename TO, typename T> static
+void convertF2RawBits(typename TO::bits_t &bits, typename T::floating_t x, unsigned rounding)
+{
+    const typename T::props_t input(*reinterpret_cast<typename T::bits_t*>(&x));
+    convertProp2RawBits<TO,T>(bits, input, rounding);
+}
+
+template<typename TO, typename INTEGER> static
+void convertInteger2RawBits(typename TO::bits_t &bits, INTEGER x, unsigned rounding)
+{
+    DecodedFpValue val(x);
+    FpProcessor<typename TO::props_t>(val).NormalizeRound(rounding);
+    bits = val.toProps<typename TO::props_t>().rawBits();
+}
+
+f16_t::f16_t(double x, unsigned rounding) { convertF2RawBits<f16_t,f64_t>(m_bits, x, rounding); }
+f16_t::f16_t(float x, unsigned rounding) { convertF2RawBits<f16_t,f32_t>(m_bits, x, rounding); }
+f16_t::f16_t(f64_t x, unsigned rounding) { convertRawBits2RawBits<f16_t,f64_t>(m_bits, x.rawBits(), rounding); }
+f16_t::f16_t(f32_t x, unsigned rounding) { convertRawBits2RawBits<f16_t,f32_t>(m_bits, x.rawBits(), rounding); }
+f16_t::f16_t(int32_t x, unsigned rounding) { convertInteger2RawBits<f16_t>(m_bits, x, rounding); }
+f16_t::f16_t(uint32_t x, unsigned rounding) { convertInteger2RawBits<f16_t>(m_bits, x, rounding); }
+f16_t::f16_t(int64_t x, unsigned rounding) { convertInteger2RawBits<f16_t>(m_bits, x, rounding); }
+f16_t::f16_t(uint64_t x, unsigned rounding) { convertInteger2RawBits<f16_t>(m_bits, x, rounding); }
+
+f32_t::f32_t(double x, unsigned rounding) { convertF2RawBits<f32_t,f64_t>(m_bits, x, rounding); }
+f32_t::f32_t(f64_t x, unsigned rounding) { convertRawBits2RawBits<f32_t,f64_t>(m_bits, x.rawBits(), rounding); }
+f32_t::f32_t(f16_t x) { convertRawBits2RawBits<f32_t,f16_t>(m_bits, x.rawBits(), RND_NEAR); }
+f32_t::f32_t(int32_t x, unsigned rounding) { convertInteger2RawBits<f32_t>(m_bits, x, rounding); }
+f32_t::f32_t(uint32_t x, unsigned rounding) { convertInteger2RawBits<f32_t>(m_bits, x, rounding); }
+f32_t::f32_t(int64_t x, unsigned rounding) { convertInteger2RawBits<f32_t>(m_bits, x, rounding); }
+f32_t::f32_t(uint64_t x, unsigned rounding) { convertInteger2RawBits<f32_t>(m_bits, x, rounding); }
+
+f64_t::f64_t(float x) { convertF2RawBits<f64_t,f32_t>(m_bits, x, RND_NEAR); }
+f64_t::f64_t(f32_t x) { convertRawBits2RawBits<f64_t,f32_t>(m_bits, x.rawBits(), RND_NEAR); }
+f64_t::f64_t(f16_t x) { convertRawBits2RawBits<f64_t,f16_t>(m_bits, x.rawBits(), RND_NEAR); }
+f64_t::f64_t(int32_t x, unsigned rounding) { convertInteger2RawBits<f64_t>(m_bits, x, rounding); }
+f64_t::f64_t(uint32_t x, unsigned rounding) { convertInteger2RawBits<f64_t>(m_bits, x, rounding); }
+f64_t::f64_t(int64_t x, unsigned rounding) { convertInteger2RawBits<f64_t>(m_bits, x, rounding); }
+f64_t::f64_t(uint64_t x, unsigned rounding) { convertInteger2RawBits<f64_t>(m_bits, x, rounding); }
+
+} // namespace HSAIL_X

@@ -1104,9 +1104,9 @@ static Val emulateCmp(unsigned type, unsigned stype, unsigned op, Val arg1, Val 
     case BRIG_TYPE_U32:
     case BRIG_TYPE_U64: return Val(type, res? -1 : 0);
 
-    case BRIG_TYPE_F16: return Val(res? f16_t(1.0) : f16_t(0.0));
-    case BRIG_TYPE_F32: return Val(res? 1.0f : 0.0f);
-    case BRIG_TYPE_F64: return Val(res? 1.0  : 0.0 );
+    case BRIG_TYPE_F16: return Val(f16_t(res? 1.0 : 0.0));
+    case BRIG_TYPE_F32: return Val(f32_t(res? 1.0f : 0.0f));
+    case BRIG_TYPE_F64: return Val(f64_t(res? 1.0 : 0.0 ));
 
     default:
         return emulationFailed();
@@ -1950,17 +1950,8 @@ Val emulateMemVal(Inst inst, Val arg0, Val arg1, Val arg2, Val arg3, Val arg4)
     return res;
 }
 
-// Returns expected accuracy for an HSAIL instruction.
-// If the value == 0, the precision is infinite (no deviation is allowed).
-// The values in the (0,1) range specify relative precision.
-// Values >= 1 denote precision in ULPS calculated as (value - 0.5), i.e. 1.0 means 0.5 ULPS.
 double getPrecision(Inst inst)
 {
-    if ( (inst.opcode() == BRIG_OPCODE_FMA || inst.opcode() == BRIG_OPCODE_MAD)
-    && BRIG_TYPE_F64 == (inst.type() & BRIG_TYPE_BASE_MASK) ) {
-        /// \todo Workaround for FMA and floating MAD due to double rounding in TestGen: use NFMA's precision.
-        return 0.00000002; // Relative
-    }
     switch(inst.opcode()) // Instructions with HW-specific precision
     {
     case BRIG_OPCODE_NRCP:
@@ -1975,10 +1966,8 @@ double getPrecision(Inst inst)
 
     default:
         if (isFloatType(inst.type() & BRIG_TYPE_BASE_MASK)) {
-            if (BRIG_TYPE_F16 == (inst.type() & BRIG_TYPE_BASE_MASK)) {
-                /// \todo Temporary: While correct f16 rounding isn't implemented here,
-                /// let's coarsen precison requirements for f16
-                return 2;
+            if (!discardNanSign(inst.opcode())) {
+              return 0; // floating bit operations must check sign of NANs
             }
             return 1; // 0.5 ULP (infinite precision)
         } else {

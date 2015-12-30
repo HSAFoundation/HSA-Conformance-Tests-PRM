@@ -305,7 +305,7 @@ Operand BrigEmitter::Immed(BrigType16_t type, SRef data)
 
 Operand BrigEmitter::Immed(float imm) 
 {
-  return brigantine->createImmed(f32_t(&imm), BRIG_TYPE_F32);
+  return brigantine->createImmed(HSAIL_ASM::f32_t(&imm), BRIG_TYPE_F32);
 }
 
 Operand BrigEmitter::ImmedString(const std::string& str) 
@@ -334,15 +334,15 @@ Operand BrigEmitter::Value2Immed(Value value, bool expand)
   case MV_FLOAT16X4: case MV_FLOATX2:
     return Immed(Value2BrigType(value.Type()), value.S64(), expand);
   case MV_FLOAT16: {
-    float f = value.H();
+    float f = value.H().floatValue();
     BrigType16_t type = expandSubwordType(BRIG_TYPE_F16);
-    return brigantine->createImmed(f32_t(&f), type);
+    return brigantine->createImmed(HSAIL_ASM::f32_t(&f), type);
   }
   case MV_FLOAT:
     return Immed(value.F());
   case MV_DOUBLE: {
     auto f = value.D();
-    return brigantine->createImmed(f64_t(&f), BRIG_TYPE_F64);
+    return brigantine->createImmed(HSAIL_ASM::f64_t(&f), BRIG_TYPE_F64);
   }
 #ifdef MBUFFER_PASS_PLAIN_F16_AS_U32
   case MV_PLAIN_FLOAT16: {

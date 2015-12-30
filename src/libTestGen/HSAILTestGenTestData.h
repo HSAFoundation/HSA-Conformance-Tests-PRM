@@ -57,32 +57,31 @@ static const s64_t MIN_S64 = 0x8000000000000000LL;
 
 static const f16_t F16_PI     = f16_t(3.14159265358979323846);
 static const f16_t F16_NEG_PI = f16_t(-3.14159265358979323846);
-static const f32_t F32_PI     = (f32_t) 3.14159265358979323846;
-static const f64_t F64_PI     = (f64_t) 3.14159265358979323846;
+static const f32_t F32_PI     = f32_t(3.14159265358979323846);
+static const f64_t F64_PI     = f64_t(3.14159265358979323846);
 
-static const f16_t F16_NAN    = f16_t(numeric_limits<double>::quiet_NaN());
-static const f32_t F32_NAN    = numeric_limits<float>::quiet_NaN();
-static const f64_t F64_NAN    = numeric_limits<double>::quiet_NaN();
+static const f16_t F16_NAN    = numeric_limits<f16_t>::quiet_NaN();
+static const f32_t F32_NAN    = numeric_limits<f32_t>::quiet_NaN();
+static const f64_t F64_NAN    = numeric_limits<f64_t>::quiet_NaN();
 
-static const f16_t F16_INF     = f16_t(numeric_limits<double>::infinity());
-static const f16_t F16_NEG_INF = f16_t(-numeric_limits<double>::infinity());
-static const f32_t F32_INF     = numeric_limits<float>::infinity();
-static const f64_t F64_INF     = numeric_limits<double>::infinity();
+static const f16_t F16_INF     = numeric_limits<f16_t>::infinity();
+static const f32_t F32_INF     = numeric_limits<f32_t>::infinity();
+static const f64_t F64_INF     = numeric_limits<f64_t>::infinity();
 
-static const f16_t F16_DENORM         = f16_t::make(0x0001); // minimum positive subnormal
-static const f16_t F16_NEG_DENORM     = f16_t::make(0x8001); // minimum negative subnormal
-static const f16_t F16_DENORM_64      = f16_t::make(0x0040); // minimum positive subnormal * 64
-static const f16_t F16_NEG_DENORM_64  = f16_t::make(0x8040); // minimum negative subnormal * 64
-static const f16_t F16_DENORM_128     = f16_t::make(0x0080); // minimum positive subnormal * 128
-static const f16_t F16_NEG_DENORM_128 = f16_t::make(0x8080); // minimum negative subnormal * 128
-static const f16_t F16_DENORM_256     = f16_t::make(0x0100); // minimum positive subnormal * 256
-static const f16_t F16_NEG_DENORM_256 = f16_t::make(0x8100); // minimum negative subnormal * 256
-static const f32_t F32_DENORM         = numeric_limits<float>::denorm_min();
-static const f64_t F64_DENORM         = numeric_limits<double>::denorm_min();
+static const f16_t F16_DENORM         = f16_t::fromRawBits(0x0001); // minimum positive subnormal
+static const f16_t F16_NEG_DENORM     = f16_t::fromRawBits(0x8001); // minimum negative subnormal
+static const f16_t F16_DENORM_64      = f16_t::fromRawBits(0x0040); // minimum positive subnormal * 64
+static const f16_t F16_NEG_DENORM_64  = f16_t::fromRawBits(0x8040); // minimum negative subnormal * 64
+static const f16_t F16_DENORM_128     = f16_t::fromRawBits(0x0080); // minimum positive subnormal * 128
+static const f16_t F16_NEG_DENORM_128 = f16_t::fromRawBits(0x8080); // minimum negative subnormal * 128
+static const f16_t F16_DENORM_256     = f16_t::fromRawBits(0x0100); // minimum positive subnormal * 256
+static const f16_t F16_NEG_DENORM_256 = f16_t::fromRawBits(0x8100); // minimum negative subnormal * 256
+static const f32_t F32_DENORM         = numeric_limits<f32_t>::denorm_min();
+static const f64_t F64_DENORM         = numeric_limits<f64_t>::denorm_min();
 
-static const f64_t F16_MIN    = f16_t::make(0x0400).f64(); // minimum positive normal
-static const f32_t F32_MIN    = numeric_limits<float>::min();
-static const f64_t F64_MIN    = numeric_limits<double>::min();
+static const f64_t F16_MIN    = f64_t(f16_t::fromRawBits(0x0400)); // minimum positive normal
+static const f32_t F32_MIN    = numeric_limits<f32_t>::min();
+static const f64_t F64_MIN    = numeric_limits<f64_t>::min();
 
 static const f16_t extraTestsF16[] = {f16_t(-10.00), f16_t(-10.25), f16_t(-10.50), f16_t(-10.75), f16_t(10.00), f16_t(10.25), f16_t(10.50), f16_t(10.75)};
 static const f32_t extraTestsF32[] = {      -10.00f,       -10.25f,       -10.50f,       -10.75f,       10.00f,       10.25f,       10.50f,       10.75f};
@@ -97,8 +96,8 @@ static const f32_t extraSubnormF32[] = {-F32_DENORM  * 512, F32_DENORM};
 static const f64_t extraSubnormF64[] = {-F64_DENORM * 512,  F64_DENORM};
 
 // Test values for Native Floating-Point Operations (should not include subnormals)
-static const f16_t nfpF16[] = {F16_NEG_INF, F16_NEG_PI, f16_t(-1.0), f16_t(-0.0), f16_t(+0.0), f16_t(1.0), F16_PI, F16_INF, F16_NAN};
-static const f32_t nfpF32[] = {   -F32_INF,    -F32_PI,       -1,          -0.0,        +0.0,        1,    F32_PI, F32_INF, F32_NAN};
+static const f16_t nfpF16[] = {   -F16_INF, F16_NEG_PI, f16_t(-1.0), f16_t(-0.0), f16_t(+0.0), f16_t(1.0), F16_PI, F16_INF, F16_NAN};
+static const f32_t nfpF32[] = {   -F32_INF,    -F32_PI,       -1,          -0.0f,       +0.0f,       1,    F32_PI, F32_INF, F32_NAN};
 static const f64_t nfpF64[] = {   -F64_INF,    -F64_PI,       -1,          -0.0,        +0.0,        1,    F64_PI, F64_INF, F64_NAN};
 
 static const u32_t classFlags[] = {0, 0xFFFFFFFF, 0x001, 0x002, 0x004, 0x008, 0x010, 0x020, 0x040, 0x080, 0x100, 0x200};
@@ -107,7 +106,7 @@ static const s32_t s24Tests[] = {-0x400000, -0x3FFFFF, 0xABCDE, 0x3FFFFF};
 static const u32_t u24Tests[] = {0xABCDE, 0x7FFFFF};
 
 // Values to test ftz with dst (applies to add, sub, mul, div, fma, cvt)
-static const f16_t dstFtzF16[] = {f16_t(F16_MIN * 1.001), f16_t(F16_MIN * 1.002), f16_t(-F16_MIN * 1.003), f16_t(-F16_MIN * F16_PI.f64()), f16_t(2.0), f16_t(5.0), f16_t(0.5), f16_t(0.2)};
+static const f16_t dstFtzF16[] = {f16_t(F16_MIN * 1.001), f16_t(F16_MIN * 1.002), f16_t(-F16_MIN * 1.003), f16_t(-F16_MIN * f64_t(F16_PI)), f16_t(2.0), f16_t(5.0), f16_t(0.5), f16_t(0.2)};
 static const f32_t dstFtzF32[] = {      F32_MIN * 1.001f,       F32_MIN * 1.002f,       -F32_MIN * 1.003f,       -F32_MIN * F32_PI,              2.0f,       5.0f,       0.5f,       0.2f};
 static const f64_t dstFtzF64[] = {      F64_MIN * 1.001,        F64_MIN * 1.002,        -F64_MIN * 1.003,        -F64_MIN * F64_PI,              2.0,        5.0,        0.5,        0.2 };
 
@@ -213,7 +212,7 @@ static const f64_t ftzCvt64to32 = F64_MIN * 1.0e+265; // 2.22507e-43 (min_float 
 #define TEST_DATA_s32_t  {MIN_S32, -64, -1, 0, 1, 64, MAX_S32, (s32_t)WAVESIZE};
 #define TEST_DATA_s64_t  {MIN_S64, -64, -1, 0, 1, 64, MAX_S64, (s64_t)WAVESIZE};
 
-#define TEST_DATA_f16_t  {F16_NEG_INF, F16_NEG_PI, f16_t(-1.0), f16_t(-0.0), f16_t(+0.0), f16_t(1.0), F16_PI, F16_INF, F16_NAN, F16_NEG_DENORM_256, F16_DENORM_256};
+#define TEST_DATA_f16_t  {   -F16_INF, F16_NEG_PI, f16_t(-1.0), f16_t(-0.0), f16_t(+0.0), f16_t(1.0), F16_PI, F16_INF, F16_NAN, F16_NEG_DENORM_256, F16_DENORM_256};
 #define TEST_DATA_f32_t  {   -F32_INF,    -F32_PI,       -1.0f,       -0.0f,       +0.0f,       1.0f, F32_PI, F32_INF, F32_NAN, -F32_DENORM * 256,  F32_DENORM * 256};
 #define TEST_DATA_f64_t  {   -F64_INF,    -F64_PI,       -1.0,        -0.0,        +0.0,        1.0,  F64_PI, F64_INF, F64_NAN, -F64_DENORM * 256,  F64_DENORM * 256};
 
@@ -373,7 +372,7 @@ static const f64_t ftzCvt64to32 = F64_MIN * 1.0e+265; // 2.22507e-43 (min_float 
                             u64x2( 0xF1F2F3F4F5F6F7F8ULL, 0x5000000000000000ULL), \
                             u64x2(                   255, 0xC000000000000000ULL)  };
 
-#define TEST_DATA_f16x2_t { f16x2(f16_t(-2.50),   F16_NEG_INF       ), \
+#define TEST_DATA_f16x2_t { f16x2(f16_t(-2.50),  -F16_INF           ), \
                             f16x2(f16_t(-1.50),   F16_NEG_PI        ), \
                             f16x2(f16_t(-0.75),   f16_t(-1.0)       ), \
                             f16x2(f16_t(-0.5005), f16_t(-0.0)       ), \
@@ -387,7 +386,7 @@ static const f64_t ftzCvt64to32 = F64_MIN * 1.0e+265; // 2.22507e-43 (min_float 
                             f16x2(f16_t(1.501),   F16_NEG_DENORM_256), \
                             f16x2(f16_t(2.5),     F16_DENORM        )  };
 
-#define TEST_DATA_f16x4_t { f16x4(f16_t(-10.00),   f16_t(1103  / 13.0),   f16_t(-2.50),    F16_NEG_INF       ), \
+#define TEST_DATA_f16x4_t { f16x4(f16_t(-10.00),   f16_t(1103  / 13.0),   f16_t(-2.50),   -F16_INF           ), \
                             f16x4(f16_t(-10.25),   f16_t(2053  / 17.0),   f16_t(-1.50),    F16_NEG_PI        ), \
                             f16x4(f16_t(-10.50),   f16_t(3571  /  3.0),   f16_t(-0.75),    f16_t(-1.0)       ), \
                             f16x4(f16_t(-10.75),   f16_t(-1163 / 23.0),   f16_t(-0.5005),  f16_t(-0.0)       ), \
@@ -403,7 +402,7 @@ static const f64_t ftzCvt64to32 = F64_MIN * 1.0e+265; // 2.22507e-43 (min_float 
                             f16x8(f16_t( 10.50),   F16_PI,                f16_t(0.25),     F16_PI,            f16_t(-10.75),   f16_t(-1163 / 23.0),   f16_t(-0.5005),  f16_t(-0.0)    ), \
                             f16x8(F16_INF,         F16_INF,               F16_NEG_DENORM,  F16_INF,           F16_INF,         f16_t(-2213 / 29.0),   f16_t(-0.50),    f16_t(+0.0)    ), \
                             f16x8(f16_t(0.5005),   F16_NAN,               f16_t(0.5005),   F16_NAN,           f16_t( 10.25),   f16_t(-2549 / 31.0),   f16_t(-0.25),    f16_t(1.0 )    ), \
-                            f16x8(f16_t(1.50),     F16_DENORM_64,         f16_t(0.75),     F16_NEG_DENORM_64, f16_t(-10.00),   f16_t(1103  / 13.0),   F16_INF,         F16_NEG_INF    ), \
+                            f16x8(f16_t(1.50),     F16_DENORM_64,         f16_t(0.75),     F16_NEG_DENORM_64, f16_t(-10.00),   f16_t(1103  / 13.0),   F16_INF,        -F16_INF        ), \
                             f16x8(f16_t(1.501),    F16_NEG_DENORM_256,    f16_t(2.5),      F16_DENORM,        f16_t(0.5005),   F16_NAN,               f16_t(0.5005),   F16_NAN        )  };
  
 #define TEST_DATA_f32x2_t { f32x2(-2.50f,       -F32_INF         ), \
@@ -1097,7 +1096,7 @@ BEGIN_TEST_DATA
                       TYPE(U16)  SRCT(0, U16T.NEW(0,       WAVESIZE),  U16T.NEW(1, MID_U16)    );
                       TYPE(U32)  SRCT(0, U32T.NEW(MAX_U32, WAVESIZE),  U32T.NEW(0, MID_U32)    );
                       TYPE(U64)  SRCT(0, U64T.NEW(0,       WAVESIZE),  U64T.NEW(1, MID_U64)    );
-                      TYPE(F16)  SRCT(0, F16T.NEW(f16_t(0.0), f16_t(F64_PI)),  F32T.NEW(f16_t(1.0), F16_NAN)  );
+                      TYPE(F16)  SRCT(0, F16T.NEW(f16_t(0.0), f16_t(F64_PI)), F16T.NEW(f16_t(1.0), F16_NAN) );
                       TYPE(F32)  SRCT(0, F32T.NEW(0,       F32_PI), F32T.NEW(1, F32_NAN)  );
                       TYPE(F64)  SRCT(0, F64T.NEW(0,       F64_PI), F64T.NEW(1, F64_NAN) );
                       TYPE(B128) SRCT(0, B128T.NEW(b128(0xAA000000BBBB0000ULL, 0xCCCCCCCCFFFFFFFFULL), b128(WAVESIZE, 0)), B128T.NEW(b128(0x12345678DDDDDDDDULL, 0x01020304050607080ULL), b128(0x8000000000000001ULL, 0x0000000DE0000000ULL)) );

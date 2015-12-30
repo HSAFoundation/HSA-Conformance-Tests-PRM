@@ -221,12 +221,12 @@ void Val::setPackedElement(unsigned elementIdx, Val dst)
 //=============================================================================
 // Operations on scalar floating-point values
 
-#define GET_FLOAT_PROP(prop) \
-    bool Val::prop() const   \
+#define GET_FLOAT_PROP(property) \
+    bool Val::property() const   \
     {                        \
-        return isFloat() && (isF16()? FloatProp16(num.get<u16_t>()).prop() : \
-                             isF32()? FloatProp32(num.get<u32_t>()).prop() : \
-                                      FloatProp64(num.get<u64_t>()).prop()); \
+        return isFloat() && (isF16()? num.get<f16_t>().props().property() : \
+                             isF32()? num.get<f32_t>().props().property() : \
+                                      num.get<f64_t>().props().property()); \
     }
 
 GET_FLOAT_PROP(isPositive)
@@ -245,49 +245,61 @@ GET_FLOAT_PROP(isPositiveSubnormal)
 GET_FLOAT_PROP(isNegativeSubnormal)
 GET_FLOAT_PROP(isRegularPositive)
 GET_FLOAT_PROP(isRegularNegative)
-GET_FLOAT_PROP(isNatural)
+GET_FLOAT_PROP(isIntegral)
 
-#define GET_FLOAT_NUMBER(prop) \
-    Val Val::prop() const      \
+#define GET_FLOAT_CONST(constant) \
+    Val Val::constant() const      \
     {                          \
         assert(isFloat());     \
-        return isF16()? Val(getType(), FloatProp16::prop()) : \
-               isF32()? Val(getType(), FloatProp32::prop()) : \
-                        Val(getType(), FloatProp64::prop());  \
+        return isF16()? Val(f16_t(f16_t::props_t::constant())) : \
+               isF32()? Val(f32_t(f32_t::props_t::constant())) : \
+                        Val(f64_t(f64_t::props_t::constant()));  \
     }
 
-GET_FLOAT_NUMBER(getQuietNan)
-GET_FLOAT_NUMBER(getNegativeZero)
-GET_FLOAT_NUMBER(getPositiveZero)
-GET_FLOAT_NUMBER(getNegativeInf)
-GET_FLOAT_NUMBER(getPositiveInf)
+GET_FLOAT_CONST(getNegativeZero)
+GET_FLOAT_CONST(getPositiveZero)
+GET_FLOAT_CONST(getNegativeInf)
+GET_FLOAT_CONST(getPositiveInf)
 
-u64_t Val::getNormalizedFract(int delta /*=0*/) const
+u64_t Val::getFractionalOfNormalized(int delta /*=0*/) const
 {
     assert(isFloat());
+    return isF16()? num.get<f16_t>().props().getFractionalOfNormalized(delta) :
+           isF32()? num.get<f32_t>().props().getFractionalOfNormalized(delta) :
+                    num.get<f64_t>().props().getFractionalOfNormalized(delta);
+}
 
-    return isF16()? FloatProp16(num.get<u16_t>()).getNormalizedFract(delta) :
-           isF32()? FloatProp32(num.get<u32_t>()).getNormalizedFract(delta) :
-                    FloatProp64(num.get<u64_t>()).getNormalizedFract(delta);
+u64_t Val::getNanPayload() const
+{
+    assert(isFloat());
+    return isF16()? num.get<f16_t>().props().getNanPayload() :
+           isF32()? num.get<f32_t>().props().getNanPayload() :
+                    num.get<f64_t>().props().getNanPayload();
+}
+
+Val Val::getQuietedSignalingNan() const
+{
+    assert(isFloat());
+    return isF16()? Val(f16_t(num.get<f16_t>().props().quietedSignalingNan())) :
+           isF32()? Val(f32_t(num.get<f32_t>().props().quietedSignalingNan())) :
+                    Val(f64_t(num.get<f64_t>().props().quietedSignalingNan()));
 }
 
 Val Val::copySign(Val v) const
 {
     assert(isFloat());
     assert(getType() == v.getType());
-
-    return isF16()? Val(getType(), FloatProp16(num.get<u16_t>()).copySign(v.num.get<u16_t>())) :
-           isF32()? Val(getType(), FloatProp32(num.get<u32_t>()).copySign(v.num.get<u32_t>())) :
-                    Val(getType(), FloatProp64(num.get<u64_t>()).copySign(v.num.get<u64_t>()));
+    return isF16()? Val(num.get<f16_t>().copySign(v.num.get<f16_t>())) :
+           isF32()? Val(num.get<f32_t>().copySign(v.num.get<f32_t>())) :
+                    Val(num.get<f64_t>().copySign(v.num.get<f64_t>()));
 }
 
 Val Val::ulp(int64_t delta) const
 {
     assert(isFloat());
-
-    return isF16()? Val(getType(), FloatProp16(num.get<u16_t>()).ulp(delta)) :
-           isF32()? Val(getType(), FloatProp32(num.get<u32_t>()).ulp(delta)) :
-                    Val(getType(), FloatProp64(num.get<u64_t>()).ulp(delta));
+    return isF16()? Val(f16_t(num.get<f16_t>().props().ulp(delta))) :
+           isF32()? Val(f32_t(num.get<f32_t>().props().ulp(delta))) :
+                    Val(f64_t(num.get<f64_t>().props().ulp(delta)));
 }
 
 //=============================================================================
@@ -306,9 +318,9 @@ public:
     Val operator()(Val v)
     {
         if (!v.isFloat()) return v;
-        if (v.isF16()) return Val(v.getType(), FloatProp16(v.getAsB16()).normalize(discardNanSign));
-        if (v.isF32()) return Val(v.getType(), FloatProp32(v.getAsB32()).normalize(discardNanSign));
-        if (v.isF64()) return Val(v.getType(), FloatProp64(v.getAsB64()).normalize(discardNanSign));
+        if (v.isF16()) return Val(f16_t(v.f16().props().clearPayloadIfNan(discardNanSign)));
+        if (v.isF32()) return Val(f32_t(v.f32().props().clearPayloadIfNan(discardNanSign)));
+        if (v.isF64()) return Val(f64_t(v.f64().props().clearPayloadIfNan(discardNanSign)));
         assert(false); return Val();
     }
 };
@@ -340,7 +352,7 @@ struct op_s2q  // Replace Signaling NaNs with Quiet ones
 {
     Val operator()(Val v)
     {
-        if (v.isSignalingNan()) return v.getQuietNan();
+        if (v.isSignalingNan()) return v.getQuietedSignalingNan(); /// \todo [ata]
         return v;
     }
 };
@@ -414,7 +426,7 @@ string Val::luaStr(unsigned idx /*=0*/) const
 
     if (isSpecialFloat())
     {
-        s << nan2str();
+        s << nan2str(false);
     }
     else
     {
@@ -422,10 +434,9 @@ string Val::luaStr(unsigned idx /*=0*/) const
 
         switch (getType())
         {        
-        case BRIG_TYPE_F16: s << "0x" << setbase(16) << setfill('0') << setw(4) << getAsB16(); break;
-
-        case BRIG_TYPE_F32: sprintf(buffer,  "\"%.6A\"", f32()); s << string(buffer); break;
-        case BRIG_TYPE_F64: sprintf(buffer, "\"%.13A\"", f64()); s << string(buffer); break;
+        case BRIG_TYPE_F16: s << "\"0H" << setbase(16) << setfill('0') << setw(4) << getAsB16() << "\""; break; // emit bits for now
+        case BRIG_TYPE_F32: sprintf(buffer,  "\"%.6A\"", f32().floatValue()); s << string(buffer); break;
+        case BRIG_TYPE_F64: sprintf(buffer, "\"%.13A\"", f64().floatValue()); s << string(buffer); break;
 
         case BRIG_TYPE_S8:  s << static_cast<s32_t>(s8());     break;
         case BRIG_TYPE_S16: s << s16();                        break;
@@ -450,7 +461,7 @@ string Val::decDump() const
 
     if (isSpecialFloat())
     {
-        s << nan2str();
+        s << nan2str(true);
     }
     else if (isNegativeZero()) // NB: with some compilers, '-0' is printed as '0'
     {
@@ -460,9 +471,24 @@ string Val::decDump() const
     {
         switch (getType())
         {
-        case BRIG_TYPE_F16: s << setprecision(9)  << f16().f64(); break;
-        case BRIG_TYPE_F32: s << setprecision(9)  << f32(); break;
-        case BRIG_TYPE_F64: s << setprecision(17) << f64(); break;
+#ifdef LINUX_FP_PRINT_QUIRK
+        case BRIG_TYPE_F16: // fall
+        case BRIG_TYPE_F32: // fall
+        case BRIG_TYPE_F64: {
+                ostringstream ss;
+                switch (getType()) {
+                case BRIG_TYPE_F16: ss << setprecision(4)  << f16().floatValue(); break;
+                case BRIG_TYPE_F32: ss << setprecision(9)  << f32().floatValue(); break;
+                case BRIG_TYPE_F64: ss << setprecision(17) << f64().floatValue(); break;
+                }
+                s << addLeadingZero2Exponent(ss.str());
+            }
+            break;
+#else
+        case BRIG_TYPE_F16: s << setprecision(4)  << f16().floatValue(); break;
+        case BRIG_TYPE_F32: s << setprecision(9)  << f32().floatValue(); break;
+        case BRIG_TYPE_F64: s << setprecision(17) << f64().floatValue(); break;
+#endif
 
         case BRIG_TYPE_S8:  s << static_cast<s32_t>(s8());  break;
         case BRIG_TYPE_S16: s << s16();                     break;
@@ -573,12 +599,27 @@ string Val::dumpPacked() const
     return s.str() + " " + h.str();
 }
 
-string Val::nan2str() const
+string Val::nan2str(bool forLuaComments) const
 {
     assert(isSpecialFloat());
-    assert(!isSignalingNan());
-
-    return isNan()? "NAN" : isPositiveInf()? "INF" : "-INF";
+    std::ostringstream out;
+    if (isInf()) {
+          out << (isPositive() ? (forLuaComments ? "+" : "") : "-") << "INF";
+    } else {
+        assert(isNan());
+        if(forLuaComments) {
+            out << (isPositive() ? "+" : "-") << (isSignalingNan() ? "s" : "q") << "NAN(" << getNanPayload() << ")";
+        } else { // emit bits for transferring SNANs and NAN payloads to lua
+            switch (getType())
+            {
+            case BRIG_TYPE_F32: out << "\"0H" << setbase(16) << setfill('0') << setw(8 ) << getAsB32() << "\""; break;
+            case BRIG_TYPE_F16: out << "\"0H" << setbase(16) << setfill('0') << setw(4 ) << getAsB16() << "\""; break;
+            case BRIG_TYPE_F64: out << "\"0H" << setbase(16) << setfill('0') << setw(16) << getAsB64() << "\""; break;
+            default: assert(0); out << "dead"; break;
+            }
+        }
+    }
+    return out.str();
 }
 
 //=============================================================================

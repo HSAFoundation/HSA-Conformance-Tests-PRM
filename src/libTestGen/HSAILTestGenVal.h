@@ -253,14 +253,15 @@ public:
     bool isNegativeSubnormal() const;
     bool isRegularPositive() const;
     bool isRegularNegative() const;
-    bool isNatural() const;
+    bool isIntegral() const;
 
-    u64_t getNormalizedFract(int delta = 0) const;
+    u64_t getFractionalOfNormalized(int delta = 0) const;
+    u64_t getNanPayload() const;
     Val copySign(Val v) const;
     Val ulp(int64_t delta) const;
 
 public:
-    Val getQuietNan()     const;
+    Val getQuietedSignalingNan() const;
     Val getNegativeZero() const;
     Val getPositiveZero() const;
     Val getNegativeInf()  const;
@@ -294,7 +295,7 @@ private:
     string decDump() const;
     string hexDump() const;
     string dumpPacked() const;
-    string nan2str() const;
+    string nan2str(bool forLuaComments) const;
 
     //==========================================================================
 private:

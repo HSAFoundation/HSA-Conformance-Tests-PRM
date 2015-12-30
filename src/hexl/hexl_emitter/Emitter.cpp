@@ -2104,9 +2104,9 @@ float EImageCalc::ConvertionLoadHalfFloat(uint32_t data) const
 {
   ValueData bits;
   bits.u32 = data;
-  half h = half::make(bits.h_bits);
+  half h = half::fromRawBits(bits.h_bits);
 
-  float f = h.f32();
+  float f = h.floatValue();
   assert(f==f); //handling NaNs is implementation defined
   return f;
 }
@@ -2165,7 +2165,7 @@ uint32_t EImageCalc::ConvertionStoreHalfFloat(float f) const
   half h(f); //Achtung! Rounding is implementation defined!
   assert(f==f); //handling NaNs is implementation difined
   //todo test for fp16 denorm
-  return h.getBits();
+  return h.rawBits();
 }
 
 uint32_t EImageCalc::ConvertionStoreFloat(float f) const

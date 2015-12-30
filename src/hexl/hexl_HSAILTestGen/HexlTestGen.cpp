@@ -148,14 +148,11 @@ private:
     Buffer buffer = dispatch->NewBuffer(name, HOST_RESULT_BUFFER, BufferValueType(type), BufferArraySize(type, vecSize * testGroup->getFlatSize()));
     {
       std::ostringstream ps;
-      if (precision < 0) {
-        ps << "legacy_default";
-      } else if (precision == 0.0) {
-        ps << "absf=" << 0.0;
+      if (precision <= 0.0) {
+        ps << "absf=" << std::abs(precision);
       } else if (precision >= 1.0) {
         /// precision == 1.0 on input means 0.5 ULPS
-        /// \todo For now, conformance accepts unsigned and treates 0 as ~0.5 ULPS
-        ps << "ulps=" << (unsigned)(precision - 1);
+        ps << "ulps=" << (precision - 0.5);
       } else {
         ps << "relf=" << precision;
       }
@@ -200,8 +197,8 @@ private:
 #else
       buffer->AddData(Value(MV_FLOAT16, val.getAsB16())); return;
 #endif
-    case BRIG_TYPE_F64: buffer->AddData(Value(val.f64())); return;
-    case BRIG_TYPE_F32: buffer->AddData(Value(val.f32())); return;
+    case BRIG_TYPE_F64: buffer->AddData(Value(MV_DOUBLE, val.getAsB64())); return; // keep SNANs
+    case BRIG_TYPE_F32: buffer->AddData(Value(MV_FLOAT, val.getAsB32())); return; // keep SNANs
     case BRIG_TYPE_B128: {
       buffer->AddData(Value(MV_UINT64, U64(val.b128().get<uint64_t>(0))));
       buffer->AddData(Value(MV_UINT64, U64(val.b128().get<uint64_t>(1))));

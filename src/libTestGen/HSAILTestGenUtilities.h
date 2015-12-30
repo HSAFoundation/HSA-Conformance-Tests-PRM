@@ -17,6 +17,10 @@
 #ifndef INCLUDED_HSAIL_TESTGEN_UTILITIES_H
 #define INCLUDED_HSAIL_TESTGEN_UTILITIES_H
 
+#ifdef LINUX
+#define LINUX_FP_PRINT_QUIRK // makes lua scripts identical for windows and linux (for testing)
+#endif
+
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILBrigContainer.h"
 #include "HSAILUtilities.h"
@@ -149,6 +153,9 @@ void append(Inst inst, Operand opr0, Operand opr1 = Operand(), Operand opr2 = Op
 
 string index2str(unsigned idx, unsigned width = 0);
 
+#ifdef LINUX_FP_PRINT_QUIRK
+string addLeadingZero2Exponent(const string& s);
+#endif
 } // namespace TESTGEN
 
 // ============================================================================

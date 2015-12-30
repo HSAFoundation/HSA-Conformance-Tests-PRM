@@ -175,21 +175,15 @@ inline std::ostream& operator<<(std::ostream& out, MObject* mo) { mo->Print(out)
 }
 /// \todo copy-paste from HSAILTestGenEmulatorTypes
 #include "Brig.h"
+#include <cmath>
+
 namespace HSAIL_X { // eXperimental
 
-// ============================================================================
-// ============================================================================
-// ============================================================================
-// Types representing HSAIL values
+//=============================================================================
+//=============================================================================
+//=============================================================================
 
-typedef float    f32_t;
-typedef double   f64_t;
-
-//=============================================================================
-//=============================================================================
-//=============================================================================
 // Decoder of IEEE 754 float properties
-
 // IEEE 754 (32-bit)
 //
 //         S   (E-127)       23
@@ -217,246 +211,434 @@ typedef double   f64_t;
 //  ----------------------------------------------
 //
 
-template<typename T, T sign_mask, T exponent_mask, T mantissa_mask, T mantissa_msb_mask, int exponent_bias, int mantissa_width>
-class IEEE754
+/// ASSUMPTIONS:
+/// Order of fields (msb-to-lsb) is fixed to: sign, exponent, mantissa.
+/// Fields always occupy all bits of the underlying Type (which carries binary representation).
+/// Sign is always at MSB in Type, exponent occupies all bits in the middle.
+/// NAN is quiet when MSB of mantissa is set.
+template<typename T, int mantissa_width>
+class Ieee754Props
 {
 public:
     typedef T Type;
 
-    static const Type SIGN_MASK         = sign_mask;
-    static const Type EXPONENT_MASK     = exponent_mask;
-    static const Type MANTISSA_MASK     = mantissa_mask;
-    static const Type MANTISSA_MSB_MASK = mantissa_msb_mask;
-    static const Type NAN_TYPE_MASK     = mantissa_msb_mask;
-
-    static const int EXPONENT_BIAS  = exponent_bias;
-    static const int MANTISSA_WIDTH = mantissa_width;
+    static const Type SIGN_MASK  = (Type)((Type)1 << ((int)sizeof(Type)*8 - 1));
+    static const int  EXP_WIDTH  = (int)sizeof(Type)*8 - 1 - mantissa_width;
+    static const int  EXP_BIAS   = ~((-1) << EXP_WIDTH) / 2;
+    static const Type EXP_MASK   = (Type)(~(Type(-1) << EXP_WIDTH) << mantissa_width);
+    static const int  DECODED_EXP_SUBNORMAL_OR_ZERO = 0-EXP_BIAS; // by definition, sum with EXP_BIAS should yield 0
+    static const int  DECODED_EXP_NORM_MIN  = 1-EXP_BIAS; // if less, then subnormal
+    static const int  DECODED_EXP_NORM_MAX  = EXP_BIAS;   // if greater, then INF or NAN
+    static const int  MANT_WIDTH = mantissa_width;
+    static const Type MANT_MASK  = (Type)~((Type)(-1) << mantissa_width);
+    static const Type MANT_HIDDEN_MSB_MASK = (Type)((Type)(1) << mantissa_width); // '1' at MSB of mantissa implied in normalized numbers
+    static const Type NAN_IS_QUIET_MASK = (Type)((Type)(1) << (mantissa_width - 1));
+    static const Type NAN_PAYLOAD_MASK = (Type)~((Type)(-1) << (mantissa_width - 1));
 
 private:
+    static_assert(0 < mantissa_width && mantissa_width < sizeof(Type)*8 - 1 - 2, // leave sign + 2 bits for exp at least
+        "Wrong mantissa width");
+    static_assert(EXP_WIDTH <= (int)sizeof(int)*8 - 1,
+        "Exponent field is too wide");
+    static_assert( (1 << (sizeof(int)*8 - EXP_WIDTH)) > mantissa_width,
+        "'int' type is too small for exponent calculations");
+    static_assert(SIGN_MASK > 0, // simple "Type(-1) > 0" does not work. MSVC issue?
+        "Underlying Type (for bits) must be unsigned.");
+
     Type bits;
 
+    template<typename TT> Ieee754Props(TT); // = delete;
 public:
-    explicit IEEE754(Type val) : bits(val) {}
-    IEEE754(bool isPositive, uint64_t mantissa, int64_t decodedExponent)
-    {
-        Type exponent = (Type)(decodedExponent + EXPONENT_BIAS) << MANTISSA_WIDTH;
+    explicit Ieee754Props(Type val) : bits(val) {}
 
-        assert((exponent & ~EXPONENT_MASK) == 0);
-        assert((mantissa & ~MANTISSA_MASK) == 0);
-        assert((Type)(-1) > 0 && "Type must be unsigned integer");
-        assert(EXPONENT_BIAS >= 0 && MANTISSA_WIDTH > 0 && MANTISSA_WIDTH <= sizeof(Type)*8); // rudementary checks
+public:
+    static Ieee754Props getNegativeZero() { return Ieee754Props(SIGN_MASK); }
+    static Ieee754Props getPositiveZero() { return Ieee754Props(Type(0)); }
+    static Ieee754Props getNegativeInf()  { return Ieee754Props(Type(EXP_MASK | SIGN_MASK)); }
+    static Ieee754Props getPositiveInf()  { return Ieee754Props(EXP_MASK); }
 
-        bits = (isPositive? 0 : SIGN_MASK) | 
-               (exponent & EXPONENT_MASK)  | 
-               (mantissa & MANTISSA_MASK);
+    static Ieee754Props makeQuietNan(bool negative, Type payload) {
+        assert((payload & ~NAN_PAYLOAD_MASK) == 0);
+        payload &= NAN_PAYLOAD_MASK;
+        return Ieee754Props(Type((negative ? SIGN_MASK : 0) | EXP_MASK | NAN_IS_QUIET_MASK | payload));
+    }
+    static Ieee754Props makeSignalingNan(bool negative, Type payload) {
+        assert((payload & ~NAN_PAYLOAD_MASK) == 0);
+        payload &= NAN_PAYLOAD_MASK;
+        if (payload == 0) { payload++; } // sNAN with zero payload is invalid (have same bits as INF).
+        return Ieee754Props(Type((negative ? SIGN_MASK : 0) | EXP_MASK | payload));
+    }
+    static Ieee754Props assemble(bool negative, int64_t exponent, uint64_t mantissa) {
+        const Type exp_bits = (Type)(exponent + EXP_BIAS) << MANT_WIDTH;
+        assert((exp_bits & ~EXP_MASK) == 0);
+        assert((mantissa & ~MANT_MASK) == 0);
+        return Ieee754Props(Type((negative ? SIGN_MASK : 0) | (exp_bits & EXP_MASK) | (mantissa & MANT_MASK)));
     }
 
 public:
-    Type getBits() const { return bits; }
+    Type rawBits() const { return bits; }
+    Type getSignBit() const { return bits & SIGN_MASK; }
+    Type getNanIsQuietBit() const { return bits & NAN_IS_QUIET_MASK; }
+    Type getExponentBits() const { return bits & EXP_MASK; }
+    Type getMantissa()  const { return bits & MANT_MASK; }
+    Type getNanPayload() const { assert(isNan()); return bits & MANT_MASK & ~NAN_IS_QUIET_MASK; }
 
-public:
-    Type getSign()      const { return bits & SIGN_MASK; }
-    Type getMantissa()  const { return bits & MANTISSA_MASK; }
-    Type getExponent()  const { return bits & EXPONENT_MASK; }
-    Type getNanType()   const { return bits & NAN_TYPE_MASK; }
+    int64_t getExponent() const
+    {
+        if (isSubnormal()) {
+            return DECODED_EXP_NORM_MIN; // hidden bit is zero, real exp value is fixed to this.
+        }
+        return (int64_t)(getExponentBits() >> MANT_WIDTH) - EXP_BIAS;
+    }
 
-public:
-    bool isPositive()          const { return getSign() == 0; }
-    bool isNegative()          const { return getSign() != 0; }
-
-    bool isZero()              const { return getExponent() == 0 && getMantissa() == 0; }
+    bool isPositive()          const { return getSignBit() == 0; }
+    bool isNegative()          const { return getSignBit() != 0; }
+    bool isZero()              const { return getExponentBits() == 0 && getMantissa() == 0; }
     bool isPositiveZero()      const { return isZero() && isPositive();  }
     bool isNegativeZero()      const { return isZero() && !isPositive(); }
-
-    bool isInf()               const { return getExponent() == EXPONENT_MASK && getMantissa() == 0; }
+    bool isInf()               const { return getExponentBits() == EXP_MASK && getMantissa() == 0; }
     bool isPositiveInf()       const { return isInf() && isPositive();  }
     bool isNegativeInf()       const { return isInf() && !isPositive(); }
-
-    bool isNan()               const { return getExponent() == EXPONENT_MASK && getMantissa() != 0; }
-    bool isQuietNan()          const { return isNan() && getNanType() != 0; }
-    bool isSignalingNan()      const { return isNan() && getNanType() == 0; }
-
-    bool isSubnormal()         const { return getExponent() == 0 && getMantissa() != 0; }
+    bool isNan()               const { return getExponentBits() == EXP_MASK && getMantissa() != 0; }
+    bool isQuietNan()          const { return isNan() && getNanIsQuietBit() != 0; }
+    bool isSignalingNan()      const { return isNan() && getNanIsQuietBit() == 0; }
+    bool isSubnormal()         const { return getExponentBits() == 0 && getMantissa() != 0; }
     bool isPositiveSubnormal() const { return isSubnormal() && isPositive(); }
     bool isNegativeSubnormal() const { return isSubnormal() && !isPositive(); }
-
     bool isRegular()           const { return !isZero() && !isNan() && !isInf(); }
     bool isRegularPositive()   const { return isPositive() && isRegular(); }
     bool isRegularNegative()   const { return isNegative() && isRegular(); }
+    bool isIntegral()          const { return isZero() || (getFractionalOfNormalized() == 0 /*may return 0 for small values, so =>*/ && getExponent() >= 0); }
 
-                                                // Natural = (fraction == 0)
-                                                // getNormalizedFract() return 0 for small numbers so there is exponent check for this case
-    bool isNatural()           const { return isZero() || (getNormalizedFract() == 0 && (getExponent() >> MANTISSA_WIDTH) >= EXPONENT_BIAS); }
+    Ieee754Props neg() const { return Ieee754Props(Type(bits ^ SIGN_MASK)); }
+    Ieee754Props abs() const { return Ieee754Props(Type(bits & ~SIGN_MASK)); }
+    Ieee754Props copySign(Ieee754Props v) const { return Ieee754Props(Type((v.rawBits() & SIGN_MASK) | getExponentBits() | getMantissa())); }
+    Ieee754Props quietedSignalingNan() const { assert(isSignalingNan()); return Ieee754Props(Type(bits | NAN_IS_QUIET_MASK)); }
 
-public:
-    static Type getQuietNan()     { return EXPONENT_MASK | NAN_TYPE_MASK; }
-    static Type getNegativeZero() { return SIGN_MASK; }
-    static Type getPositiveZero() { return 0; }
-    static Type getNegativeInf()  { return SIGN_MASK | EXPONENT_MASK; }
-    static Type getPositiveInf()  { return             EXPONENT_MASK; }
-
-    static bool isValidExponent(int64_t exponenValue) // check _decoded_ exponent value
+    Ieee754Props clearPayloadIfNan(bool discardNanSign) const // Clear NaN payload and sign
     {
-        const int64_t minExp = -EXPONENT_BIAS;      // Reserved for subnormals
-        const int64_t maxExp = EXPONENT_BIAS + 1;  // Reserved for Infs and NaNs
-        return minExp < exponenValue && exponenValue < maxExp;
+        if (isNan()) {
+          Type newBits = (discardNanSign ? 0 : getSignBit()) | getExponentBits() | getNanIsQuietBit()
+            | (isSignalingNan() ? 1 : 0); // sNAN with zero payload are invalid (have same bits as INF).
+          return Ieee754Props(newBits);
+        }
+        return *this;
     }
 
-    static int64_t decodedSubnormalExponent() { return 0 - EXPONENT_BIAS; } // Decoded exponent value which indicates a subnormal
-    static int64_t actualSubnormalExponent()  { return 1 - EXPONENT_BIAS; } // Actual decoded exponent value for subnormals
-
-public:
-    template<typename TargetType> typename TargetType::Type mapSpecialValues() const
+    template<typename T2, int mantissa_width2>
+    static Ieee754Props mapSpecialValues(const Ieee754Props<T2,mantissa_width2>& val)
     {
-        assert(!isRegular());
-
-        if      (isPositiveZero()) { return TargetType::getPositiveZero();  }
-        else if (isNegativeZero()) { return TargetType::getNegativeZero();  }
-        else if (isPositiveInf())  { return TargetType::getPositiveInf();   }
-        else if (isNegativeInf())  { return TargetType::getNegativeInf();   }
-        else if (isQuietNan())     { return TargetType::getQuietNan();      }
-        else if (isSignalingNan()) { assert(false); }
-
+        assert(!val.isRegular());
+        if      (val.isPositiveZero()) { return getPositiveZero(); }
+        else if (val.isNegativeZero()) { return getNegativeZero(); }
+        else if (val.isPositiveInf())  { return getPositiveInf(); }
+        else if (val.isNegativeInf())  { return getNegativeInf(); }
+        else if (val.isQuietNan())     { return makeQuietNan(val.isNegative(), val.getMantissa() & NAN_PAYLOAD_MASK); } // just throw extra bits of payload away
+        else if (val.isSignalingNan()) { return makeSignalingNan(val.isNegative(), val.getMantissa() & NAN_PAYLOAD_MASK); }
         assert(false);
-        return 0;
+        return getPositiveZero();
     }
 
-    template<typename TargetType> uint64_t mapNormalizedMantissa() const // map to target type
+    /// Return fractional part of fp number (normalized to +/-iii.fffE+0) so that
+    /// the Nth bit of fractional, counting from the left, is at u64_t:(63-N-x) bit.
+    /// For example, when x == 0, MSB of fractional it getting into MSB of output value.
+    uint64_t getFractionalOfNormalized(int x = 0) const
     {
+        if (isInf() || isNan()) {
+          assert(!"Input number must represent a numeric value here");
+          return 0;
+        }
+
         uint64_t mantissa = getMantissa();
-        int targetMantissaWidth = TargetType::MANTISSA_WIDTH;
+        if (!isSubnormal() && !isZero()) mantissa |= MANT_HIDDEN_MSB_MASK;
 
-        assert(targetMantissaWidth != MANTISSA_WIDTH);
-
-        if (targetMantissaWidth < MANTISSA_WIDTH) return mantissa >> (MANTISSA_WIDTH - targetMantissaWidth);
-        else                                      return mantissa << (targetMantissaWidth - MANTISSA_WIDTH);
-    }
-
-    template<typename TargetType> uint64_t normalizeMantissa(int64_t& exponent) const
-    {
-        assert(sizeof(Type) != sizeof(typename TargetType::Type));
-
-        if (sizeof(Type) < sizeof(typename TargetType::Type)) // Map subnormal to a larger type
-        {
-            assert(isSubnormal());
-
-            // unused: unsigned targetTypeSize = (unsigned)sizeof(typename TargetType::Type) * 8;
-
-            uint64_t mantissa = getMantissa();
-            mantissa <<= sizeof(mantissa)*8 - MANTISSA_WIDTH;
-
-            assert(mantissa != 0);
-
-            bool found = false;
-            for (; !found && TargetType::isValidExponent(exponent - 1); )
-            {
-                found = (mantissa & 0x8000000000000000ULL) != 0;
-                mantissa <<= 1;
-                exponent--;
-            }
-            if (!found) exponent = TargetType::decodedSubnormalExponent(); // subnormal -> subnormal
-
-            return mantissa >> (sizeof(mantissa)*8 - TargetType::MANTISSA_WIDTH);
-        }
-        else // Map regular value with large negative mantissa to a smaller type (resulting in subnormal or 0)
-        {
-            assert(exponent < 0);
-            assert(!TargetType::isValidExponent(exponent));
-            assert(sizeof(T) > sizeof(typename TargetType::Type));
-
-            uint64_t mantissa = getMantissa();
-
-            // Add hidden bit of mantissa
-            mantissa = MANTISSA_MSB_MASK | (mantissa >> 1);
-            exponent++;
-
-            for (; !TargetType::isValidExponent(exponent); )
-            {
-                mantissa >>= 1;
-                exponent++;
-            }
-
-            exponent = TargetType::decodedSubnormalExponent();
-            int delta = (MANTISSA_WIDTH - TargetType::MANTISSA_WIDTH);
-            assert(delta >= 0);
-            return mantissa >> delta;
-        }
-    }
-
-    // Return exponent as a signed number
-    int64_t decodeExponent() const
-    {
-        int64_t e = getExponent() >> MANTISSA_WIDTH;
-        return e - EXPONENT_BIAS;
-    }
-
-    // Return fractional part of fp number
-    // normalized so that x-th digit is at (63-x)-th bit of u64_t
-    uint64_t getNormalizedFract(int x = 0) const
-    {
-        if (isZero() || isInf() || isNan()) return 0;
-
-        uint64_t mantissa = getMantissa() | (MANTISSA_MASK + 1); // Highest bit of mantissa is not encoded but assumed
-        int exponent = static_cast<int>(getExponent() >> MANTISSA_WIDTH);
-
-        // Compute shift required to place 1st fract bit at 63d bit of u64_t
+        // Compute shift required to place 1st fract bit at MSB bit of u64_t
         int width = static_cast<int>(sizeof(mantissa) * 8);
-        int shift = (exponent - EXPONENT_BIAS) + (width - MANTISSA_WIDTH) + x;
+        int shift = static_cast<int>(getExponent()) + (width - MANT_WIDTH) + x;
         if (shift <= -width || width <= shift) return 0;
         return (shift >= 0)? mantissa << shift : mantissa >> (-shift);
     }
 
-    Type negate()      const { return (getSign()? 0 : SIGN_MASK) | getExponent() | getMantissa(); }
-    Type copySign(Type v) const { return (v & SIGN_MASK) | getExponent() | getMantissa(); }
-
-    Type normalize(bool discardNanSign) const // Clear NaN payload and sign
+    /// Add delta ULPs.
+    /// NB: This is not a generic code; it does not handle INF
+    Ieee754Props ulp(int64_t delta) const
     {
-        if (isQuietNan())
-        {
-            if (!discardNanSign) return getSign() | getExponent() | getNanType();
-            else                 return             getExponent() | getNanType();
-        }
-        return bits;
+        assert(delta == -1 || delta == 1);
+        // Special values:
+        if (isInf() || isNan()) return getPositiveZero();
+        if (isZero() && delta == -1) return assemble(true , DECODED_EXP_SUBNORMAL_OR_ZERO, 0x01); // +/-0 -> -MIN_DENORM
+        if (isZero() && delta ==  1) return assemble(false, DECODED_EXP_SUBNORMAL_OR_ZERO, 0x01); // +/-0 -> +MIN_DENORM
+        if (isNegativeSubnormal() && getMantissa() == 0x01 && delta == 1) return getPositiveZero(); // -MIN_DENORM -> +0
+        // The rest of values:
+        return isNegative() ? Ieee754Props(Type(bits - delta)) : Ieee754Props(Type(bits + delta));
     }
 };
 
+
 //=============================================================================
 //=============================================================================
 //=============================================================================
-// Decoders for IEEE 754 numbers
+// Floating-point types and rounding modes
 
-typedef IEEE754
-    <
-        uint16_t,
-        0x8000,  // Sign
-        0x7C00,  // Exponent
-        0x03ff,  // Mantissa
-        0x0200,  // Mantissa MSB
-        15,      // Exponent bias
-        10       // Mantissa width
-    > FloatProp16;
+/// \note "enum struct Round {}" is more type-safe, but requires a lot of reworking.
+static const unsigned RND_NEAR = BRIG_ROUND_FLOAT_NEAR_EVEN;
+static const unsigned RND_ZERO = BRIG_ROUND_FLOAT_ZERO;
+static const unsigned RND_PINF = BRIG_ROUND_FLOAT_PLUS_INFINITY;
+static const unsigned RND_MINF = BRIG_ROUND_FLOAT_MINUS_INFINITY;
 
-typedef IEEE754
-    <
-        uint32_t,
-        0x80000000,  // Sign
-        0x7f800000,  // Exponent
-        0x007fffff,  // Mantissa
-        0x00400000,  // Mantissa MSB
-        127,         // Exponent bias
-        23           // Mantissa width
-    > FloatProp32;
+typedef Ieee754Props<uint16_t, 10> FloatProp16;
+typedef Ieee754Props<uint32_t, 23> FloatProp32;
+typedef Ieee754Props<uint64_t, 52> FloatProp64;
 
-typedef IEEE754
-    <
-        uint64_t,
-        0x8000000000000000ULL,  // Sign
-        0x7ff0000000000000ULL,  // Exponent
-        0x000fffffffffffffULL,  // Mantissa
-        0x0008000000000000ULL,  // Mantissa MSB
-        1023,                   // Exponent bias
-        52                      // Mantissa width
-    > FloatProp64;
+class f16_t;
+class f32_t;
+class f64_t;
+
+class f32_t
+{
+public:
+    typedef FloatProp32 props_t;
+    typedef props_t::Type bits_t;
+    typedef float floating_t;
+
+private:
+    union { floating_t m_value; bits_t m_bits; };
+
+public:
+    f32_t() : m_bits(0) {}
+    f32_t(floating_t x) : m_value(x) {} // non-explicit for initialization of arrays etc.
+    explicit f32_t(double x, unsigned rounding = RND_NEAR);
+    explicit f32_t(f64_t x, unsigned rounding = RND_NEAR);
+    explicit f32_t(f16_t x);
+    explicit f32_t(int32_t x, unsigned rounding = RND_NEAR);
+    explicit f32_t(uint32_t x, unsigned rounding = RND_NEAR);
+    explicit f32_t(int64_t x, unsigned rounding = RND_NEAR);
+    explicit f32_t(uint64_t x, unsigned rounding = RND_NEAR);
+    //
+    explicit f32_t(props_t x) : m_bits(x.rawBits()) {}
+    explicit f32_t(const floating_t* rhs) : m_bits(*reinterpret_cast<const bits_t*>(rhs)) {} // allows SNANs
+
+public:
+    // These operators work also for floating_T due to non-explicit ctor
+    bool operator>  (f32_t x) const { return m_value >  x.m_value; }
+    bool operator<  (f32_t x) const { return m_value <  x.m_value; }
+    bool operator>= (f32_t x) const { return m_value >= x.m_value; }
+    bool operator<= (f32_t x) const { return m_value <= x.m_value; }
+    bool operator== (f32_t x) const { return m_value == x.m_value; }
+    bool operator!= (f32_t x) const { return m_value != x.m_value; }
+    // 32- and 64-bit integers can't be fit into f32's mantissa without rounding.
+    // Therefore, precise implementation is non-trivial for the most of cases.
+    // Only two kinds of precise compare can be easily implemented,
+    // and only for a limited range of floating values:
+    // * <= for positives
+    // * >= for negatives
+    // Other kinds of compare with 32/64-bit integers are disabled.
+    // NOTE: Simple template implementation actually covers compare with ALL types
+    // except floating types. Compare with all floating types is implemented above.
+    template<typename T> bool operator<= (T x) const { assert((m_value >= 0.0)); return m_value <= x; }
+    template<typename T> bool operator>= (T x) const { assert((m_value <= 0.0)); return m_value >= x; }
+private:
+    template<typename T> bool operator== (T x) const;
+    template<typename T> bool operator!= (T x) const;
+    template<typename T> bool operator>  (T x) const;
+    template<typename T> bool operator<  (T x) const;
+
+public:
+    bool isSubnormal() const { return props().isSubnormal(); }
+    bool isZero() const { return props().isZero(); }
+    bool isNan() const { return props().isNan(); }
+    bool isInf() const { return props().isInf(); }
+    bool isNegative() const { return props().isNegative(); }
+    f32_t copySign(f32_t x) const { return f32_t(props().copySign(x.props())); }
+    f32_t neg() const { return f32_t(props().neg()); }
+    f32_t abs() const { return f32_t(props().abs()); }
+    f32_t inline modf(f32_t* iptr ) {
+      assert(iptr);
+      const floating_t a = std::modf(m_value, iptr->getFloatValuePtr());
+      return f32_t(&a);
+    }
+    f32_t& operator+= (f32_t x) { m_value = m_value + x.m_value; return *this; }
+    f32_t operator- () const { return neg(); }
+
+public:
+    static f32_t fromRawBits(bits_t bits_) { f32_t res; res.m_bits = bits_; return res; }
+    bits_t rawBits() const { return m_bits; }
+    props_t props() const { return props_t(m_bits); }
+    floating_t floatValue() const { return m_value; }
+    floating_t* getFloatValuePtr() { return &m_value; }
+};
+
+inline f32_t operator+ (f32_t l, f32_t  r) { const float rv = l.floatValue() + r.floatValue(); return f32_t(&rv); }
+inline f32_t operator- (f32_t l, f32_t  r) { const float rv = l.floatValue() - r.floatValue(); return f32_t(&rv); }
+inline f32_t operator* (f32_t l, float  r) { const float rv = l.floatValue() * r; return f32_t(&rv); }
+inline f32_t operator/ (f32_t l, float  r) { const float rv = l.floatValue() / r; return f32_t(&rv); }
+inline f32_t operator* (f32_t l, double r) { const float rv = static_cast<float>(l.floatValue() * r); return f32_t(&rv); }
+inline f32_t operator/ (f32_t l, double r) { const float rv = static_cast<float>(l.floatValue() / r); return f32_t(&rv); }
+
+inline f32_t operator* (f32_t l, f32_t    r) { return l * r.floatValue(); }
+inline f32_t operator* (f32_t l, int      r) { return l * (double)r; }
+inline f32_t operator* (f32_t l, unsigned r) { return l * (double)r; }
+inline f32_t operator/ (f32_t l, f32_t    r) { return l / r.floatValue(); }
+inline f32_t operator/ (f32_t l, int      r) { return l / (double)r; }
+
+class f64_t
+{
+public:
+    typedef FloatProp64 props_t;
+    typedef props_t::Type bits_t;
+    typedef double floating_t;
+
+private:
+    union { floating_t m_value; bits_t m_bits; };
+
+public:
+    f64_t() : m_bits(0) {}
+    f64_t(floating_t x) : m_value(x) {} // non-explicit for initialization of arrays etc.
+    explicit f64_t(float x);
+    explicit f64_t(f32_t x);
+    explicit f64_t(f16_t x);
+    explicit f64_t(int32_t x, unsigned rounding = RND_NEAR);
+    explicit f64_t(uint32_t x, unsigned rounding = RND_NEAR);
+    explicit f64_t(int64_t x, unsigned rounding = RND_NEAR);
+    explicit f64_t(uint64_t x, unsigned rounding = RND_NEAR);
+    //
+    explicit f64_t(props_t x) : m_bits(x.rawBits()) {}
+    explicit f64_t(const floating_t* rhs) : m_bits(*reinterpret_cast<const bits_t*>(rhs)) {} // allows SNANs
+
+public:
+    bool operator>  (f64_t x) const { return m_value >  x.m_value; }
+    bool operator<  (f64_t x) const { return m_value <  x.m_value; }
+    bool operator>= (f64_t x) const { return m_value >= x.m_value; }
+    bool operator<= (f64_t x) const { return m_value <= x.m_value; }
+    bool operator== (f64_t x) const { return m_value == x.m_value; }
+    bool operator!= (f64_t x) const { return m_value != x.m_value; }
+    // 64-bit integers can't be fit into f64's mantissa without rounding.
+    // Therefore, precise implementation is non-trivial for the most of cases.
+    // Only two kinds of precise compare can be easily implemented,
+    // and only for a limited range of floating values:
+    // * <= for positives
+    // * >= for negatives
+    // Other kinds of compare with 64-bit integers are disabled.
+    // NOTE: Simple template implementation actually covers compare with ALL types
+    // except floating types. Compare with all floating types is implemented above.
+    template<typename T> bool operator<= (T x) const { assert(m_value >= 0.0); return m_value <= x; }
+    template<typename T> bool operator>= (T x) const { assert(m_value <= 0.0); return m_value >= x; }
+private:
+    template<typename T> bool operator== (T x) const;
+    template<typename T> bool operator!= (T x) const;
+    template<typename T> bool operator>  (T x) const;
+    template<typename T> bool operator<  (T x) const;
+
+public:
+    bool isSubnormal() const { return props().isSubnormal(); }
+    bool isZero() const { return props().isZero(); }
+    bool isNan() const { return props().isNan(); }
+    bool isInf() const { return props().isInf(); }
+    bool isNegative() const { return props().isNegative(); }
+    f64_t copySign(f64_t x) const { return f64_t(props().copySign(x.props())); }
+    f64_t neg() const { return f64_t(props().neg()); }
+    f64_t abs() const { return f64_t(props().abs()); }
+    f64_t inline modf(f64_t* iptr ) {
+      assert(iptr);
+      const floating_t a = std::modf(m_value, iptr->getFloatValuePtr());
+      return f64_t(&a);
+    }
+    f64_t& operator+= (f64_t x) { m_value = m_value + x.m_value; return *this; }
+    f64_t operator- () const { return neg(); }
+
+public:
+    static f64_t fromRawBits(bits_t bits_) { f64_t res; res.m_bits = bits_; return res; }
+    bits_t rawBits() const { return m_bits; }
+    props_t props() const { return props_t(m_bits); }
+    floating_t floatValue() const { return m_value; }
+    floating_t* getFloatValuePtr() { return &m_value; }
+};
+
+inline f64_t operator+ (f64_t l, f64_t r) { const f64_t::floating_t rv = l.floatValue() + r.floatValue(); return f64_t(&rv); }
+inline f64_t operator- (f64_t l, f64_t r) { const f64_t::floating_t rv = l.floatValue() - r.floatValue(); return f64_t(&rv); }
+inline f64_t operator* (f64_t l, f64_t::floating_t r) { const f64_t::floating_t rv = l.floatValue() * r; return f64_t(&rv); }
+inline f64_t operator/ (f64_t l, f64_t::floating_t r) { const f64_t::floating_t rv = l.floatValue() / r; return f64_t(&rv); }
+
+inline f64_t operator* (f64_t l, f64_t    r) { return l * r.floatValue(); }
+inline f64_t operator* (f64_t l, int      r) { return l * static_cast<f64_t::floating_t>(r); }
+inline f64_t operator* (f64_t l, unsigned r) { return l * static_cast<f64_t::floating_t>(r); }
+inline f64_t operator/ (f64_t l, f64_t    r) { return l / r.floatValue(); }
+inline f64_t operator/ (f64_t l, int      r) { return l / static_cast<f64_t::floating_t>(r); }
+
+
+class f16_t
+{
+public:
+    typedef FloatProp16 props_t;
+    typedef props_t::Type bits_t;
+    typedef void floating_t;
+
+private:
+    bits_t m_bits;
+
+public:
+    f16_t() : m_bits(0) {}
+    explicit f16_t(double x,unsigned rounding = RND_NEAR);
+    explicit f16_t(float x, unsigned rounding = RND_NEAR);
+    explicit f16_t(f64_t x, unsigned rounding = RND_NEAR);
+    explicit f16_t(f32_t x, unsigned rounding = RND_NEAR);
+    //
+    explicit f16_t(props_t x) : m_bits(x.rawBits()) {}
+    explicit f16_t(int32_t x, unsigned rounding = RND_NEAR);
+    explicit f16_t(uint32_t x, unsigned rounding = RND_NEAR);
+    explicit f16_t(int64_t x, unsigned rounding = RND_NEAR);
+    explicit f16_t(uint64_t x, unsigned rounding = RND_NEAR);
+
+public:
+    bool operator>  (f16_t x) const { return floatValue() >  x.floatValue(); }
+    bool operator<  (f16_t x) const { return floatValue() <  x.floatValue(); }
+    bool operator>= (f16_t x) const { return floatValue() >= x.floatValue(); }
+    bool operator<= (f16_t x) const { return floatValue() <= x.floatValue(); }
+    bool operator== (f16_t x) const { return floatValue() == x.floatValue(); }
+    // 16/32/64-bit integers can't be fit into f16's mantissa without rounding.
+    // Therefore, precise implementation is non-trivial for the most of cases.
+    // Only two kinds of precise compare can be easily implemented,
+    // and only for a limited range of floating values:
+    // * <= for positives
+    // * >= for negatives
+    // Other kinds of compare with 16/32/64-bit integers are disabled.
+    // NOTE: Simple template implementation actually covers compare with ALL types
+    // except floating types. Compare with all floating types is implemented above.
+    template<typename T> bool operator<= (T x) const { assert(floatValue() >= 0.0); return floatValue() <= x; }
+    template<typename T> bool operator>= (T x) const { assert(floatValue() <= 0.0); return floatValue() >= x; }
+private:
+    template<typename T> bool operator== (T x) const;
+    template<typename T> bool operator!= (T x) const;
+    template<typename T> bool operator>  (T x) const;
+    template<typename T> bool operator<  (T x) const;
+
+public:
+    bool isSubnormal() const { return props().isSubnormal(); }
+    bool isZero() const { return props().isZero(); }
+    bool isNan() const { return props().isNan(); }
+    bool isInf() const { return props().isInf(); }
+    bool isNegative() const { return props().isNegative(); }
+    f16_t copySign(f16_t x) const { return f16_t(props().copySign(x.props())); }
+    f16_t neg() const { return f16_t(props().neg()); }
+    f16_t abs() const { return f16_t(props().abs()); }
+    f16_t& operator+= (f16_t x) { m_bits = f16_t(f64_t(*this) + f64_t(x)).m_bits; return *this; }
+    f16_t operator- () const { return neg(); }
+
+public:
+    static f16_t fromRawBits(bits_t bits) { f16_t res; res.m_bits = bits; return res; }
+    bits_t rawBits() const { return m_bits; }
+    props_t props() const { return props_t(m_bits); }
+    float floatValue() const { return f32_t(*this).floatValue(); }
+};
+
+inline f16_t operator+ (f16_t l, f16_t r) { return f16_t(f64_t(l).floatValue() + f64_t(r).floatValue()); }
+inline f16_t operator- (f16_t l, f16_t r) { return f16_t(f64_t(l).floatValue() - f64_t(r).floatValue()); }
+inline f16_t operator* (f16_t l, double   r) { return f16_t(l.floatValue() * r); }
+inline f16_t operator* (f16_t l, f16_t    r) { return l * double(r.floatValue()); }
+inline f16_t operator* (f16_t l, int      r) { return l * double(r); }
+inline f16_t operator* (f16_t l, unsigned r) { return l * double(r); }
+inline f16_t operator/ (f16_t l, double   r) { return f16_t(l.floatValue() / r); }
+inline f16_t operator/ (f16_t l, f16_t    r) { return l / double(r.floatValue()); }
 
 //==============================================================================
 //==============================================================================
@@ -490,105 +672,25 @@ public:
     bool operator == (const uint128& x) const;
 };
 
-//==============================================================================
-//==============================================================================
-//==============================================================================
+} // namespace HSAIL_X
 
-// Typesafe impl of re-interpretation of floats as unsigned integers and vice versa
-namespace impl {
-  template<typename T1, typename T2> union Unionier { // provides ctor for const union
-    T1 val; T2 reinterpreted;
-    explicit Unionier(T1 x) : val(x) {}
-  };
-  template<typename T> struct AsBitsTraits; // allowed pairs of types:
-  template<> struct AsBitsTraits<float> { typedef uint32_t DestType; };
-  template<> struct AsBitsTraits<double> { typedef uint64_t DestType; };
-  template<typename T> struct AsBits {
-    typedef typename AsBitsTraits<T>::DestType DestType;
-    const Unionier<T,DestType> u;
-    explicit AsBits(T x) : u(x) { };
-    DestType Get() const { return u.reinterpreted; }
-  };
-  template<typename T> struct AsFloatingTraits;
-  template<> struct AsFloatingTraits<uint32_t> { typedef float DestType; };
-  template<> struct AsFloatingTraits<uint64_t> { typedef double DestType; };
-  template<typename T> struct AsFloating {
-    typedef typename AsFloatingTraits<T>::DestType DestType;
-    const Unionier<T,DestType> u;
-    explicit AsFloating(T x) : u(x) {}
-    DestType Get() const { return u.reinterpreted; }
-  };
-}
+#include <limits>
+namespace std {
 
-template <typename T> // select T and instantiate specialized class
-typename impl::AsBits<T>::DestType asBits(T f) { return impl::AsBits<T>(f).Get(); }
-template <typename T>
-typename impl::AsFloating<T>::DestType asFloating(T x) { return impl::AsFloating<T>(x).Get(); }
+using HSAIL_X::f16_t;
 
-//==============================================================================
-//==============================================================================
-//==============================================================================
-// F16 type
-
-class f16_t
-{
+template<> class numeric_limits<HSAIL_X::f16_t> {
 public:
-    typedef FloatProp16::Type bits_t;
-private:
-    static const unsigned RND_NEAR = BRIG_ROUND_FLOAT_NEAR_EVEN;
-    static const unsigned RND_ZERO = BRIG_ROUND_FLOAT_ZERO;
-    static const unsigned RND_UP   = BRIG_ROUND_FLOAT_PLUS_INFINITY;
-    static const unsigned RND_DOWN = BRIG_ROUND_FLOAT_MINUS_INFINITY;
-
-private:
-    bits_t bits;
-
-public:
-    f16_t() {}
-    explicit f16_t(double x, unsigned rounding = RND_NEAR);
-    explicit f16_t(float x, unsigned rounding = RND_NEAR);
-    //explicit f16_t(f64_t x, unsigned rounding = RND_NEAR) : f16_t(double(x), rounding) {};
-    //explicit f16_t(f32_t x, unsigned rounding = RND_NEAR) : f16_t(float(x), rounding) {};
-    explicit f16_t(int32_t x) { bits = f16_t((f64_t)x).getBits(); }
-
-public:
-    bool operator>  (const f16_t& x) const { return f64() >  x.f64(); } /// \todo reimplement all via f32 at least
-    bool operator<  (const f16_t& x) const { return f64() <  x.f64(); }
-    bool operator>= (const f16_t& x) const { return f64() >= x.f64(); }
-    bool operator<= (const f16_t& x) const { return f64() <= x.f64(); }
-    bool operator== (const f16_t& x) const { return f64() == x.f64(); }
-
-public:
-    f16_t& operator+= (f16_t x) { bits = f16_t(f64() + x.f64()).bits; return *this; }
-
-public:
-    f32_t f32() const;
-    f64_t f64() const;
-    operator float() const { return f32(); }
-    operator double() const { return f64(); }
-
-public:
-    f16_t neg() const { return make(FloatProp16(bits).negate()); }
-
-public:
-    static f16_t make(bits_t bits) { f16_t res; res.bits = bits; return res; }
-    bits_t getBits() const { return bits; }
-
-public:
-/* FIXME
-    static void sanityTests();
-    string dump() { return FloatProp16(bits).dump(); }*/
+    static f16_t infinity() { return f16_t(f16_t::props_t::getPositiveInf()); }
 };
 
-/* FIXME
-inline f16_t operator+ (f16_t l, f16_t r) { return f16_t(l.f64() + r.f64()); }
-inline f16_t operator- (f16_t l, f16_t r) { return f16_t(l.f64() - r.f64()); } */
-
-} // namespace
+} // namespace std
 
 namespace hexl {
 
 typedef HSAIL_X::f16_t half;
+using HSAIL_X::f32_t;
+using HSAIL_X::f64_t;
 typedef HSAIL_X::uint128 uint128_t;
 
 typedef union {
@@ -621,7 +723,7 @@ inline ValueData S32(int32_t s32) { ValueData data; data.s32 = s32;  return data
 inline ValueData U64(uint64_t u64) { ValueData data; data.u64 = u64;  return data; }
 inline ValueData S64(int64_t s64) { ValueData data; data.s64 = s64;  return data; }
 inline ValueData U128(uint128_t u128) { ValueData data; data.u128.h = u128.U64H(); data.u128.l = u128.U64L(); return data; }
-inline ValueData H(half h) { ValueData data; data.h_bits = h.getBits();  return data; }
+inline ValueData H(half h) { ValueData data; data.h_bits = h.rawBits();  return data; }
 inline ValueData F(float f) { ValueData data; data.f = f;  return data; }
 inline ValueData D(double d) { ValueData data; data.d = d;  return data; }
 inline ValueData O(std::ptrdiff_t o) { ValueData data; data.o = o; return data; }
@@ -672,7 +774,7 @@ public:
   int64_t S64() const { return data.s64; }
   uint64_t U64() const { return data.u64; }
   uint128_t U128() const { return uint128_t::make(data.u128); }
-  half H() const { return half::make(data.h_bits); }
+  half H() const { return half::fromRawBits(data.h_bits); }
   float F() const { return data.f; }
   double D() const { return data.d; }
   std::ptrdiff_t O() const { return data.o; }
@@ -691,7 +793,7 @@ public:
   int32_t S32X2(size_t index) const { assert(index < 2); return reinterpret_cast<const int32_t *>(&(data.u64))[index]; }
   uint64_t U64X2(size_t index) const { assert(index < 2); return reinterpret_cast<const uint64_t *>(&(data.u128))[index]; }
   float FX2(size_t index) const { assert(index < 2); return reinterpret_cast<const float *>(&(data.u64))[index]; }
-    
+
   size_t Size() const;
   size_t PrintWidth() const;
   void SetPrintExtraHex(bool m) { printExtraHex = m; }
@@ -812,11 +914,9 @@ enum ComparisonMethod {
   CM_IMAGE,    // precision = max ulps with convet by PRM
   CM_RELATIVE  // (simulated_value - expected_value) / expected_value <= precision
 };
-//NOTE
-//It is unsafe to use CM_ULPS for floats near 0.
-//CM_ULPS is an approximation of the ulp(x) function defined in PRM section 4.19.6.
-//Precision in CM_ULPS is more like a number of representable float numbers between
-//expected and actual results. Thus it gives slightly different results.
+/// \note CM_ULPS is an approximation of the ulp(x) function defined in PRM section 4.19.6.
+/// Precision in CM_ULPS is more like a number of representable float numbers between
+/// expected and actual results. Thus it gives slightly different results.
 
 class Comparison {
 public:
@@ -826,15 +926,15 @@ public:
 #if defined(LINUX)
   static const int F64_MAX_DECIMAL_PRECISION = 17; // Max F64 arithmetic precision
   static const int F32_MAX_DECIMAL_PRECISION = 9; // Max F32 arithmetic precision
-  static const int F32_MAX_DECIMAL_PRECISION = 5; // Max F16 arithmetic precision
+  static const int F16_MAX_DECIMAL_PRECISION = 5; // Max F16 arithmetic precision
 #else
   static const int F64_MAX_DECIMAL_PRECISION = std::numeric_limits<double>::max_digits10; // Max F64 arithmetic precision
   static const int F32_MAX_DECIMAL_PRECISION = std::numeric_limits<float>::max_digits10; // Max F32 arithmetic precision
   static const int F16_MAX_DECIMAL_PRECISION = std::numeric_limits<float>::max_digits10 - 4; // 23 bit vs 10 bit mantissa (f32 vs f16)
 #endif
-  static const uint32_t F_DEFAULT_ULPS_PRECISION;
+  static const double F_DEFAULT_ULPS_PRECISION;
   static const double F_DEFAULT_RELATIVE_PRECISION;
-  Comparison(ComparisonMethod method_ = CM_DECIMAL, const Value& precision_ = Value())
+  Comparison(ComparisonMethod method_ = CM_DECIMAL, const Value& precision_ = Value(MV_UINT64, U64(-1)))
     : method(method_)
     , precision(precision_)
     , minLimit(-std::numeric_limits<float>::infinity())

@@ -17,7 +17,9 @@
 #ifndef INCLUDED_HSAIL_TESTGEN_LUA_BACKEND_H
 #define INCLUDED_HSAIL_TESTGEN_LUA_BACKEND_H
 
+#include "HSAILTestGenUtilities.h"
 #include "HSAILTestGenBackendEml.h"
+#include <cmath>
 
 namespace TESTGEN {
 
@@ -107,7 +109,7 @@ private:
         // Subword values are represented as 32-bit values
         // s64/u64 values are represented as 2 32-bit values because of LUA limitations
         unsigned    typeSize  = getBrigTypeNumBits(type);
-        const char* arrayType = isFloatType(type)? (typeSize == 64? "DOUBLE" : typeSize == 32? "FLOAT" : "F16") //F TODO: this is a temporary workaround as LUA does not support F16 yet
+        const char* arrayType = isFloatType(type)? (typeSize == 64? "DOUBLE" : typeSize == 32? "FLOAT" : "HALF")
                               : isSignedLuaType(type) ?             "INT32"  : "UINT32";
         unsigned    arraySize = isFloatType(type)? 1 : (typeSize == 128? 4 : typeSize == 64? 2 : 1);
 
@@ -158,8 +160,26 @@ private:
 
         if (isFloatType(type))
         {
-            os << ", " << precision << ", ";
-            os << ((precision < 1)? "CM_RELATIVE" : "CM_ULPS");
+            if (precision >= 1)
+            {
+#ifdef LINUX_FP_PRINT_QUIRK
+              ostringstream ss;
+              ss << precision - 0.5;
+              os << ", " << addLeadingZero2Exponent(ss.str()) << ", " << "CM_ULPS";
+#else
+              os << ", " << precision - 0.5 << ", " << "CM_ULPS";
+#endif
+            }
+            else
+            {
+#ifdef LINUX_FP_PRINT_QUIRK
+              ostringstream ss;
+              ss << std::abs(precision);
+              os << ", " << addLeadingZero2Exponent(ss.str()) << ", " << (precision <= 0 ? "CM_DECIMAL" : "CM_RELATIVE");
+#else
+              os << ", " << std::abs(precision) << ", " << (precision <= 0 ? "CM_DECIMAL" : "CM_RELATIVE");
+#endif
+            }
         }
 
         os << ")\n";
