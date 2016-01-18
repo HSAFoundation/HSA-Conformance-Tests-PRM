@@ -465,8 +465,8 @@ public:
     assert((geometry->WorkgroupSize() % (2 * te->CoreCfg()->Wavesize())) == 0); // group size is multiple of WAVESIZE and there are even number of waves in work-group
   }
 
-  BrigType ResultType() const override { 
-    return te->CoreCfg()->IsLarge() ? BRIG_TYPE_U64 : BRIG_TYPE_U32; 
+  BrigType ResultType() const override {
+    return te->CoreCfg()->IsLarge() ? BRIG_TYPE_U64 : BRIG_TYPE_U32;
   }
 
   Value ExpectedResult() const override { return Value(Brig2ValueType(ResultType()), VALUE2); }
@@ -520,7 +520,7 @@ public:
 
 class FBarrierFirstExampleTest: public FBarrierExampleTest {
 protected:
-  
+
   virtual void EmitFirstBranch(TypedReg wiId, PointerReg globalOffset) override {
     // store VALUE1 in output
     be.EmitStore(ResultType(), be.Immed(ResultType(), VALUE1), globalOffset);
@@ -671,7 +671,7 @@ protected:
     Cfb()->EmitLeavefbar();
     be.EmitBarrier();
     Pfb()->EmitReleasefbarInFirstWI();
-    Cfb()->EmitReleasefbarInFirstWI(); 
+    Cfb()->EmitReleasefbarInFirstWI();
   }
 
   virtual TypedReg EmitWorkitemId() {
@@ -765,7 +765,7 @@ public:
   explicit FBarrierThirdExampleTest(Grid geometry): FBarrierDoubleBranchTest(geometry) {}
 
   bool IsValid() const override {
-    return FBarrierDoubleBranchTest::IsValid() 
+    return FBarrierDoubleBranchTest::IsValid()
         && !geometry->isPartial(); // no partial work-groups
   }
 
@@ -776,8 +776,8 @@ public:
     buffer = kernel->NewVariable("buffer", BRIG_SEGMENT_GROUP, ResultType(), Location::KERNEL, BRIG_ALIGNMENT_NONE, geometry->WorkgroupSize() / 2);
   }
 
-  BrigType ResultType() const override { 
-    return te->CoreCfg()->IsLarge() ? BRIG_TYPE_U64 : BRIG_TYPE_U32; 
+  BrigType ResultType() const override {
+    return te->CoreCfg()->IsLarge() ? BRIG_TYPE_U64 : BRIG_TYPE_U32;
   }
 
   uint64_t ResultDim() const override { return DATA_ITEM_COUNT; }
@@ -792,17 +792,23 @@ public:
   }
 };
 
-class LdfTest: public utils::SkipTest {
+class LdfTest: public Test {
 private:
   FBarrier fb;
 
+  static const int RESULT_VALUE = 1;
+  static const BrigType RESULT_TYPE = BrigType::BRIG_TYPE_U32;
+
 public:
-  explicit LdfTest(bool): utils::SkipTest() {}
+  explicit LdfTest(bool): Test() {}
 
   void Name(std::ostream& out) const override {}
 
+  BrigType ResultType() const override { return RESULT_TYPE; }
+  hexl::Value ExpectedResult() const override { return hexl::Value(hexl::Brig2ValueType(RESULT_TYPE), RESULT_VALUE); }
+
   void Init() override {
-    utils::SkipTest::Init();
+    Test::Init();
     fb = kernel->NewFBarrier("fb");
   }
 
@@ -820,7 +826,7 @@ public:
     be.EmitBarrier();
     be.EmitReleasefbarInFirstWI(ldf);
 
-    return utils::SkipTest::Result();
+    return be.AddInitialTReg(ResultType(), RESULT_VALUE);
   }
 };
 
@@ -845,7 +851,7 @@ protected:
     be.EmitLabel(loopLabel);
 
     EmitFirstLoop();
-    
+
     // iterate
     auto cmp = be.AddCTReg();
     be.EmitArith(BRIG_OPCODE_ADD, counter, counter, be.Immed(counter->Type(), 1));
@@ -887,7 +893,7 @@ protected:
     auto result = be.AddTReg(ResultType());
     be.EmitMov(result, VALUE);
     output->EmitStoreData(result);
-  }  
+  }
 
   virtual void EmitFirstLoop() = 0;
   virtual void EmitSecondLoop() = 0;
@@ -924,7 +930,7 @@ protected:
     // arrive fbarrier
     Fb()->EmitArrivefbar();
   }
-  
+
 public:
   explicit FBarrierWaitArriveTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
 };
@@ -951,7 +957,7 @@ protected:
     // join to fbarrier
     Fb()->EmitJoinfbar();
   }
-  
+
 public:
   explicit FBarrierWaitLeaveTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
 };
@@ -978,33 +984,38 @@ protected:
     // join to fbarrier
     Fb()->EmitJoinfbar();
   }
-  
+
 public:
   explicit FBarrierArriveLeaveTest(Grid geometry): FBarrierPairOperationTest(geometry) {}
 };
 
 
-class FBarrierWaitRaceTest: public utils::SkipTest {
+class FBarrierWaitRaceTest: public Test {
 private:
   FBarrier fb;
 
   static const uint32_t ITERATION_NUMBER = 256;
+  static const int RESULT_VALUE = 1;
+  static const BrigType RESULT_TYPE = BrigType::BRIG_TYPE_U32;
 
 public:
-  explicit FBarrierWaitRaceTest(Grid geometry): SkipTest(Location::KERNEL, geometry) {}
+  explicit FBarrierWaitRaceTest(Grid geometry): Test(Location::KERNEL, geometry) {}
 
   void Name(std::ostream& out) const override {
     out << geometry;
   }
 
+  BrigType ResultType() const override { return RESULT_TYPE; }
+  hexl::Value ExpectedResult() const override { return hexl::Value(hexl::Brig2ValueType(RESULT_TYPE), RESULT_VALUE); }
+
   bool IsValid() const override {
     uint32_t wavesize = 64;
-    return SkipTest::IsValid()
+    return Test::IsValid()
         && geometry->WorkgroupSize() > wavesize;
   }
 
   void Init() override {
-    SkipTest::Init();
+    Test::Init();
     fb = kernel->NewFBarrier("fb");
   }
 
@@ -1032,7 +1043,7 @@ public:
     be.EmitBarrier();
     fb->EmitReleasefbarInFirstWI();
 
-    return SkipTest::Result();
+    return be.AddInitialTReg(ResultType(), RESULT_VALUE);
   }
 };
 
@@ -1082,17 +1093,23 @@ public:
 };
 
 
-class FBarrierJoinLeaveJoinTest: public utils::SkipTest {
+class FBarrierJoinLeaveJoinTest: public Test {
 private:
   FBarrier fb;
 
+  static const int RESULT_VALUE = 1;
+  static const BrigType RESULT_TYPE = BrigType::BRIG_TYPE_U32;
+
 public:
-  explicit FBarrierJoinLeaveJoinTest(bool): utils::SkipTest() {}
+  explicit FBarrierJoinLeaveJoinTest(bool): Test() {}
 
   void Name(std::ostream& out) const override {}
 
+  BrigType ResultType() const override { return RESULT_TYPE; }
+  hexl::Value ExpectedResult() const override { return hexl::Value(hexl::Brig2ValueType(RESULT_TYPE), RESULT_VALUE); }
+
   void Init() override {
-    utils::SkipTest::Init();
+    Test::Init();
     fb = kernel->NewFBarrier("fb");
   }
 
@@ -1108,7 +1125,8 @@ public:
     fb->EmitLeavefbar();
     be.EmitBarrier();
     fb->EmitReleasefbarInFirstWI();
-    return utils::SkipTest::Result();
+
+    return be.AddInitialTReg(ResultType(), RESULT_VALUE);
   }
 };
 
@@ -1117,7 +1135,7 @@ void BarrierTests::Iterate(hexl::TestSpecIterator& it) {
   CoreConfig* cc = CoreConfig::Get(context);
   Arena* ap = cc->Ap();
   TestForEach<BarrierTest>(ap, it, "barrier/atomics", cc->Grids().BarrierSet(), cc->Memory().AllAtomics(), cc->Segments().Atomic(), cc->Memory().AllMemoryOrders(), cc->Memory().AllMemoryScopes(), Bools::All(), Bools::All());
-  
+
   TestForEach<FBarrierBasicTest>(ap, it, "fbarrier/basic", cc->Grids().FBarrierEvenWaveSet());
   TestForEach<FBarrierFirstExampleTest>(ap, it, "fbarrier/example1", cc->Grids().FBarrierSet());
   TestForEach<FBarrierSecondExampleTest>(ap, it, "fbarrier/example2", cc->Grids().FBarrierSet());
