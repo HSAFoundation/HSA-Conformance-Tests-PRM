@@ -18,6 +18,7 @@
 #define INCLUDED_HSAIL_TESTGEN_CONTEXT_H
 
 #include "HSAILTestGenProp.h"
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILTestGenSample.h"
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenUtilities.h"
@@ -36,7 +37,7 @@
 using std::ostringstream;
 using std::vector;
 
-using HSAIL_ASM::isTermInst;
+using HSAIL_ASM::isTerminalOpcode;
 using HSAIL_ASM::ItemList;
 
 namespace TESTGEN {
@@ -91,8 +92,14 @@ public:
     Context(bool isPlayground = false) : BrigContext(), genDefaultSymbols(true), playground(isPlayground)
     {
         emitModule();
-        if (gcnInstEnabled()) emitExtension("amd:gcn");
-        if (imgInstEnabled()) emitExtension("IMAGE");
+
+        vector<string> extName;
+        InstSetManager::getEnabledExtensions(extName);
+
+        for (unsigned i = 0; i < (unsigned)extName.size(); ++i)
+        {
+            emitExtension(extName[i].c_str());
+        }
 
         identifyAllSymbols();
         genGlobalSymbols();
@@ -103,20 +110,9 @@ public:
     {
         emitModule();
 
-        // Generate required extensions based on instruction being tested
-        if (HSAIL_ASM::isGcnInst(s.getOpcode()))
-        {
-            assert(gcnInstEnabled());
-            emitExtension("amd:gcn");
-        }
-        
-        if (HSAIL_ASM::hasImageExtProps(s.getInst()))
-        {
-            // positive tests must not include image-specific props unless "-image" option is specified
-            // negative tests may include image-specific types even if "-image" option is not specified
-            assert(imgInstEnabled() || !isPositive);
-            emitExtension("IMAGE");
-        }
+        string extName = InstSetManager::getExtension(s.getOpcode());
+        if (!extName.empty()) emitExtension(extName.c_str());
+        if (extName != "IMAGE" && HSAIL_ASM::hasImageExtProps(s.getInst())) emitExtension("IMAGE");
 
         identifyUsedSymbols(s);
         genGlobalSymbols();
@@ -181,7 +177,7 @@ public:
         emitComment();
         emitComment();
         ostringstream text;
-        text << "Invalid value of " << prop2str(id) << " = " << val2str(id, val);
+        text << "Invalid value of " << prop2str(id) << " = " << propVal2str(id, val);
         emitComment(text.str());
         emitComment();
 
@@ -212,7 +208,7 @@ private:
 
         unsigned opcode = sample.getOpcode();
 
-        if (isTermInst(opcode))
+        if (isTerminalOpcode(opcode))
         {
             emitAuxLabel(); // Generate aux label to avoid "unreachable code" error
         }

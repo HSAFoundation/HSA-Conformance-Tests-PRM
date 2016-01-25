@@ -15,7 +15,7 @@
 */
 
 #include "HSAILTestGenProp.h"
-#include "HSAILTestGenPropDesc.h"
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILValidatorBase.h"
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenUtilities.h"
@@ -228,17 +228,14 @@ bool        isLocalSym(unsigned symId)    { assert(SYM_MINID < symId && symId < 
 bool isSupportedSym(unsigned symId)
 {
     assert(SYM_MINID < symId && symId < SYM_MAXID);
-    return validateProp(PROP_TYPE, getSymType(symId), BrigSettings::getModel(), BrigSettings::getProfile(), BrigSettings::imgInstEnabled()) == 0;
+    return validateProp(PROP_TYPE, getSymType(symId), BrigSettings::getModel(), BrigSettings::getProfile(), InstSetManager::isEnabled("IMAGE")) == 0;
 }
 
 //=============================================================================
 //=============================================================================
 //=============================================================================
 
-string prop2str(unsigned id)
-{
-    return PropValidator::prop2str(id);
-}
+string prop2str(unsigned id) { return HSAIL_ASM::prop2str(id); }
 
 string operand2str(unsigned operandId)
 {
@@ -477,7 +474,7 @@ string eqclass2str(unsigned id)
     }
 }
 
-string val2str(unsigned id, unsigned val)
+string propVal2str(unsigned id, unsigned val)
 {
     if (isOperandProp(id)) // TestGen-specific
     {
@@ -489,7 +486,7 @@ string val2str(unsigned id, unsigned val)
     }
     else
     {
-        return PropValidator::val2str(id, val);
+        return InstSetManager::getExtMgr().propVal2str(id, val);
     }
 }
 
@@ -526,7 +523,7 @@ void Prop::init(const unsigned* pVals, unsigned pValsNum, const unsigned* nVals,
 Prop* Prop::create(unsigned propId, const unsigned* pVals, unsigned pValsNum, const unsigned* nVals, unsigned nValsNum)
 {
     Prop* prop;
-    if (PropDesc::isBrigProp(propId))
+    if (isBrigEnumProp(propId) && propId != PROP_OPCODE)
     {
         prop = new Prop(propId);
     }

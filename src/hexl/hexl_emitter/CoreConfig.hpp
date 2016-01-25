@@ -28,7 +28,7 @@
 #include <sstream>
 #include <cassert>
 
-#define BRIG_SEGMENT_MAX BRIG_SEGMENT_AMD_GCN
+#define BRIG_SEGMENT_MAX (BRIG_SEGMENT_ARG + 1)
 
 namespace hexl {
 

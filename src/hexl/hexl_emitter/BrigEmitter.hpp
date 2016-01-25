@@ -20,6 +20,7 @@
 #include <vector>
 #include "HSAILBrigContainer.h"
 #include "HSAILBrigantine.h"
+#include "HSAILExtManager.h"
 #include "Arena.hpp"
 #include "HexlTest.hpp"
 #include "EmitterCommon.hpp"
@@ -45,6 +46,7 @@ private:
   CoreConfig* coreConfig;
   std::shared_ptr<HSAIL_ASM::BrigContainer> container;
   std::unique_ptr<HSAIL_ASM::Brigantine> brigantine;
+  HSAIL_ASM::ExtManager extMgr;
 
   std::map<std::string, unsigned> nameIndexes;
 

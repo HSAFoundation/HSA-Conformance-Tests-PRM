@@ -445,7 +445,7 @@ bool        isLocalSym(unsigned val);
 
 string prop2str(unsigned id);
 string operand2str(unsigned id);
-string val2str(unsigned id, unsigned val);
+string propVal2str(unsigned id, unsigned val);
 
 const unsigned* getValMapDesc(unsigned* size);
 

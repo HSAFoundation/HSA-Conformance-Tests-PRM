@@ -21,6 +21,7 @@
 #define LINUX_FP_PRINT_QUIRK // makes lua scripts identical for windows and linux (for testing)
 #endif
 
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILBrigContainer.h"
 #include "HSAILUtilities.h"
@@ -47,7 +48,6 @@ using HSAIL_ASM::Operand;
 using HSAIL_ASM::OperandRegister;
 using HSAIL_ASM::SRef;
 
-using HSAIL_ASM::getDefRounding;
 using HSAIL_ASM::getNaturalAlignment;
 
 namespace TESTGEN {
@@ -123,7 +123,7 @@ public:
     AluMod(InstBasic inst)
     {
         assert(inst);
-        bits = getDefRounding(inst, BrigSettings::getModel(), BrigSettings::getProfile());
+        bits = InstSetManager::getExtMgr().getDefRounding(inst, BrigSettings::getModel(), BrigSettings::getProfile());
         mapDefaultRounding();
     }
 

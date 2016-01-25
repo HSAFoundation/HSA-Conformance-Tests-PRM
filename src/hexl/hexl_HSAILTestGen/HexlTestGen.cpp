@@ -22,6 +22,7 @@
 #include "BrigEmitter.hpp"
 #include "HSAILTestGenBrigContext.h"
 #include "HSAILTestGenDataProvider.h"
+#include "HSAILTestGenInstSet.h"
 
 using namespace TESTGEN;
 using namespace HSAIL_ASM;
@@ -292,18 +293,27 @@ private:
 
 }; // class HexlTestGenManager
 
+namespace CORE { 
+#include "HSAILTestGen_core_gen.hpp" 
+};
+
 void TestGenTestSet::Iterate(TestSpecIterator& it)
 {
-  TestDataProvider::init(true, true, 0, CoreConfig::Get(context)->Wavesize(), 0, true, !context->Opts()->IsSet("noFtzF16"));
   TestGenConfig* testGenConfig = context->Get<TestGenConfig>(TestGenConfig::ID);
   assert(testGenConfig);
-  BrigSettings::init(testGenConfig->Model(), testGenConfig->Profile(), true, false, false, context->IsDumpEnabled("hsail"));
+
+  CORE::InstSetImpl coreInstSet(testGenConfig->Model(), testGenConfig->Profile(), 0);
+  InstSetManager::registerInstSet(&coreInstSet);
+  InstSetManager::enable("CORE");
+
+  TestDataProvider::init(true, true, 0, CoreConfig::Get(context)->Wavesize(), 0, true, !context->Opts()->IsSet("noFtzF16"));
+  BrigSettings::init(testGenConfig->Model(), testGenConfig->Profile(), context->IsDumpEnabled("hsail"));
   TESTGEN::TestGen::init(true);
-  PropDesc::init(testGenConfig->Model(), testGenConfig->Profile());
+
   HexlTestGenManager m(path, prefix, opcode, it);
   m.generate();
+
   TESTGEN::TestGen::clean();
-  PropDesc::clean();
   TestDataProvider::clean();
 }
 

@@ -41,7 +41,7 @@
 /// f16x2 values occupy the whole 32 bits. To differientiate, use:
 /// - MV_PLAIN_FLOAT16: for plain f16 vars, size = 4 bytes
 /// - MV_FLOAT16: for elements of f16xN vars, size = 2 bytes
-#define MBUFFER_PASS_PLAIN_F16_AS_U32
+/// #define MBUFFER_PASS_PLAIN_F16_AS_U32
 
 namespace hexl {
 

@@ -35,7 +35,8 @@ namespace TESTGEN {
 
 string dumpInst(Inst inst) 
 { 
-    return HSAIL_ASM::Disassembler::getInstMnemonic(inst, BrigSettings::getModel(), BrigSettings::getProfile()); 
+    const ExtManager& mgr = InstSetManager::getExtMgr();
+    return HSAIL_ASM::Disassembler::getInstMnemonic(inst, BrigSettings::getModel(), BrigSettings::getProfile(), mgr);
 }
 
 string getOperandKind(Inst inst, unsigned operandIdx)

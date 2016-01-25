@@ -172,11 +172,11 @@ template<typename T> static T fract_impl(T val)
     } else { // res < -0.0    
         T x = ONE + res;
         if (x < ONE) return x;
-    // Fractional part is so small that (1 + res) have to be rounded to 1.
-    // Return the largest representable number which is less than 1.0
-    if (sizeof(T) == 4) return Val(BRIG_TYPE_F32, 0x3F7FFFFFULL);
-    if (sizeof(T) == 8) return Val(BRIG_TYPE_F64, 0x3FEFFFFFFFFFFFFFULL);
-    assert(false);
+        // Fractional part is so small that (1 + res) have to be rounded to 1.
+        // Return the largest representable number which is less than 1.0
+        if (sizeof(T) == 4) return Val(BRIG_TYPE_F32, 0x3F7FFFFFULL);
+        if (sizeof(T) == 8) return Val(BRIG_TYPE_F64, 0x3FEFFFFFFFFFFFFFULL);
+        assert(false);
         return ZERO;
     }
 }

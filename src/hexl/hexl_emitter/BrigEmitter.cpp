@@ -932,7 +932,7 @@ InstCvt BrigEmitter::EmitCvt(Operand dst, BrigType16_t dstType, Operand src, Bri
   InstCvt inst = brigantine->addInst<InstCvt>(BRIG_OPCODE_CVT, dstType);
   inst.sourceType() = srcType;
   inst.operands() = Operands(dst, src);
-  inst.round() = getDefRounding(inst, coreConfig->Model(), coreConfig->Profile());
+  inst.round() = extMgr.getDefRounding(inst, coreConfig->Model(), coreConfig->Profile());
   return inst;
 }
 

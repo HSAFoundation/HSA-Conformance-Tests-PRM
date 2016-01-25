@@ -84,9 +84,6 @@ namespace TESTGEN {
 unsigned BrigSettings::brigModel    = BRIG_MACHINE_UNDEF;
 unsigned BrigSettings::brigProfile  = BRIG_PROFILE_UNDEF;
 bool     BrigSettings::brigComments = true;
-bool     BrigSettings::stdSubset    = true;
-bool     BrigSettings::imgSubset    = false;
-bool     BrigSettings::gcnSubset    = false;
 
 //=============================================================================
 //=============================================================================

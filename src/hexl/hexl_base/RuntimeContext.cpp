@@ -49,9 +49,9 @@ namespace hexl {
   {
     out <<
       HSAIL_ASM::type2str(imageType) << "(" <<
-      HSAIL_ASM::anyEnum2str(geometry) << ", " <<
-      HSAIL_ASM::anyEnum2str(channelOrder) << ", " <<
-      HSAIL_ASM::anyEnum2str(channelType) << ", " <<
+      HSAIL_ASM::enum2str(geometry) << ", " <<
+      HSAIL_ASM::enum2str(channelOrder) << ", " <<
+      HSAIL_ASM::enum2str(channelType) << ", " <<
       width << ", " <<
       height << ", " <<
       depth << ", " <<
@@ -101,9 +101,9 @@ namespace hexl {
   {
     out <<
       "sampler" << "(" <<
-      HSAIL_ASM::anyEnum2str(coord) << ", " <<
-      HSAIL_ASM::anyEnum2str(filter) << ", " <<
-      HSAIL_ASM::anyEnum2str(addressing) << ")";
+      HSAIL_ASM::enum2str(coord) << ", " <<
+      HSAIL_ASM::enum2str(filter) << ", " <<
+      HSAIL_ASM::enum2str(addressing) << ")";
   }
 
   void SamplerParams::Name(std::ostream& out) const

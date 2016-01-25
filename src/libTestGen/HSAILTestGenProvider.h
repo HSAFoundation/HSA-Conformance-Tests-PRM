@@ -19,7 +19,7 @@
 
 #include "HSAILTestGenSample.h"
 #include "HSAILTestGenContext.h"
-#include "HSAILTestGenPropDesc.h"
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILTestGenInstDesc.h"
 #include "HSAILTestGenDump.h"
 
@@ -97,7 +97,7 @@ private:
     // Note that TestGen has a special version of instruction validator which can
     // validate each property independently of each other but assumes sertain order
     // of validation. Namely, primary properties must be assigned and validated
-    // in the same order as specified by PropDesc::getProps because validation of some
+    // in the same order as specified by InstSetManager::getProps because validation of some
     // properties may include implicit reading of other properties.
     Sample positiveSample;
     Sample negativeSample;
@@ -294,11 +294,11 @@ private:
         unsigned val    = getPrmProp(idx)->getCurrentNegative();
 
         assert(idx <= prmPropCurrent);
-        assert(PropDesc::isValidInst(positiveSample.getInst()));
+        assert(InstSetManager::isValidInst(positiveSample.getInst()));
 
         negativeSample.copyFrom(positiveSample);
         negativeSample.set(propId, val);
-        return !PropDesc::validatePrimaryProps(negativeSample.getInst());
+        return !InstSetManager::validatePrimaryProps(negativeSample.getInst());
     }
 
     bool isInvalidSecondary(unsigned idx)
@@ -308,7 +308,7 @@ private:
         unsigned propId = getSecProp(idx)->getPropId();
         unsigned val    = getSecProp(idx)->getCurrentNegative();
 
-        assert(PropDesc::isValidInst(positiveSample.getInst()));
+        assert(InstSetManager::isValidInst(positiveSample.getInst()));
 
         negativeSample.copyFrom(positiveSample);
         negativeSample.set(propId, val);
@@ -380,13 +380,6 @@ private:
             if (validateBasicProps()) return true;
             start = false;
         }
-
-        // Below is a list of conditions when there are no more tests.
-        // An interesting case is a GCN trig_preop instruction which cannot be supported with base profile.
-        assert(!start || 
-               isBasicVariant() || 
-               positiveSample.getOpcode() == BRIG_OPCODE_GCNTRIG_PREOP ||
-               positiveSample.getOpcode() == BRIG_OPCODE_AMDQUERYIMAGE);
 
         return false;
     }
@@ -483,8 +476,8 @@ private:
 
     static bool isValidProp(Inst inst, unsigned propId)
     {
-        if (!PropDesc::isValidProp(inst, propId)) return false;
-        return validateProp(inst, propId, BrigSettings::getModel(), BrigSettings::getProfile(), BrigSettings::imgInstEnabled()) == 0;
+        if (!InstSetManager::isValidProp(inst, propId)) return false;
+        return validateProp(inst, propId, BrigSettings::getModel(), BrigSettings::getProfile(), InstSetManager::isEnabled("IMAGE")) == 0;
     }
 
     //==========================================================================

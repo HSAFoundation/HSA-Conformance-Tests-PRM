@@ -16,6 +16,7 @@
 
 #include "HSAILValidatorBase.h"
 #include "HSAILTestGenDump.h"
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILInstProps.h"
 
 #include <sstream>
@@ -39,14 +40,14 @@ namespace TESTGEN {
 class TestGenInstDump
 {
 private:
-    ostringstream s;
+    ostringstream out;
 
 public:
     TestGenInstDump(){}
 
     string operator()(Inst inst)
     {
-        s << "==========================================\n";
+        out << "==========================================\n";
 
         visitBrigProps(inst);
 
@@ -55,7 +56,9 @@ public:
             dumpOperand(i, inst.operand(i));
         }
 
-        return s.str();
+        out << "\n";
+
+        return out.str();
     }
 
     //==============================================================================
@@ -65,12 +68,12 @@ private:
     {
         const char* fill = "          ";
         if (propName.length() < strlen(fill)) propName += (fill + propName.length());
-        s << propName << "= " << propVal << "\n";
+        out << propName << "= " << propVal << "\n";
     }
 
     void dumpProp(unsigned propId, string propVal)
     {
-        dumpProp(PropValidator::prop2key(propId), propVal);
+        dumpProp(HSAIL_ASM::prop2key(propId), propVal);
     }
 
     //==============================================================================
@@ -160,6 +163,8 @@ private:
 
     void dumpOperand(unsigned idx, Operand opr)
     {
+        ostringstream s;
+
         if      (!opr)                         { s << "NULL";  }
         else if (OperandRegister      o = opr) { s << getRegName(o); }
         else if (OperandOperandList   o = opr) { s << operandVector2str(o); }
@@ -181,13 +186,24 @@ private:
     {
         if (propId == PROP_EQUIVCLASS)
         {
+            ostringstream s;
             s << propVal;
             dumpProp(propId, s.str());
         }
         else
         {
-            dumpProp(propId, PropValidator::val2str(propId, propVal));
+            dumpProp(propId, propVal2str(propId, propVal));
         }
+    }
+
+    string propVal2str(unsigned prop, unsigned val)
+    { 
+        const char* str = InstSetManager::propVal2str(prop, val);
+        if (str) return str;
+        
+        ostringstream s;
+        s << "(" << val << ")";
+        return s.str();
     }
 
     //==========================================================================

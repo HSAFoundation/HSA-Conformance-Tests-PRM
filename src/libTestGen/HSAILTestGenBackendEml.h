@@ -18,6 +18,7 @@
 #define INCLUDED_HSAIL_TESTGEN_EML_BACKEND_H
 
 #include "HSAILTestGenDataProvider.h"
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILTestGenEmulator.h"
 #include "HSAILTestGenBackend.h"
 #include "HSAILTestGenUtilities.h"
@@ -60,7 +61,6 @@ using HSAIL_ASM::isFloatType;
 using HSAIL_ASM::isSignedType;
 using HSAIL_ASM::isOpaqueType;
 using HSAIL_ASM::isBitType;
-using HSAIL_ASM::getOperandType;
 using HSAIL_ASM::getPackedDstDim;
 using HSAIL_ASM::getUnsignedType;
 using HSAIL_ASM::getBitType;
@@ -440,6 +440,16 @@ private:
         initIdReg(tstIdx);
     }
 
+    unsigned getOperandType(unsigned idx)
+    {
+        assert(idx < (unsigned)testSample.operands().size());
+
+        const ExtManager& extMgr = InstSetManager::getExtMgr();
+        unsigned type = extMgr.getOperandType(testSample, idx, BrigSettings::getModel(), BrigSettings::getProfile());
+        assert(type != BRIG_TYPE_NONE);
+        return type;
+    }
+
     // Generate initialization code for all input registers and test variables
     void emitInitCode(unsigned tstIdx)
     {
@@ -453,14 +463,14 @@ private:
             if (OperandRegister reg = operand)
             {
                 emitCommentHeader("Initialization of input register " + getName(getOperandReg(i)));
-                initSrcVal(getOperandReg(i), getSrcArrayIdx(i));
+                initSrcVal(getOperandReg(i), getSrcArrayIdx(i), getOperandType(i));
             }
             else if (OperandOperandList vec = operand)
             {
                 if (getVectorRegSize(vec) != 0) // Vector has register elements
                 {
                     emitCommentHeader("Initialization of input vector " + getName(getOperandVector(tstIdx, i)));
-                    initSrcVal(getOperandVector(tstIdx, i), getSrcArrayIdx(i));
+                    initSrcVal(getOperandVector(tstIdx, i), getSrcArrayIdx(i), getOperandType(i));
                 }
             }
             else if (OperandAddress(operand))
@@ -513,13 +523,13 @@ private:
             {
                 OperandRegister dst = getOperandReg(OPERAND_IDX_DST);
                 emitCommentHeader("Saving dst register " + getName(dst));
-                saveDstVal(dst, getDstArrayIdx());
+                saveDstVal(dst, getDstArrayIdx(), getOperandType(OPERAND_IDX_DST));
             }
             else if (OperandOperandList(sampleDst))
             {
                 OperandOperandList dst = getOperandVector(tstIdx, OPERAND_IDX_DST);
                 emitCommentHeader("Saving dst vector " + getName(dst));
-                saveDstVal(dst, getDstArrayIdx());
+                saveDstVal(dst, getDstArrayIdx(), getOperandType(OPERAND_IDX_DST));
             }
             else
             {
@@ -861,17 +871,18 @@ private:
     // Operations with src/dst arrays
 private:
 
-    void initSrcVal(OperandRegister reg, unsigned arrayIdx)
+    void initSrcVal(OperandRegister reg, unsigned arrayIdx, unsigned type)
     {
         assert(reg);
 
-        OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
+        unsigned elemSize = (type == BRIG_TYPE_F16)? 16 : getRegSize(reg);
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, elemSize);
         OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
         OperandAddress addr      = context->emitAddrRef(addrReg);
-        ldReg(getRegSize(reg), reg, addr);
+        ldReg(elemSize, reg, addr);
     }
 
-    void initSrcVal(OperandOperandList vector, unsigned arrayIdx)
+    void initSrcVal(OperandOperandList vector, unsigned arrayIdx, unsigned type)
     {
         assert(vector);
 
@@ -880,15 +891,17 @@ private:
 
         assert(regSize == 32 || regSize == 64 || regSize == 128);
 
-        OperandRegister indexReg = loadIndexReg(getIdxReg1(), dim, regSize);
+        unsigned elemSize = (type == BRIG_TYPE_F16)? 16 : regSize;
+
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), dim, elemSize);
         OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
 
         for (unsigned i = 0; i < dim; ++i)
         {
             if (OperandRegister reg = vector.elements(i))
             {
-                OperandAddress addr = context->emitAddrRef(addrReg, getSlotSize(regSize) / 8 * i);
-                ldReg(regSize, context->emitReg(getRegSize(reg), reg.regNum()), addr);
+                OperandAddress addr = context->emitAddrRef(addrReg, elemSize / 8 * i);
+                ldReg(elemSize, context->emitReg(getRegSize(reg), reg.regNum()), addr);
             }
         }
     }
@@ -901,17 +914,18 @@ private:
         context->emitMov(type, reg, context->emitImm(type, initialPackedVal, initialPackedVal));
     }
 
-    void saveDstVal(OperandRegister reg, unsigned arrayIdx)
+    void saveDstVal(OperandRegister reg, unsigned arrayIdx, unsigned type)
     {
         assert(reg);
 
-        OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, getRegSize(reg));
+        unsigned elemSize = (type == BRIG_TYPE_F16)? 16 : getRegSize(reg);
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), 1, elemSize);
         OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
         OperandAddress addr      = context->emitAddrRef(addrReg);
-        stReg(getRegSize(reg), reg, addr);
+        stReg(elemSize, reg, addr);
     }
 
-    void saveDstVal(OperandOperandList vector, unsigned arrayIdx)
+    void saveDstVal(OperandOperandList vector, unsigned arrayIdx, unsigned type)
     {
         assert(vector);
 
@@ -920,16 +934,18 @@ private:
 
         assert(regSize == 32 || regSize == 64 || regSize == 128);
 
-        OperandRegister indexReg = loadIndexReg(getIdxReg1(), dim, regSize);
+        unsigned elemSize = (type == BRIG_TYPE_F16)? 16 : regSize;
+
+        OperandRegister indexReg = loadIndexReg(getIdxReg1(), dim, elemSize);
         OperandRegister addrReg  = loadGlobalArrayAddress(getAddrReg(), indexReg, arrayIdx);
 
         for (unsigned i = 0; i < dim; ++i)
         {
-            OperandAddress addr = context->emitAddrRef(addrReg, getSlotSize(regSize) / 8 * i);
+            OperandAddress addr = context->emitAddrRef(addrReg, elemSize / 8 * i);
             OperandRegister reg = vector.elements(i);
             assert(reg); // dst vectors cannot include imm elements
 
-            stReg(regSize, context->emitReg(reg), addr);
+            stReg(elemSize, context->emitReg(reg), addr);
         }
     }
 
@@ -1129,6 +1145,8 @@ private:
         unsigned glbAddrSize = getModelSize();
         unsigned memAddrSize = context->getSegAddrSize(getMemTestArraySegment());
 
+        bool isF16 = (getMemDataElemType() == BRIG_TYPE_F16);
+
         // Initialize index register 'dataIndexReg' to access test values for arguments
         // of the instruction being tested. For each workitem id, test values for an argument X
         // are available at %argX[dataIndexReg * id].
@@ -1136,7 +1154,7 @@ private:
         // tested; they have to be copied to a separate 'memory test array'
         //
         unsigned dataElemSize        = getMemDataElemSize();
-        unsigned dataSlotSize        = getSlotSize(dataElemSize);
+        unsigned dataSlotSize        = isF16? 16 : getSlotSize(dataElemSize);
         unsigned dataBundleSize      = dataSlotSize * getMaxDim();
         OperandRegister dataIndexReg = loadIndexReg(getIdxReg1(glbAddrSize), dataBundleSize);
 
@@ -1186,22 +1204,13 @@ private:
                     stReg(atomSize, reg, dataAddr);
                 }
 
-                // Subword values are saved as s32/u32.
+                // Subword values are saved as s32/u32 (except for f16).
                 // The code below stores upper bits of 32-bit result.
-                if (dataElemSize < 32)
+                if (dataElemSize < 32 && !isF16)
                 {
                     assert(testLdSt());
-                    
-                    if (getMemDataElemType() == BRIG_TYPE_F16) // For F16 upper bits should be 0
-                    {
-                        assert(getRegSize(reg) == 32);
-                        context->emitMov(BRIG_TYPE_B32, reg, context->emitImm(BRIG_TYPE_B32, 0, 0));
-                    }
-                    else
-                    {
-                        unsigned slotType = isSignedType(atomType) ? BRIG_TYPE_S32 : BRIG_TYPE_U32;
-                        context->emitShr(slotType, reg, reg, 8); // copy sign bits from uppermost loaded byte
-                    }
+                    unsigned slotType = isSignedType(atomType) ? BRIG_TYPE_S32 : BRIG_TYPE_U32;
+                    context->emitShr(slotType, reg, reg, 8); // copy sign bits from uppermost loaded byte
 
                     for (unsigned m = memDim; m < 4; ++m)
                     {
@@ -1799,20 +1808,19 @@ private:
         if (isF16(getType(inst)) || isF16(getSrcType(inst))) {
             if (!TestDataProvider::testF16())
                 return false;
-            if (isHavingFtz(inst))
+            if (hasFtz(inst))
                 return TestDataProvider::testFtzF16();
             return true;
         }
         return true;
     }
 
-    static bool isHavingFtz(const Inst& inst)
+    static bool hasFtz(const Inst& inst)
     {
-      if (! instSupportsFtz(Inst(inst).opcode())) { return false; }
-      if (InstCmp i = inst) { return i.modifier().ftz(); }
-      if (InstCvt i = inst) { return i.modifier().ftz(); }
-      if (InstMod i = inst) { return i.modifier().ftz(); }
-      return false;
+        if (InstCmp i = inst) { return i.modifier().ftz(); }
+        if (InstCvt i = inst) { return i.modifier().ftz(); }
+        if (InstMod i = inst) { return i.modifier().ftz(); }
+        return false;
     }
 
     static bool isF16(unsigned type)

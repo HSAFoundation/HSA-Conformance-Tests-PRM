@@ -433,7 +433,7 @@ string Val::luaStr(unsigned idx /*=0*/) const
         char buffer[32];
 
         switch (getType())
-        {        
+        {
         case BRIG_TYPE_F16: s << "\"0H" << setbase(16) << setfill('0') << setw(4) << getAsB16() << "\""; break; // emit bits for now
         case BRIG_TYPE_F32: sprintf(buffer,  "\"%.6A\"", f32().floatValue()); s << string(buffer); break;
         case BRIG_TYPE_F64: sprintf(buffer, "\"%.13A\"", f64().floatValue()); s << string(buffer); break;

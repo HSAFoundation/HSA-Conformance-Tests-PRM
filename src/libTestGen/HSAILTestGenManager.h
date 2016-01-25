@@ -18,7 +18,7 @@
 #define INCLUDED_HSAIL_TESTGEN_MANAGER_H
 
 #include "HSAILTestGenContext.h"
-#include "HSAILTestGenPropDesc.h"
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILTestGenInstDesc.h"
 #include "HSAILTestGenTestDesc.h"
 #include "HSAILTestGenProvider.h"
@@ -71,22 +71,16 @@ public:
     {
         start();
 
-        unsigned num;
-        const unsigned* opcodes = PropDesc::getOpcodes(num);
+        unsigned num = InstSetManager::getOpcodesNum();
         for (unsigned i = 0; i < num; ++i)
         {
-            unsigned opcode = opcodes[i];
-
+            unsigned opcode = InstSetManager::getOpcode(i);
             // filter out opcodes which should not be tested
             if (!isOpcodeEnabled(opcode)) continue;
 
             // skip generation of tests for special opcodes
-            if (HSAIL_ASM::isCallInst(opcode)) continue;    //F generalize
-            if (opcode == BRIG_OPCODE_SBR) continue;  //F
-
-            if (InstDesc::isStdOpcode(opcode)   && !BrigSettings::stdInstEnabled()) continue;
-            if (InstDesc::isGcnOpcode(opcode)   && !BrigSettings::gcnInstEnabled()) continue;
-            if (InstDesc::isImageOpcode(opcode) && !BrigSettings::imgInstEnabled()) continue;
+            if (HSAIL_ASM::isCallOpcode(opcode)) continue;  //F generalize
+            if (opcode == BRIG_OPCODE_SBR) continue;        //F
 
             // Regular tests generation. For instructions which may be encoded
             // using InstBasic and InstMod formats, only InstMod version is generated.
@@ -200,7 +194,7 @@ private:
         const Sample positiveSample = test.getPositiveSample();
         Inst inst = positiveSample.getInst();
 
-        assert(PropDesc::isValidInst(inst));
+        assert(InstSetManager::isValidInst(inst));
 
         if (isSinglePackage)
         {
@@ -255,8 +249,8 @@ private:
 
     void finalizeNegativeSample(TestGen& test, unsigned id, unsigned val)
     {
-        assert(PropDesc::isValidInst(test.getPositiveSample().getInst()));
-        assert(!PropDesc::isValidInst(test.getNegativeSample().getInst()));
+        assert(InstSetManager::isValidInst(test.getPositiveSample().getInst()));
+        assert(!InstSetManager::isValidInst(test.getNegativeSample().getInst()));
 
         Sample negativeSample = test.getNegativeSample();
 
@@ -272,7 +266,7 @@ private:
                 ctx->defineTestKernel();
                 ctx->startKernelBody();
                 Sample res = ctx->cloneSample(negativeSample, id, val);
-                assert(!PropDesc::isValidInst(res.getInst()));
+                assert(!InstSetManager::isValidInst(res.getInst()));
                 ctx->finishKernelBody();
                 registerTest(ctx, res.getInst());
                 delete ctx;
@@ -318,7 +312,7 @@ private:
 
         Sample negativeSample = test.getNegativeSample();
         Sample invalid = context->cloneSample(negativeSample, id, val);
-        assert(!PropDesc::isValidInst(invalid.getInst()));
+        assert(!InstSetManager::isValidInst(invalid.getInst()));
     }
 
     //==========================================================================

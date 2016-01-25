@@ -18,7 +18,7 @@
 #define INCLUDED_HSAIL_TESTGEN_INST_DESC_H
 
 #include "HSAILTestGenProp.h"
-#include "HSAILTestGenPropDesc.h"
+#include "HSAILTestGenInstSetManager.h"
 #include "HSAILUtilities.h"
 #include "HSAILInstProps.h"
 
@@ -65,7 +65,7 @@ private:
     // fall into one of two categories: primary and secondary.
     // - set of valid values of a primary property depends only on values of other primary properties.
     // - set of valid values of a secondary property depends only on values of primary properties.
-    // Order of primary properties specified by PropDesc must be preserved;
+    // Order of primary properties specified by InstSetManager must be preserved;
     // this order is essential for proper test generation.
 
     vector<Prop*> prmProp;  // Primary properties
@@ -92,10 +92,7 @@ public:
     //==========================================================================
 
 public:
-    static bool isStdOpcode(unsigned opcode)   { return !isGcnOpcode(opcode) && !isImageOpcode(opcode); }
-    static bool isGcnOpcode(unsigned opcode)   { return HSAIL_ASM::isGcnInst(opcode); }
-    static bool isImageOpcode(unsigned opcode) { return HSAIL_ASM::isImageInst(opcode); }
-    static unsigned getFormat(unsigned opcode) { return PropDesc::getFormat(opcode); }
+    static unsigned getFormat(unsigned opcode) { return InstSetManager::getFormat(opcode); }
 
 public:
     unsigned getOpcode() const { return opcode; }
@@ -119,7 +116,7 @@ private:
     {
         unsigned prmPropsNum;
         unsigned secPropsNum;
-        const unsigned* props = PropDesc::getProps(opcode, prmPropsNum, secPropsNum);
+        const unsigned* props = InstSetManager::getProps(opcode, prmPropsNum, secPropsNum);
 
         assert(props && prmPropsNum > 0 && secPropsNum > 0);
 
@@ -129,14 +126,14 @@ private:
             assert(PROP_MINID <= propId && propId < PROP_MAXID);
 
             unsigned pValsNum;
-            const unsigned* pVals = PropDesc::getPropVals(opcode, propId, pValsNum);  // values supported by instruction
+            const unsigned* pVals = InstSetManager::getValidPropVals(opcode, propId, pValsNum);   // values supported by instruction
             assert(pVals && pValsNum > 0);
 
             unsigned nValsNum;
-            const unsigned* nVals = PropDesc::getPropVals(propId, nValsNum);          // all values of this property
+            const unsigned* nVals = InstSetManager::getAllPropVals(opcode, propId, nValsNum);     // all values of this property
             assert(nVals && nValsNum > 0);
 
-            if (pValsNum == 1 && *pVals == OPERAND_VAL_NULL)                          // minimize tests number
+            if (pValsNum == 1 && *pVals == OPERAND_VAL_NULL)                                // minimize tests number
             {
                 nValsNum = 1;
                 nVals = pVals;

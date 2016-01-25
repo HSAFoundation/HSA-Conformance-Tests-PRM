@@ -68,12 +68,9 @@ private:
     static unsigned  brigModel;
     static unsigned  brigProfile;
     static bool      brigComments;
-    static bool      stdSubset;
-    static bool      imgSubset;
-    static bool      gcnSubset;
 
 public:
-    static void init(unsigned model, unsigned profile, bool stdInst, bool imgInst, bool gcnInst, bool commentsEnabled)
+    static void init(unsigned model, unsigned profile, bool commentsEnabled)
     {
         assert(model == BRIG_MACHINE_SMALL  || model == BRIG_MACHINE_LARGE);
         assert(profile == BRIG_PROFILE_BASE || profile == BRIG_PROFILE_FULL);
@@ -81,10 +78,6 @@ public:
         brigModel    = model;
         brigProfile  = profile;
         brigComments = commentsEnabled;
-
-        stdSubset = stdInst;
-        imgSubset = imgInst;
-        gcnSubset = gcnInst;
     }
 
     static unsigned getModel()     { assert(brigModel != BRIG_MACHINE_UNDEF); return brigModel; }
@@ -98,10 +91,6 @@ public:
     static bool     isBaseProfile(){ return getProfile() == BRIG_PROFILE_BASE; }
 
     static bool     commentsEnabled(){ return brigComments; }
-
-    static bool     stdInstEnabled(){ return stdSubset; }
-    static bool     imgInstEnabled(){ return imgSubset; }
-    static bool     gcnInstEnabled(){ return gcnSubset; }
 };
 
 // ============================================================================
