@@ -28,7 +28,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_emitter)
 include_directories(${CMAKE_SOURCE_DIR}/src/libTestGen)
 include_directories(${generated_dir})
 
-target_link_libraries(hexl_HSAILTestGen libTestGen hexl_base hexl_emitter ${HSAIL-Tools-LIBS}/${LIB_PREFIX}hsail${LIB_EXT})
+target_link_libraries(hexl_HSAILTestGen libTestGen hexl_base hexl_emitter)
 
 add_dependencies(hexl_HSAILTestGen TestGenIncludes)
 
