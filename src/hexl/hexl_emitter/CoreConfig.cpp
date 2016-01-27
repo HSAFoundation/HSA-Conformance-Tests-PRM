@@ -55,7 +55,7 @@ CoreConfig* CoreConfig::CreateAndInitialize(Context *context) {
   runtime::RuntimeContext* runtimeContext = context->Runtime();
   BrigProfile8_t profile = runtimeContext->ModuleProfile();
   uint32_t wavesize = runtimeContext->Wavesize();
-  uint8_t wavesPerGroup = runtimeContext->WavesPerGroup();
+  uint8_t wavesPerGroup = static_cast<uint8_t>(runtimeContext->WavesPerGroup());
   return new CoreConfig(
       BRIG_VERSION_HSAIL_MAJOR,
       BRIG_VERSION_HSAIL_MINOR,
