@@ -387,7 +387,6 @@ Location EVariable::RealLocation() const
     case BRIG_SEGMENT_PRIVATE:
     case BRIG_SEGMENT_SPILL:
     case BRIG_SEGMENT_GROUP:
-    case BRIG_SEGMENT_MAX:
     case BRIG_SEGMENT_KERNARG:
       return KERNEL;
     case BRIG_SEGMENT_ARG:

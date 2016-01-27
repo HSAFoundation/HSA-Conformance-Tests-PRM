@@ -1,6 +1,6 @@
 find_package(Perl REQUIRED)
 
-set(generated_dir ${CMAKE_CURRENT_BINARY_DIR}/generated)
+set(generated_dir ${CMAKE_CURRENT_BINARY_DIR})
 
 set(generated_srcs
     ${generated_dir}/HSAILTestGen_core_gen.hpp
@@ -28,7 +28,7 @@ include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_emitter)
 include_directories(${CMAKE_SOURCE_DIR}/src/libTestGen)
 include_directories(${generated_dir})
 
-target_link_libraries(hexl_HSAILTestGen libTestGen hexl_base hexl_emitter)
+target_link_libraries(hexl_HSAILTestGen libTestGen hexl_base hexl_emitter ${HSAIL-Tools-LIBS}/${LIB_PREFIX}hsail${LIB_EXT})
 
 add_dependencies(hexl_HSAILTestGen TestGenIncludes)
 
