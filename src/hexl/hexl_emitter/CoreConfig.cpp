@@ -26,12 +26,13 @@ const char *CoreConfig::CONTEXT_KEY = "hsail_conformance.coreConfig";
 
 CoreConfig::CoreConfig(
   BrigVersion32_t majorVersion_, BrigVersion32_t minorVersion_,
-  BrigMachineModel8_t model_, BrigProfile8_t profile_)
+  BrigMachineModel8_t model_, BrigProfile8_t profile_,
+  uint32_t wavesize_, uint8_t wavesPerGroup_)
   : ap(new Arena()),
     majorVersion(majorVersion_), minorVersion(minorVersion_),
     model(model_), profile(profile_),
-    wavesize(64),
-    wavesPerGroup(4),
+    wavesize(wavesize_),
+    wavesPerGroup(wavesPerGroup_),
     isDetectSupported(true),
     isBreakSupported(true),
     endianness(ENDIANNESS_LITTLE),
@@ -50,11 +51,18 @@ CoreConfig::CoreConfig(
   assert(PlatformEndianness() == ENDIANNESS_LITTLE);
 }
 
-void CoreConfig::Init(Context *context) {
+CoreConfig* CoreConfig::CreateAndInitialize(Context *context) {
   runtime::RuntimeContext* runtimeContext = context->Runtime();
-  profile = runtimeContext->ModuleProfile();
-  wavesize = runtimeContext->Wavesize();
-  wavesPerGroup = runtimeContext->WavesPerGroup();
+  BrigProfile8_t profile = runtimeContext->ModuleProfile();
+  uint32_t wavesize = runtimeContext->Wavesize();
+  uint8_t wavesPerGroup = runtimeContext->WavesPerGroup();
+  return new CoreConfig(
+      BRIG_VERSION_HSAIL_MAJOR,
+      BRIG_VERSION_HSAIL_MINOR,
+      sizeof(void *) == 8 ? BRIG_MACHINE_LARGE : BRIG_MACHINE_SMALL,
+      profile,
+      wavesize,
+      wavesPerGroup);
 }
 
 CoreConfig::GridsConfig::GridsConfig(CoreConfig* cc)

@@ -47,17 +47,19 @@ namespace hexl {
       bool isBreakSupported;
       EndiannessConfig endianness;
 
+    private:
+      CoreConfig(BrigVersion32_t majorVersion_,
+                 BrigVersion32_t minorVersion_,
+                 BrigMachineModel8_t model_,
+                 BrigProfile8_t profile_,
+                 uint32_t wavesize_,
+                 uint8_t wavesPerGroup_);
+
     public:
       static const char *CONTEXT_KEY;
 
       static CoreConfig* Get(hexl::Context *context) { return context->Get<CoreConfig>(CONTEXT_KEY); }
-
-      CoreConfig(BrigVersion32_t majorVersion_ = BRIG_VERSION_HSAIL_MAJOR,
-                 BrigVersion32_t minorVersion_ = BRIG_VERSION_HSAIL_MINOR,
-                 BrigMachineModel8_t model_ = (sizeof(void *) == 8 ? BRIG_MACHINE_LARGE : BRIG_MACHINE_SMALL),
-                 BrigProfile8_t profile_ = BRIG_PROFILE_FULL);
-
-      void Init(hexl::Context *context);
+      static CoreConfig* CreateAndInitialize(hexl::Context *context);
 
       Arena* Ap() { return ap.get(); }
       BrigVersion32_t MajorVersion() const { return majorVersion; }

@@ -108,14 +108,17 @@ public:
   HCRunner(int argc_, char **argv_)
     : argc(argc_), argv(argv_), context(new Context()),
       testFactory(new HCTestFactory(context.get())), runner(0),
-      coreConfig(new CoreConfig())
+      coreConfig(0)
   {
-    context->Put(CoreConfig::CONTEXT_KEY, coreConfig.get());
     context->Put("hexl.log.stream.debug", &std::cout);
     context->Put("hexl.log.stream.info", &std::cout);
     context->Put("hexl.log.stream.error", &std::cout);
   }
-  ~HCRunner() { delete testFactory; }
+  ~HCRunner()
+  { 
+      delete testFactory; 
+      delete coreConfig;
+  }
 
   void Run();
 
@@ -126,7 +129,7 @@ private:
   Options options;
   TestFactory* testFactory;
   TestRunner* runner;
-  std::unique_ptr<CoreConfig> coreConfig;
+  CoreConfig* coreConfig;
   TestRunner* CreateTestRunner();
   TestSet* CreateTestSet();
 };
@@ -237,7 +240,10 @@ void HCRunner::Run()
   }
   context->Put("hexl.runtime", runtime);
   context->Put("hexl.testFactory", testFactory);
-  coreConfig->Init(context.get());
+
+  coreConfig = CoreConfig::CreateAndInitialize(context.get());
+  context->Put(CoreConfig::CONTEXT_KEY, coreConfig);
+
   runner = CreateTestRunner();
   TestSet* tests = CreateTestSet();
   assert(tests);
