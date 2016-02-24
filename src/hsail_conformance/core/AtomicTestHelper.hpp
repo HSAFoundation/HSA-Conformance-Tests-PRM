@@ -506,6 +506,15 @@ public:
         return res;
     }
     
+    TypedReg Sub(uint64_t x, TypedReg y)
+    {
+        assert(y);
+
+        TypedReg res = be.AddTReg(y->Type());
+        be.EmitArith(BRIG_OPCODE_SUB, res, be.Immed(y->Type(), x), y->Reg());
+        return res;
+    }
+    
     TypedReg Sub(TypedReg res, TypedReg x, uint64_t y)
     {
         assert(res);
@@ -932,6 +941,7 @@ protected:
     TypedReg Or(TypedReg x, uint64_t y) const;
     TypedReg Add(TypedReg x, uint64_t y) const;
     TypedReg Sub(TypedReg x, uint64_t y) const;
+    TypedReg Sub(uint64_t x, TypedReg y) const;
     TypedReg Mul(TypedReg x, uint64_t y) const;
     TypedReg Shl(uint64_t x, TypedReg y) const;
     TypedReg Not(TypedReg x) const;

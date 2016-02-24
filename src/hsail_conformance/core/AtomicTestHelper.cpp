@@ -34,6 +34,7 @@ TypedReg TestProp::Or(TypedReg x, TypedReg y)                        const { ret
 TypedReg TestProp::Or(TypedReg x, uint64_t y)                        const { return test->Or(x, y); }
 TypedReg TestProp::Add(TypedReg x, uint64_t y)                       const { return test->Add(x, y); }
 TypedReg TestProp::Sub(TypedReg x, uint64_t y)                       const { return test->Sub(x, y); }
+TypedReg TestProp::Sub(uint64_t x, TypedReg y)                       const { return test->Sub(x, y); }
 TypedReg TestProp::Mul(TypedReg x, uint64_t y)                       const { return test->Mul(x, y); }
 TypedReg TestProp::Shl(uint64_t x, TypedReg y)                       const { return test->Shl(type, x, y); }
 TypedReg TestProp::Not(TypedReg x)                                   const { return test->Not(x); }

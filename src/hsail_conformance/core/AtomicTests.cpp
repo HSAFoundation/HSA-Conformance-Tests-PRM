@@ -365,8 +365,8 @@ public:
     virtual uint64_t InitialValue()                 const { return testSize; }
     virtual TypedReg AtomicOperand()                const { return Mov(1); }
 
-    virtual TypedReg DstIndex(TypedReg dst)         const { return Min(Sub(dst, 1), testSize - 1); }
-    virtual TypedReg DstCond(TypedReg dst)          const { return COND(Sub(dst, 1), LT, testSize); }
+    virtual TypedReg DstIndex(TypedReg dst)         const { return Min(Sub(testSize, dst), testSize - 1); }
+    virtual TypedReg DstCond(TypedReg dst)          const { return COND(Sub(testSize, dst), LT, testSize); }
 
     virtual TypedReg MemIndex()                     const { return Idx(); }
     virtual TypedReg MemCond(TypedReg mem)          const { return COND(mem, EQ, ZERO); }
@@ -413,8 +413,8 @@ public:
     virtual uint64_t InitialValue()                 const { return -1; } //F
     virtual TypedReg AtomicOperand()                const { return Not(Shl(1, Id32())); }
 
-    virtual TypedReg DstIndex(TypedReg dst)         const { return Min(Sub(PopCount(dst), 1), testSize - 1); }
-    virtual TypedReg DstCond(TypedReg dst)          const { return COND(Sub(PopCount(dst), 1), LT, testSize); }
+    virtual TypedReg DstIndex(TypedReg dst)         const { return Min(Sub(testSize, PopCount(dst)), testSize - 1); }
+    virtual TypedReg DstCond(TypedReg dst)          const { return COND(Sub(testSize, PopCount(dst)), LT, testSize); }
 
     virtual TypedReg MemIndex()                     const { return Idx(); }
     virtual TypedReg MemCond(TypedReg mem)          const { return COND(mem, EQ, ZERO); }
@@ -442,15 +442,15 @@ class AtomicTestPropWrapdec : public AtomicTestProp // ******* BRIG_ATOMIC_WRAPD
 public:
     virtual bool     Encryptable()                  const { return false; }
 
-    virtual uint64_t InitialValue()                 const { return testSize - 1; }
+    virtual uint64_t InitialValue()                 const { return testSize; }
     virtual TypedReg AtomicOperand()                const { return Mov(-1); }     // max value
 
-    virtual TypedReg DstIndex(TypedReg dst)         const { return Min(dst, testSize - 1); }
-    virtual TypedReg DstCond(TypedReg dst)          const { return COND(dst, LT, testSize); }
+    virtual TypedReg DstIndex(TypedReg dst)         const { return Min(Sub(testSize, dst), testSize - 1); }
+    virtual TypedReg DstCond(TypedReg dst)          const { return COND(Sub(testSize, dst), LT, testSize); }
 
     virtual TypedReg MemIndex()                     const { return Idx(); }
-    virtual TypedReg MemCond(TypedReg mem)          const { return COND(mem, EQ, -1); } // mem is unsigned
-    virtual TypedReg MemCondAgent(TypedReg mem)     const { return Or(COND(mem, EQ, -1), COND(mem, LT, testSize - 1)); } // mem is unsigned
+    virtual TypedReg MemCond(TypedReg mem)          const { return COND(mem, EQ, ZERO); }
+    virtual TypedReg MemCondAgent(TypedReg mem)     const { return COND(mem, LT, testSize); } // mem is unsigned
 };
 
 class AtomicTestPropMax : public AtomicTestProp // ******* BRIG_ATOMIC_MAX *******
