@@ -1009,6 +1009,10 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       return true;
     }
 
+    virtual bool IsQueueError() override
+    {
+      return Runtime()->IsQueueError();
+    }
   };
 
 #ifdef _WIN32
@@ -1474,7 +1478,7 @@ void HsailRuntimeContext::PrintRegionInfo(std::ostream& out, hsa_region_t region
   CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_ALLOC_MAX_SIZE) failed",
                     hsa_region_get_info(region, HSA_REGION_INFO_ALLOC_MAX_SIZE, &allocMaxSize));
   out << "Max allocation size: " << allocMaxSize << std::endl;
-  
+
   bool runtimeAllocAllowed;
   CHECK_HSA_STATUS("hsa_region_get_info(HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED) failed",
                     hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALLOWED, &runtimeAllocAllowed));

@@ -114,7 +114,7 @@ namespace hexl {
       HSAIL_ASM::samplerAddressing2str(addressing);
   }
 
-  void ImageRegion::Print(std::ostream& out) const 
+  void ImageRegion::Print(std::ostream& out) const
   {
     out << "image_region" <<
            "(x = " << x <<
@@ -177,6 +177,7 @@ namespace hexl {
 
     bool IsDetectSupported() { return true; }
     bool IsBreakSupported() { return true; }
+    bool IsQueueError() { return false; }
   };
 
     class NoneRuntime : public runtime::RuntimeContext {
@@ -217,7 +218,7 @@ namespace hexl {
       return DispatchArg(dispatchId, DARG_VALUES, argKey);
     }
 
-    bool RuntimeState::DispatchGroupOffsetArg(const std::string& dispatchId, Value value) 
+    bool RuntimeState::DispatchGroupOffsetArg(const std::string& dispatchId, Value value)
     {
       std::ostringstream ss;
       ss << dispatchId << ".arg." << (argNum++);

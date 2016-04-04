@@ -180,6 +180,7 @@ namespace hexl {
 
       virtual bool IsDetectSupported() = 0;
       virtual bool IsBreakSupported() = 0;
+      virtual bool IsQueueError() = 0;
     };
 
     class RuntimeContext {

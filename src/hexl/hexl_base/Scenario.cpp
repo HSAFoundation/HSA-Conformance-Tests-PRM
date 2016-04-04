@@ -609,6 +609,29 @@ class DispatchCreateCommand : public Command {
     return true;
   }
 
+  class DispatchExecuteErrorCommand : public Command {
+  private:
+    std::string dispatchId;
+
+  public:
+    DispatchExecuteErrorCommand (const std::string& dispatchId_)
+      : dispatchId(dispatchId_) { }
+
+    virtual bool Execute(runtime::RuntimeState* rt) {
+      return !rt->DispatchExecute(dispatchId) && rt->IsQueueError();
+    }
+
+    void Print(std::ostream& out) const {
+      out << "dispatch_execute_error " << dispatchId;
+    }
+  };
+
+  bool CommandsBuilder::DispatchExecuteError(const std::string& dispatchId)
+  {
+    commands->Add(new DispatchExecuteErrorCommand(dispatchId));
+    return true;
+  }
+
   class SignalCreateCommand : public Command {
   private:
     std::string signalId;
@@ -720,7 +743,7 @@ class DispatchCreateCommand : public Command {
       out << "is_detect_supported";
     }
   };
-  
+
   bool CommandsBuilder::IsDetectSupported() {
     commands->Add(new IsDetectSupportedCommand());
     return true;
@@ -742,6 +765,24 @@ class DispatchCreateCommand : public Command {
 
   bool CommandsBuilder::IsBreakSupported() {
     commands->Add(new IsBreakSupportedCommand());
+    return true;
+  }
+
+  class IsQueueErrorCommand : public Command {
+  public:
+    IsQueueErrorCommand() { }
+
+    virtual bool Execute(runtime::RuntimeState* rt) {
+      return rt->IsQueueError();
+    }
+
+    void Print(std::ostream& out) const {
+      out << "is_queue_error";
+    }
+  };
+
+  bool CommandsBuilder::IsQueueError() {
+    commands->Add(new IsQueueErrorCommand());
     return true;
   }
 }

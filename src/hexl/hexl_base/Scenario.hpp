@@ -90,6 +90,7 @@ namespace scenario {
     bool DispatchSet(const std::string& dispatchId, const std::string& key, const std::string& value);
     virtual bool DispatchArg(const std::string& dispatchId, runtime::DispatchArgType argType, const std::string& argKey) override;
     bool DispatchExecute(const std::string& dispatchId = "dispatch");
+    bool DispatchExecuteError(const std::string& dispatchId = "dispatch");
 
     bool SignalCreate(const std::string& signalId, uint64_t signalInitialValue = 1);
     bool SignalSend(const std::string& signalId, uint64_t signalSendValue = 1);
@@ -99,6 +100,7 @@ namespace scenario {
 
     bool IsDetectSupported();
     bool IsBreakSupported();
+    bool IsQueueError();
   };
 
   class ScenarioBuilder {

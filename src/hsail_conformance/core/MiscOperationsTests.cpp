@@ -89,7 +89,7 @@ public:
     be.EmitKernargBasePtr(kab);
     unsigned align = var ? align2num(var->Align()) : 16;
     be.EmitArith(BRIG_OPCODE_REM, result, kab, be.Brigantine().createImmed(align, kab->Type()));
-    be.EmitArith(BRIG_OPCODE_ADD, result, result, be.Immed(result->Type(), 1)); 
+    be.EmitArith(BRIG_OPCODE_ADD, result, result, be.Immed(result->Type(), 1));
     return result;
   }
 
@@ -117,7 +117,7 @@ protected:
   virtual BrigAlignment Alignment() { return getNaturalAlignment(VALUE_TYPE); }
 
 public:
-  explicit GroupBasePtrIdentityTest(Location codeLocation_, bool emitControlDirective_, uint32_t testValue_ = 156) 
+  explicit GroupBasePtrIdentityTest(Location codeLocation_, bool emitControlDirective_, uint32_t testValue_ = 156)
     : Test(codeLocation_), emitControlDirective(emitControlDirective_), testValue(testValue_) {}
 
   void Name(std::ostream& out) const override {
@@ -189,7 +189,7 @@ protected:
   }
 
 public:
-  explicit GroupBasePtrStaticMemoryIdentityTest(Location codeLocation, bool emitControlDirective_) 
+  explicit GroupBasePtrStaticMemoryIdentityTest(Location codeLocation, bool emitControlDirective_)
     : GroupBasePtrIdentityTest(codeLocation, emitControlDirective_), buffer(0)
   { }
 
@@ -223,7 +223,7 @@ private:
     auto wiId = be.EmitWorkitemFlatId();
     auto cvt = be.AddTReg(dynamicAddr->Type());
     be.EmitCvtOrMov(cvt, wiId);
-    be.EmitArith(BRIG_OPCODE_MAD, dynamicAddr, cvt, be.Immed(cvt->Type(), 
+    be.EmitArith(BRIG_OPCODE_MAD, dynamicAddr, cvt, be.Immed(cvt->Type(),
       getBrigTypeNumBytes(ResultType())), dynamicAddr);
     return dynamicAddr;
   }
@@ -235,7 +235,7 @@ protected:
     }
     return groupAddr;
   }
-  
+
   PointerReg LoadAddress(PointerReg groupBase) {
     if (groupAddr == nullptr) {
       groupAddr = GroupAddress(groupBase);
@@ -261,7 +261,7 @@ protected:
       // initialization loop
       auto count = be.AddInitialTReg(BRIG_TYPE_U32, 0);
       be.EmitLabel(initializationLoop);
-      be.EmitStore(BRIG_SEGMENT_GROUP, staticVar->Type(), be.Immed(staticVar->Type(), INITIAL_VALUE, false), 
+      be.EmitStore(BRIG_SEGMENT_GROUP, staticVar->Type(), be.Immed(staticVar->Type(), INITIAL_VALUE, false),
                    be.Address(staticVar->Variable(), count->Reg(), 0));
       be.EmitArith(BRIG_OPCODE_ADD, count, count, be.Immed(count->Type(), 1));
       be.EmitCmp(cmp->Reg(), count, be.Immed(count->Type(), initializationSize), BRIG_COMPARE_LT);
@@ -277,7 +277,7 @@ protected:
   }
 
 public:
-  explicit GroupBasePtrDynamicMemoryIdentityTest(Location codeLocation, bool emitControlDirective_, uint32_t staticGroupSize_) 
+  explicit GroupBasePtrDynamicMemoryIdentityTest(Location codeLocation, bool emitControlDirective_, uint32_t staticGroupSize_)
     : GroupBasePtrIdentityTest(codeLocation, emitControlDirective_, 322), staticGroupSize(staticGroupSize_), groupAddr(nullptr) { }
 
   void Init() {
@@ -346,7 +346,7 @@ public:
       if (firstVarSpec->Type() == BRIG_TYPE_F64) return false;
       if (secondVarSpec->Type() == BRIG_TYPE_F64) return false;
     }
-    return Test::IsValid() 
+    return Test::IsValid()
         && firstVarSpec->IsValid()
         && secondVarSpec->IsValid();
   }
@@ -357,7 +357,7 @@ class NopTest : public Test {
 public:
   explicit NopTest(Location codeLocation) : Test(codeLocation) {}
 
-  void Name(std::ostream& out) const override { 
+  void Name(std::ostream& out) const override {
     out << CodeLocationString();
   }
 
@@ -383,13 +383,13 @@ public:
       be.EmitNop();
     }
   }
-}; 
+};
 
 
 class ClockMonotonicTest : public Test {
 private:
   Buffer input;
-  
+
 public:
   ClockMonotonicTest(Location codeLocation, Grid geometry)
     : Test(codeLocation, geometry) { }
@@ -399,7 +399,7 @@ public:
   void Name(std::ostream& out) const {
     out << CodeLocationString() << '_' << geometry;
   }
-  
+
   void Init() {
     Test::Init();
     input = kernel->NewBuffer("input", HOST_INPUT_BUFFER, MV_FLOAT, geometry->GridSize());
@@ -409,7 +409,7 @@ public:
   }
 
   uint64_t GetCycles() const {  return geometry->GridSize(); }
-  
+
   void ExpectedResults(Values* result) const {
 
     for(uint16_t i = 0; i < GetCycles(); ++i) {
@@ -488,10 +488,10 @@ protected:
 public:
   LessEqMaximumText(
     BrigType type_,
-    Location codeLocation_, 
-    Grid geometry_) 
+    Location codeLocation_,
+    Grid geometry_)
     : Test(codeLocation_, geometry_), type(type_)  { }
-      
+
   void Name(std::ostream& out) const override {
     out << CodeLocationString() << "_" << geometry;
   }
@@ -516,8 +516,8 @@ public:
 class CuidLessMaxTest: public LessEqMaximumText {
 public:
   CuidLessMaxTest(
-    Location codeLocation_, 
-    Grid geometry_) 
+    Location codeLocation_,
+    Grid geometry_)
     : LessEqMaximumText(BRIG_TYPE_U32, codeLocation_, geometry_) {}
 
   virtual TypedReg EmitValue() {
@@ -561,7 +561,7 @@ protected:
     auto prevVal = be.AddTReg(CompareType());
     auto loadAddr = be.AddAReg(buffer->Segment());
     be.EmitArith(BRIG_OPCODE_SUB, loadAddr, storeAddr, be.Immed(loadAddr->Type(), numBytes));
-    be.EmitAtomicLoad(prevVal, loadAddr, BRIG_MEMORY_ORDER_SC_ACQUIRE, 
+    be.EmitAtomicLoad(prevVal, loadAddr, BRIG_MEMORY_ORDER_SC_ACQUIRE,
       loadAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
 
     return prevVal;
@@ -573,7 +573,7 @@ protected:
 
 public:
   BufferIdentityTest(
-    Location codeLocation_, 
+    Location codeLocation_,
     Grid geometry_,
     BrigSegment bufferSegment_,
     BrigType compareType_,
@@ -634,7 +634,7 @@ public:
     be.EmitCvtOrMov(storeAddr, wiId);
     be.EmitArith(BRIG_OPCODE_MUL, storeAddr, storeAddr, be.Immed(storeAddr->Type(), numBytes));
     be.EmitArith(BRIG_OPCODE_ADD, storeAddr, storeAddr, bufAddr->Reg());
-    be.EmitAtomicStore(compareVal, storeAddr, BRIG_MEMORY_ORDER_SC_RELEASE, 
+    be.EmitAtomicStore(compareVal, storeAddr, BRIG_MEMORY_ORDER_SC_RELEASE,
       storeAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
 
     // wait for result from previous workgroup
@@ -647,7 +647,7 @@ public:
 
     // compare value from previous work-item
     auto prevVal = EmitPrev(bufAddr, storeAddr, numBytes);
-    
+
     // compare current value to previous
     be.EmitCmp(cmp->Reg(), compareVal, prevVal, BRIG_COMPARE_EQ);
 
@@ -669,14 +669,14 @@ protected:
 
 public:
   GroupBufferIdentityTest(
-    Location codeLocation_, 
+    Location codeLocation_,
     Grid geometry_,
-    BrigType compareType_ = BRIG_TYPE_U32) 
+    BrigType compareType_ = BRIG_TYPE_U32)
     : BufferIdentityTest(
-        codeLocation_, 
+        codeLocation_,
         geometry_,
-        BRIG_SEGMENT_GROUP, 
-        compareType_, 
+        BRIG_SEGMENT_GROUP,
+        compareType_,
         geometry_->WorkgroupSize()) { }
 };
 
@@ -695,7 +695,7 @@ protected:
     be.EmitArith(BRIG_OPCODE_MAD, wiId, wgFlatId, be.EmitWorkgroupSize(), wiId->Reg());
     return wiId;
   }
-  
+
   virtual void EmitWaitWorkgroup(TypedReg wiId) override {
     // current workgroup should wait for previous workgroup to finish storing values
     be.EmitBarrier();
@@ -711,7 +711,7 @@ protected:
     // store flag
     auto flagValue = be.AddTReg(flags->Type());
     be.EmitMov(flagValue, be.Immed(flagValue->Type(), FLAG_VALUE));
-    be.EmitAtomicStore(flagValue, storeAddr, BRIG_MEMORY_ORDER_SC_RELEASE, 
+    be.EmitAtomicStore(flagValue, storeAddr, BRIG_MEMORY_ORDER_SC_RELEASE,
       storeAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
 
     // wait for other item in workgroup
@@ -730,7 +730,7 @@ protected:
     // wait for flag
     std::string whileLabel = "@while";
     be.EmitLabel(whileLabel);
-    be.EmitAtomicLoad(flagValue, loadAddr, BRIG_MEMORY_ORDER_SC_ACQUIRE, 
+    be.EmitAtomicLoad(flagValue, loadAddr, BRIG_MEMORY_ORDER_SC_ACQUIRE,
       loadAddr->Segment() == BRIG_SEGMENT_GLOBAL ? BRIG_MEMORY_SCOPE_AGENT : BRIG_MEMORY_SCOPE_WORKGROUP);
     auto flagNotSet = be.AddCTReg();
     be.EmitCmp(flagNotSet, flagValue, be.Immed(flagValue->Type(), FLAG_VALUE), BRIG_COMPARE_NE);
@@ -741,14 +741,14 @@ protected:
 
 public:
   GlobalBufferIdentityTest(
-    Location codeLocation_, 
+    Location codeLocation_,
     Grid geometry_,
-    BrigType compareType_ = BRIG_TYPE_U32) 
+    BrigType compareType_ = BRIG_TYPE_U32)
     : BufferIdentityTest(
-        codeLocation_, 
-        geometry_, 
-        BRIG_SEGMENT_GLOBAL, 
-        compareType_, 
+        codeLocation_,
+        geometry_,
+        BRIG_SEGMENT_GLOBAL,
+        compareType_,
         geometry_->GridSize())  {}
 
   bool IsValid() const override {
@@ -787,7 +787,7 @@ protected:
   }
 
 public:
-  CuidIdentityTest(Location codeLocation_, Grid geometry_) 
+  CuidIdentityTest(Location codeLocation_, Grid geometry_)
     : GroupBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
@@ -801,7 +801,7 @@ protected:
   }
 
 public:
-  MaxcuidIdentityTest(Location codeLocation_, Grid geometry_) 
+  MaxcuidIdentityTest(Location codeLocation_, Grid geometry_)
     : GlobalBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
@@ -809,7 +809,7 @@ public:
 class WaveidLessMaxTest: public LessEqMaximumText {
 public:
   WaveidLessMaxTest(
-    Location codeLocation_, Grid geometry_) 
+    Location codeLocation_, Grid geometry_)
     : LessEqMaximumText(BRIG_TYPE_U32, codeLocation_, geometry_) {}
 
   virtual TypedReg EmitValue() {
@@ -847,7 +847,7 @@ protected:
   }
 
 public:
-  WaveidIdentityTest(Location codeLocation_, Grid geometry_) 
+  WaveidIdentityTest(Location codeLocation_, Grid geometry_)
     : GroupBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
@@ -861,7 +861,7 @@ protected:
   }
 
 public:
-  MaxwaveidIdentityTest(Location codeLocation_, Grid geometry_) 
+  MaxwaveidIdentityTest(Location codeLocation_, Grid geometry_)
     : GlobalBufferIdentityTest(codeLocation_, geometry_, BRIG_TYPE_U32) {}
 };
 
@@ -869,8 +869,8 @@ public:
 class LaneidLessWavesizeTest: public LessEqMaximumText {
 public:
   LaneidLessWavesizeTest(
-    Location codeLocation_, 
-    Grid geometry_) 
+    Location codeLocation_,
+    Grid geometry_)
     : LessEqMaximumText(BRIG_TYPE_U32, codeLocation_, geometry_) {}
 
   virtual TypedReg EmitValue() {
@@ -882,7 +882,7 @@ public:
   virtual TypedReg EmitMaxValue() {
     auto wavesize = be.Wavesize();
     auto result = be.AddTReg(BRIG_TYPE_U32);
-    be.EmitArith(BRIG_OPCODE_SUB, result, wavesize, be.Immed(BRIG_TYPE_U32, 1)); 
+    be.EmitArith(BRIG_OPCODE_SUB, result, wavesize, be.Immed(BRIG_TYPE_U32, 1));
     return result;
   }
 };
@@ -890,8 +890,8 @@ public:
 class LaneidSequenceTest: public Test {
 public:
   LaneidSequenceTest(
-    Location codeLocation_, 
-    Grid geometry_) 
+    Location codeLocation_,
+    Grid geometry_)
     : Test(codeLocation_, geometry_) {}
 
   void Name(std::ostream& out) const override {
@@ -900,7 +900,7 @@ public:
 
   BrigType ResultType() const override { return BRIG_TYPE_U32; }
 
-  void ExpectedResults(Values* result) const override { 
+  void ExpectedResults(Values* result) const override {
     // number of work-groups
     auto groupsNum = geometry->GridGroups(0) * geometry->GridGroups(1) * geometry->GridGroups(2);
 
@@ -916,7 +916,7 @@ public:
       for (uint32_t y = 0; y < geometry->GridSize(1); y++) {
         for (uint32_t x = 0; x < geometry->GridSize(0); x++) {
           Dim point(x, y, z);
-          
+
           auto wgId = geometry->WorkgroupFlatId(point);
           result->push_back(Value(MV_UINT32, workgroups[wgId] % te->CoreCfg()->Wavesize()));
           ++ workgroups[wgId];
@@ -935,15 +935,20 @@ public:
 class DebugTrapTest : public SkipTest {
 public:
   DebugTrapTest(bool) : SkipTest(Location::KERNEL) {}
-  
+
   void Name(std::ostream& out) const override {}
 
   TypedReg Result() override {
     auto src = be.AddInitialTReg(BRIG_TYPE_U32, 0);
     be.EmitDebugTrap(src);
-
     return SkipTest::Result();
   }
+
+  void ScenarioDispatch() override {
+    te->TestScenario()->Commands()->DispatchExecuteError(dispatch->Id());
+  }
+
+  void ScenarioValidation() override {}
 };
 
 
@@ -955,21 +960,21 @@ void MiscOperationsTests::Iterate(TestSpecIterator& it)
   TestForEach<KernargBasePtrIdentityTest>(ap, it, "misc/kernargbaseptr/identity", CodeLocations());
   TestForEach<KernargBasePtrAlignmentTest>(ap, it, "misc/kernargbaseptr/alignment", cc->Variables().ByTypeAlign(BRIG_SEGMENT_KERNARG));
 
-  TestForEach<GroupBasePtrStaticMemoryIdentityTest>(ap, it, "misc/groupbaseptr/static", KernelLocation(), Bools::All());  
+  TestForEach<GroupBasePtrStaticMemoryIdentityTest>(ap, it, "misc/groupbaseptr/static", KernelLocation(), Bools::All());
   TestForEach<GroupBasePtrDynamicMemoryIdentityTest>(ap, it, "misc/groupbaseptr/dynamic", KernelLocation(), Bools::All(), cc->Segments().StaticGroupSize());
   TestForEach<GroupBasePtrAlignmentTest>(ap, it, "misc/groupbaseptr/alignment", cc->Variables().ByTypeAlign(BRIG_SEGMENT_GROUP), cc->Variables().ByTypeAlign(BRIG_SEGMENT_GROUP));
-  
+
   TestForEach<NopTest>(ap, it, "misc/nop", CodeLocations());
-  
+
   TestForEach<ClockMonotonicTest>(ap, it, "misc/clock/monotonic", CodeLocations(), cc->Grids().SimpleSet());
 
   TestForEach<CuidLessMaxTest>(ap, it, "misc/cuid/lessmax", CodeLocations(), cc->Grids().SimpleSet());
   TestForEach<CuidIdentityTest>(ap, it, "misc/cuid/identity", CodeLocations(), cc->Grids().SimpleSet());
-  
+
   TestForEach<MaxcuidIdentityTest>(ap, it, "misc/maxcuid/identity", CodeLocations(), cc->Grids().SimpleSet());
 
-  TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().SimpleSet());  
-  TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().AllWavesIdSet());  
+  TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().SimpleSet());
+  TestForEach<WaveidLessMaxTest>(ap, it, "misc/waveid/lessmax", CodeLocations(), cc->Grids().AllWavesIdSet());
   TestForEach<WaveidIdentityTest>(ap, it, "misc/waveid/identity", CodeLocations(), cc->Grids().SimpleSet());
   TestForEach<WaveidIdentityTest>(ap, it, "misc/waveid/identity", CodeLocations(), cc->Grids().AllWavesIdSet());
 
