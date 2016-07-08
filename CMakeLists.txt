@@ -2,7 +2,7 @@ cmake_minimum_required (VERSION 2.6)
 
 project (HSA-Conformance-Tests-PRM)
 
-set(HSAIL-Tools-PATH "NOT-DEFINED" CACHE PATH "docstring")
+set(HSAIL-Tools-PATH "${CMAKE_SOURCE_DIR}/HSAIL-Tools" CACHE PATH "Path to HSAIL-Tools root.")
 set(HSA-Runtime-Inc-PATH "${CMAKE_SOURCE_DIR}/include/hsa/1.0" CACHE PATH "Path to HSA 1.0 includes (hsa.h, hsa_ext_image.h).")
 set(HSA-Runtime-Ext-Inc-PATH "${CMAKE_SOURCE_DIR}/include/hsa/1.0" CACHE PATH "Path to HSA 1.0 extension includes (hsa_ext_finalize.h).")
 
@@ -12,11 +12,9 @@ add_definitions( -DENABLE_HEXL_HSAILTESTGEN=1 )
 if(UNIX)
   set(LIB_PREFIX lib)
   set(LIB_EXT .a)  
-  set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/build/${HSAIL-Tools-Subdir}/libHSAIL)
 else()
   set(LIB_PREFIX)
   set(LIB_EXT .lib)
-  set(HSAIL-Tools-LIBS ${HSAIL-Tools-PATH}/build/${HSAIL-Tools-Subdir}/libHSAIL/debug)
 endif()
 
 if(MSVC)
@@ -28,8 +26,10 @@ if(UNIX)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -pthread -D __STDC_LIMIT_MACROS -D __STDC_CONSTANT_MACROS  -D __STDC_FORMAT_MACROS -fno-rtti")
 endif()
 
-include_directories(${HSAIL-Tools-PATH}/libHSAIL)
-include_directories(${HSAIL-Tools-PATH}/build/${HSAIL-Tools-Subdir}/libHSAIL/generated)
+option(BUILD_LIBBRIGDWARF "" OFF)
+option(BUILD_HSAILASM "" OFF)
+add_subdirectory(${HSAIL-Tools-PATH})
+
 include_directories(${HSA-Runtime-Inc-PATH})
 include_directories(${HSA-Runtime-Ext-Inc-PATH})
 

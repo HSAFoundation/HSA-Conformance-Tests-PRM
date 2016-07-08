@@ -37,7 +37,7 @@ HexlObjects.hpp
 HexlObjects.cpp
 )
 
-target_link_libraries(hexl_base ${HSAIL-Tools-LIBS}/${LIB_PREFIX}hsail${LIB_EXT})
+target_link_libraries(hexl_base hsail)
 if(UNIX)
 target_link_libraries(hexl_base dl)
 endif()
