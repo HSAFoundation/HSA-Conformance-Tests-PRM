@@ -7,7 +7,7 @@ Test suite revision: 2015-05-25 (commit 281a954e86c63dd00c064d7c033e7ae46c524fe0
 
 ## Overview
 
-HSA Conformance test suite is used to validate an implementation of Heterogeneous System Architecture  for compliance with the following specifications:
+HSA Conformance test suite is used to validate an implementation of Heterogeneous System Architecture for compliance with the following specifications:
 
 - HSA PRM (Programmer's Reference Manual) Specification;
 - HSA PSA (Platform System Architecture) Specification.
@@ -22,9 +22,8 @@ Note that each test actually expands into several testcases, one for each valid 
 
 HSA Conformance test suite uses [CMake](http://www.cmake.org/). The suite also requires the following components:
 
-- [HSAIL-Tools](https://github.com/HSAFoundation/HSAIL-Tools) repository, pointed to by `HSAIL-Tools-PATH` variable
-- [hsa.h](https://github.com/HSAFoundation/HSA-Runtime-Reference-Source/tree/master/inc/hsa.h) header file, pointed to by `HSA-Runtime-Inc-PATH`
-- [hsa_ext_finalize.h](https://github.com/HSAFoundation/HSA-Runtime-Reference-Source/tree/master/inc/hsa_ext_finalize.h) header file, pointed to by `HSA-Runtime-Ext-PATH`
+- [HSAIL-Tools](https://github.com/HSAFoundation/HSAIL-Tools), included as HSAIL-Tools git submodule.
+- [HSA Runtime headers](https://github.com/HSAFoundation/HSA-Runtime-Reference-Source/tree/master/inc): hsa.h, hsa_ext_image.h, hsa_ext_finalize.h
 
 `cmake_windows.sh` and `cmake_linux.sh` scripts contain examples of command lines that can be used to run CMake on Windows and Linux.  
 
