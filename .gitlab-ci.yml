@@ -1,0 +1,73 @@
+before_script:
+  - uname -a
+  - cat /etc/*release
+  - dpkg --add-architecture i386
+  - apt-get -yy update
+  - apt-get install -yy cmake openssh-client ncurses-dev re2c perl
+  - cmake --version
+  - eval $(ssh-agent -s)
+  - ssh-add <(echo "$SSH_PRIVATE_KEY")
+  # disable host key checking (NOTE: makes you susceptible to man-in-the-middle attacks)
+  # WARNING: use only in docker container, if you use it with shell you will overwrite your user's ssh config
+  - mkdir -p ~/.ssh
+  - echo -e "Host *\n\tStrictHostKeyChecking no\n\n" > ~/.ssh/config
+  - git config --file .gitmodules submodule.HSAIL-Tools.url git@gitlab.com:hsafoundation-spb/HSAIL-Tools.git
+  - git submodule sync
+  - git submodule update --init
+
+
+lnx64-debug:
+  script:
+    - apt-get install -yy ncurses-dev re2c perl
+    - mkdir -p build/$CI_BUILD_NAME
+    - cd build/$CI_BUILD_NAME
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DCMAKE_SHARED_LINKER_FLAGS=-m64 -DCMAKE_INSTALL_PREFIX=../../$CI_BUILD_NAME ../..
+    - make -j 4
+    - make install
+    - cd ../..
+  artifacts:
+    name: "HSA-Conformance-${CI_BUILD_NAME}-${CI_BUILD_ID}"
+    paths:
+    - ${CI_BUILD_NAME}
+
+lnx64-release:
+  script:
+    - apt-get install -yy ncurses-dev re2c perl
+    - mkdir -p build/$CI_BUILD_NAME
+    - cd build/$CI_BUILD_NAME
+    - cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-m64 -DCMAKE_CXX_FLAGS=-m64 -DCMAKE_SHARED_LINKER_FLAGS=-m64 -DCMAKE_INSTALL_PREFIX=../../$CI_BUILD_NAME ../..
+    - make -j 4
+    - make install
+    - cd ../..
+  artifacts:
+    name: "HSA-Conformance-${CI_BUILD_NAME}-${CI_BUILD_ID}"
+    paths:
+    - ${CI_BUILD_NAME}
+
+lnx32-debug:
+  script:
+    - apt-get install -yy ncurses-dev:i386 gcc-multilib g++-multilib
+    - mkdir -p build/$CI_BUILD_NAME
+    - cd build/$CI_BUILD_NAME
+    - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_SHARED_LINKER_FLAGS=-m32 -DCMAKE_INSTALL_PREFIX=../../$CI_BUILD_NAME ../..
+    - make -j 4
+    - make install
+    - cd ../..
+  artifacts:
+    name: "HSA-Conformance-${CI_BUILD_NAME}-${CI_BUILD_ID}"
+    paths:
+    - ${CI_BUILD_NAME}
+
+lnx32-release:
+  script:
+    - apt-get install -yy ncurses-dev:i386 gcc-multilib g++-multilib
+    - mkdir -p build/$CI_BUILD_NAME
+    - cd build/$CI_BUILD_NAME
+    - cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_SHARED_LINKER_FLAGS=-m32 -DCMAKE_INSTALL_PREFIX=../../$CI_BUILD_NAME ../..
+    - make -j 4
+    - make install
+    - cd ../..
+  artifacts:
+    name: "HSA-Conformance-${CI_BUILD_NAME}-${CI_BUILD_ID}"
+    paths:
+    - ${CI_BUILD_NAME}
