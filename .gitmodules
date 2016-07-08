@@ -1,0 +1,3 @@
+[submodule "HSAIL-Tools"]
+	path = HSAIL-Tools
+	url = https://github.com/HSAFoundation/HSAIL-Tools
