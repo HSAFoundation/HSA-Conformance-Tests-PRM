@@ -1,12 +1,10 @@
 @rem Includes AMD specific experimental ORCA targets - no support in the main package
 
 set HSAIL_TOOLS=C:/ws/git/HSAIL-Tools
-set HSA_RUNTIME_INC=C:/ws/hsa_prm/drivers/hsa/runtime/inc
-set HSA_RUNTIME_EXT_INC=C:/ws/hsa_prm/drivers/hsa/compiler/finalizer/Interface
 set OCL_PATH=C:/ws/hsa_prm/drivers/opencl/dist/windows/debug
 set ORCA_OPTS=-DOCL-Path=%OCL_PATH% -DENABLE_HEXL_ORCA=1
 
-set BASIC_OPTS=-DHSAIL-Tools-PATH=%HSAIL_TOOLS% -DHSA-Runtime-Inc-PATH=%HSA_RUNTIME_INC% -DHSA-Runtime-Ext-Inc-PATH=%HSA_RUNTIME_EXT_INC%
+set BASIC_OPTS=-DHSAIL-Tools-PATH=%HSAIL_TOOLS%
 
 md build\win32
 cd build\win32

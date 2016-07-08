@@ -3,10 +3,8 @@
 set -e
 
 export HSAIL_TOOLS=/srv/git/HSAIL-Tools
-export HSA_RUNTIME_INC=/srv/hsa/drivers/hsa/runtime/opensrc/hsa-runtime/inc
-export HSA_RUNTIME_EXT_INC=/srv/hsa/drivers/hsa/compiler/finalizer/Interface
 
-export BASIC_OPTS="-DCMAKE_BUILD_TYPE=Debug -DHSAIL-Tools-PATH=$HSAIL_TOOLS -DHSA-Runtime-Inc-PATH=$HSA_RUNTIME_INC -DHSA-Runtime-Ext-Inc-PATH=$HSA_RUNTIME_EXT_INC"
+export BASIC_OPTS="-DCMAKE_BUILD_TYPE=Debug -DHSAIL-Tools-PATH=$HSAIL_TOOLS"
 
 mkdir -p build/lnx32
 cd build/lnx32

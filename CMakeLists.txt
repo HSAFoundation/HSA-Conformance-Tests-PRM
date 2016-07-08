@@ -3,17 +3,11 @@ cmake_minimum_required (VERSION 2.6)
 project (HSA-Conformance-Tests-PRM)
 
 set(HSAIL-Tools-PATH "NOT-DEFINED" CACHE PATH "docstring")
-set(HSA-Runtime-Inc-PATH "NOT_DEFINED" CACHE PATH "docstring")
-set(HSA-Runtime-Ext-Inc-PATH "NOT_DEFINED" CACHE PATH "docstring")
+set(HSA-Runtime-Inc-PATH "${CMAKE_SOURCE_DIR}/include/hsa/1.0" CACHE PATH "Path to HSA 1.0 includes (hsa.h, hsa_ext_image.h).")
+set(HSA-Runtime-Ext-Inc-PATH "${CMAKE_SOURCE_DIR}/include/hsa/1.0" CACHE PATH "Path to HSA 1.0 extension includes (hsa_ext_finalize.h).")
 
 add_definitions( -DENABLE_HEXL_HSARUNTIME=1 )
 add_definitions( -DENABLE_HEXL_HSAILTESTGEN=1 )
-
-#set (CMAKE_BINARY_DIR "bin/")
-#set (CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-#set (CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
-#set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
-
 
 if(UNIX)
   set(LIB_PREFIX lib)
