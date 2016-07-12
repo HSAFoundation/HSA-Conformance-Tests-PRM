@@ -39,5 +39,5 @@ HexlObjects.cpp
 
 target_link_libraries(hexl_base hsail)
 if(UNIX)
-target_link_libraries(hexl_base dl)
+target_link_libraries(hexl_base pthread dl)
 endif()

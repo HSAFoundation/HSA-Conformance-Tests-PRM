@@ -23,7 +23,10 @@ if(MSVC)
 endif()
 
 if(UNIX)
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -std=c++11 -pthread -D __STDC_LIMIT_MACROS -D __STDC_CONSTANT_MACROS  -D __STDC_FORMAT_MACROS -fno-rtti")
+  add_compile_options(-Wall -std=c++11 -pthread -fno-rtti)
+  add_definitions(-D __STDC_LIMIT_MACROS)
+  add_definitions(-D __STDC_CONSTANT_MACROS)
+  add_definitions(-D __STDC_FORMAT_MACROS)
 endif()
 
 option(BUILD_LIBBRIGDWARF "" OFF)
