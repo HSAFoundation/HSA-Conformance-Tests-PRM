@@ -1818,7 +1818,7 @@ double EImageCalc::UnnormalizeCoord(Value* c, unsigned dimSize) const
     break;
   default:
     assert(0); //only f32 and s32 are allowed for rdimage
-    break;
+    return 0.0;
   }
   
   if(samplerCoord == BRIG_COORD_NORMALIZED)
@@ -1856,7 +1856,7 @@ double EImageCalc::UnnormalizeArrayCoord(Value* c) const
 
   default:
     assert(0); //illegal coord type
-    break;
+    return 0.0;
   }
   
   return df;
@@ -3033,17 +3033,10 @@ Value EImageCalc::EmulateImageSt(Value* _coords, Value* _color) const
     //only u32 coordinate type is supported for stimage
     assert(_coords[0].Type() == MV_UINT32);
 
-    uint32_t u, v, w;
-    u = _coords[0].U32();
-    v = _coords[1].U32();
-    w = _coords[2].U32();
-    
-    uint32_t uSize = imageGeometry.ImageSize(0);
-    uint32_t vSize = imageGeometry.ImageSize(1);
-    uint32_t wSize = imageGeometry.ImageSize(2);
-
     //It is undefined if a coordinate is out of bounds
-    assert((u < uSize) && (v < vSize) && (w < wSize));
+    assert(_coords[0].U32() < imageGeometry.ImageSize(0));
+    assert(_coords[1].U32() < imageGeometry.ImageSize(1));
+    assert(_coords[2].U32() < imageGeometry.ImageSize(2));
   }
 
   return PackChannelDataToMemoryFormat(_color);
@@ -3058,13 +3051,11 @@ void EImageCalc::EmulateImageLd(Value* _coords, Value* _color) const
   u = _coords[0].U32();
   v = _coords[1].U32();
   w = _coords[2].U32();
-    
-  uint32_t uSize = imageGeometry.ImageSize(0);
-  uint32_t vSize = imageGeometry.ImageSize(1);
-  uint32_t wSize = imageGeometry.ImageSize(2);
 
   //It is undefined if a coordinate is out of bounds
-  assert((u < uSize) && (v < vSize) && (w < wSize));
+  assert(u < imageGeometry.ImageSize(0));
+  assert(v < imageGeometry.ImageSize(1));
+  assert(w < imageGeometry.ImageSize(2));
 
   LoadColorData(u, v, w, _color);
 }

@@ -41,7 +41,7 @@ protected:
   BrigType CoordType() { return BRIG_TYPE_U32; }
 
   TypedReg CreateCoordList(uint32_t x, uint32_t y, uint32_t z, uint32_t a) {
-    TypedReg treg;
+    TypedReg treg = 0;
     switch (imageGeometryProp) {
     case BRIG_GEOMETRY_1D: 
     case BRIG_GEOMETRY_1DB:

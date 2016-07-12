@@ -1033,7 +1033,7 @@ Value AbsDiffUlps(const Value& v1, const Value& v2)
 }
 
 bool Comparison::CompareHalf(const Value& v1 /*expected*/, const Value& v2 /*actual*/) {
-  bool res;
+  bool res = false;
   bool compared = false;
   const half f1 = v1.H();
   const half f2 = v2.H();
@@ -1130,7 +1130,7 @@ float Comparison::ConvertToStandard(float f) const
 }
 
 bool Comparison::CompareFloat(const Value& v1 /*expected*/, const Value& v2 /*actual*/) {
-  bool res;
+  bool res = false;
   bool compared = false;
   const f32_t f1 = f32_t::fromRawBits(v1.U32());
   const f32_t f2 = f32_t::fromRawBits(v2.U32());
@@ -1210,7 +1210,7 @@ bool Comparison::CompareFloat(const Value& v1 /*expected*/, const Value& v2 /*ac
 }
 
 bool Comparison::CompareDouble(const Value& v1 /*expected*/, const Value& v2 /*actual*/) {
-  bool res;
+  bool res = false;
   bool compared = false;
   const f64_t f1 = f64_t::fromRawBits(v1.U64());
   const f64_t f2 = f64_t::fromRawBits(v2.U64());

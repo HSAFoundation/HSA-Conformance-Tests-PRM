@@ -31,7 +31,7 @@ namespace hexl {
 #else
     void *ptr;
     int res = posix_memalign(&ptr, align, size);
-    assert(res == 0);
+    assert(res == 0); (void) res;
     return ptr;
 #endif // _WIN32 || _WIN64
   }

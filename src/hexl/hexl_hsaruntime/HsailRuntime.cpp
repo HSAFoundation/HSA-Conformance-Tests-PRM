@@ -494,10 +494,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
       if (region.size_x == 0 || region.size_y == 0 || region.size_z == 0) {
         return true;
       }
-      auto size = region.size_x * region.size_y * region.size_z;
       auto image = context->Get<HsailImage>(imageId);
       auto writeValues = context->Get<Values>(writeValuesId);
-      assert(writeValues->size() == size);
+      assert(writeValues->size() == region.size_x * region.size_y * region.size_z);
 
       hsa_ext_image_region_t hsaRegion;
       hsaRegion.offset.x = region.x;

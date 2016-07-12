@@ -1555,7 +1555,7 @@ void BrigEmitter::EmitSignalWaitLoop(TypedReg dest, TypedReg signal, Operand src
   case BRIG_ATOMIC_WAITTIMEOUT_GTE:
   case BRIG_ATOMIC_LD:
     cmpOp = BRIG_COMPARE_GE; break;
-  default: assert(false); break;
+  default: assert(false); return;
   }
   std::string loopExit = AddLabel();
   TypedReg c = AddCTReg();
@@ -1895,15 +1895,13 @@ void BrigEmitter::EmitCuid(TypedReg dest) {
 }
 
 void BrigEmitter::EmitKernargBasePtr(PointerReg dest) {
-  auto addrSize = getSegAddrSize(BRIG_SEGMENT_KERNARG, coreConfig->IsLarge());
-  assert(getBrigTypeNumBits(dest->Type()) == addrSize);
+  assert(getBrigTypeNumBits(dest->Type()) == getSegAddrSize(BRIG_SEGMENT_KERNARG, coreConfig->IsLarge()));
   InstBasic inst = brigantine->addInst<InstBasic>(BRIG_OPCODE_KERNARGBASEPTR, dest->Type());
   inst.operands() = Operands(dest->Reg());
 }
 
 void BrigEmitter::EmitGroupBasePtr(PointerReg dest) {
-  auto addrSize = getSegAddrSize(BRIG_SEGMENT_GROUP, coreConfig->IsLarge());
-  assert(getBrigTypeNumBits(dest->Type()) == addrSize);
+  assert(getBrigTypeNumBits(dest->Type()) == getSegAddrSize(BRIG_SEGMENT_GROUP, coreConfig->IsLarge()));
   InstBasic inst = brigantine->addInst<InstBasic>(BRIG_OPCODE_GROUPBASEPTR, dest->Type());
   inst.operands() = Operands(dest->Reg());
 }
