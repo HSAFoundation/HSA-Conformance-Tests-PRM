@@ -27,6 +27,7 @@ if(UNIX)
 endif()
 
 option(BUILD_LIBBRIGDWARF "" OFF)
+option(VENDOR_EXTENSIONS "" OFF)
 option(BUILD_HSAILASM "" OFF)
 add_subdirectory(${HSAIL-Tools-PATH})
 
