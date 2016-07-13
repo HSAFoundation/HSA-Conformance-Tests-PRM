@@ -862,7 +862,8 @@ struct op_mulhi
             res = dst[1];
         }
 
-        return *(const T*)&res;
+        const T* x = (const T*)&res;
+        return *x;
     }
 };
 

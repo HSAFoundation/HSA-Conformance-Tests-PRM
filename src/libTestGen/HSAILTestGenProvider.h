@@ -175,7 +175,7 @@ public:
             // Restore first valid value
             getSecProp(secPropPos)->resetPositive();
             bool found = getNextPositiveSecondary(secPropPos);
-            assert(found);
+            validate(found);
         }
         return false;
     }
@@ -460,7 +460,7 @@ private:
         assert(isBasicVariant());
 
         bool res = removeProp(PROP_FTZ) && removeProp(PROP_ROUND) && removeProp(PROP_PACK);
-        assert(res);
+        validate(res);
     }
 
     bool validatePrimaryPosition(unsigned idx)
@@ -479,6 +479,8 @@ private:
         if (!InstSetManager::isValidProp(inst, propId)) return false;
         return validateProp(inst, propId, BrigSettings::getModel(), BrigSettings::getProfile(), InstSetManager::isEnabled("IMAGE")) == 0;
     }
+
+    void validate(bool flag) { assert(flag); } // used to avoid warnings in release builds
 
     //==========================================================================
 

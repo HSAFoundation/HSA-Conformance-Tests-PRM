@@ -512,8 +512,7 @@ void BrigContext::emitSbrEnd()
         emitAuxLabel();
         emitRet();
 
-        bool ok = brigantine.endBody();
-        assert(ok);
+        brigantine.endBody();
     }
 
     currentSbr = DirectiveExecutable(); // clear

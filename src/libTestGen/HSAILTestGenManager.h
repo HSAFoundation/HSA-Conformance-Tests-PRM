@@ -312,7 +312,7 @@ private:
 
         Sample negativeSample = test.getNegativeSample();
         Sample invalid = context->cloneSample(negativeSample, id, val);
-        assert(!InstSetManager::isValidInst(invalid.getInst()));
+        validate(!InstSetManager::isValidInst(invalid.getInst()));
     }
 
     //==========================================================================
@@ -331,6 +331,7 @@ private:
         testComplete(testDesc);
     }
 
+    void validate(bool flag) { assert(flag); } // used to avoid warnings in release builds
     //==========================================================================
 };
 

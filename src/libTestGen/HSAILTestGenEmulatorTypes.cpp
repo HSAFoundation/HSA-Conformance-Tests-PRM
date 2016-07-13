@@ -285,7 +285,7 @@ void FpProcessorImpl<T,T2>::CalculateTieKind()
         tieKind = TIE_IS_ZERO; // widths are equal or source is narrower
         return;
     }
-    if (shrMant >= (sizeof(v.mant)*8 - 1)) {
+    if (shrMant >= static_cast<int>(sizeof(v.mant)*8 - 1)) {
         // Unable to compute and use MASK/HALF values - difference of widths is too big.
         // Correct behavior is as if MASK == all ones and tie is always < HALF.
         assert(v.add_omicron == decoded_t::ADD_OMICRON_ZERO);
@@ -326,7 +326,7 @@ void FpProcessorImpl<T,T2>::RoundMantAdjustExp(unsigned rounding) // does not ca
     assert(TIE_LIST_BEGIN_ <= tieKind && tieKind < TIE_LIST_END_);
     if (shrMant > 0) {
         // truncate mant, then adjust depending on (pre-calculated) tail kind:
-        if (shrMant >= sizeof(v.mant)*8) { // we need this since C++0x
+        if (shrMant >= static_cast<int>(sizeof(v.mant)*8)) { // we need this since C++0x
           v.mant = mant_t(0);
         } else {
           v.mant >>= shrMant;
@@ -381,7 +381,7 @@ void FpProcessorImpl<T,T2>::RoundMantAdjustExp(unsigned rounding) // does not ca
         }
     } else { // destination mantisa is wider or has the same width.
         // this conversion is always exact
-        assert((0 - shrMant) < sizeof(v.mant)*8);
+        assert((0 - shrMant) < static_cast<int>(sizeof(v.mant)*8));
         v.mant <<= (0 - shrMant); // fill by 0's from the left
     }
     v.mant_width = T::MANT_WIDTH;
@@ -459,7 +459,8 @@ void convertRawBits2RawBits(typename TO::bits_t &bits, typename T::bits_t x, uns
 template<typename TO, typename T> static
 void convertF2RawBits(typename TO::bits_t &bits, typename T::floating_t x, unsigned rounding)
 {
-    const typename T::props_t input(*reinterpret_cast<typename T::bits_t*>(&x));
+    const typename T::bits_t* res = reinterpret_cast<typename T::bits_t*>(&x);
+    const typename T::props_t input(*res);
     convertProp2RawBits<TO,T>(bits, input, rounding);
 }
 

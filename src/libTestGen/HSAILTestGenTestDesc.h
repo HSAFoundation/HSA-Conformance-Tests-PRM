@@ -448,9 +448,10 @@ private:
         TestGroupArray* group = new TestGroupArray(maxGroupsNum, maxTestsNum);
         bool ok = group->append(groupSample);
         data.push_back(group);
-        assert(ok);
+        validate(ok);
     }
 
+    void validate(bool flag) { assert(flag); } // used to avoid warnings in release builds
     //==========================================================================
 };
 
