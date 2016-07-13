@@ -32,3 +32,6 @@ include_directories(${HSA-Runtime-Ext-Inc-PATH})
 add_subdirectory(src/libTestGen)
 add_subdirectory(src/hexl)
 add_subdirectory(src/hsail_conformance)
+
+install(FILES README.md DESTINATION . COMPONENT hsail_conformance)
+install(FILES docs/HsaPrmConformance.md docs/ReleaseNotes DESTINATION docs COMPONENT hsail_conformance)
