@@ -29,6 +29,8 @@ add_subdirectory(${HSAIL-Tools-PATH})
 include_directories(${HSA-Runtime-Inc-PATH})
 include_directories(${HSA-Runtime-Ext-Inc-PATH})
 
+enable_testing()
+
 add_subdirectory(src/libTestGen)
 add_subdirectory(src/hexl)
 add_subdirectory(src/hsail_conformance)
