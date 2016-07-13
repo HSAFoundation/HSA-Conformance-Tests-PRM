@@ -23,12 +23,8 @@ add_library(
     ${generated_srcs}
 )
 
-include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_base)
-include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_emitter)
-include_directories(${CMAKE_SOURCE_DIR}/src/libTestGen)
-include_directories(${generated_dir})
-
 target_link_libraries(hexl_HSAILTestGen libTestGen hexl_base hexl_emitter)
 
-add_dependencies(hexl_HSAILTestGen TestGenIncludes)
+target_include_directories(hexl_HSAILTestGen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR} ${generated_dir})
 
+add_dependencies(hexl_HSAILTestGen TestGenIncludes)

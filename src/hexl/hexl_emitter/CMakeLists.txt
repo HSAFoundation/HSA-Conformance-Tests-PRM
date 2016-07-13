@@ -9,5 +9,7 @@ Emitter.hpp
 EmitterCommon.hpp
 Sequence.hpp
 )
-include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_base)
+
 target_link_libraries(hexl_emitter hexl_base)
+
+target_include_directories(hexl_emitter PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

@@ -5,10 +5,8 @@ AddressTests.hpp  BarrierTests.cpp  BranchTests.hpp  CrossLaneTests.hpp  Dispatc
 AtomicTests.cpp   BarrierTests.hpp  CMakeLists.txt   DirectiveTests.cpp  DispatchPacketTests.hpp  InitializerTests.cpp  LimitsTests.hpp       MiscOperationsTests.cpp  PrmCoreTests.hpp         UserModeQueueTests.cpp  ExceptionsTests.hpp
 MModelTests.cpp   MModelTests.hpp   ExecModelTests.cpp  ExecModelTests.hpp   AtomicTestHelper.cpp AtomicTestHelper.hpp   SysArchMandatoryTests.cpp  SysArchMandatoryTests.hpp
 )
-include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_base)
-include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_hsaruntime)
-include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_emitter)
-include_directories(${CMAKE_SOURCE_DIR}/src/hexl/hexl_HSAILTestGen)
-include_directories(${CMAKE_SOURCE_DIR}/src/hsail_conformance/common)
-target_link_libraries(hc_core hexl_emitter)
+
+target_link_libraries(hc_core hexl_base hexl_hsaruntime hexl_emitter hexl_HSAILTestGen)
 target_link_libraries(hc_core hc_common)
+
+target_include_directories(hc_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

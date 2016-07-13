@@ -42,6 +42,6 @@ add_library(
     ${libTestGen_srcs}
 )
 
-include_directories(${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(${CMAKE_CURRENT_BINARY_DIR})
 target_link_libraries(libTestGen hsail)
+
+target_include_directories(libTestGen PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

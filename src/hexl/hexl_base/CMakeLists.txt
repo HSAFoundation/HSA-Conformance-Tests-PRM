@@ -38,6 +38,9 @@ HexlObjects.cpp
 )
 
 target_link_libraries(hexl_base hsail)
+
 if(UNIX)
-target_link_libraries(hexl_base pthread dl)
+  target_link_libraries(hexl_base pthread dl)
 endif()
+
+target_include_directories(hexl_base PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})

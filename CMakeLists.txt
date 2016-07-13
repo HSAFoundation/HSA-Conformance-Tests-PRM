@@ -6,16 +6,8 @@ set(HSAIL-Tools-PATH "${CMAKE_SOURCE_DIR}/HSAIL-Tools" CACHE PATH "Path to HSAIL
 set(HSA-Runtime-Inc-PATH "${CMAKE_SOURCE_DIR}/include/hsa/1.0" CACHE PATH "Path to HSA 1.0 includes (hsa.h, hsa_ext_image.h).")
 set(HSA-Runtime-Ext-Inc-PATH "${CMAKE_SOURCE_DIR}/include/hsa/1.0" CACHE PATH "Path to HSA 1.0 extension includes (hsa_ext_finalize.h).")
 
-add_definitions( -DENABLE_HEXL_HSARUNTIME=1 )
-add_definitions( -DENABLE_HEXL_HSAILTESTGEN=1 )
-
-if(UNIX)
-  set(LIB_PREFIX lib)
-  set(LIB_EXT .a)  
-else()
-  set(LIB_PREFIX)
-  set(LIB_EXT .lib)
-endif()
+add_definitions(-DENABLE_HEXL_HSARUNTIME=1)
+add_definitions(-DENABLE_HEXL_HSAILTESTGEN=1)
 
 if(MSVC)
   set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT")
@@ -24,9 +16,9 @@ endif()
 
 if(UNIX)
   add_compile_options(-Wall -std=c++11 -pthread -fno-rtti)
-  add_definitions(-D __STDC_LIMIT_MACROS)
-  add_definitions(-D __STDC_CONSTANT_MACROS)
-  add_definitions(-D __STDC_FORMAT_MACROS)
+  add_definitions(-D__STDC_LIMIT_MACROS)
+  add_definitions(-D__STDC_CONSTANT_MACROS)
+  add_definitions(-D__STDC_FORMAT_MACROS)
 endif()
 
 option(BUILD_LIBBRIGDWARF "" OFF)
