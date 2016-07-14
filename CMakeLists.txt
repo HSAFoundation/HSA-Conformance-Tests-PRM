@@ -15,7 +15,7 @@ if(MSVC)
 endif()
 
 if(UNIX)
-  add_compile_options(-Wall -std=c++11 -pthread -fno-rtti)
+  add_compile_options(-Wall -Werror -std=c++11 -pthread -fno-rtti)
   add_definitions(-D__STDC_LIMIT_MACROS)
   add_definitions(-D__STDC_CONSTANT_MACROS)
   add_definitions(-D__STDC_FORMAT_MACROS)
