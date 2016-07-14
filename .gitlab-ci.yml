@@ -54,7 +54,7 @@ lnx32-debug:
     - cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_C_FLAGS=-m32 -DCMAKE_CXX_FLAGS=-m32 -DCMAKE_SHARED_LINKER_FLAGS=-m32 -DCMAKE_INSTALL_PREFIX=../../$CI_BUILD_NAME ../..
     - make -j 4
     - make install
-    - make test
+#    - make test
     - cd ../..
   artifacts:
     name: "HSA-Conformance-${CI_BUILD_NAME}-${CI_BUILD_ID}"
