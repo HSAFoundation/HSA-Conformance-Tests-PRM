@@ -456,7 +456,9 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       status = Runtime()->Hsa()->hsa_ext_image_destroy(Runtime()->Agent(), image);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_destroy failed", status); }
-      alignedFree(data);
+      //alignedFree(data);
+      status = Runtime()->Hsa()->hsa_memory_free(data);
+      if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_free failed", status); }
     }
 
     virtual bool ImageInitialize(const std::string& imageId, const std::string& imageParamsId,
@@ -519,6 +521,28 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
     {
       hsa_status_t status;
 
+class ImageRegionMatcher {
+  private:
+    hsa_ext_image_data_info_t image_info;
+
+  public:
+    ImageRegionMatcher(hsa_ext_image_data_info_t image_info_): image_info(image_info_) {};
+
+    bool operator() (HsailRuntimeContext* runtime, hsa_region_t region) {
+      size_t align = 0;
+      hsa_region_segment_t seg;
+
+      runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_SEGMENT, &seg);
+      if (seg == HSA_REGION_SEGMENT_GLOBAL)
+      {
+        runtime->Hsa()->hsa_region_get_info(region, HSA_REGION_INFO_RUNTIME_ALLOC_ALIGNMENT, &align);
+        if (align >= image_info.alignment)
+          return true;
+      }
+      return false;
+    }
+  };
+
       const ImageParams* ip = context->Get<ImageParams>(imageParamsId);
 
       hsa_access_permission_t access_permission = ImageType2HsaAccessPermission(ip->imageType);
@@ -564,20 +588,20 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
 
       hsa_ext_image_t image = {0};
       void *imageData = NULL;
-      size_t size = (std::max)(image_info.size, (size_t) 256);
-      imageData = alignedMalloc(size, image_info.alignment);
+      //size_t size = (std::max)(image_info.size, (size_t) 256);
+      //imageData = alignedMalloc(size, image_info.alignment);
 
       /*
       status = Runtime()->Hsa()->hsa_memory_register(imageData, size);
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_register (image data) failed", status); alignedFree(imageData); return 0; }
       */
 
-/*
+//*
   hsa_region_t region = Runtime()->GetRegion(ImageRegionMatcher(image_info));
   if (!region.handle) { Runtime()->HsaError("Failed to find image region"); return 0; }
-  status = Runtime()->Hsa()->hsa_memory_allocate(region, image_info.size, &ptr);
+  status = Runtime()->Hsa()->hsa_memory_allocate(region, image_info.size, &imageData);
   if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_memory_allocate failed", status); return 0; }
-*/
+//*/
 
       status = Runtime()->Hsa()->hsa_ext_image_create(Runtime()->Agent(), &image_descriptor, imageData, access_permission, &image);
       if (status == HSA_STATUS_ERROR_OUT_OF_RESOURCES) {
@@ -585,7 +609,8 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         return false;
       }
       if (status != HSA_STATUS_SUCCESS) {
-        Runtime()->HsaError("hsa_ext_image_create failed", status); alignedFree(imageData);
+        Runtime()->HsaError("hsa_ext_image_create failed", status);
+        Runtime()->Hsa()->hsa_memory_free(imageData);
         return false;
       }
 
