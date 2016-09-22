@@ -484,7 +484,7 @@ void HsaQueueErrorCallback(hsa_status_t status, hsa_queue_t *source, void *data)
         cbuff += initValue.Size();
       }
       hsa_status_t status = Runtime()->Hsa()->hsa_ext_image_import(Runtime()->Agent(), buff,
-        imageParams->width, imageParams->width * imageParams->height, image->Image(), &hsaRegion);
+        imageParams->width * initValue.Size(), imageParams->width * imageParams->height * initValue.Size(), image->Image(), &hsaRegion);
       delete[] buff;
       if (status != HSA_STATUS_SUCCESS) { Runtime()->HsaError("hsa_ext_image_import failed", status); return false; }
       return true;
