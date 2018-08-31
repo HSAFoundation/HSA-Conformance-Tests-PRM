@@ -75,8 +75,10 @@ std::string Options::GetString(const std::string& name, const std::string& defau
 
 void Options::SetString(const std::string& name, const std::string& value)
 {
+#ifndef NDEBUG
   Map::const_iterator i = values.find(name);
   assert(i == values.end() || i->second.size() == 0);
+#endif
   values[name].push_back(value);
 }
 
