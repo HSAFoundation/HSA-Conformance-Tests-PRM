@@ -362,7 +362,6 @@ bool EVariableSpec::IsValidAt(Location location) const
 
 void EVariableSpec::Name(std::ostream& out) const
 {
-  if (!this) { out << "empty"; return; }
   out << segment2str(segment) << "_" << type2str(type);
   if (dim > 0) { out << "[" << dim << "]"; }
   out << "_align(" << align2num(align) << ")";
