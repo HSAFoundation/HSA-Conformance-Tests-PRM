@@ -114,7 +114,7 @@ public:
         rsize = 0;
 
         if (base) for (unsigned i = 0; i < base->size; ++i)  size = addStdValue(size, base->values[i]);
-                  for (unsigned i = 0; i < sz; ++i)          size = addStdValue(size, vs[i]);
+        for (unsigned i = 0; i < sz; ++i) size = addStdValue(size, vs[i]);
         assert(size > 0); // expected at least one value
 
         for (unsigned i = 0; i < rndTestNum; ++i) rsize = addRndValue(rsize);
