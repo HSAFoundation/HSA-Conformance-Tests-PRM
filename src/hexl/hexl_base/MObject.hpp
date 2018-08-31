@@ -224,8 +224,8 @@ public:
 
     static const Type SIGN_MASK  = (Type)((Type)1 << ((int)sizeof(Type)*8 - 1));
     static const int  EXP_WIDTH  = (int)sizeof(Type)*8 - 1 - mantissa_width;
-    static const int  EXP_BIAS   = ~((-1) << EXP_WIDTH) / 2;
-    static const Type EXP_MASK   = (Type)(~(Type(-1) << EXP_WIDTH) << mantissa_width);
+    static const int  EXP_BIAS   = (int)(~((unsigned)(-1) << EXP_WIDTH) / 2);
+    static const Type EXP_MASK   = (Type)((Type)(~(Type(-1) << EXP_WIDTH)) << mantissa_width);
     static const int  DECODED_EXP_SUBNORMAL_OR_ZERO = 0-EXP_BIAS; // by definition, sum with EXP_BIAS should yield 0
     static const int  DECODED_EXP_NORM_MIN  = 1-EXP_BIAS; // if less, then subnormal
     static const int  DECODED_EXP_NORM_MAX  = EXP_BIAS;   // if greater, then INF or NAN
